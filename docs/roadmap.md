@@ -102,6 +102,14 @@ M2a（状態・ゾーン・`moveObj`・イベント経路骨格・基本プリ�
 - セットアップのフレーム群についての **I6**（`Legal` との一致）。
 - Start-of-Game 完了時の初期手札枚数が `min intellect deckSize` であること。
 
+**M2a 実装の記録（2026-11-24）: 完了**
+- 実装: `Fab/Basic/ListLemmas.lean`、`Fab/State/{Zone,Lki,Object,GameConfig,Event,GameState}.lean`、`Fab/Rules/{Move,Add}.lean`、`Fab/Rules/Actions/{Draw,Pitch,Discard,Banish}.lean`、`FabTest/Actions.lean`。
+- 証明した主な定理:
+  - ゾーン・状態: `ZoneKind.idx_lt` / `idx_inj` / `all_nodup`、`Zone.key_inj`、`allZones_nodup`、`GameState.empty_wf` / `empty_ownerOk`、`GameState.zone_unique`（**I2**）、`GameState.locate_eq`
+  - `moveObj` / `addObject`: `moveObj_wf`（**I3**）、`moveObj_physIds`（**I1**）、`moveObj_ownerOk`、`moveObj_fresh`、`moveObj_arena_preserves`（Arena 内移動での `ObjId`・`-1{d}` カウンター維持）、`addObject_wf` / `addObject_ownerOk`
+  - 基本アクション: `drawOne_empty_noop`（デッキ切れ敗北なし）/ `drawOne_wf` / `drawOne_physIds` / `drawOne_ownerOk` / `drawOne_lengths_of_ownerOk`、`pitchOne_wf` / `pitchOne_physIds` / `pitchOne_ownerOk` / `pitchOne_adds_assets`（**I8** 1 歩）、`discardOne_*`、`banishOne_*`
+- 検証: `./scripts/verify.sh`（73 jobs `--wfail` ビルド、`lake test`、`lake check` 標準 3 公理のみ、`cr_citations.py` 284 引用 / malformed 0）。
+
 ---
 
 ### M3: ターン骨格・ピッチ＆資産会計・End Phase（CR 1.14, 4.2-4.5）

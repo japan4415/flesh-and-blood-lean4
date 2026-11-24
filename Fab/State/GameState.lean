@@ -1,0 +1,276 @@
+module
+
+public import Fab.State.Zone
+public import Fab.State.Object
+public import Fab.State.GameConfig
+public import Fab.State.Event
+public import Fab.Core.Cost
+public import Fab.Card.CardDB
+public import Std.Data.ExtTreeMap
+
+/-!
+# Game state and structural invariants
+
+The game state holds the fixed `config` and `cards` (`CardDB`), the object table (`Std.ExtTreeMap`),
+the zone lists (source of truth for object locations), per-player asset pools, hero life totals,
+and monotonic counters (design.md §5.2-5.3).
+
+Structural well-formedness `WF` and Non-Arena ownership `OwnerOk` are defined here so every
+primitive can state and prove its preservation independently.
+-/
+
+@[expose] public section
+
+namespace Fab
+
+/-- Complete state of a Flesh and Blood game (M2a core; decision frames and combat chain state
+are added in M2b and M5). -/
+structure GameState where
+  /-- Fixed ruleset, format, mode, and ban list (design.md §6.1). -/
+  config : GameConfig
+  /-- Fixed logical card database read by the engine (design.md §6.1). -/
+  cards : CardDB
+  /-- Object attribute table keyed by `ObjId.n` (extensional map for `DecidableEq`). -/
+  objects : Std.ExtTreeMap Nat Object := ∅
+  /-- Contents of every zone keyed by `Zone.key`. Missing entry means empty list. -/
+  zones : Std.ExtTreeMap Nat (List ObjId) := ∅
+  /-- Per-player turn-scoped asset pools (AP, Resource, Chi) keyed by `PlayerId.n` (CR 1.14.2). -/
+  pools : Std.ExtTreeMap Nat AssetPool := ∅
+  /-- Per-player hero life totals keyed by `PlayerId.n` (CR 2.5). -/
+  heroLife : Std.ExtTreeMap Nat Int := ∅
+  /-- Next `ObjId` counter (CR 3.0.9). -/
+  nextId : Nat := 0
+  /-- Next `Timestamp` counter (CR 6.3.3). -/
+  nextTimestamp : Nat := 0
+  /-- Turn counter (0 before first turn begins). -/
+  turn : Nat := 0
+  /-- Current turn-player, once the game has started (CR 4.0). -/
+  active : Option PlayerId := none
+deriving DecidableEq, Repr
+
+/-- List of every valid zone in an `n`-player game (CR 3.0). -/
+def allZones (n : Nat) : List Zone :=
+  Zone.combatChain :: Zone.stack ::
+    (List.range n).flatMap (fun i => ZoneKind.all.map (Zone.player ⟨i⟩))
+
+/-- Whether `z` is a valid zone in an `n`-player game. -/
+def Zone.Valid (n : Nat) (z : Zone) : Prop :=
+  z ∈ allZones n
+
+instance Zone.decidableValid (n : Nat) (z : Zone) : Decidable (z.Valid n) := by
+  unfold Zone.Valid
+  infer_instance
+
+/-- Every zone appears once in `allZones n`. -/
+theorem allZones_nodup (n : Nat) : (allZones n).Nodup := by
+  unfold allZones
+  rw [List.nodup_cons, List.nodup_cons]
+  refine ⟨?_, ?_, ?_⟩
+  · simp
+  · simp
+  · show List.Pairwise (· ≠ ·) _
+    rw [List.pairwise_flatMap]
+    refine ⟨fun i _ => ?_, ?_⟩
+    · show List.Pairwise (· ≠ ·) _
+      refine List.Pairwise.map (Zone.player ⟨i⟩) ?_ ZoneKind.all_nodup
+      intro a b hab h
+      simp only [Zone.player.injEq, true_and] at h
+      exact hab h
+    · refine List.Pairwise.imp ?_ List.nodup_range
+      intro a b hab x hxa y hxb
+      simp only [List.mem_map] at hxa hxb
+      obtain ⟨k, -, rfl⟩ := hxa
+      obtain ⟨l, -, rfl⟩ := hxb
+      intro h
+      simp only [Zone.player.injEq, PlayerId.mk.injEq] at h
+      exact hab h.1
+
+/-- Every player zone of a seated player is valid. -/
+theorem Zone.valid_player {n : Nat} {p : PlayerId} (h : p.n < n) (k : ZoneKind) :
+    (Zone.player p k).Valid n := by
+  unfold Zone.Valid allZones
+  simp only [List.mem_cons, List.mem_flatMap, List.mem_range, List.mem_map]
+  right; right
+  exact ⟨p.n, h, k, ZoneKind.mem_all k, rfl⟩
+
+/-- The shared Combat Chain zone is valid. -/
+theorem Zone.valid_combatChain (n : Nat) : Zone.combatChain.Valid n := by
+  simp [Zone.Valid, allZones]
+
+/-- The shared Stack zone is valid. -/
+theorem Zone.valid_stack (n : Nat) : Zone.stack.Valid n := by
+  simp [Zone.Valid, allZones]
+
+namespace GameState
+
+/-- Number of seated players in the game. -/
+def playerCount (s : GameState) : Nat :=
+  s.config.mode.playerCount
+
+/-- Contents of zone `z`. -/
+def zone (s : GameState) (z : Zone) : List ObjId :=
+  s.zones.getD z.key []
+
+/-- Replace the contents of zone `z`. -/
+def setZone (s : GameState) (z : Zone) (l : List ObjId) : GameState :=
+  { s with zones := s.zones.insert z.key l }
+
+/-- Look up an object's attributes by `ObjId`. -/
+def obj? (s : GameState) (id : ObjId) : Option Object :=
+  s.objects[id.n]?
+
+/-- Current turn-scoped asset pool of player `p` (CR 1.14.2). -/
+def poolOf (s : GameState) (p : PlayerId) : AssetPool :=
+  s.pools.getD p.n AssetPool.empty
+
+/-- Replace the asset pool of player `p`. -/
+def setPool (s : GameState) (p : PlayerId) (pool : AssetPool) : GameState :=
+  { s with pools := s.pools.insert p.n pool }
+
+/-- Current hero life total of player `p` (CR 2.5). -/
+def lifeOf (s : GameState) (p : PlayerId) : Int :=
+  s.heroLife.getD p.n 0
+
+/-- Replace the hero life total of player `p`. -/
+def setLife (s : GameState) (p : PlayerId) (life : Int) : GameState :=
+  { s with heroLife := s.heroLife.insert p.n life }
+
+/-- Concatenation of all object identifiers across all valid zones. -/
+def zoneIds (s : GameState) : List ObjId :=
+  (allZones s.playerCount).flatMap s.zone
+
+/-- All physical card identifiers across all zones. Tokens, layers, and attack-proxies have none
+(I1: design.md §5.1). -/
+def physIds (s : GameState) : List PhysId :=
+  s.zoneIds.filterMap (fun id => (s.obj? id).bind (·.kind.phys?))
+
+/-- Reading a zone just written yields the written list. -/
+theorem zone_setZone_self (s : GameState) (z : Zone) (l : List ObjId) :
+    (s.setZone z l).zone z = l := by
+  simp [zone, setZone]
+
+/-- Writing a zone does not change any other zone. -/
+theorem zone_setZone_ne (s : GameState) {z z' : Zone} (h : z' ≠ z) (l : List ObjId) :
+    (s.setZone z l).zone z' = s.zone z' := by
+  have hk : z'.key ≠ z.key := fun e => h (Zone.key_inj e)
+  have hk' : z.key ≠ z'.key := fun e => hk e.symm
+  simp [zone, setZone, Std.ExtTreeMap.getD_insert, hk']
+
+/-- Reading a pool just written yields the written pool. -/
+theorem poolOf_setPool_self (s : GameState) (p : PlayerId) (pool : AssetPool) :
+    (s.setPool p pool).poolOf p = pool := by
+  simp [poolOf, setPool]
+
+/-- Writing player `p`'s pool does not change another player `q`'s pool. -/
+theorem poolOf_setPool_ne (s : GameState) {p q : PlayerId} (h : q ≠ p) (pool : AssetPool) :
+    (s.setPool p pool).poolOf q = s.poolOf q := by
+  have hn : p.n ≠ q.n := fun e => h (by cases p; cases q; simp_all)
+  simp [poolOf, setPool, Std.ExtTreeMap.getD_insert, hn]
+
+/-- Structural well-formedness `WF` holding in every intermediate state (design.md §5.3):
+1. Each `ObjId` appears in at most one zone (I2 position uniqueness).
+2. Every `ObjId` on a zone has an entry in `objects`.
+3. Every entry in `objects` appears on some zone.
+4. Every `ObjId` on a zone is strictly below `nextId`.
+5. Every key in `zones` corresponds to a valid zone in `allZones s.playerCount`. -/
+structure WF (s : GameState) : Prop where
+  /-- Each `ObjId` sits in exactly one place (`zoneIds` has no duplicates). -/
+  nodup : s.zoneIds.Nodup
+  /-- Every `ObjId` on a zone exists in `objects`. -/
+  table_of_zone : ∀ id ∈ s.zoneIds, id.n ∈ s.objects
+  /-- Every key in `objects` appears on some zone. -/
+  zone_of_table : ∀ k, k ∈ s.objects → ∃ id ∈ s.zoneIds, id.n = k
+  /-- Every `ObjId` on a zone is below `nextId`. -/
+  lt_nextId : ∀ id ∈ s.zoneIds, id.n < s.nextId
+  /-- Only valid zones of the game are stored in `zones`. -/
+  zones_valid : ∀ k, k ∈ s.zones → ∃ z ∈ allZones s.playerCount, z.key = k
+
+/-- `WF` depends only on `config`, the domain of `objects`, `zones`, and `nextId`. -/
+theorem WF.congr_mem {s s2 : GameState} (hwf : s.WF) (hc : s2.config = s.config)
+    (ho : ∀ k, k ∈ s2.objects ↔ k ∈ s.objects) (hz : s2.zones = s.zones)
+    (hn : s2.nextId = s.nextId) : s2.WF := by
+  have hcount : s2.playerCount = s.playerCount := by simp [playerCount, hc]
+  have hzone : ∀ z, s2.zone z = s.zone z := fun z => by simp [zone, hz]
+  have hids : s2.zoneIds = s.zoneIds := by
+    unfold zoneIds
+    rw [hcount]
+    have : s2.zone = s.zone := funext hzone
+    rw [this]
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · rw [hids]; exact hwf.nodup
+  · intro x hx; rw [hids] at hx; exact (ho _).mpr (hwf.table_of_zone x hx)
+  · intro k hk; rw [hids]; exact hwf.zone_of_table k ((ho k).mp hk)
+  · intro x hx; rw [hids] at hx; rw [hn]; exact hwf.lt_nextId x hx
+  · intro k hk; rw [hz] at hk; rw [hcount]; exact hwf.zones_valid k hk
+
+/-- `WF` preserved when `config`, `objects`, `zones`, and `nextId` are unchanged. -/
+theorem WF.congr {s s2 : GameState} (hwf : s.WF) (hc : s2.config = s.config)
+    (ho : s2.objects = s.objects) (hz : s2.zones = s.zones) (hn : s2.nextId = s.nextId) :
+    s2.WF :=
+  WF.congr_mem hwf hc (fun k => by rw [ho]) hz hn
+
+/-- Non-Arena ownership invariant `OwnerOk`: every object in a player's Non-Arena zone is owned
+by that player (CR 3.0). -/
+structure OwnerOk (s : GameState) : Prop where
+  /-- Every object in a Non-Arena zone of player `p` has `owner = p`. -/
+  owner : ∀ (p : PlayerId) (k : ZoneKind), k.isArena = false →
+    ∀ id ∈ s.zone (.player p k), ∀ o, s.obj? id = some o → o.owner = p
+
+/-- `OwnerOk` depends only on `objects` and `zones`. -/
+theorem OwnerOk.congr {s s2 : GameState} (h : s.OwnerOk) (ho : s2.objects = s.objects)
+    (hz : s2.zones = s.zones) : s2.OwnerOk := by
+  refine ⟨fun p k hk id hid o hobj => ?_⟩
+  have hzone : s2.zone (.player p k) = s.zone (.player p k) := by simp [zone, hz]
+  have hobj' : s2.obj? id = s.obj? id := by simp [obj?, ho]
+  rw [hzone] at hid
+  rw [hobj'] at hobj
+  exact h.owner p k hk id hid o hobj
+
+/-- An empty game state with no objects satisfies `WF`. -/
+theorem empty_wf (cfg : GameConfig) (db : CardDB) :
+    ({ config := cfg, cards := db } : GameState).WF := by
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · unfold zoneIds zone
+    have : ∀ z ∈ allZones cfg.mode.playerCount,
+        (∅ : Std.ExtTreeMap Nat (List ObjId)).getD z.key [] = [] := by
+      intro z _; rfl
+    have hnil : (allZones cfg.mode.playerCount).flatMap
+        (fun z => (∅ : Std.ExtTreeMap Nat (List ObjId)).getD z.key []) = [] := by
+      rw [List.flatMap_eq_nil_iff]
+      exact this
+    change ((allZones cfg.mode.playerCount).flatMap
+        (fun z => (∅ : Std.ExtTreeMap Nat (List ObjId)).getD z.key [])).Nodup
+    rw [hnil]
+    exact List.nodup_nil
+  · intro id hid
+    exfalso
+    unfold zoneIds zone at hid
+    rw [List.mem_flatMap] at hid
+    obtain ⟨z, _, hz⟩ := hid
+    change id ∈ (∅ : Std.ExtTreeMap Nat (List ObjId)).getD z.key [] at hz
+    simp at hz
+  · intro k hk
+    simp at hk
+  · intro id hid
+    exfalso
+    unfold zoneIds zone at hid
+    rw [List.mem_flatMap] at hid
+    obtain ⟨z, _, hz⟩ := hid
+    change id ∈ (∅ : Std.ExtTreeMap Nat (List ObjId)).getD z.key [] at hz
+    simp at hz
+  · intro k hk
+    simp at hk
+
+/-- An empty game state satisfies `OwnerOk`. -/
+theorem empty_ownerOk (cfg : GameConfig) (db : CardDB) :
+    ({ config := cfg, cards := db } : GameState).OwnerOk := by
+  refine ⟨fun p k _ id hid _ _ => ?_⟩
+  unfold zone at hid
+  change id ∈ (∅ : Std.ExtTreeMap Nat (List ObjId)).getD (Zone.player p k).key [] at hid
+  simp at hid
+
+end GameState
+
+end Fab
+
+end
