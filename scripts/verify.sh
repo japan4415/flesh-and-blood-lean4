@@ -8,18 +8,21 @@ export PATH="$HOME/.elan/bin:$PATH"
 
 step() { printf '\n==> %s\n' "$*"; }
 
-step "1/4 build (--wfail)"
+step "1/5 build (--wfail)"
 lake build Fab FabCards FabDriver FabTest --wfail
 
-step "2/4 test"
+step "2/5 test"
 lake test
 
-step "3/4 axiom audit (lake check)"
+step "3/5 axiom audit (lake check)"
 # サンドボックスは Linux でしか動かない。自分のコードを自分のマシンで検査するので外す。
 # 対象は defaultTargets（検証コア Fab だけ）。
 lake check --inadvisably-no-sandbox
 
-step "4/4 rule citations"
+step "4/5 generated cards check"
+python3 scripts/gen_lean.py --check
+
+step "5/5 rule citations"
 python3 scripts/cr_citations.py
 
 printf '\nverify: OK\n'

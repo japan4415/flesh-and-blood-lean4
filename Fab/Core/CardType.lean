@@ -90,6 +90,8 @@ inductive Subtype where
   | figment
   /-- Flail weapon subtype. -/
   | flail
+  /-- Gem resource subtype (WTR: Heart of Fyendal). -/
+  | gem
   /-- Gun weapon subtype. -/
   | gun
   /-- Hammer weapon subtype (WTR). -/

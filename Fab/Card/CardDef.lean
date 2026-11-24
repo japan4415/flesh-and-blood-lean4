@@ -6,6 +6,7 @@ public import Fab.Core.CardType
 public import Fab.Core.Property
 public import Fab.Core.Cost
 public import Fab.Core.Keyword
+public import Fab.Card.IR.Effect
 
 /-!
 # Card definitions
@@ -60,10 +61,14 @@ structure CardFace where
   life : Option Int := none
   /-- Printed ability and meta-static keywords (CR 8.3). -/
   keywords : List KeywordInst := []
-deriving DecidableEq, Repr, Hashable
+  /-- Printed activated, triggered, static, and replacement abilities (CR 1.7, 6.0). -/
+  abilities : List Ability := []
+  /-- Optional resolution effect executed when this card is played and resolves (CR 5.3). -/
+  playEffect : Option EffectDef := none
+deriving DecidableEq, Repr
 
 /-- Logical card definition uniquely identified by `CardId` (representing a `(name, pitch)` card)
-(CR 2.6, 2.8). Abilities and effect IR fields are added in M3b. -/
+(CR 2.6, 2.8). -/
 structure CardDef where
   /-- Stable logical card identifier. -/
   id : CardId
@@ -77,7 +82,7 @@ structure CardDef where
   sets : List SetCode := []
   /-- Current implementation status. -/
   status : ImplStatus := .todo
-deriving DecidableEq, Repr, Hashable
+deriving DecidableEq, Repr
 
 /-- Unique card identity key `(name, pitch)` used for deck copy limits (CR 2.6, 2.8). -/
 def CardDef.uniqueKey (c : CardDef) : String × Option Nat :=
