@@ -65,6 +65,17 @@ def legalFrameActions (s : GameState) : List Action :=
       fun id => ⟨.player p, .loadoutToDeck id⟩
     let done := if loadoutCanFinish s p then [⟨.player p, .loadoutDone⟩] else []
     equips ++ toDeck ++ done
+  | .priority p _ :: _ =>
+    [⟨.player p, .pass⟩]
+  | .chooseArsenal tp :: _ =>
+    let puts :=
+      if (s.zone (.player tp .arsenal)).isEmpty then
+        (s.zone (.player tp .hand)).map fun id => ⟨.player tp, .arsenalPut id⟩
+      else
+        []
+    puts ++ [⟨.player tp, .arsenalSkip⟩]
+  | .choosePitchOrder p :: _ =>
+    (s.zone (.player p .pitch)).map fun id => ⟨.player p, .pitchReturnPick id⟩
   | _ => []
 
 /-- Constructively enumerate legal concessions in a 1v1 game (CR 4.5). -/

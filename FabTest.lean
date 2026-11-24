@@ -9,6 +9,7 @@ public import FabTest.Core
 public import FabTest.Deck
 public import FabTest.Actions
 public import FabTest.Setup
+public import FabTest.Turn
 
 /-!
 # FabTest

@@ -32,9 +32,10 @@ meta def bravoMatchInitial : Option GameState :=
     s.pending == [.chanceFirstPlayer]
   | none => false
 
--- 2. Full 1v1 CC Start-of-Game Procedure across 5 seeds completes cleanly:
+-- 2. Full 1v1 CC Start-of-Game Procedure across 5 seeds completes cleanly and enters Turn 1:
 --    - Head (Helm), Chest (Tectonic Plating), Weapon (Anothos) equipped FACE-UP
 --    - Opening hand = 4 (Bravo Intellect), Deck = 56 (60 - 4), Inventory = 0
+--    - Turn 1 Action Phase begins with first player holding 1 AP and priority
 --    - Physical cards conserved (128 before and after)
 meta def checkSeed (seed : UInt64) : Bool :=
   match bravoMatchInitial with
@@ -53,11 +54,17 @@ meta def checkSeed (seed : UInt64) : Bool :=
         (s.zone (.player p .inventory)).isEmpty &&
         (s.zone (.player p .head) ++ s.zone (.player p .chest) ++ s.zone (.player p .weapon)).all
           (fun id => (s.obj? id).map (·.faceDown) == some false)
-      s.pending.isEmpty &&
-      s.result == none &&
-      s.turnOrder.length == 2 &&
-      s.physIds.length == 128 &&
-      okP ⟨0⟩ && okP ⟨1⟩
+      match s.active, s.pending with
+      | some first, .priority p 0 :: _ =>
+        p == first &&
+        s.turn == 1 &&
+        s.phase == .actionPhase &&
+        (s.poolOf first).actionPoints == 1 &&
+        s.result == none &&
+        s.turnOrder.length == 2 &&
+        s.physIds.length == 128 &&
+        okP ⟨0⟩ && okP ⟨1⟩
+      | _, _ => false
 
 #guard checkSeed 1
 #guard checkSeed 7

@@ -139,6 +139,17 @@ M2a（状態・ゾーン・`moveObj`・イベント経路骨格・基本プリ�
 - 新フレーム（`priority`, `chooseArsenal`, `choosePitchOrder`）についての **I6**。
 - 何もせずパスし続ける 1v1 対局およびピッチ→デッキ底循環のシナリオテスト。
 
+**M3 実装の記録（2026-11-24）: 完了**
+- 実装・拡張モジュール: `Fab/State/Decision.lean`（`pass`, `arsenalPut`, `arsenalSkip`, `pitchReturnPick`, `beginTurn`, `startPhaseWork`, `actionPhaseStart`, `priority`, `endPhaseStart`, `chooseArsenal`, `returnPitch`, `choosePitchOrder`, `endTurnCleanup`）、`Fab/Rules/Objects.lean`（`untapPlayer`, `checkHeroDefeat`）、`Fab/Rules/Frames.lean`（`nextInOrder`, `refillCount`, `turnPlayerAt`, `turnFrames`, `endPhaseDrawFrames`）、`Fab/Spec/Legal.lean`、`Fab/Engine/Step.lean`、`Fab/Invariant/Step.lean`、`Fab/Invariant/Turn.lean`、`FabDriver/Run.lean`（`nextPassAction`, `runPassLoop`）、`FabTest/Setup.lean`、`FabTest/Turn.lean`。
+- 証明した主な定理:
+  - オブジェクト更新・勝敗（**I7**）: `untapPlayer_wf` / `ownerOk` / `physIds` / `untapPlayer_idem`、`checkHeroDefeat_wf` / `ownerOk` / `physIds`、`checkHeroDefeat_1v1`（1v1 勝利・同時引き分け一意性）
+  - **I9（フェイズ順・手番交代）**: `turnFrames_eq`、`turnPlayerAt_alternates_1v1`
+  - **I8（ターン資産会計）**: `actionPhaseStart_adds_ap`、`endTurnCleanup_clears_pools`（M1 の `payResourceCost` オーバーピッチ禁止と併せて完結）
+  - **I20（End Phase Pitch 戻し・Turn 1 / Turn ≥ 2 手札補充）**: `returnPitch_empty_pops`、`returnPitch_nonempty_prompts`、`endPhaseDrawFrames_turn1`、`endPhaseDrawFrames_later`、`refillCount_zero_of_ge`
+  - **I5（進行性・`TopIdle`）**: `advance_idle`、`step_idle`、`progress_turn_decisions`
+  - **I1 / I3 / I4 / I6 / I15**: 新フレーム（`priority`, `chooseArsenal`, `choosePitchOrder` および全ワークフレーム）を含めて `step_physIds` / `step_wf` / `step_ownerOk` / `step_not_internal` / `step_sound` / `legalActions_iff` / `step_mono` を維持。
+- 検証: `./scripts/verify.sh`（99 jobs `--wfail` ビルド、`lake test`、`lake check` 標準 3 公理のみ、`cr_citations.py` 394 引用 / malformed 0）。
+
 ---
 
 ### M3b: 効果 IR の構文先行検証（カードデータパイプライン＋実カード転記）

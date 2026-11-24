@@ -13,7 +13,7 @@ independently of `step` and `legalActions` (design.md §3 P1, §6.3).
 
 namespace Fab
 
-/-- Legality of answering the top decision frame on `s.pending` (CR 4.1). -/
+/-- Legality of answering the top decision frame on `s.pending` (CR 1.11, 4.1-4.4). -/
 def LegalFrame (s : GameState) (a : Action) : Prop :=
   match s.pending, a.actor, a.kind with
   | .chanceFirstPlayer :: _, .chance, .chanceFirstChooser p =>
@@ -28,6 +28,14 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     q = p ∧ loadoutCanFinish s p = true
   | .chanceShuffle z :: _, .chance, .shuffleOrder l =>
     z.Valid s.playerCount ∧ l.Perm (s.zone z)
+  | .priority p _ :: _, .player q, .pass =>
+    q = p
+  | .chooseArsenal tp :: _, .player q, .arsenalPut id =>
+    q = tp ∧ (s.zone (.player tp .arsenal)).isEmpty = true ∧ id ∈ s.zone (.player tp .hand)
+  | .chooseArsenal tp :: _, .player q, .arsenalSkip =>
+    q = tp
+  | .choosePitchOrder p :: _, .player q, .pitchReturnPick id =>
+    q = p ∧ id ∈ s.zone (.player p .pitch)
   | _, _, _ => False
 
 instance decidableLegalFrame (s : GameState) (a : Action) : Decidable (LegalFrame s a) := by
