@@ -66,7 +66,23 @@ def legalFrameActions (s : GameState) : List Action :=
     let done := if loadoutCanFinish s p then [⟨.player p, .loadoutDone⟩] else []
     equips ++ toDeck ++ done
   | .priority p _ :: _ =>
-    [⟨.player p, .pass⟩]
+    let candidates := s.zone (.player p .hand) ++ s.zone (.player p .arsenal)
+    let plays := (candidates.filter (canPlayCard s p)).map fun id => ⟨.player p, .playCard id⟩
+    ⟨.player p, .pass⟩ :: plays
+  | .chooseMode p _ _ modeCount _ :: _ =>
+    ((List.range modeCount).map fun idx => ⟨.player p, .pickMode idx⟩) ++
+      [⟨.player p, .cancelPlay⟩]
+  | .choosePitch p _ _ _ _ :: _ =>
+    ((pitchableCards s p).map fun id => ⟨.player p, .pitchCard id⟩) ++
+      [⟨.player p, .cancelPlay⟩]
+  | .chooseMay ctrl _ _ _ _ _ :: _ =>
+    [⟨.player ctrl, .pickMay true⟩, ⟨.player ctrl, .pickMay false⟩]
+  | .chooseModal ctrl _ _ _ modes :: _ =>
+    (List.range modes.length).map fun idx => ⟨.player ctrl, .pickMode idx⟩
+  | .chooseHandToDeck p _ :: _ =>
+    (s.zone (.player p .hand)).map fun id => ⟨.player p, .handToDeckPick id⟩
+  | .chooseOpt p _ :: _ =>
+    [⟨.player p, .optPick true⟩, ⟨.player p, .optPick false⟩]
   | .chooseArsenal tp :: _ =>
     let puts :=
       if (s.zone (.player tp .arsenal)).isEmpty then

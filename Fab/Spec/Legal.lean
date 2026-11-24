@@ -30,6 +30,26 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     z.Valid s.playerCount ∧ l.Perm (s.zone z)
   | .priority p _ :: _, .player q, .pass =>
     q = p
+  | .priority p _ :: _, .player q, .playCard id =>
+    q = p ∧ canPlayCard s p id = true
+  | .chooseMode p _ _ modeCount _ :: _, .player q, .pickMode idx =>
+    q = p ∧ idx < modeCount
+  | .chooseMode p _ _ _ _ :: _, .player q, .cancelPlay =>
+    q = p
+  | .choosePitch p _ _ _ _ :: _, .player q, .pitchCard id =>
+    q = p ∧ canPitchCard s p id = true
+  | .choosePitch p _ _ _ _ :: _, .player q, .cancelPlay =>
+    q = p
+  | .chooseMay ctrl _ _ _ _ _ :: _, .player q, .pickMay _ =>
+    q = ctrl
+  | .chooseModal ctrl _ _ _ modes :: _, .player q, .pickMode idx =>
+    q = ctrl ∧ idx < modes.length
+  | .chanceDie6 _ _ _ _ _ _ _ :: _, .chance, .die6Roll roll =>
+    1 ≤ roll ∧ roll ≤ 6
+  | .chooseHandToDeck p _ :: _, .player q, .handToDeckPick id =>
+    q = p ∧ id ∈ s.zone (.player p .hand)
+  | .chooseOpt p _ :: _, .player q, .optPick _ =>
+    q = p
   | .chooseArsenal tp :: _, .player q, .arsenalPut id =>
     q = tp ∧ (s.zone (.player tp .arsenal)).isEmpty = true ∧ id ∈ s.zone (.player tp .hand)
   | .chooseArsenal tp :: _, .player q, .arsenalSkip =>

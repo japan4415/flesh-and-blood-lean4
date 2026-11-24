@@ -161,6 +161,94 @@ theorem pitchOne_adds_assets {s s' : GameState} {p : PlayerId} {id id' : ObjId}
         rw [GameState.poolOf_setPool_ne _ hqp, hpool1 q]
   · cases h
 
+/-- `pitchOne` preserves `config` and `playRollback`. -/
+theorem pitchOne_config_rollback {s s' : GameState} {p : PlayerId} {id id' : ObjId}
+    {es : List Event} (h : pitchOne s p id = some (s', id', es)) :
+    s'.config = s.config ∧ s'.playRollback = s.playRollback := by
+  unfold pitchOne at h
+  split at h
+  · cases ho : s.obj? id with
+    | none => simp only [ho] at h; cases h
+    | some o =>
+      simp only [ho] at h
+      cases hf : s.activeFace? o with
+      | none => simp only [hf] at h; cases h
+      | some face =>
+        simp only [hf] at h
+        cases hp : face.pitch with
+        | none => simp only [hp] at h; cases h
+        | some v =>
+          simp only [hp] at h
+          cases hm : moveObj s id (.player p .pitch) .top false with
+          | none => simp only [hm] at h; cases h
+          | some res =>
+            obtain ⟨s1, id1⟩ := res
+            simp only [hm, Option.some.injEq, Prod.mk.injEq] at h
+            obtain ⟨rfl, rfl, rfl⟩ := h
+            unfold moveObj at hm
+            split at hm
+            · dsimp only at hm
+              split at hm
+              · cases hm
+              · split at hm <;>
+                · simp only [Option.some.injEq, Prod.mk.injEq] at hm
+                  obtain ⟨rfl, rfl⟩ := hm
+                  exact ⟨rfl, rfl⟩
+            · cases hm
+  · cases h
+
+/-- Whether card `id` in player `p`'s hand has a printed pitch value and can be pitched (CR 1.14.3). -/
+def canPitchCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
+  if id ∈ s.zone (.player p .hand) then
+    match s.obj? id with
+    | none => false
+    | some o =>
+      match s.activeFace? o with
+      | none => false
+      | some face => face.pitch.isSome
+  else
+    false
+
+/-- Under `WF` and `OwnerOk`, pitching any card satisfying `canPitchCard` succeeds. -/
+theorem pitchOne_isSome {s : GameState} {p : PlayerId} {id : ObjId}
+    (hwf : s.WF) (hok : s.OwnerOk) (hp_valid : p.n < s.playerCount)
+    (hc : canPitchCard s p id = true) :
+    (pitchOne s p id).isSome = true := by
+  unfold canPitchCard at hc
+  unfold pitchOne
+  split at hc
+  · rename_i hmem
+    simp only [hmem, ↓reduceIte]
+    cases ho : s.obj? id with
+    | none => simp only [ho] at hc; cases hc
+    | some o =>
+      simp only [ho] at hc ⊢
+      cases hf : s.activeFace? o with
+      | none => simp only [hf] at hc; cases hc
+      | some face =>
+        simp only [hf] at hc ⊢
+        cases hp : face.pitch with
+        | none => simp only [hp] at hc; cases hc
+        | some v =>
+          have hloc : s.locate id = some (.player p .hand) :=
+            GameState.locate_eq hwf (Zone.valid_player hp_valid .hand) hmem
+          have hown : o.owner = p := hok.owner p .hand rfl id hmem o ho
+          have hnorm : Zone.normalize o.owner (.player p .pitch) = .player p .pitch := by
+            simp [Zone.normalize, ZoneKind.isArena, hown]
+          have hval : (Zone.player p .pitch).Valid s.playerCount := Zone.valid_player hp_valid .pitch
+          have hm : (moveObj s id (.player p .pitch) .top false).isSome = true := by
+            unfold moveObj
+            rw [hloc, ho]
+            dsimp only
+            rw [hnorm]
+            have hne : Zone.player p .hand ≠ Zone.player p .pitch := by intro heq; cases heq
+            simp only [hne, false_or, hval, not_true_eq_false, ↓reduceIte]
+            split <;> rfl
+          cases hm' : moveObj s id (.player p .pitch) .top false with
+          | none => rw [hm'] at hm; simp at hm
+          | some _ => rfl
+  · cases hc
+
 end Fab
 
 end

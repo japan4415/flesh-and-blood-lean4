@@ -3,7 +3,9 @@ module
 public import Fab.Rules.Move
 public import Fab.Rules.Reorder
 public import Fab.Rules.Objects
+public import Fab.Rules.Interp
 public import Fab.Rules.Actions.Draw
+public import Fab.Rules.Actions.Pitch
 
 /-!
 # Frame transitions and automatic work (`microStep`)
@@ -260,7 +262,79 @@ def endPhaseDrawFrames (s : GameState) (tp : PlayerId) : List Frame :=
   let targets := if s.turn = 1 then s.turnOrder else [tp]
   targets.map fun q => Frame.draw q (s.refillCount q)
 
-/-- Apply a decision answer to the top frame of `s.pending` (CR 4.1-4.4). -/
+/-- All pitchable cards currently in player `p`'s hand (CR 1.14.3). -/
+def pitchableCards (s : GameState) (p : PlayerId) : List ObjId :=
+  (s.zone (.player p .hand)).filter (canPitchCard s p)
+
+/-- Whether player `p` may legally pitch a card to pay `cost` under no over-pitching: there must
+be a positive resource or chi deficit and at least one pitchable card in hand (CR 1.14.3b). -/
+def canPitchForCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Bool :=
+  (0 < (s.poolOf p).resourceDeficit cost || 0 < (s.poolOf p).chiDeficit cost) &&
+  !(pitchableCards s p).isEmpty
+
+/-- Whether player `p` may announce playing card `id` from hand or arsenal while holding priority
+(CR 5.1.1, 4.3, 3.2.2). Face-down arsenal cards may be played; Instants may be played anytime on
+priority; Actions require own Action Phase, empty stack, and at least 1 AP. -/
+def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
+  if id ∈ s.zone (.player p .hand) || id ∈ s.zone (.player p .arsenal) then
+    match s.cardDefOf? id with
+    | none => false
+    | some c =>
+      if !c.isDeckCard then
+        false
+      else if c.front.hasType .instant then
+        true
+      else if c.front.hasType .action then
+        s.phase == .actionPhase &&
+        s.active == some p &&
+        (s.zone .stack).isEmpty &&
+        1 ≤ (s.poolOf p).actionPoints
+      else
+        false
+  else
+    false
+
+/-- Base `AssetCost` of playing card `c`, applying resource floor semantics (CR 5.1.5). -/
+def cardPlayCost (c : CardDef) : AssetCost :=
+  let base := c.front.cost.getD {}
+  let ap := if c.front.hasType .action then max base.actionPoints 1 else base.actionPoints
+  { base with actionPoints := ap }
+
+/-- Number of play-time modes (`ModeSpec`s) declared on `c`'s `playEffect` (CR 5.1.2a). -/
+def cardModeCount (c : CardDef) : Nat :=
+  match c.front.playEffect with
+  | some ed => ed.modes.length
+  | none => 0
+
+/-- Extract the discrete resolution `Effect` of card `c` given an optional chosen mode index. -/
+def cardResolveEffect (c : CardDef) (modeIdx : Option Nat) : Effect :=
+  match c.front.playEffect with
+  | none => .nop
+  | some ed =>
+    match modeIdx with
+    | some idx =>
+      match ed.modes[idx]? with
+      | some ms => ms.body
+      | none => ed.body
+    | none => ed.body
+
+/-- Roll back an in-progress card play to the saved pre-play snapshot (CR 5.1.1), falling back to
+`fallback` if no snapshot was present. -/
+def rollbackPlay (s : GameState) (fallback : List Frame) : GameState :=
+  match s.playRollback with
+  | some snap => s.restore snap
+  | none => { s with pending := fallback }
+
+/-- Spend `cost` from player `p`'s pool when `canPay` holds, using chi for generic resources only
+as needed (CR 1.14.2b, 5.1.6). -/
+def spendAssetCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Option GameState :=
+  let pool := s.poolOf p
+  let chiForRes := cost.resources - pool.resources
+  match pool.spend cost chiForRes with
+  | some pool' => some (s.setPool p pool')
+  | none => none
+
+/-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
   match s.pending, a.actor, a.kind with
   | .chanceFirstPlayer :: rest, .chance, .chanceFirstChooser chooser =>
@@ -312,8 +386,95 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       if nextPass < s.turnOrder.length then
         let nextP := nextInOrder s.turnOrder p
         some ({ s with pending := .priority nextP nextPass :: rest }, [])
+      else if (s.zone .stack).isEmpty then
+        some ({ s with pending := rest }, [])
+      else
+        some ({ s with pending := .resolveStack :: rest }, [])
+    else
+      none
+  | .priority p _ :: rest, .player q, .playCard id =>
+    if p = q ∧ canPlayCard s p id = true then
+      let fromArsenal := id ∈ s.zone (.player p .arsenal)
+      let srcZone := if fromArsenal then Zone.player p .arsenal else Zone.player p .hand
+      let snap := s.snapshot
+      let cost := match s.cardDefOf? id with | some c => cardPlayCost c | none => {}
+      let modes := match s.cardDefOf? id with | some c => cardModeCount c | none => 0
+      match moveObj s id .stack .top false with
+      | none => none
+      | some (s1, layerId) =>
+        let nextFrame :=
+          if 0 < modes then
+            Frame.chooseMode p layerId fromArsenal modes cost
+          else
+            Frame.playPayCost p layerId fromArsenal none cost
+        some ({ s1 with playRollback := some snap, pending := nextFrame :: rest },
+              [.moved id layerId srcZone .stack])
+    else
+      none
+  | .chooseMode p layerId fromArsenal modeCount cost :: rest, .player q, .pickMode idx =>
+    if p = q ∧ idx < modeCount then
+      some ({ s with pending := .playPayCost p layerId fromArsenal (some idx) cost :: rest }, [])
+    else
+      none
+  | .chooseMode p _ _ _ _ :: rest, .player q, .cancelPlay =>
+    if p = q then
+      some (rollbackPlay s rest, [])
+    else
+      none
+  | .choosePitch p layerId fromArsenal modeIdx cost :: rest, .player q, .pitchCard id =>
+    if p = q ∧ canPitchCard s p id = true then
+      match pitchOne s p id with
+      | none => none
+      | some (s1, _, es) =>
+        some ({ s1 with pending := .playPayCost p layerId fromArsenal modeIdx cost :: rest }, es)
+    else
+      none
+  | .choosePitch p _ _ _ _ :: rest, .player q, .cancelPlay =>
+    if p = q then
+      some (rollbackPlay s rest, [])
+    else
+      none
+  | .chooseMay ctrl src fromArsenal env body ifDone :: rest, .player q, .pickMay choice =>
+    if ctrl = q then
+      if choice then
+        some ({ s with pending := .run ctrl src fromArsenal env [body, ifDone] :: rest }, [])
       else
         some ({ s with pending := rest }, [])
+    else
+      none
+  | .chooseModal ctrl src fromArsenal env modes :: rest, .player q, .pickMode idx =>
+    if ctrl = q ∧ idx < modes.length then
+      let chosen := modes.getD idx .nop
+      some ({ s with pending := .run ctrl src fromArsenal env [chosen] :: rest }, [])
+    else
+      none
+  | .chanceDie6 ctrl src fromArsenal env bindVar branches cont :: rest, .chance, .die6Roll roll =>
+    if 1 ≤ roll ∧ roll ≤ 6 then
+      let branchBody := branches.select roll
+      let env' := (bindVar, Int.ofNat roll) :: env
+      some ({ s with pending := .run ctrl src fromArsenal env' [branchBody, cont] :: rest }, [])
+    else
+      none
+  | .chooseHandToDeck p pos :: rest, .player q, .handToDeckPick id =>
+    if p = q ∧ id ∈ s.zone (.player p .hand) then
+      let dstPos : Pos := match pos with | .bottom => .bottom | _ => .top
+      match moveObj s id (.player p .deck) dstPos false with
+      | none => none
+      | some (s1, id') =>
+        some ({ s1 with pending := rest }, [.moved id id' (.player p .hand) (.player p .deck)])
+    else
+      none
+  | .chooseOpt p cardId :: rest, .player q, .optPick putOnTop =>
+    if p = q then
+      if putOnTop then
+        some ({ s with pending := rest }, [])
+      else
+        let deck := s.zone (.player p .deck)
+        if cardId ∈ deck then
+          let deck' := deck.erase cardId ++ [cardId]
+          some ({ s.reorder (.player p .deck) deck' with pending := rest }, [])
+        else
+          some ({ s with pending := rest }, [])
     else
       none
   | .chooseArsenal tp :: rest, .player q, .arsenalPut id =>
@@ -346,7 +507,7 @@ def applyAction (s : GameState) (a : Action) : Option (GameState × List Event) 
   match a.actor, a.kind with
   | .player p, .concede =>
     let winners := (allPlayers s.playerCount).filter (· != p)
-    some ({ s with result := some (.won winners), pending := [] }, [])
+    some ({ s with result := some (.won winners), pending := [], playRollback := none }, [])
   | _, _ => applyFrame s a
 
 /-- Advance a single automatic work frame on top of `s.pending` (non-recursive: design.md §6.1). -/
@@ -376,6 +537,80 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .actionPhaseStart tp :: rest =>
     let s1 := s.setPool tp ((s.poolOf tp).addActionPoints 1)
     some ({ s1 with phase := .actionPhase, pending := .priority tp 0 :: rest }, [])
+  | .playPayCost p layerId fromArsenal modeIdx cost :: rest =>
+    match spendAssetCost s p cost with
+    | some s1 =>
+      let hasGoAgain :=
+        match s1.cardDefOf? layerId with
+        | some c => c.front.keywords.contains .goAgain && !c.front.hasSubtype .attack
+        | none => false
+      let info : LayerInfo :=
+        { controller := p
+          fromArsenal := fromArsenal
+          modeIdx := modeIdx
+          goAgain := hasGoAgain }
+      some ({ s1 with
+                layerMeta := s1.layerMeta.insert layerId.n info
+                playRollback := none
+                pending := .priority p 0 :: rest },
+            [])
+    | none =>
+      if canPitchForCost s p cost then
+        some ({ s with pending := .choosePitch p layerId fromArsenal modeIdx cost :: rest }, [])
+      else
+        some (rollbackPlay s rest, [])
+  | .resolveStack :: rest =>
+    match s.zone .stack with
+    | topId :: _ =>
+      let info := s.layerMeta.getD topId.n
+        { controller := s.active.getD ⟨0⟩ }
+      let eff :=
+        match s.cardDefOf? topId with
+        | some c => cardResolveEffect c info.modeIdx
+        | none => .nop
+      some ({ s with
+                pending := .run info.controller topId info.fromArsenal [] [eff] ::
+                  .finishResolve topId :: rest },
+            [])
+    | [] =>
+      let tp := s.active.getD ⟨0⟩
+      some ({ s with pending := .priority tp 0 :: rest }, [])
+  | .finishResolve layerId :: rest =>
+    let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
+    let s1 :=
+      if info.goAgain then
+        s.setPool info.controller ((s.poolOf info.controller).addActionPoints 1)
+      else
+        s
+    let (s2, es) :=
+      if layerId ∈ s1.zone .stack then
+        match s1.obj? layerId with
+        | some o =>
+          let isPerm :=
+            match s1.cardDefOf? layerId with
+            | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
+            | none => false
+          let dst := if isPerm then Zone.player info.controller .permanent
+                     else Zone.player o.owner .graveyard
+          match moveObj s1 layerId dst .top false with
+          | some (sMoved, id') => (sMoved, [.moved layerId id' .stack dst])
+          | none => (s1, [])
+        | none => (s1, [])
+      else
+        (s1, [])
+    let s3 := checkHeroDefeat { s2 with layerMeta := s2.layerMeta.erase layerId.n }
+    let tp := s3.active.getD ⟨0⟩
+    some ({ s3 with pending := .priority tp 0 :: rest }, es)
+  | .run ctrl src fromArsenal env todo :: rest =>
+    some (interpRunStep s ctrl src fromArsenal env todo rest)
+  | .optStep _ 0 :: rest =>
+    some ({ s with pending := rest }, [])
+  | .optStep p (n + 1) :: rest =>
+    match s.zone (.player p .deck) with
+    | topId :: _ =>
+      some ({ s with pending := .chooseOpt p topId :: .optStep p n :: rest }, [])
+    | [] =>
+      some ({ s with pending := rest }, [])
   | .endPhaseStart tp :: rest =>
     let pitchReturns := s.turnOrder.map Frame.returnPitch
     let arsenalFrames :=
