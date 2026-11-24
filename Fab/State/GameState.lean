@@ -25,8 +25,40 @@ primitive can state and prove its preservation independently.
 
 namespace Fab
 
-/-- Complete state of a Flesh and Blood game (M2a core; decision frames and combat chain state
-are added in M2b and M5). -/
+/-- Per-layer metadata tracked while a card or ability layer sits on the stack (CR 5.1, 5.3). -/
+structure LayerInfo where
+  /-- Player who played or activated this layer. -/
+  controller : PlayerId
+  /-- Whether this card-layer was played from the player's arsenal (Tome of Fyendal, Unmovable). -/
+  fromArsenal : Bool := false
+  /-- Chosen modal index when the card has play-time `ModeSpec`s (CR 5.1.2a). -/
+  modeIdx : Option Nat := none
+  /-- Whether this layer has Go Again on resolution (CR 5.3.4, 8.3.5). -/
+  goAgain : Bool := false
+deriving DecidableEq, Repr
+
+/-- Snapshot of mutable board state saved at the start of playing a card so illegal or unpayable
+plays roll back cleanly to the exact pre-play state (CR 5.1.1). -/
+structure BoardSnapshot where
+  /-- Saved object table. -/
+  objects : Std.ExtTreeMap Nat Object
+  /-- Saved zone contents. -/
+  zones : Std.ExtTreeMap Nat (List ObjId)
+  /-- Saved per-player asset pools. -/
+  pools : Std.ExtTreeMap Nat AssetPool
+  /-- Saved per-player hero life totals. -/
+  heroLife : Std.ExtTreeMap Nat Int
+  /-- Saved `nextId` counter. -/
+  nextId : Nat
+  /-- Saved `nextTimestamp` counter. -/
+  nextTimestamp : Nat
+  /-- Saved continuation stack (starts with the `priority` frame where play was announced). -/
+  pending : List Frame
+  /-- Saved stack layer metadata. -/
+  layerMeta : Std.ExtTreeMap Nat LayerInfo
+deriving DecidableEq, Repr
+
+/-- Complete state of a Flesh and Blood game (M2-M4 core; combat chain state is added in M5). -/
 structure GameState where
   /-- Fixed ruleset, format, mode, and ban list (design.md §6.1). -/
   config : GameConfig
@@ -56,6 +88,10 @@ structure GameState where
   phase : Phase := .setup
   /-- Final game outcome once the game has ended, `none` while ongoing (CR 4.5). -/
   result : Option GameResult := none
+  /-- Metadata for layers currently on the stack, keyed by `ObjId.n` (CR 5.1, 5.3). -/
+  layerMeta : Std.ExtTreeMap Nat LayerInfo := ∅
+  /-- Saved pre-play snapshot while playing a card, used for play rollback (CR 5.1.1). -/
+  playRollback : Option BoardSnapshot := none
 deriving DecidableEq, Repr
 
 /-- List of every valid zone in an `n`-player game (CR 3.0). -/
@@ -278,6 +314,67 @@ theorem empty_ownerOk (cfg : GameConfig) (db : CardDB) :
   unfold zone at hid
   change id ∈ (∅ : Std.ExtTreeMap Nat (List ObjId)).getD (Zone.player p k).key [] at hid
   simp at hid
+
+/-- Capture the current board state for potential card-play rollback (CR 5.1.1). -/
+def snapshot (s : GameState) : BoardSnapshot :=
+  { objects := s.objects
+    zones := s.zones
+    pools := s.pools
+    heroLife := s.heroLife
+    nextId := s.nextId
+    nextTimestamp := s.nextTimestamp
+    pending := s.pending
+    layerMeta := s.layerMeta }
+
+/-- Restore a saved `BoardSnapshot` and clear `playRollback` (CR 5.1.1). -/
+def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
+  { s with
+    objects := snap.objects
+    zones := snap.zones
+    pools := snap.pools
+    heroLife := snap.heroLife
+    nextId := snap.nextId
+    nextTimestamp := snap.nextTimestamp
+    pending := snap.pending
+    layerMeta := snap.layerMeta
+    playRollback := none }
+
+/-- Restoring a snapshot taken from `s` (when `s.playRollback = none`) returns the exact state `s`. -/
+theorem restore_snapshot {s : GameState} (h : s.playRollback = none) :
+    s.restore s.snapshot = s := by
+  cases s
+  simp only [restore, snapshot] at *
+  subst h
+  rfl
+
+/-- Saved rollback snapshot invariant: whenever `playRollback = some snap`, restoring `snap` yields
+a `WF`, `OwnerOk` state with a permutation of the current physical card multiset. -/
+def RollbackOk (s : GameState) : Prop :=
+  ∀ snap, s.playRollback = some snap →
+    (s.restore snap).WF ∧ (s.restore snap).OwnerOk ∧ (s.restore snap).physIds.Perm s.physIds
+
+/-- Any state with `playRollback = none` trivially satisfies `RollbackOk`. -/
+theorem RollbackOk.of_none {s : GameState} (h : s.playRollback = none) : s.RollbackOk := by
+  intro snap hs
+  rw [h] at hs
+  cases hs
+
+/-- `RollbackOk` is preserved whenever `config` and `playRollback` are unchanged and `physIds` is
+a permutation of the old `physIds`. -/
+theorem RollbackOk.preserve {s s' : GameState} (hrb : s.RollbackOk)
+    (hc : s'.config = s.config) (hr : s'.playRollback = s.playRollback)
+    (hp : s'.physIds.Perm s.physIds) : s'.RollbackOk := by
+  intro snap hs
+  rw [hr] at hs
+  obtain ⟨hwf, hok, hperm⟩ := hrb snap hs
+  have hwf' : (s'.restore snap).WF := GameState.WF.congr hwf hc rfl rfl rfl
+  have hok' : (s'.restore snap).OwnerOk := GameState.OwnerOk.congr hok rfl rfl
+  have hphys : (s'.restore snap).physIds = (s.restore snap).physIds := by
+    unfold physIds zoneIds playerCount restore zone obj?
+    rw [hc]
+  refine ⟨hwf', hok', ?_⟩
+  rw [hphys]
+  exact hperm.trans hp.symm
 
 end GameState
 

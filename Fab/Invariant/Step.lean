@@ -4,11 +4,11 @@ public import Fab.Engine.Step
 public import Fab.Rules.Setup
 
 /-!
-# Engine invariants (M2b + M3)
+# Engine invariants (M2b + M3 + M4)
 
 Proves the core engine theorems over `step`, `advance`, `Legal`, and `legalActions` (roadmap.md):
 - **I1**: `step_physIds` (physical card conservation)
-- **I3**: `step_wf` and `step_ownerOk` (structural and ownership invariants)
+- **I3**: `step_wf`, `step_ownerOk`, `step_rollbackOk` (structural, ownership, and rollback invariants)
 - **I4**: `step_not_internal` and `Reachable.not_internal` (no internal engine errors)
 - **I6**: `legal_of_step_ok` (completeness), `step_sound` (soundness), and `legalActions_iff`
   (constructive enumeration matches `Legal`)
@@ -19,6 +19,30 @@ Proves the core engine theorems over `step`, `advance`, `Legal`, and `legalActio
 @[expose] public section
 
 namespace Fab
+
+/-- Combined invariant preservation bundle for a single transition `s → s'`. -/
+structure StepPreserves (s s' : GameState) : Prop where
+  /-- Structural well-formedness is preserved (I3). -/
+  wf : s'.WF
+  /-- Non-Arena ownership is preserved. -/
+  ownerOk : s'.OwnerOk
+  /-- Rollback snapshot invariant is preserved. -/
+  rollbackOk : s'.RollbackOk
+  /-- Multiset of physical cards is preserved (I1). -/
+  physIds : s'.physIds.Perm s.physIds
+  /-- Game configuration is immutable. -/
+  config : s'.config = s.config
+
+/-- Reflexivity of `StepPreserves` for any valid state. -/
+theorem StepPreserves.refl {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk) :
+    StepPreserves s s :=
+  ⟨hwf, hok, hrb, List.Perm.refl _, rfl⟩
+
+/-- Transitivity of `StepPreserves`. -/
+theorem StepPreserves.trans {s1 s2 s3 : GameState}
+    (h12 : StepPreserves s1 s2) (h23 : StepPreserves s2 s3) :
+    StepPreserves s1 s3 :=
+  ⟨h23.wf, h23.ownerOk, h23.rollbackOk, h23.physIds.trans h12.physIds, h23.config.trans h12.config⟩
 
 /-- Helper: if a player zone holds an object in a `WF` state, that player is seated. -/
 theorem player_lt_of_mem_zone {s : GameState} (hwf : s.WF) {p : PlayerId} {k : ZoneKind}
@@ -100,522 +124,523 @@ theorem mem_inventory_of_loadoutCanAddDeck {s : GameState} {p : PlayerId} {id : 
   · assumption
   · cases h
 
-/-- Applying a legal frame answer preserves `WF`. -/
-theorem applyFrame_wf {s s' : GameState} {a : Action} {es : List Event}
-    (hwf : s.WF) (hl : LegalFrame s a) (h : applyFrame s a = some (s', es)) : s'.WF := by
+/-- Helper: `canPlayCard` implies `id` is in `p`'s hand or arsenal. -/
+theorem mem_hand_or_arsenal_of_canPlayCard {s : GameState} {p : PlayerId} {id : ObjId}
+    (h : canPlayCard s p id = true) :
+    id ∈ s.zone (.player p .hand) ∨ id ∈ s.zone (.player p .arsenal) := by
+  unfold canPlayCard at h
+  split at h
+  · rename_i hor
+    simpa [Bool.or_eq_true, decide_eq_true_eq] using hor
+  · cases h
+
+/-- Helper: `canPitchCard` implies `id` is in `p`'s hand. -/
+theorem mem_hand_of_canPitchCard {s : GameState} {p : PlayerId} {id : ObjId}
+    (h : canPitchCard s p id = true) :
+    id ∈ s.zone (.player p .hand) := by
+  unfold canPitchCard at h
+  split at h
+  · assumption
+  · cases h
+
+/-- Helper: `rollbackPlay` preserves `StepPreserves`. -/
+theorem rollbackPlay_preserves {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (fallback : List Frame) :
+    StepPreserves s (rollbackPlay s fallback) := by
+  unfold rollbackPlay
+  cases h : s.playRollback with
+  | none =>
+    dsimp only
+    exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
+           GameState.OwnerOk.congr hok rfl rfl,
+           GameState.RollbackOk.of_none rfl,
+           List.Perm.refl _, rfl⟩
+  | some snap =>
+    dsimp only
+    obtain ⟨hwf', hok', hperm⟩ := hrb snap h
+    exact ⟨hwf', hok', GameState.RollbackOk.of_none rfl, hperm, rfl⟩
+
+/-- Helper: moving an element to the back of a list produces a permutation. -/
+theorem erase_append_singleton_perm {α : Type} [BEq α] [LawfulBEq α] {l : List α} {x : α}
+    (h : x ∈ l) :
+    (l.erase x ++ [x]).Perm l := by
+  have h1 : (l.erase x ++ [x]).Perm (x :: l.erase x) := by
+    have hc := List.perm_append_comm (l₁ := l.erase x) (l₂ := [x])
+    simpa only [List.singleton_append] using hc
+  exact h1.trans (List.perm_cons_erase h).symm
+
+/-- Helper: restoring `s.snapshot` into any state with the same `config` yields `s.physIds`. -/
+theorem restore_snapshot_physIds (s s1 : GameState) (hc : s1.config = s.config) :
+    (s1.restore s.snapshot).physIds = s.physIds := by
+  unfold GameState.physIds GameState.zoneIds GameState.playerCount GameState.restore
+    GameState.snapshot GameState.zone GameState.obj?
+  rw [hc]
+
+/-- Helper: `spendAssetCost` preserves `StepPreserves` (only updates `pools`). -/
+theorem spendAssetCost_preserves {s s' : GameState} {p : PlayerId} {cost : AssetCost}
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (h : spendAssetCost s p cost = some s') :
+    StepPreserves s s' ∧ s'.playRollback = s.playRollback := by
+  unfold spendAssetCost at h
+  dsimp only at h
+  cases hs : (s.poolOf p).spend cost (cost.resources - (s.poolOf p).resources) with
+  | none => rw [hs] at h; cases h
+  | some pool' =>
+    rw [hs] at h
+    simp only [Option.some.injEq] at h
+    subst h
+    refine ⟨⟨GameState.WF.congr hwf rfl rfl rfl rfl,
+             GameState.OwnerOk.congr hok rfl rfl,
+             GameState.RollbackOk.preserve hrb rfl rfl (List.Perm.refl _),
+             List.Perm.refl _, rfl⟩, rfl⟩
+
+/-- Helper: `moveObj` preserves `StepPreserves` (keeping `playRollback` intact). -/
+theorem moveObj_preserves {s s' : GameState} {id id' : ObjId} {dst : Zone} {pos : Pos} {fd : Bool}
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (h : moveObj s id dst pos fd = some (s', id')) :
+    StepPreserves s s' := by
+  have hmeta := moveObj_config_rollback h
+  have hp := moveObj_physIds hwf h
+  exact ⟨moveObj_wf hwf h, moveObj_ownerOk hwf hok h,
+         GameState.RollbackOk.preserve hrb hmeta.1 hmeta.2 hp, hp, hmeta.1⟩
+
+/-- Helper: updating only metadata/pending fields preserves `StepPreserves`. -/
+theorem sameBoard_preserves {s s' : GameState} (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (hc : s'.config = s.config) (ho : s'.objects = s.objects) (hz : s'.zones = s.zones)
+    (hn : s'.nextId = s.nextId) (hr : s'.playRollback = s.playRollback) :
+    StepPreserves s s' := by
+  have hp : s'.physIds = s.physIds := by
+    unfold GameState.physIds GameState.zoneIds GameState.playerCount GameState.zone GameState.obj?
+    rw [hc, ho, hz]
+  have hperm : s'.physIds.Perm s.physIds := by rw [hp]
+  exact ⟨GameState.WF.congr hwf hc ho hz hn,
+         GameState.OwnerOk.congr hok ho hz,
+         GameState.RollbackOk.preserve hrb hc hr hperm,
+         hperm, hc⟩
+
+/-- Applying a legal frame answer preserves `WF`, `OwnerOk`, `RollbackOk`, `physIds`, and `config`. -/
+theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (hl : LegalFrame s a) (h : applyFrame s a = some (s', es)) :
+    StepPreserves s s' := by
   unfold applyFrame at h
   unfold LegalFrame at hl
   split at h
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr hwf rfl rfl rfl rfl
-  · split at h
-    · simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact GameState.WF.congr hwf rfl rfl rfl rfl
+  · -- chanceFirstPlayer
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- chooseFirstPlayer
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
     · cases h
-  · split at h
+  · -- loadoutEquip
+    split at h
     · split at h
       · cases h
       · split at h
         · cases h
         · rename_i hm
-          simp only [Option.some.injEq, Prod.mk.injEq] at h
-          obtain ⟨rfl, -⟩ := h
-          exact GameState.WF.congr (moveObj_wf hwf hm) rfl rfl rfl rfl
+          simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          have hp := moveObj_preserves hwf hok hrb hm
+          exact hp.trans (sameBoard_preserves hp.wf hp.ownerOk hp.rollbackOk rfl rfl rfl rfl rfl)
     · cases h
-  · split at h
+  · -- loadoutToDeck
+    split at h
     · split at h
       · cases h
       · rename_i hm
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact GameState.WF.congr (moveObj_wf hwf hm) rfl rfl rfl rfl
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        have hp := moveObj_preserves hwf hok hrb hm
+        exact hp.trans (sameBoard_preserves hp.wf hp.ownerOk hp.rollbackOk rfl rfl rfl rfl rfl)
     · cases h
-  · split at h
-    · simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact GameState.WF.congr hwf rfl rfl rfl rfl
+  · -- loadoutDone
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
     · cases h
-  · rename_i z rest l hp ha hk
+  · -- chanceShuffle
+    rename_i z rest l hp ha hk
     rw [hp, ha, hk] at hl
-    simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr (GameState.wf_reorder hwf hl.1 hl.2) rfl rfl rfl rfl
-  · split at h
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    have hperm := GameState.physIds_reorder hl.1 hl.2
+    exact ⟨GameState.WF.congr (GameState.wf_reorder hwf hl.1 hl.2) rfl rfl rfl rfl,
+           GameState.OwnerOk.congr (GameState.ownerOk_reorder hok hl.2) rfl rfl,
+           GameState.RollbackOk.preserve hrb rfl rfl hperm,
+           hperm, rfl⟩
+  · -- priority pass
+    split at h
     · dsimp only at h
       split at h
-      · simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact GameState.WF.congr hwf rfl rfl rfl rfl
-      · simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact GameState.WF.congr hwf rfl rfl rfl rfl
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+      · split at h <;>
+        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
     · cases h
-  · split at h
+  · -- priority playCard
+    split at h
+    · dsimp only at h
+      split at h
+      · cases h
+      · rename_i s1 layerId hm
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        have hmeta := moveObj_config_rollback hm
+        have hperm := moveObj_physIds hwf hm
+        have hwf1 := moveObj_wf hwf hm
+        have hok1 := moveObj_ownerOk hwf hok hm
+        refine ⟨GameState.WF.congr hwf1 rfl rfl rfl rfl,
+                GameState.OwnerOk.congr hok1 rfl rfl,
+                ?_, hperm, hmeta.1⟩
+        intro snap hs
+        simp only [Option.some.injEq] at hs
+        subst hs
+        refine ⟨GameState.WF.congr hwf hmeta.1 rfl rfl rfl,
+                GameState.OwnerOk.congr hok rfl rfl, ?_⟩
+        change (s1.restore s.snapshot).physIds.Perm s1.physIds
+        rw [restore_snapshot_physIds s s1 hmeta.1]
+        exact hperm.symm
+    · cases h
+  · -- chooseMode pickMode
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · cases h
+  · -- chooseMode cancelPlay
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact rollbackPlay_preserves hwf hok hrb _
+    · cases h
+  · -- choosePitch pitchCard
+    split at h
+    · split at h
+      · cases h
+      · rename_i s1 id1 es1 hpitch
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        have hmeta := pitchOne_config_rollback hpitch
+        have hperm := pitchOne_physIds hwf hpitch
+        exact ⟨GameState.WF.congr (pitchOne_wf hwf hpitch) rfl rfl rfl rfl,
+               GameState.OwnerOk.congr (pitchOne_ownerOk hwf hok hpitch) rfl rfl,
+               GameState.RollbackOk.preserve hrb hmeta.1 hmeta.2 hperm,
+               hperm, hmeta.1⟩
+    · cases h
+  · -- choosePitch cancelPlay
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact rollbackPlay_preserves hwf hok hrb _
+    · cases h
+  · -- chooseMay pickMay
+    split at h
+    · split at h <;>
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · cases h
+  · -- chooseModal pickMode
+    split at h
+    · dsimp only at h
+      simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · cases h
+  · -- chanceDie6 die6Roll
+    split at h
+    · dsimp only at h
+      simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · cases h
+  · -- chooseHandToDeck handToDeckPick
+    split at h
+    · dsimp only at h
+      split at h
+      · cases h
+      · rename_i hm
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        have hp := moveObj_preserves hwf hok hrb hm
+        exact hp.trans (sameBoard_preserves hp.wf hp.ownerOk hp.rollbackOk rfl rfl rfl rfl rfl)
+    · cases h
+  · -- chooseOpt optPick
+    rename_i p cardId rest q putOnTop _ _ _
+    split at h
+    · split at h
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+      · dsimp only at h
+        split at h
+        · rename_i hmem
+          simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          have hp_lt : p.n < s.playerCount := player_lt_of_mem_zone hwf hmem
+          have hz_valid : (Zone.player p .deck).Valid s.playerCount := Zone.valid_player hp_lt .deck
+          have hperm_l : ((s.zone (.player p .deck)).erase cardId ++ [cardId]).Perm
+              (s.zone (.player p .deck)) := erase_append_singleton_perm hmem
+          have hperm := GameState.physIds_reorder hz_valid hperm_l
+          exact ⟨GameState.WF.congr (GameState.wf_reorder hwf hz_valid hperm_l) rfl rfl rfl rfl,
+                 GameState.OwnerOk.congr (GameState.ownerOk_reorder hok hperm_l) rfl rfl,
+                 GameState.RollbackOk.preserve hrb rfl rfl hperm,
+                 hperm, rfl⟩
+        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · cases h
+  · -- chooseArsenal arsenalPut
+    split at h
     · split at h
       · cases h
       · rename_i hm
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact GameState.WF.congr (moveObj_wf hwf hm) rfl rfl rfl rfl
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        have hp := moveObj_preserves hwf hok hrb hm
+        exact hp.trans (sameBoard_preserves hp.wf hp.ownerOk hp.rollbackOk rfl rfl rfl rfl rfl)
     · cases h
-  · split at h
-    · simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact GameState.WF.congr hwf rfl rfl rfl rfl
+  · -- chooseArsenal arsenalSkip
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
     · cases h
-  · split at h
+  · -- choosePitchOrder pitchReturnPick
+    split at h
     · split at h
       · cases h
       · rename_i hm
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact GameState.WF.congr (moveObj_wf hwf hm) rfl rfl rfl rfl
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        have hp := moveObj_preserves hwf hok hrb hm
+        exact hp.trans (sameBoard_preserves hp.wf hp.ownerOk hp.rollbackOk rfl rfl rfl rfl rfl)
     · cases h
   · cases h
 
-/-- Applying any legal `Action` preserves `WF`. -/
-theorem applyAction_wf {s s' : GameState} {a : Action} {es : List Event}
-    (hwf : s.WF) (hl : Legal s a) (h : applyAction s a = some (s', es)) : s'.WF := by
+/-- Applying any legal `Action` preserves `StepPreserves`. -/
+theorem applyAction_preserves {s s' : GameState} {a : Action} {es : List Event}
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (hl : Legal s a) (h : applyAction s a = some (s', es)) :
+    StepPreserves s s' := by
   unfold applyAction at h
   split at h
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr hwf rfl rfl rfl rfl
+  · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
+           GameState.OwnerOk.congr hok rfl rfl,
+           GameState.RollbackOk.of_none rfl,
+           List.Perm.refl _, rfl⟩
   · rename_i hnc
     rcases hl.2 with hlf | hlc
-    · exact applyFrame_wf hwf hlf h
+    · exact applyFrame_preserves hwf hok hrb hlf h
     · unfold LegalConcede at hlc
       cases ha : a.actor <;> cases hk : a.kind <;> simp [ha, hk] at hlc
       exact False.elim (hnc _ ha hk)
 
-/-- One `microStep` preserves `WF`. -/
-theorem microStep_wf {s s' : GameState} {es : List Event}
-    (hwf : s.WF) (h : microStep s = some (s', es)) : s'.WF := by
+/-- Helper: `drawOne` preserves `config` and `playRollback`. -/
+theorem drawOne_meta (s : GameState) (p : PlayerId) :
+    (drawOne s p).1.config = s.config ∧ (drawOne s p).1.playRollback = s.playRollback := by
+  unfold drawOne
+  cases s.zone (.player p .deck) with
+  | nil => exact ⟨rfl, rfl⟩
+  | cons id _ =>
+    dsimp only
+    cases hm : moveObj s id (.player p .hand) .top false with
+    | none => exact ⟨rfl, rfl⟩
+    | some res => exact moveObj_config_rollback hm
+
+/-- One `microStep` preserves `WF`, `OwnerOk`, `RollbackOk`, `physIds`, and `config` (L2 + L4). -/
+theorem microStep_preserves {s s' : GameState} {es : List Event}
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (h : microStep s = some (s', es)) :
+    StepPreserves s s' := by
   unfold microStep at h
   split at h
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr (revealAllLoadouts_wf hwf) rfl rfl rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr hwf rfl rfl rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr hwf rfl rfl rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr (drawOne_wf hwf) rfl rfl rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr hwf rfl rfl rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr hwf rfl rfl rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr hwf rfl rfl rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr hwf rfl rfl rfl rfl
-  · split at h <;>
-      (simp only [Option.some.injEq, Prod.mk.injEq] at h
-       obtain ⟨rfl, -⟩ := h
-       exact GameState.WF.congr hwf rfl rfl rfl rfl)
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.WF.congr (untapPlayer_wf hwf _) rfl rfl rfl rfl
+  · -- revealLoadouts
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    have hperm : (revealAllLoadouts s).physIds.Perm s.physIds := by rw [revealAllLoadouts_physIds]
+    exact ⟨GameState.WF.congr (revealAllLoadouts_wf hwf) rfl rfl rfl rfl,
+           GameState.OwnerOk.congr (revealAllLoadouts_ownerOk hok) rfl rfl,
+           GameState.RollbackOk.preserve hrb rfl rfl hperm,
+           hperm, rfl⟩
+  · -- openingDraws
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- draw 0
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- draw (n + 1)
+    rename_i p _ _ _
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    have hmeta := drawOne_meta s p
+    have hperm := drawOne_physIds hwf (p := p)
+    exact ⟨GameState.WF.congr (drawOne_wf hwf) rfl rfl rfl rfl,
+           GameState.OwnerOk.congr (drawOne_ownerOk hwf hok) rfl rfl,
+           GameState.RollbackOk.preserve hrb hmeta.1 hmeta.2 hperm,
+           hperm, hmeta.1⟩
+  · -- beginTurn
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- startPhaseWork
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- actionPhaseStart
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- playPayCost
+    split at h
+    · rename_i s1 hspend
+      simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      obtain ⟨hp1, _⟩ := spendAssetCost_preserves hwf hok hrb hspend
+      exact ⟨GameState.WF.congr hp1.wf rfl rfl rfl rfl,
+             GameState.OwnerOk.congr hp1.ownerOk rfl rfl,
+             GameState.RollbackOk.of_none rfl,
+             hp1.physIds, hp1.config⟩
+    · split at h
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact rollbackPlay_preserves hwf hok hrb _
+  · -- resolveStack
+    split at h <;>
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- finishResolve
+    rename_i layerId rest _
+    dsimp only at h
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
+    let s1 := if info.goAgain then
+      s.setPool info.controller ((s.poolOf info.controller).addActionPoints 1) else s
+    have hp1 : StepPreserves s s1 := by
+      dsimp only [s1]
+      split
+      · exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+      · exact StepPreserves.refl hwf hok hrb
+    let p2 :=
+      if layerId ∈ s1.zone .stack then
+        match s1.obj? layerId with
+        | some o =>
+          let isPerm :=
+            match s1.cardDefOf? layerId with
+            | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
+            | none => false
+          let dst := if isPerm then Zone.player info.controller .permanent
+                     else Zone.player o.owner .graveyard
+          match moveObj s1 layerId dst .top false with
+          | some (sMoved, id') => (sMoved, [Event.moved layerId id' .stack dst])
+          | none => (s1, [])
+        | none => (s1, [])
+      else
+        (s1, [])
+    have hp2 : StepPreserves s1 p2.1 := by
+      dsimp only [p2]
+      split
+      · cases ho : s1.obj? layerId with
+        | none => exact StepPreserves.refl hp1.wf hp1.ownerOk hp1.rollbackOk
+        | some o =>
+          dsimp only
+          cases hm : moveObj s1 layerId _ .top false with
+          | none => exact StepPreserves.refl hp1.wf hp1.ownerOk hp1.rollbackOk
+          | some res => exact moveObj_preserves hp1.wf hp1.ownerOk hp1.rollbackOk hm
+      · exact StepPreserves.refl hp1.wf hp1.ownerOk hp1.rollbackOk
+    have hp12 := hp1.trans hp2
+    let p2e : GameState := { p2.1 with layerMeta := p2.1.layerMeta.erase layerId.n }
+    have hwf_e : p2e.WF := GameState.WF.congr hp12.wf rfl rfl rfl rfl
+    have hok_e : p2e.OwnerOk := GameState.OwnerOk.congr hp12.ownerOk rfl rfl
+    have hmeta3 := checkHeroDefeat_config_rollback p2e
+    have hphys3 : (checkHeroDefeat p2e).physIds.Perm p2.1.physIds := by
+      rw [checkHeroDefeat_physIds]
+      exact List.Perm.refl _
+    have hp3 : StepPreserves p2.1
+        { checkHeroDefeat p2e with
+            pending := Frame.priority ((checkHeroDefeat p2e).active.getD ⟨0⟩) 0 :: rest } :=
+      ⟨GameState.WF.congr (checkHeroDefeat_wf hwf_e) rfl rfl rfl rfl,
+       GameState.OwnerOk.congr (checkHeroDefeat_ownerOk hok_e) rfl rfl,
+       GameState.RollbackOk.preserve hp12.rollbackOk hmeta3.1 hmeta3.2 hphys3,
+       hphys3, hmeta3.1⟩
+    exact hp12.trans hp3
+  · -- run (L4!)
+    rename_i ctrl src fromArsenal env todo rest _
+    simp only [Option.some.injEq] at h
+    have hs' : s' = (interpRunStep s ctrl src fromArsenal env todo rest).1 :=
+      congrArg Prod.fst h.symm
+    subst hs'
+    have hmeta := interpRunStep_meta s ctrl src fromArsenal env todo rest
+    have hperm := interpRunStep_physIds hwf ctrl src fromArsenal env todo rest
+    exact ⟨interpRunStep_wf hwf ctrl src fromArsenal env todo rest,
+           interpRunStep_ownerOk hwf hok ctrl src fromArsenal env todo rest,
+           GameState.RollbackOk.preserve hrb hmeta.1 hmeta.2 hperm,
+           hperm, hmeta.1⟩
+  · -- optStep 0
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- optStep (n + 1)
+    split at h <;>
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- endPhaseStart
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- returnPitch
+    split at h <;>
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- endTurnCleanup
+    rename_i tp _ _
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    have hperm : (untapPlayer s tp).physIds.Perm s.physIds := by rw [untapPlayer_physIds]
+    exact ⟨GameState.WF.congr (untapPlayer_wf hwf tp) rfl rfl rfl rfl,
+           GameState.OwnerOk.congr (untapPlayer_ownerOk hok tp) rfl rfl,
+           GameState.RollbackOk.preserve hrb rfl rfl hperm,
+           hperm, rfl⟩
   · cases h
 
-/-- `advance` preserves `WF`. -/
-theorem advance_wf :
-    ∀ (n : Nat) {s s' : GameState} {es es' : List Event}, s.WF →
-      advance n s es = .ok (s', es') → s'.WF
-  | 0, s, s', es, es', hwf, h => by
+/-- `advance` preserves `StepPreserves`. -/
+theorem advance_preserves :
+    ∀ (n : Nat) {s s' : GameState} {es es' : List Event},
+      s.WF → s.OwnerOk → s.RollbackOk →
+      advance n s es = .ok (s', es') → StepPreserves s s'
+  | 0, s, s', es, es', hwf, hok, hrb, h => by
     unfold advance at h
     split at h
     · split at h
       · cases h
-      · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact hwf
-    · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact hwf
-  | n + 1, s, s', es, es', hwf, h => by
+      · simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact StepPreserves.refl hwf hok hrb
+    · simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact StepPreserves.refl hwf hok hrb
+  | n + 1, s, s', es, es', hwf, hok, hrb, h => by
     unfold advance at h
     split at h
     · split at h
       · split at h
         · rename_i s1 es1 hm
-          exact advance_wf n (microStep_wf hwf hm) h
+          have h1 := microStep_preserves hwf hok hrb hm
+          exact h1.trans (advance_preserves n h1.wf h1.ownerOk h1.rollbackOk h)
         · cases h
-      · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact hwf
-    · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact hwf
+      · simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact StepPreserves.refl hwf hok hrb
+    · simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact StepPreserves.refl hwf hok hrb
+
+/-- Full step preservation bundle (I1 + I3 + RollbackOk). -/
+theorem step_preserves {fuel : Nat} {s s' : GameState} {a : Action} {es : List Event}
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (h : step fuel s a = .ok (s', es)) : StepPreserves s s' := by
+  unfold step at h
+  split at h
+  · rename_i hl
+    split at h
+    · rename_i s1 es1 ha
+      have h1 := applyAction_preserves hwf hok hrb hl ha
+      exact h1.trans (advance_preserves fuel h1.wf h1.ownerOk h1.rollbackOk h)
+    · cases h
+  · cases h
 
 /-- **I3**: `step` preserves structural well-formedness `WF`. -/
 theorem step_wf {fuel : Nat} {s s' : GameState} {a : Action} {es : List Event}
-    (hwf : s.WF) (h : step fuel s a = .ok (s', es)) : s'.WF := by
-  unfold step at h
-  split at h
-  · rename_i hl
-    split at h
-    · rename_i s1 es1 ha
-      exact advance_wf fuel (applyAction_wf hwf hl ha) h
-    · cases h
-  · cases h
-
-/-- Applying a legal frame answer preserves `OwnerOk`. -/
-theorem applyFrame_ownerOk {s s' : GameState} {a : Action} {es : List Event}
-    (hwf : s.WF) (hok : s.OwnerOk) (hl : LegalFrame s a) (h : applyFrame s a = some (s', es)) :
-    s'.OwnerOk := by
-  unfold applyFrame at h
-  unfold LegalFrame at hl
-  split at h
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr hok rfl rfl
-  · split at h
-    · simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact GameState.OwnerOk.congr hok rfl rfl
-    · cases h
-  · split at h
-    · split at h
-      · cases h
-      · split at h
-        · cases h
-        · rename_i hm
-          simp only [Option.some.injEq, Prod.mk.injEq] at h
-          obtain ⟨rfl, -⟩ := h
-          exact GameState.OwnerOk.congr (moveObj_ownerOk hwf hok hm) rfl rfl
-    · cases h
-  · split at h
-    · split at h
-      · cases h
-      · rename_i hm
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact GameState.OwnerOk.congr (moveObj_ownerOk hwf hok hm) rfl rfl
-    · cases h
-  · split at h
-    · simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact GameState.OwnerOk.congr hok rfl rfl
-    · cases h
-  · rename_i z rest l hp ha hk
-    rw [hp, ha, hk] at hl
-    simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr (GameState.ownerOk_reorder hok hl.2) rfl rfl
-  · split at h
-    · dsimp only at h
-      split at h <;>
-        (simp only [Option.some.injEq, Prod.mk.injEq] at h
-         obtain ⟨rfl, -⟩ := h
-         exact GameState.OwnerOk.congr hok rfl rfl)
-    · cases h
-  · split at h
-    · split at h
-      · cases h
-      · rename_i hm
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact GameState.OwnerOk.congr (moveObj_ownerOk hwf hok hm) rfl rfl
-    · cases h
-  · split at h
-    · simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact GameState.OwnerOk.congr hok rfl rfl
-    · cases h
-  · split at h
-    · split at h
-      · cases h
-      · rename_i hm
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact GameState.OwnerOk.congr (moveObj_ownerOk hwf hok hm) rfl rfl
-    · cases h
-  · cases h
-
-/-- Applying any legal `Action` preserves `OwnerOk`. -/
-theorem applyAction_ownerOk {s s' : GameState} {a : Action} {es : List Event}
-    (hwf : s.WF) (hok : s.OwnerOk) (hl : Legal s a) (h : applyAction s a = some (s', es)) :
-    s'.OwnerOk := by
-  unfold applyAction at h
-  split at h
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr hok rfl rfl
-  · rename_i hnc
-    rcases hl.2 with hlf | hlc
-    · exact applyFrame_ownerOk hwf hok hlf h
-    · unfold LegalConcede at hlc
-      cases ha : a.actor <;> cases hk : a.kind <;> simp [ha, hk] at hlc
-      exact False.elim (hnc _ ha hk)
-
-/-- One `microStep` preserves `OwnerOk`. -/
-theorem microStep_ownerOk {s s' : GameState} {es : List Event}
-    (hwf : s.WF) (hok : s.OwnerOk) (h : microStep s = some (s', es)) : s'.OwnerOk := by
-  unfold microStep at h
-  split at h
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr (revealAllLoadouts_ownerOk hok) rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr hok rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr hok rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr (drawOne_ownerOk hwf hok) rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr hok rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr hok rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr hok rfl rfl
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr hok rfl rfl
-  · split at h <;>
-      (simp only [Option.some.injEq, Prod.mk.injEq] at h
-       obtain ⟨rfl, -⟩ := h
-       exact GameState.OwnerOk.congr hok rfl rfl)
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.OwnerOk.congr (untapPlayer_ownerOk hok _) rfl rfl
-  · cases h
-
-/-- `advance` preserves `OwnerOk`. -/
-theorem advance_ownerOk :
-    ∀ (n : Nat) {s s' : GameState} {es es' : List Event}, s.WF → s.OwnerOk →
-      advance n s es = .ok (s', es') → s'.OwnerOk
-  | 0, s, s', es, es', _, hok, h => by
-    unfold advance at h
-    split at h
-    · split at h
-      · cases h
-      · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact hok
-    · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact hok
-  | n + 1, s, s', es, es', hwf, hok, h => by
-    unfold advance at h
-    split at h
-    · split at h
-      · split at h
-        · rename_i s1 es1 hm
-          exact advance_ownerOk n (microStep_wf hwf hm) (microStep_ownerOk hwf hok hm) h
-        · cases h
-      · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact hok
-    · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact hok
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (h : step fuel s a = .ok (s', es)) : s'.WF :=
+  (step_preserves hwf hok hrb h).wf
 
 /-- `step` preserves `OwnerOk`. -/
 theorem step_ownerOk {fuel : Nat} {s s' : GameState} {a : Action} {es : List Event}
-    (hwf : s.WF) (hok : s.OwnerOk) (h : step fuel s a = .ok (s', es)) : s'.OwnerOk := by
-  unfold step at h
-  split at h
-  · rename_i hl
-    split at h
-    · rename_i s1 es1 ha
-      exact advance_ownerOk fuel (applyAction_wf hwf hl ha) (applyAction_ownerOk hwf hok hl ha) h
-    · cases h
-  · cases h
-
-/-- Applying a legal frame answer preserves `physIds` up to permutation. -/
-theorem applyFrame_physIds {s s' : GameState} {a : Action} {es : List Event}
-    (hwf : s.WF) (hl : LegalFrame s a) (h : applyFrame s a = some (s', es)) :
-    s'.physIds.Perm s.physIds := by
-  unfold applyFrame at h
-  unfold LegalFrame at hl
-  split at h
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact List.Perm.refl _
-  · split at h
-    · simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact List.Perm.refl _
-    · cases h
-  · split at h
-    · split at h
-      · cases h
-      · split at h
-        · cases h
-        · rename_i hm
-          simp only [Option.some.injEq, Prod.mk.injEq] at h
-          obtain ⟨rfl, -⟩ := h
-          have hp := moveObj_physIds hwf hm
-          exact hp
-    · cases h
-  · split at h
-    · split at h
-      · cases h
-      · rename_i hm
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        have hp := moveObj_physIds hwf hm
-        exact hp
-    · cases h
-  · split at h
-    · simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact List.Perm.refl _
-    · cases h
-  · rename_i z rest l hp ha hk
-    rw [hp, ha, hk] at hl
-    simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact GameState.physIds_reorder hl.1 hl.2
-  · split at h
-    · dsimp only at h
-      split at h <;>
-        (simp only [Option.some.injEq, Prod.mk.injEq] at h
-         obtain ⟨rfl, -⟩ := h
-         exact List.Perm.refl _)
-    · cases h
-  · split at h
-    · split at h
-      · cases h
-      · rename_i hm
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        have hp := moveObj_physIds hwf hm
-        exact hp
-    · cases h
-  · split at h
-    · simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact List.Perm.refl _
-    · cases h
-  · split at h
-    · split at h
-      · cases h
-      · rename_i hm
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        have hp := moveObj_physIds hwf hm
-        exact hp
-    · cases h
-  · cases h
-
-/-- Applying any legal `Action` preserves `physIds` up to permutation. -/
-theorem applyAction_physIds {s s' : GameState} {a : Action} {es : List Event}
-    (hwf : s.WF) (hl : Legal s a) (h : applyAction s a = some (s', es)) :
-    s'.physIds.Perm s.physIds := by
-  unfold applyAction at h
-  split at h
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact List.Perm.refl _
-  · rename_i hnc
-    rcases hl.2 with hlf | hlc
-    · exact applyFrame_physIds hwf hlf h
-    · unfold LegalConcede at hlc
-      cases ha : a.actor <;> cases hk : a.kind <;> simp [ha, hk] at hlc
-      exact False.elim (hnc _ ha hk)
-
-/-- One `microStep` preserves `physIds` up to permutation. -/
-theorem microStep_physIds {s s' : GameState} {es : List Event}
-    (hwf : s.WF) (h : microStep s = some (s', es)) :
-    s'.physIds.Perm s.physIds := by
-  unfold microStep at h
-  split at h
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    change (revealAllLoadouts s).physIds.Perm s.physIds
-    rw [revealAllLoadouts_physIds]
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact List.Perm.refl _
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact List.Perm.refl _
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact drawOne_physIds hwf
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact List.Perm.refl _
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact List.Perm.refl _
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact List.Perm.refl _
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    exact List.Perm.refl _
-  · split at h <;>
-      (simp only [Option.some.injEq, Prod.mk.injEq] at h
-       obtain ⟨rfl, -⟩ := h
-       exact List.Perm.refl _)
-  · simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, -⟩ := h
-    change (untapPlayer s _).physIds.Perm s.physIds
-    rw [untapPlayer_physIds]
-  · cases h
-
-/-- `advance` preserves `physIds` up to permutation. -/
-theorem advance_physIds :
-    ∀ (n : Nat) {s s' : GameState} {es es' : List Event}, s.WF →
-      advance n s es = .ok (s', es') → s'.physIds.Perm s.physIds
-  | 0, s, s', es, es', _, h => by
-    unfold advance at h
-    split at h
-    · split at h
-      · cases h
-      · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact List.Perm.refl _
-    · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact List.Perm.refl _
-  | n + 1, s, s', es, es', hwf, h => by
-    unfold advance at h
-    split at h
-    · split at h
-      · split at h
-        · rename_i s1 es1 hm
-          exact (advance_physIds n (microStep_wf hwf hm) h).trans (microStep_physIds hwf hm)
-        · cases h
-      · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
-        exact List.Perm.refl _
-    · simp only [Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact List.Perm.refl _
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (h : step fuel s a = .ok (s', es)) : s'.OwnerOk :=
+  (step_preserves hwf hok hrb h).ownerOk
 
 /-- **I1**: `step` preserves the multiset of all physical cards across the entire game. -/
 theorem step_physIds {fuel : Nat} {s s' : GameState} {a : Action} {es : List Event}
-    (hwf : s.WF) (h : step fuel s a = .ok (s', es)) :
-    s'.physIds.Perm s.physIds := by
-  unfold step at h
-  split at h
-  · rename_i hl
-    split at h
-    · rename_i s1 es1 ha
-      exact (advance_physIds fuel (applyAction_wf hwf hl ha) h).trans
-        (applyAction_physIds hwf hl ha)
-    · cases h
-  · cases h
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (h : step fuel s a = .ok (s', es)) : s'.physIds.Perm s.physIds :=
+  (step_preserves hwf hok hrb h).physIds
 
 /-- **I6** (completeness): `step` accepts an action only if it satisfies `Legal`. -/
 theorem legal_of_step_ok {fuel : Nat} {s : GameState} {a : Action} {r : GameState × List Event}
@@ -728,8 +753,9 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
           · rintro ⟨rfl, hfin⟩
             right
             simp [hfin]
-        | chanceFirstChooser _ | pickFirstPlayer _ | shuffleOrder _ | pass | arsenalPut _
-        | arsenalSkip | pitchReturnPick _ | concede =>
+        | chanceFirstChooser _ | pickFirstPlayer _ | shuffleOrder _ | pass | playCard _
+        | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_map, List.mem_filter,
             Action.mk.injEq, Actor.player.injEq, iff_false]
           rintro ((⟨_, _, _, hcontra⟩ | ⟨_, _, _, hcontra⟩) | hdone)
@@ -745,7 +771,99 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
           · cases hcontra
           · split at hdone <;> simp at hdone
     | priority p _ =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | pass =>
+          simp only [Actor.isPlayer, and_true, List.mem_cons, List.mem_map, List.mem_filter,
+            Action.mk.injEq, Actor.player.injEq, and_true]
+          constructor
+          · rintro (hq | ⟨_, _, _, hcontra⟩)
+            · exact hq
+            · cases hcontra
+          · intro hq; left; exact hq
+        | playCard id =>
+          simp only [Actor.isPlayer, and_true, List.mem_cons, List.mem_map, List.mem_filter,
+            List.mem_append, Action.mk.injEq, Actor.player.injEq, ActionKind.playCard.injEq]
+          constructor
+          · rintro (⟨_, hcontra⟩ | ⟨x, ⟨_, hcan⟩, rfl, rfl⟩)
+            · cases hcontra
+            · exact ⟨rfl, hcan⟩
+          · rintro ⟨rfl, hcan⟩
+            right
+            exact ⟨id, ⟨mem_hand_or_arsenal_of_canPlayCard hcan, hcan⟩, rfl, rfl⟩
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pickMode _ | pitchCard _ | cancelPlay | pickMay _
+        | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
+        | pitchReturnPick _ | concede =>
+          simp [Actor.isPlayer]
+      | chance | clock | judge =>
+        cases kind <;> simp [Actor.isPlayer]
+    | chooseMode p _ _ modeCount _ =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer]
+      all_goals grind
+    | choosePitch p _ _ _ _ =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | pitchCard id =>
+          unfold pitchableCards
+          simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_map, List.mem_filter,
+            List.mem_singleton, Action.mk.injEq, Actor.player.injEq, ActionKind.pitchCard.injEq]
+          constructor
+          · rintro (⟨x, ⟨_, hcan⟩, rfl, rfl⟩ | ⟨_, hcontra⟩)
+            · exact ⟨rfl, hcan⟩
+            · cases hcontra
+          · rintro ⟨rfl, hcan⟩
+            left
+            exact ⟨id, ⟨mem_hand_of_canPitchCard hcan, hcan⟩, rfl, rfl⟩
+        | cancelPlay =>
+          simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_map, List.mem_singleton,
+            Action.mk.injEq, Actor.player.injEq, and_true]
+          constructor
+          · rintro (⟨_, _, _, hcontra⟩ | hq)
+            · cases hcontra
+            · exact hq
+          · intro hq; right; exact hq
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pickMay _
+        | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
+        | pitchReturnPick _ | concede =>
+          simp [Actor.isPlayer]
+      | chance | clock | judge =>
+        cases kind <;> simp [Actor.isPlayer]
+    | chooseMay ctrl _ _ _ _ _ =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | pickMay b =>
+          cases b <;> simp [Actor.isPlayer, eq_comm]
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
+        | cancelPlay | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
+        | pitchReturnPick _ | concede =>
+          simp [Actor.isPlayer]
+      | chance | clock | judge =>
+        cases kind <;> simp [Actor.isPlayer]
+    | chooseModal ctrl _ _ _ modes =>
+      cases actor <;> cases kind <;> simp [Actor.isPlayer]
+      grind
+    | chooseHandToDeck p _ =>
+      cases actor <;> cases kind <;> simp [Actor.isPlayer]
+      grind
+    | chooseOpt p _ =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | optPick b =>
+          cases b <;> simp [Actor.isPlayer, eq_comm]
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
+        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | arsenalPut _ | arsenalSkip
+        | pitchReturnPick _ | concede =>
+          simp [Actor.isPlayer]
+      | chance | clock | judge =>
+        cases kind <;> simp [Actor.isPlayer]
     | chooseArsenal tp =>
       cases actor with
       | player q =>
@@ -783,7 +901,9 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
             right
             exact hq
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
+        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
+        | pitchReturnPick _ | concede =>
           simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_singleton,
             Action.mk.injEq, iff_false]
           rintro (hput | ⟨_, hcontra⟩)
@@ -808,8 +928,9 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
       cases actor <;> cases kind <;> simp [Actor.isPlayer]
       grind
     | revealLoadouts | chanceShuffle _ | openingDraws | draw _ _ | beginTurn
-    | startPhaseWork _ | actionPhaseStart _ | endPhaseStart _ | returnPitch _
-    | endTurnCleanup _ =>
+    | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _ | resolveStack
+    | finishResolve _ | run _ _ _ _ _ | chanceDie6 _ _ _ _ _ _ _ | optStep _ _
+    | endPhaseStart _ | returnPitch _ | endTurnCleanup _ =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer]
 
 /-- **I6** (concession enumeration): `concedeActions` matches `LegalConcede` for player actions. -/
@@ -897,9 +1018,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
                 simp [Zone.normalize, hk_ar]
               rw [hnorm]
               refine ⟨Zone.valid_player hq k, ?_⟩
-              intro heq
-              cases heq
-              simp [ZoneKind.isArena] at hk_ar
+              intro heq; cases heq; simp [ZoneKind.isArena] at hk_ar
             cases hm' : moveObj s id (.player q k) .top true with
             | none => rw [hm'] at hm; simp at hm
             | some _ => rfl
@@ -923,18 +1042,167 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | loadoutDone =>
           obtain ⟨rfl, hfin⟩ := hlf
           simp [hfin]
-        | chanceFirstChooser _ | pickFirstPlayer _ | shuffleOrder _ | pass | arsenalPut _
-        | arsenalSkip | pitchReturnPick _ | concede =>
+        | chanceFirstChooser _ | pickFirstPlayer _ | shuffleOrder _ | pass | playCard _
+        | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
     | chanceShuffle z =>
       cases actor <;> cases kind <;> simp at hlf ⊢
     | priority p passCount =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | pass =>
+          subst hlf
+          simp only [↓reduceIte]
+          split
+          · rfl
+          · split <;> rfl
+        | playCard id =>
+          obtain ⟨rfl, hcan⟩ := hlf
+          simp only [hcan, and_self, ↓reduceIte]
+          have hm : (moveObj s id .stack .top false).isSome = true := by
+            rcases mem_hand_or_arsenal_of_canPlayCard hcan with hmem | hmem
+            · have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem
+              apply moveObj_isSome hwf (Zone.valid_player hq .hand) hmem
+              intro o _
+              exact ⟨Zone.valid_stack s.playerCount, by intro heq; cases heq⟩
+            · have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem
+              apply moveObj_isSome hwf (Zone.valid_player hq .arsenal) hmem
+              intro o _
+              exact ⟨Zone.valid_stack s.playerCount, by intro heq; cases heq⟩
+          cases hm' : moveObj s id .stack .top false with
+          | none => rw [hm'] at hm; simp at hm
+          | some _ => rfl
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pickMode _ | pitchCard _ | cancelPlay | pickMay _
+        | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
+        | pitchReturnPick _ | concede =>
+          exact False.elim hlf
+      | chance | clock | judge =>
+        cases kind <;> exact False.elim hlf
+    | chooseMode p _ _ modeCount _ =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | pickMode idx =>
+          obtain ⟨rfl, hlt⟩ := hlf
+          simp [hlt]
+        | cancelPlay =>
+          subst hlf
+          simp
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pitchCard _ | pickMay _
+        | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
+        | pitchReturnPick _ | concede =>
+          exact False.elim hlf
+      | chance | clock | judge =>
+        cases kind <;> exact False.elim hlf
+    | choosePitch p _ _ _ _ =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | pitchCard id =>
+          obtain ⟨rfl, hcan⟩ := hlf
+          simp only [hcan, and_self, ↓reduceIte]
+          have hmem : id ∈ s.zone (.player q .hand) := mem_hand_of_canPitchCard hcan
+          have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem
+          have hpitch := pitchOne_isSome hwf hok hq hcan
+          cases hp' : pitchOne s q id with
+          | none => rw [hp'] at hpitch; simp at hpitch
+          | some _ => rfl
+        | cancelPlay =>
+          subst hlf
+          simp
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pickMay _
+        | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
+        | pitchReturnPick _ | concede =>
+          exact False.elim hlf
+      | chance | clock | judge =>
+        cases kind <;> exact False.elim hlf
+    | chooseMay ctrl _ _ _ _ _ =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | pickMay b =>
+          subst hlf
+          cases b <;> simp
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
+        | cancelPlay | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
+        | pitchReturnPick _ | concede =>
+          exact False.elim hlf
+      | chance | clock | judge =>
+        cases kind <;> exact False.elim hlf
+    | chooseModal ctrl _ _ _ modes =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | pickMode idx =>
+          obtain ⟨rfl, hlt⟩ := hlf
+          simp [hlt]
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pitchCard _ | cancelPlay
+        | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
+        | pitchReturnPick _ | concede =>
+          exact False.elim hlf
+      | chance | clock | judge =>
+        cases kind <;> exact False.elim hlf
+    | chanceDie6 _ _ _ _ _ _ _ =>
       cases actor <;> cases kind <;> simp at hlf ⊢
-      subst hlf
-      simp only [↓reduceIte]
-      split <;> rfl
+      exact hlf
+    | chooseHandToDeck p pos =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | handToDeckPick id =>
+          obtain ⟨rfl, hmem_hand⟩ := hlf
+          simp only [hmem_hand, and_self, ↓reduceIte]
+          have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem_hand
+          have hm : ∀ (dp : Pos), (moveObj s id (.player q .deck) dp false).isSome = true := by
+            intro dp
+            apply moveObj_isSome hwf (Zone.valid_player hq .hand) hmem_hand
+            intro o ho
+            have hown : o.owner = q := hok.owner q .hand rfl id hmem_hand o ho
+            have hnorm : Zone.normalize o.owner (.player q .deck) = .player q .deck := by
+              simp [Zone.normalize, ZoneKind.isArena, hown]
+            rw [hnorm]
+            exact ⟨Zone.valid_player hq .deck, by intro heq; cases heq⟩
+          split
+          · rename_i hm'
+            cases pos <;> dsimp only at hm'
+            · have hsome := hm .top; rw [hm'] at hsome; simp at hsome
+            · have hsome := hm .bottom; rw [hm'] at hsome; simp at hsome
+            · have hsome := hm .top; rw [hm'] at hsome; simp at hsome
+            · have hsome := hm .top; rw [hm'] at hsome; simp at hsome
+          · rfl
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
+        | cancelPlay | pickMay _ | die6Roll _ | optPick _ | arsenalPut _ | arsenalSkip
+        | pitchReturnPick _ | concede =>
+          exact False.elim hlf
+      | chance | clock | judge =>
+        cases kind <;> exact False.elim hlf
+    | chooseOpt p cardId =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | optPick b =>
+          subst hlf
+          cases b
+          · simp only [Bool.false_eq_true, ↓reduceIte]
+            split <;> rfl
+          · simp
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
+        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | arsenalPut _ | arsenalSkip
+        | pitchReturnPick _ | concede =>
+          exact False.elim hlf
+      | chance | clock | judge =>
+        cases kind <;> exact False.elim hlf
     | chooseArsenal tp =>
       cases actor with
       | player q =>
@@ -958,7 +1226,9 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           subst hlf
           simp
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
+        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
+        | pitchReturnPick _ | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -982,12 +1252,15 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           | none => rw [hm'] at hm; simp at hm
           | some _ => rfl
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | arsenalPut _ | arsenalSkip | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
+        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _
+        | arsenalSkip | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
     | revealLoadouts | openingDraws | draw _ _ | beginTurn | startPhaseWork _
-    | actionPhaseStart _ | endPhaseStart _ | returnPitch _ | endTurnCleanup _ =>
+    | actionPhaseStart _ | playPayCost _ _ _ _ _ | resolveStack | finishResolve _
+    | run _ _ _ _ _ | optStep _ _ | endPhaseStart _ | returnPitch _ | endTurnCleanup _ =>
       cases actor <;> cases kind <;> exact False.elim hlf
 
 /-- Under `WF` and `OwnerOk`, every legal action applies without failing. -/
@@ -1017,6 +1290,20 @@ theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
   | beginTurn => rfl
   | startPhaseWork _ => rfl
   | actionPhaseStart _ => rfl
+  | playPayCost _ _ _ _ _ =>
+    dsimp only
+    split
+    · rfl
+    · split <;> rfl
+  | resolveStack =>
+    dsimp only
+    split <;> rfl
+  | finishResolve _ => rfl
+  | run _ _ _ _ _ => rfl
+  | optStep _ n =>
+    cases n
+    · rfl
+    · dsimp only; split <;> rfl
   | endPhaseStart _ => rfl
   | returnPitch _ => dsimp only; split <;> rfl
   | endTurnCleanup _ => rfl
@@ -1085,17 +1372,22 @@ inductive Reachable : GameState → Prop where
   | step {s s' : GameState} {fuel : Nat} {a : Action} {es : List Event} :
       Reachable s → Fab.step fuel s a = .ok (s', es) → Reachable s'
 
-/-- Every reachable state satisfies `WF` and `OwnerOk` (I3). -/
-theorem Reachable.inv {s : GameState} (hr : Reachable s) : s.WF ∧ s.OwnerOk := by
+/-- Every reachable state satisfies `WF`, `OwnerOk`, and `RollbackOk` (I3). -/
+theorem Reachable.inv {s : GameState} (hr : Reachable s) :
+    s.WF ∧ s.OwnerOk ∧ s.RollbackOk := by
   induction hr with
-  | initial h => exact GameState.initial_inv h
-  | step _ hstep ih => exact ⟨step_wf ih.1 hstep, step_ownerOk ih.1 ih.2 hstep⟩
+  | initial h =>
+    have h1 := GameState.initial_inv h
+    exact ⟨h1.1, h1.2, GameState.initial_rollbackOk h⟩
+  | step _ hstep ih =>
+    have hp := step_preserves ih.1 ih.2.1 ih.2.2 hstep
+    exact ⟨hp.wf, hp.ownerOk, hp.rollbackOk⟩
 
 /-- **I4** (global): no reachable state can ever trigger an internal engine error. -/
 theorem Reachable.not_internal {s : GameState} (hr : Reachable s) (fuel : Nat) (a : Action)
     (msg : String) :
     Fab.step fuel s a ≠ .error (.internal msg) :=
-  step_not_internal hr.inv.1 hr.inv.2
+  step_not_internal hr.inv.1 hr.inv.2.1
 
 end Fab
 

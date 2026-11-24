@@ -1,6 +1,8 @@
 module
 
 public import Fab.State.Zone
+public import Fab.Core.Cost
+public import Fab.Card.IR.Effect
 
 /-!
 # Actors, actions, and continuation frames
@@ -61,6 +63,22 @@ inductive ActionKind where
   | shuffleOrder (order : List ObjId)
   /-- Pass priority (CR 1.11, 4.3.3). -/
   | pass
+  /-- Announce playing card `id` from hand or arsenal while holding priority (CR 5.1.1). -/
+  | playCard (id : ObjId)
+  /-- Select modal branch index `idx` during play declaration or `Effect.chooseOne` (CR 5.1.2a). -/
+  | pickMode (idx : Nat)
+  /-- Pitch card `id` from hand to pay an asset cost during `choosePitch` (CR 1.14.3, 5.1.6). -/
+  | pitchCard (id : ObjId)
+  /-- Cancel and roll back an in-progress card play to the pre-play snapshot (CR 5.1.1). -/
+  | cancelPlay
+  /-- Answer an optional `"you may ..."` effect choice (I18). -/
+  | pickMay (choice : Bool)
+  /-- Chance provides a 6-sided die result (`1 ≤ roll ≤ 6`). -/
+  | die6Roll (roll : Nat)
+  /-- Pick a card from hand to place into the deck (e.g. Sink Below). -/
+  | handToDeckPick (id : ObjId)
+  /-- Opt choice: put the looked-at top card of deck on top (`true`) or bottom (`false`) (CR 8.5.22). -/
+  | optPick (putOnTop : Bool)
   /-- End Phase: put card `id` from hand face-down into an empty arsenal (CR 4.4.3b). -/
   | arsenalPut (id : ObjId)
   /-- End Phase: decline putting a card into the arsenal (CR 4.4.3b). -/
@@ -105,6 +123,37 @@ inductive Frame where
   | actionPhaseStart (tp : PlayerId)
   /-- Player decision: `p` holds priority after `passCount` consecutive passes (CR 1.11, 4.3.3). -/
   | priority (p : PlayerId) (passCount : Nat)
+  /-- Player decision: declare mode index for modal card `layerId` during play (CR 5.1.2a). -/
+  | chooseMode (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeCount : Nat)
+      (cost : AssetCost)
+  /-- Work frame: calculate/pay asset costs for `layerId`, prompting pitch or rolling back (CR 5.1.5, 5.1.6). -/
+  | playPayCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
+      (cost : AssetCost)
+  /-- Player decision: pitch a card from hand while paying `cost`, or cancel play (CR 1.14.3, 5.1.6). -/
+  | choosePitch (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
+      (cost : AssetCost)
+  /-- Work frame: begin resolving the top layer of the stack LIFO (CR 5.3). -/
+  | resolveStack
+  /-- Work frame: finish resolving `layerId` (Go Again +1 AP, move to graveyard/arena, priority to active) (CR 5.3.4, 5.3.5). -/
+  | finishResolve (layerId : ObjId)
+  /-- Work frame: 1-step effect IR interpreter continuation (CR 1.7, 6.0). -/
+  | run (ctrl : PlayerId) (src : ObjId) (fromArsenal : Bool) (env : List (VarId × Int))
+      (todo : List Effect)
+  /-- Player decision: answer `"you may body; if you do, ifDone"` (I18). -/
+  | chooseMay (ctrl : PlayerId) (src : ObjId) (fromArsenal : Bool) (env : List (VarId × Int))
+      (body ifDone : Effect)
+  /-- Player decision: choose 1 branch from `Effect.chooseOne` (CR 1.7). -/
+  | chooseModal (ctrl : PlayerId) (src : ObjId) (fromArsenal : Bool) (env : List (VarId × Int))
+      (modes : List Effect)
+  /-- Chance decision: 6-sided die roll feeding `bindVar`, `branches`, and `cont`. -/
+  | chanceDie6 (ctrl : PlayerId) (src : ObjId) (fromArsenal : Bool) (env : List (VarId × Int))
+      (bindVar : VarId) (branches : DieBranchList) (cont : Effect)
+  /-- Player decision: pick a card from hand to place into the deck at `pos`. -/
+  | chooseHandToDeck (p : PlayerId) (pos : DeckPos)
+  /-- Work frame: perform `n` remaining steps of `Opt` for player `p` (CR 8.5.22). -/
+  | optStep (p : PlayerId) (n : Nat)
+  /-- Player decision: put the looked-at top card of `p`'s deck on top or bottom (CR 8.5.22). -/
+  | chooseOpt (p : PlayerId) (cardId : ObjId)
   /-- Work frame: End Phase start, scheduling Arsenal, Pitch return, and cleanup (CR 4.4). -/
   | endPhaseStart (tp : PlayerId)
   /-- Player decision: `tp` may put 1 card from hand face-down into an empty arsenal (CR 4.4.3b). -/
@@ -125,6 +174,11 @@ def Frame.isWork : Frame → Bool
   | .beginTurn => true
   | .startPhaseWork _ => true
   | .actionPhaseStart _ => true
+  | .playPayCost _ _ _ _ _ => true
+  | .resolveStack => true
+  | .finishResolve _ => true
+  | .run _ _ _ _ _ => true
+  | .optStep _ _ => true
   | .endPhaseStart _ => true
   | .returnPitch _ => true
   | .endTurnCleanup _ => true

@@ -123,9 +123,26 @@ def GameState.initial (cfg : GameConfig) (db : CardDB) (decks : List DeckList) :
     match addDecks s0 0 0 decks with
     | none => none
     | some (s1, _) =>
-      some { s1 with pending := [.chanceFirstPlayer], phase := .setup, result := none }
+      some { s1 with pending := [.chanceFirstPlayer], phase := .setup, result := none,
+                     playRollback := none }
   else
     none
+
+/-- Every initial state created by `GameState.initial` has no active rollback snapshot (`RollbackOk`). -/
+theorem GameState.initial_rollbackOk {cfg : GameConfig} {db : CardDB} {decks : List DeckList}
+    {s : GameState} (h : GameState.initial cfg db decks = some s) :
+    s.RollbackOk := by
+  unfold GameState.initial at h
+  split at h
+  · dsimp only at h
+    cases ha : addDecks ({ config := cfg, cards := db } : GameState) 0 0 decks with
+    | none => simp only [ha] at h; cases h
+    | some res =>
+      obtain ⟨s1, ph⟩ := res
+      simp only [ha, Option.some.injEq] at h
+      subst h
+      exact GameState.RollbackOk.of_none rfl
+  · cases h
 
 /-- Every initial state created by `GameState.initial` satisfies `WF` and `OwnerOk`. -/
 theorem GameState.initial_inv {cfg : GameConfig} {db : CardDB} {decks : List DeckList}

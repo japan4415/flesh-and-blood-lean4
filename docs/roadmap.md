@@ -184,6 +184,17 @@ M2a（状態・ゾーン・`moveObj`・イベント経路骨格・基本プリ�
 - `playProc` 巻き戻しで盤面が完全に元に戻ること。
 - 新フレームについての **I6**。
 
+**M4 実装の記録（2026-11-25）: 完了**
+- 実装モジュール: `Fab/State/Decision.lean`（`playCard`, `pickMode`, `pitchCard`, `cancelPlay`, `pickMay`, `die6Roll`, `handToDeckPick`, `optPick`, `chooseMode`, `playPayCost`, `choosePitch`, `resolveStack`, `finishResolve`, `run`, `chooseMay`, `chooseModal`, `chanceDie6`, `chooseHandToDeck`, `optStep`, `chooseOpt`）、`Fab/State/GameState.lean`（`LayerInfo`, `BoardSnapshot`, `snapshot`/`restore`, `RollbackOk`）、`Fab/Rules/Add.lean`（`addObject_physIds`）、`Fab/Rules/Actions/Pitch.lean`（`canPitchCard`, `pitchOne_isSome`, `pitchOne_config_rollback`）、`Fab/Rules/Interp.lean`（任意の `Effect`/`Prim` に対する 1 歩解釈器 `interpRunStep`/`execPrim`）、`Fab/Rules/Frames.lean`（CR 5.1.1 カードプレイ 9 手順＋ピッチ支払い＋スナップショット巻き戻し＋Stack LIFO 解決＋Go Again +1 AP）、`Fab/Spec/Legal.lean`、`Fab/Engine/Step.lean`、`Fab/Invariant/Step.lean`（`StepPreserves` 一本化）、`Fab/Invariant/Stack.lean`、`FabTest/Stack.lean`。
+- 証明した主な定理:
+  - **L4（任意 `Effect` 解釈器保存）**: `execPrim_wf` / `ownerOk` / `physIds`、`interpRunStep_wf` / `ownerOk` / `physIds`（`createTokens_physIds` / `addObject_physIds` 含む）
+  - **I9（Stack LIFO・優先権保持・Go Again）**: `playCard_pushes_stack_top`、`playPayCost_retains_priority`（オーバーピッチ禁止付き即時支払）、`resolveStack_lifo`、`finishResolve_returns_priority`
+  - **I16（優先権受け渡し）**: `priority_pass_rotates`、`priority_all_passed_resolves_stack`、`priority_all_passed_ends_action_phase`
+  - **I18（任意選択の強制質問）**: `interpRunStep_may_prompts`、`run_may_prompts`
+  - **巻き戻し完全性**: `GameState.restore_snapshot`、`cancelPlay_restores_exact`、`playPayCost_unpayable_restores_exact`
+  - **I1 / I3 / I4 / I5 / I6 / I15**: 新全フレームを含めて `step_preserves` / `Reachable.inv` / `Reachable.not_internal` / `step_sound` / `legalActions_iff` / `progress_m4_decisions` / `step_mono` を維持。
+- 検証: `./scripts/verify.sh`（119 jobs `--wfail` ビルド、`lake test`、`lake check` 標準 3 公理のみ、`gen_lean.py --check` OK、`cr_citations.py` 548 引用 / malformed 0）。
+
 ---
 
 ### M5: Combat Chain 7 ステップ・Attack-Proxy・LKI・装備摩耗・GSP（CR 1.2.3, 1.4.3, 1.10.2, 3.5, 7.0-7.7）

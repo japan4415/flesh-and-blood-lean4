@@ -11,6 +11,7 @@ public import FabTest.Actions
 public import FabTest.Setup
 public import FabTest.Turn
 public import FabTest.IR
+public import FabTest.Stack
 
 /-!
 # FabTest

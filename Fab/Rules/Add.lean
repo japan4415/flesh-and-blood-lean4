@@ -163,6 +163,63 @@ theorem addObject_ownerOk {s s' : GameState} {z : Zone} {o : Object} {pos : Pos}
       exact hok.owner p k hk x hx ox hox
   · cases h
 
+/-- Adding a non-physical object (token, layer, or attack-proxy with `o.kind.phys? = none`)
+preserves `physIds` (I1). -/
+theorem addObject_physIds {s s' : GameState} {z : Zone} {o : Object} {pos : Pos} {id : ObjId}
+    (hwf : s.WF) (hnp : o.kind.phys? = none) (h : addObject s z o pos = some (s', id)) :
+    s'.physIds.Perm s.physIds := by
+  unfold addObject at h
+  split at h
+  · rename_i hcond
+    obtain ⟨hz, _⟩ := hcond
+    dsimp only at h
+    simp only [Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨hs', rfl⟩ := h
+    have hcount : s'.playerCount = s.playerCount := by rw [← hs']; rfl
+    have hnd_all := allZones_nodup s.playerCount
+    have hz_eq : ∀ z', s'.zone z' = if z' = z then pos.insert ⟨s.nextId⟩ (s.zone z) else s.zone z' := by
+      intro z'
+      rw [← hs']
+      by_cases he : z' = z
+      · subst he; simp [GameState.zone, GameState.setZone]
+      · simp only [he, ↓reduceIte]
+        exact GameState.zone_setZone_ne s he _
+    have hp1 := flatMap_split (allZones s.playerCount) s.zone z hz
+    have hp2 := flatMap_split (allZones s.playerCount) s'.zone z hz
+    have hrest : ((allZones s.playerCount).erase z).flatMap s'.zone =
+        ((allZones s.playerCount).erase z).flatMap s.zone := by
+      apply flatMap_one_congr (allZones s.playerCount) hnd_all
+      intro x _ hxz
+      rw [hz_eq x]
+      simp [hxz]
+    rw [hrest, hz_eq z] at hp2
+    simp only [↓reduceIte] at hp2
+    have hids : s'.zoneIds.Perm (⟨s.nextId⟩ :: s.zoneIds) := by
+      unfold GameState.zoneIds
+      rw [hcount]
+      refine hp2.trans ?_
+      refine ((Pos.insert_perm pos ⟨s.nextId⟩ (s.zone z)).append_right _).trans ?_
+      exact List.Perm.cons _ hp1.symm
+    have hnew : ((s'.obj? ⟨s.nextId⟩).bind (fun o => o.kind.phys?)) = none := by
+      rw [← hs']
+      simp [GameState.obj?, hnp]
+    have hold : ∀ x ∈ s.zoneIds,
+        ((s'.obj? x).bind (fun o => o.kind.phys?)) =
+        ((s.obj? x).bind (fun o => o.kind.phys?)) := by
+      intro x hx
+      have hne : s.nextId ≠ x.n := by
+        have := hwf.lt_nextId x hx
+        omega
+      rw [← hs']
+      simp [GameState.obj?, Std.ExtTreeMap.getElem?_insert, hne]
+    unfold GameState.physIds
+    have hp_fm := hids.filterMap (fun id => (s'.obj? id).bind (fun o => o.kind.phys?))
+    rw [List.filterMap_cons, hnew] at hp_fm
+    dsimp only at hp_fm
+    rw [filterMap_congr_mem s.zoneIds _ _ hold] at hp_fm
+    exact hp_fm
+  · cases h
+
 end Fab
 
 end
