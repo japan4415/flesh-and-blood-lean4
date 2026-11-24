@@ -4,6 +4,8 @@ public import Fab.State.Zone
 public import Fab.State.Object
 public import Fab.State.GameConfig
 public import Fab.State.Event
+public import Fab.State.Phase
+public import Fab.State.Decision
 public import Fab.Core.Cost
 public import Fab.Card.CardDB
 public import Std.Data.ExtTreeMap
@@ -46,6 +48,14 @@ structure GameState where
   turn : Nat := 0
   /-- Current turn-player, once the game has started (CR 4.0). -/
   active : Option PlayerId := none
+  /-- Continuation stack; head is the active frame (design.md §6.2). -/
+  pending : List Frame := []
+  /-- Clockwise turn order starting from the first-turn player (CR 4.1.3). -/
+  turnOrder : List PlayerId := []
+  /-- Current phase of the game (CR 4.1-4.4). -/
+  phase : Phase := .setup
+  /-- Final game outcome once the game has ended, `none` while ongoing (CR 4.5). -/
+  result : Option GameResult := none
 deriving DecidableEq, Repr
 
 /-- List of every valid zone in an `n`-player game (CR 3.0). -/

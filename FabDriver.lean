@@ -1,6 +1,7 @@
 module
 
 public import Fab
+public import FabDriver.Run
 
 /-!
 # FabDriver
