@@ -29,6 +29,22 @@ inductive DamageKind where
   | arcane
 deriving DecidableEq, Repr, Hashable
 
+/-- The four replacement-effect application stages in strict precedence order (CR 6.4.10, 6.5.1). -/
+inductive ReplacementStage where
+  /-- Stage A: Self-replacement and identity-replacement effects (CR 6.4.10a, 6.4.10b). -/
+  | selfOrIdentity
+  /-- Stage B: Standard replacement effects (CR 6.4.10c). -/
+  | standard
+  /-- Stage C: Prevention effects, including Ward, Arcane Barrier, Spellvoid, Quell (CR 6.4.10d). -/
+  | prevention
+  /-- Stage D: Outcome-replacement effects applied after the event concludes (CR 6.4.10e). -/
+  | outcome
+deriving DecidableEq, Repr, Hashable
+
+/-- Precedence order of replacement stages (CR 6.5.1). -/
+def ReplacementStage.order : List ReplacementStage :=
+  [.selfOrIdentity, .standard, .prevention, .outcome]
+
 /-- Clamp a possibly-negative signed numeric property to a non-negative `Nat` when evaluated for
 damage or defense totals (CR 2.0.3). -/
 def clampNonNeg (n : Int) : Nat :=

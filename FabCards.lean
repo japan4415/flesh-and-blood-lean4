@@ -1,6 +1,9 @@
 module
 
 public import Fab.Basic.RulesVersion
+public import FabCards.WTR.Meta
+public import FabCards.WTR
+public import FabCards.Registry
 
 /-!
 # FabCards

@@ -1,6 +1,6 @@
 module
 
-public import Fab.Card.CardDef
+public import Fab.Card.IR.WF
 
 /-!
 # Card database
@@ -34,10 +34,10 @@ instance CardDB.decidableIdsUnique (db : CardDB) : Decidable db.IdsUnique := by
   unfold CardDB.IdsUnique
   infer_instance
 
-/-- Static well-formedness of a `CardDB`. Expanded in M3b with IR binding and slot checks
-(design.md §7.1). -/
+/-- Static well-formedness of a `CardDB`: unique `CardId`s and every card passes static IR checks
+(binding, target-slot bounds, modal non-emptiness, die bounds) (design.md §7.1). -/
 def CardDB.WF (db : CardDB) : Prop :=
-  db.IdsUnique
+  db.IdsUnique ∧ ∀ c ∈ db.cards, c.WF
 
 instance CardDB.decidableWF (db : CardDB) : Decidable db.WF := by
   unfold CardDB.WF
@@ -52,6 +52,12 @@ theorem CardDB.mem_of_find?_some {db : CardDB} {id : CardId} {c : CardDef}
   have hpred := List.find?_some h
   simp only [beq_iff_eq] at hpred
   exact ⟨hmem, hpred⟩
+
+/-- Any card retrieved from a well-formed `CardDB` is statically well-formed. -/
+theorem CardDB.card_wf_of_find?_some {db : CardDB} {id : CardId} {c : CardDef}
+    (hwf : db.WF) (h : db.find? id = some c) :
+    c.WF :=
+  hwf.2 c (CardDB.mem_of_find?_some h).1
 
 /-- The empty `CardDB` is well formed. -/
 theorem CardDB.wf_empty : CardDB.empty.WF := by

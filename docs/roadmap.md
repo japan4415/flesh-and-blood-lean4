@@ -162,6 +162,12 @@ M2a（状態・ゾーン・`moveObj`・イベント経路骨格・基本プリ�
 
 **完了条件**: 不足語彙の洗い出しと IR 改訂が済み、`CardDB.WF` が `decide +kernel` で通る。
 
+**M3b 実装の記録（2026-11-24）: 完了**
+- データパイプライン: `scripts/fetch.py`（`the-fab-cube/flesh-and-blood-cards@3f16c0b4ad8a` から WTR 全 226 論理カードを取得、アート・フレーバー除去）、`scripts/normalize.py`（型・キーワード正規化、条件付き `go again` / `dominate` の誤抽出防止）、`scripts/gen_lean.py`（`FabCards/WTR/Meta.lean` 自動生成＋`--check` を `scripts/verify.sh` に統合）、`scripts/coverage.py`（`docs/coverage.md` 生成）。
+- 効果 IR と静的検査: `Fab/Card/IR/Filter.lean`、`Fab/Card/IR/Effect.lean`（入れ子帰納型を避けた `mutual` リスト型＋`ModeSpec` モード別対象枠＋`ExtraCostSpec.cond`＋`DieBranchList`）、`Fab/Card/IR/WF.lean`、`Fab/Card/CardDef.lean`、`Fab/Card/CardDB.lean`（`CardDB.WF` に全カードの静的 IR 検査を統合し `Decidable` 化）、`Fab/Core/CardType.lean`（`Subtype.gem` 追加）、`Fab/Core/Property.lean`（`ReplacementStage` 一本化）。
+- WTR 先行転記と検証: `FabCards/WTR.lean` へ 4 クラス＋Generic＋Gem＋Token の **117/226 論理カード（51.8%、`custom` 0 件）** を `.drafted` 転記し、`FabCards/Registry.lean` で **`theorem wtrDB_wf : wtrDB.WF := by decide +kernel`** を証明。発見したギャップと M4〜M8 申し送り事項を `docs/ir-gaps.md` に記録、`FabTest/IR.lean` に正常・異常系テストを追加。
+- 検証: `./scripts/verify.sh`（113 jobs `--wfail` ビルド、`lake test`、`lake check` 標準 3 公理のみ、`gen_lean.py --check` OK、`cr_citations.py` 486 引用 / malformed 0）。
+
 ---
 
 ### M4: Stack・優先権・カードプレイ 9 手順・基本解釈器（CR 1.11, 5.1-5.4）

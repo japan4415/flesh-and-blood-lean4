@@ -1,0 +1,339 @@
+module
+
+public import Fab.Core.Cost
+public import Fab.Card.IR.Filter
+
+/-!
+# Effect IR syntax (abilities, primitives, combinators, continuous mods)
+
+Deeply embedded effect IR for Flesh and Blood cards (CR 1.7, 5.1, 6.0-6.6).
+Uses `mutual` list types (`EffectList`, `DieBranchList`) instead of nested `List Effect`
+so Lean v4.36 derives `DecidableEq` and `Repr` cleanly (design.md §7.1).
+-/
+
+@[expose] public section
+
+namespace Fab
+
+/-- Timing speed at which an activated ability can be activated (CR 5.2). -/
+inductive ActivationSpeed where
+  /-- Action speed: requires an Action Point during own Action Phase with empty stack. -/
+  | action
+  /-- Instant speed: playable whenever holding priority (CR 5.2). -/
+  | instant
+  /-- Attack Reaction speed: playable during Reaction Step as attacking player (CR 7.4). -/
+  | attackReaction
+  /-- Defense Reaction speed: playable during Reaction Step as defending player (CR 7.4). -/
+  | defenseReaction
+deriving DecidableEq, Repr
+
+/-- Trigger condition for a triggered ability (CR 6.6). -/
+inductive Trigger where
+  /-- When this card is played (CR 5.1). -/
+  | onPlay
+  /-- When this attacks (CR 7.2). -/
+  | onAttack
+  /-- When this hits (CR 7.5). -/
+  | onHit
+  /-- When this hits a hero specifically (CR 7.5). -/
+  | onHitHero
+  /-- `Crush` or general damage threshold trigger: deals at least `minDmg` damage (CR 8.3.7). -/
+  | onDealDamage (minDmg : Nat) (toHero : Bool)
+  /-- When this defends (CR 7.3). -/
+  | onDefend
+  /-- When the combat chain closes (CR 7.7). -/
+  | onChainClose
+  /-- When this enters the arena (CR 3.0.5). -/
+  | onEnterArena
+  /-- When this leaves the arena (CR 3.0.5). -/
+  | onLeaveArena
+  /-- When this is destroyed (CR 1.10). -/
+  | onDestroy
+  /-- When this is banished (CR 3.3). -/
+  | onBanish
+  /-- When this is pitched, as on Heart of Fyendal (CR 1.14.3). -/
+  | onPitch
+  /-- Whenever controller discards a card matching `f` (Rhinar, Romping Club). -/
+  | onDiscard (f : CardFilter) (duringActionPhase : Bool)
+  /-- At the start of controller's turn (Fyendal's Spring Tunic). -/
+  | onStartOfTurn
+  /-- At the beginning of controller's action phase (Guardian Auras, Seismic Surge). -/
+  | onStartOfActionPhase
+  /-- At the beginning of controller's end phase (Dawnblade, Blood Debt). -/
+  | onStartOfEndPhase
+  /-- When an attack action card you control hits (Katsu). -/
+  | onAttackActionHit
+  /-- When a weapon attack you control hits (Dorinthea, Refraction Bolters). -/
+  | onWeaponAttackHit
+  /-- When you play an attack action card or activate a weapon attack (Quicken). -/
+  | onPlayAttackOrWeapon
+  /-- When an attack action card you control is the `minLink`-th or higher chain link in a row to hit (Mask of Momentum). -/
+  | onConsecutiveHitLink (minLink : Nat)
+deriving DecidableEq, Repr
+
+/-- Non-asset additional or activation cost (CR 1.14, 5.1.5). -/
+inductive ExtraCost where
+  /-- Destroy the source permanent (equipment / item activation cost). -/
+  | destroySelf
+  /-- Discard `n` cards at random from controller's hand (Brute cards). -/
+  | discardRandom (n : Nat)
+  /-- Choose and discard `n` cards matching `f` from hand. -/
+  | discardChoice (f : CardFilter) (n : Nat)
+  /-- Put a card from hand on the bottom of deck (Enlightened Strike). -/
+  | putHandCardOnDeckBottom
+  /-- Reveal a card from hand matching `f` (Demolition Crew, Flock of the Feather Walkers). -/
+  | revealHandCard (f : CardFilter)
+  /-- Banish `n` cards matching `f` from controller's graveyard (Nimble Strike, Regurgitating Slog). -/
+  | banishFromGraveyard (f : CardFilter) (n : Nat)
+  /-- Remove `n` counters of kind `k` from the source object (Fyendal's Spring Tunic). -/
+  | removeCounters (k : CounterKind) (n : Nat)
+  /-- Pay `n` additional generic resources `{r}` (Staunch Response). -/
+  | payResources (n : Nat)
+  /-- Pay `{x}` generic resources, binding `NumExpr.xValue` (Lord of Wind). -/
+  | payX
+deriving DecidableEq, Repr
+
+/-- Specification of an additional cost on a card or activated ability (CR 5.1.5). -/
+structure ExtraCostSpec where
+  /-- The additional cost to pay. -/
+  cost : ExtraCost
+  /-- Whether paying this additional cost is optional ("you may ..."). -/
+  optional : Bool := false
+  /-- Optional condition gating when this additional cost applies (e.g., Lord of Wind Combo). -/
+  cond : Option Condition := none
+deriving DecidableEq, Repr
+
+/-- Scope to which a continuous modification applies (CR 6.2-6.3). -/
+inductive ModScope where
+  /-- The source object itself. -/
+  | self_
+  /-- A specific object reference (e.g., target slot 0 or `currentAttack`). -/
+  | obj (ref : ObjRef)
+  /-- The next card matching `f` played by controller during the duration. -/
+  | nextCardPlayed (f : CardFilter)
+  /-- The next attack matching `f` made by controller during the duration. -/
+  | nextAttack (f : CardFilter)
+  /-- The next card matching `f` controller defends with during the duration (Flic Flak). -/
+  | nextDefend (f : CardFilter)
+  /-- All cards/objects matching `f` controlled by player `p` (Forged for War, Stonewall Confidence). -/
+  | allMatching (p : PlayerRef) (f : CardFilter)
+  /-- Player `p`'s hero (Helm of Isen's Peak, Crush Confidence). -/
+  | hero (p : PlayerRef)
+  /-- Player `p`'s first action during their next turn (Cartilage Crush). -/
+  | firstActionNextTurn (p : PlayerRef)
+  /-- Player `p`'s first attack during their next turn (Debilitate). -/
+  | firstAttackNextTurn (p : PlayerRef)
+  /-- Player `p`'s action cards, activated abilities, and attacks (Spinal Crush). -/
+  | playerActionsAndAttacks (p : PlayerRef)
+deriving DecidableEq, Repr
+
+/-- Atomic discrete effect primitive executed by the M4/M5 interpreter (CR 1.7, 6.0). -/
+inductive Prim where
+  /-- Initiate a weapon attack using the source weapon (CR 1.4.3, 7.2). -/
+  | weaponAttack
+  /-- Player `p` draws `n` cards (CR 8.5.7). -/
+  | draw (p : PlayerRef) (n : NumExpr)
+  /-- Player `p` discards `n` random cards from hand. -/
+  | discardRandom (p : PlayerRef) (n : NumExpr)
+  /-- Player `p` chooses and discards `n` cards matching `f` from hand. -/
+  | discardChoice (p : PlayerRef) (f : CardFilter) (n : NumExpr)
+  /-- Deal `n` damage of kind `kind` to player `p`'s hero (CR 7.5, 8.5.3). -/
+  | dealDamage (kind : DamageKind) (p : PlayerRef) (n : NumExpr)
+  /-- Player `p` gains `n` life `{h}` (CR 8.5). -/
+  | gainLife (p : PlayerRef) (n : NumExpr)
+  /-- Player `p` loses `n` life `{h}`. -/
+  | loseLife (p : PlayerRef) (n : NumExpr)
+  /-- Player `p` gains `n` Action Points (CR 1.14.2). -/
+  | gainAP (p : PlayerRef) (n : NumExpr)
+  /-- Player `p` gains `n` Resource Points `{r}` (CR 1.14.2). -/
+  | gainResource (p : PlayerRef) (n : NumExpr)
+  /-- Player `p` gains `n` Chi Points `{c}` (CR 1.14.2). -/
+  | gainChi (p : PlayerRef) (n : NumExpr)
+  /-- Target opposing player `p` is intimidated (random face-down banish until End Phase) (CR 8.5.10). -/
+  | intimidate (p : PlayerRef)
+  /-- Player `p` opts `n` (look at top `n` cards, put any on top or bottom) (CR 8.5.22). -/
+  | opt (p : PlayerRef) (n : Nat)
+  /-- Create `n` copies of token `tokenId` under player `p`'s control (CR 8.5.2). -/
+  | createToken (p : PlayerRef) (tokenId : CardId) (n : Nat)
+  /-- Destroy object `o` (CR 8.5.5). -/
+  | destroy (o : ObjRef)
+  /-- Banish object `o`, optionally face-down (CR 8.5.1). -/
+  | banish (o : ObjRef) (faceDown : Bool)
+  /-- Move object `o` to zone `dst` with deck position `pos` and facing `faceDown`. -/
+  | moveCard (o : ObjRef) (dst : ZoneRef) (pos : DeckPos) (faceDown : Bool)
+  /-- Player `p` puts a chosen card from hand to deck position `pos` (Sink Below, Stroke of Foresight). -/
+  | putHandOnDeck (p : PlayerRef) (pos : DeckPos)
+  /-- Put a card from player `p`'s arsenal on the bottom of its owner's deck (Disable). -/
+  | putArsenalOnDeckBottom (p : PlayerRef)
+  /-- Return a non-equipment defending card on the current chain link to its owner's hand (Rout). -/
+  | returnDefendingCardToHand (f : CardFilter)
+  /-- Search `p`'s deck for up to `maxCount` cards matching `f`, move to `dst`, optionally reveal,
+  then shuffle; optionally allow playing the banished card for `playableDuration` (Katsu, Singing Steelblade). -/
+  | searchDeck (p : PlayerRef) (f : CardFilter) (maxCount : Option Nat) (dst : ZoneRef)
+      (reveal : Bool) (playableDuration : Option Duration)
+  /-- Shuffle up to `maxCount` cards matching `f` from `p`'s `src` zone into deck; if `drawSame`,
+  draw that many cards (Remembrance, Hope Merchant's Hood, Lord of Wind). -/
+  | shuffleZoneIntoDeck (p : PlayerRef) (src : ZoneRef) (f : CardFilter)
+      (maxCount : Option Nat) (drawSame : Bool)
+  /-- Reveal the top card of `p`'s deck; if it matches `f`, put it into `p`'s arsenal (Nature's Path Pilgrimage). -/
+  | revealTopToArsenalIf (p : PlayerRef) (f : CardFilter)
+  /-- Add `n` counters of kind `k` onto object `o`. -/
+  | addCounter (o : ObjRef) (k : CounterKind) (n : NumExpr)
+  /-- Remove all counters of kind `k` from object `o` (Dawnblade). -/
+  | removeAllCounters (o : ObjRef) (k : CounterKind)
+  /-- Create a prevention shield for player `p` preventing the next `n` damage during `dur` (Bone Head Barrier). -/
+  | preventNextDamage (p : PlayerRef) (n : NumExpr) (dur : Duration)
+  /-- Immediately close the combat chain (Phantasm, Spectra) (CR 7.7). -/
+  | closeCombatChain
+deriving DecidableEq, Repr
+
+/-- Event pattern watched by a static replacement ability (CR 6.4). -/
+inductive ReplacementWatch where
+  /-- Source object would be put into its owner's graveyard from `fromZone` (Drone of Brutality). -/
+  | selfWouldGoToGraveyard (fromZone : ZoneRef)
+  /-- Source object would deal damage to a hero (Pounding Gale). -/
+  | selfWouldDealDamageToHero
+deriving DecidableEq, Repr
+
+mutual
+
+/-- Deeply embedded discrete effect syntax (CR 1.7, 6.0). -/
+inductive Effect where
+  /-- Do nothing. -/
+  | nop
+  /-- Execute an atomic primitive. -/
+  | prim (p : Prim)
+  /-- Execute a sequence of effects in order. -/
+  | seq (es : EffectList)
+  /-- Conditional branch on `cond`. -/
+  | ifThen (cond : Condition) (thenBranch : Effect) (elseBranch : Effect)
+  /-- Optional choice: controller may perform `body`; if performed, execute `ifDone` (I18). -/
+  | may (body : Effect) (ifDone : Effect)
+  /-- Modal choice: choose 1 branch from `modes` (Enlightened Strike, Pummel, Razor Reflex). -/
+  | chooseOne (modes : EffectList)
+  /-- Roll a 6-sided die, bind the result (1-6) to `bindVar`, run matching `branches`, then `cont`. -/
+  | rollDie6 (bindVar : VarId) (branches : DieBranchList) (cont : Effect)
+  /-- Reveal the top `n` cards of `p`'s deck, bind the count matching `f` to `bindVar`, then run `cont` (Blessing of Deliverance). -/
+  | bindRevealTopCount (p : PlayerRef) (n : Nat) (f : CardFilter) (bindVar : VarId) (cont : Effect)
+  /-- Apply a continuous modification `mod` over `scope` for duration `dur` (CR 6.2). -/
+  | grant (scope : ModScope) (mod : ContinuousMod) (dur : Duration)
+  /-- Rare escape hatch for card-specific logic that does not yet fit IR (design.md §7.1). -/
+  | custom (id : CustomId) (args : List String)
+deriving DecidableEq, Repr
+
+/-- Monomorphic list of effects (avoids nested `List Effect` for `DecidableEq`). -/
+inductive EffectList where
+  /-- Empty effect sequence. -/
+  | nil
+  /-- Head effect followed by tail sequence. -/
+  | cons (head : Effect) (tail : EffectList)
+deriving DecidableEq, Repr
+
+/-- Outcome range branches for a 6-sided die roll (e.g., Crazy Brew 1-2 / 3-4 / 5-6). -/
+inductive DieBranchList where
+  /-- No further die branches. -/
+  | nil
+  /-- If rolled value is in `[lo, hi]` (inclusive), execute `body`. -/
+  | cons (lo hi : Nat) (body : Effect) (tail : DieBranchList)
+deriving DecidableEq, Repr
+
+/-- Continuous modification applied by static abilities or `Effect.grant` (CR 6.2-6.3). -/
+inductive ContinuousMod where
+  /-- Modify power `{p}` by `delta` (positive or negative). -/
+  | addPower (delta : NumExpr)
+  /-- Modify defense `{d}` by `delta`. -/
+  | addDefense (delta : NumExpr)
+  /-- Modify hero intellect `{i}` by `delta` (Helm of Isen's Peak). -/
+  | addIntellect (delta : Int)
+  /-- Modify resource cost `{r}` by `delta` (negative reduces, positive increases; Seismic Surge, Cartilage Crush). -/
+  | modifyCost (delta : Int)
+  /-- Grant a keyword such as `goAgain` or `dominate`. -/
+  | grantKeyword (kw : KeywordInst)
+  /-- Grant a triggered ability to the affected object(s) (Pummel, Razor Reflex, Whelming Gustwave, Steelblade Supremacy). -/
+  | grantTrigger (trigger : Trigger) (cond : Option Condition) (body : Effect)
+  /-- Grant a conditional power modifier (Barraging Beatdown). -/
+  | conditionalPower (cond : Condition) (delta : Int)
+  /-- Affected hero loses all abilities (Crush Confidence). -/
+  | loseAllAbilities
+  /-- Affected objects lose and cannot gain Go Again (Spinal Crush). -/
+  | cantGainGoAgain
+  /-- Affected player cannot draw cards (Cranial Crush). -/
+  | cantDrawCards
+  /-- Affected weapon may attack an additional time this turn (Dorinthea). -/
+  | additionalWeaponAttack
+  /-- Damage dealt by affected attack to a hero is doubled (Pounding Gale). -/
+  | doubleDamageToHero
+deriving DecidableEq, Repr
+
+end
+
+/-- Convert a standard `List Effect` into `EffectList`. -/
+def EffectList.ofList : List Effect → EffectList
+  | [] => .nil
+  | e :: es => .cons e (EffectList.ofList es)
+
+/-- Convenience constructor for `Effect.seq` from a `List Effect`. -/
+def Effect.seqL (es : List Effect) : Effect :=
+  .seq (EffectList.ofList es)
+
+/-- Convenience constructor for `Effect.chooseOne` from a `List Effect`. -/
+def Effect.chooseOneL (modes : List Effect) : Effect :=
+  .chooseOne (EffectList.ofList modes)
+
+/-- A single modal branch declaring its own play-time target slots and resolution body;
+modes are declared before targets, as on Pummel and Razor Reflex (CR 5.1.2a, 5.1.2c). -/
+structure ModeSpec where
+  /-- Target slots specific to this mode. -/
+  targets : List TargetSpec := []
+  /-- Resolution effect body for this mode. -/
+  body : Effect := .nop
+deriving DecidableEq, Repr
+
+/-- A complete discrete effect declaration separating play-time mode/target/cost declarations from
+the effect body (CR 5.1.2-5.1.5). When `modes` is non-empty, the player chooses one `ModeSpec`
+before declaring that mode's targets. -/
+structure EffectDef where
+  /-- Optional play-time modal choices, each with its own target slots (CR 5.1.2a). -/
+  modes : List ModeSpec := []
+  /-- Target slots declared at play/activation time (used when `modes` is empty), referenced via `ObjRef.slot i`. -/
+  targets : List TargetSpec := []
+  /-- Additional non-asset or optional costs declared at play time. -/
+  extraCosts : List ExtraCostSpec := []
+  /-- Discrete effect body executed on resolution (used when `modes` is empty). -/
+  body : Effect := .nop
+deriving DecidableEq, Repr
+
+/-- An ability printed on a card face (CR 1.7, 5.2, 6.2, 6.4, 6.6). -/
+inductive Ability where
+  /-- Activated ability with timing speed, cost, optional once-per-turn cap, and resolution effect (CR 5.2). -/
+  | activated
+      (speed : ActivationSpeed)
+      (oncePerTurn : Bool := false)
+      (cost : AssetCost := {})
+      (extraCosts : List ExtraCostSpec := [])
+      (cond : Option Condition := none)
+      (grantsGoAgain : Bool := false)
+      (effect : EffectDef)
+  /-- Triggered ability firing on `trigger` when `cond` holds (CR 6.6).
+  `ordinal := some k` restricts firing to the `k`-th occurrence per turn (e.g., 1 for Katsu/Dorinthea, 2 for Dawnblade). -/
+  | triggered
+      (trigger : Trigger)
+      (oncePerTurn : Bool := false)
+      (ordinal : Option Nat := none)
+      (cond : Option Condition := none)
+      (effect : EffectDef)
+  /-- Static ability generating a continuous effect while active (CR 6.2). -/
+  | static_
+      (cond : Option Condition := none)
+      (scope : ModScope := .self_)
+      (mod : ContinuousMod)
+  /-- Static replacement ability intercepting matching events (CR 6.4). -/
+  | replacement
+      (stage : ReplacementStage)
+      (watch : ReplacementWatch)
+      (effect : EffectDef)
+deriving DecidableEq, Repr
+
+end Fab
+
+end

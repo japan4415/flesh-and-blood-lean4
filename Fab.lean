@@ -9,7 +9,10 @@ public import Fab.Core.Property
 public import Fab.Core.Cost
 public import Fab.Core.Keyword
 public import Fab.Core.Mode
+public import Fab.Card.IR.Filter
+public import Fab.Card.IR.Effect
 public import Fab.Card.CardDef
+public import Fab.Card.IR.WF
 public import Fab.Card.CardDB
 public import Fab.Rules.Deck
 public import Fab.Tournament.DeckLegality
