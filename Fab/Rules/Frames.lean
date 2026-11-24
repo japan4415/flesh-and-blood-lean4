@@ -2,13 +2,20 @@ module
 
 public import Fab.Rules.Move
 public import Fab.Rules.Reorder
+public import Fab.Rules.Objects
 public import Fab.Rules.Actions.Draw
 
 /-!
 # Frame transitions and automatic work (`microStep`)
 
 Implements applying player/chance answers (`applyFrame`, `applyAction`) and single-step
-automatic work (`microStep`) for the Start-of-Game Procedure (CR 4.1) and concession (CR 4.5).
+automatic work (`microStep`) for:
+- Start-of-Game Procedure (CR 4.1)
+- Turn structure: Start Phase (CR 4.2), Action Phase (CR 4.3), End Phase (CR 4.4)
+- End-of-turn procedure: optional Arsenal placement (CR 4.4.3b), Pitch-to-deck-bottom ordering
+  (CR 4.4.3c), untap (CR 4.4.3d), clearing all asset pools (CR 4.4.3e), and Intellect refill
+  with Turn 1 both-player draw (CR 4.4.3f)
+- Concession (CR 4.5)
 -/
 
 @[expose] public section
@@ -18,6 +25,14 @@ namespace Fab
 /-- Clockwise turn order starting from `first` among `n` seated players (CR 4.1.3). -/
 def clockwiseFrom (n : Nat) (first : PlayerId) : List PlayerId :=
   (List.range n).map fun i => ⟨(first.n + i) % n⟩
+
+/-- Next player clockwise after `p` in `turnOrder`. Defaults to `p` if `turnOrder` is empty. -/
+def nextInOrder (order : List PlayerId) (p : PlayerId) : PlayerId :=
+  match order.idxOf? p with
+  | none => order.headD p
+  | some idx =>
+    if order.isEmpty then p
+    else order.getD ((idx + 1) % order.length) p
 
 /-- Look up the `CardDef` of an object in `s.cards`. -/
 def GameState.cardDefOf? (s : GameState) (id : ObjId) : Option CardDef :=
@@ -86,8 +101,12 @@ def GameState.intellectOf (s : GameState) (p : PlayerId) : Nat :=
     | none => 4
   | [] => 4
 
-/-- Flip a single object face-up if it is in an arena equipment/weapon zone and does not have
-`Cloaked` (CR 4.1.4). -/
+/-- How many cards player `p` needs to draw to refill up to their hero's Intellect
+(0 if already at or above Intellect) (CR 4.4.3f). -/
+def GameState.refillCount (s : GameState) (p : PlayerId) : Nat :=
+  s.intellectOf p - (s.zone (.player p .hand)).length
+
+/-- Flip a single object face-up if it does not have `Cloaked` (CR 4.1.4). -/
 def revealObject (db : CardDB) (o : Object) : Object :=
   let isCloaked :=
     match o.kind.cardId? with
@@ -224,7 +243,24 @@ theorem revealAllLoadouts_physIds (s : GameState) :
       simp only [Option.map_some, Option.some.injEq] at hk
       simp [hk]
 
-/-- Apply a decision answer to the top frame of `s.pending` (CR 4.1). -/
+/-- Turn-player selected for turn index `turnIdx` (0-based before increment) from `turnOrder`. -/
+def turnPlayerAt (order : List PlayerId) (turnIdx : Nat) : PlayerId :=
+  if order.isEmpty then ⟨0⟩
+  else order.getD (turnIdx % order.length) ⟨0⟩
+
+/-- Standard frame sequence for a single turn of turn-player `tp`: Start Phase → Action Phase →
+End Phase (CR 4.2-4.4). -/
+def turnFrames (tp : PlayerId) : List Frame :=
+  [.startPhaseWork tp, .actionPhaseStart tp, .endPhaseStart tp]
+
+/-- Draw frames scheduled during End Phase cleanup (CR 4.4.3f):
+- On Turn 1 (first turn of the game), **all** players draw up to their hero's Intellect.
+- On Turn ≥ 2, **only** the turn-player `tp` draws up to their hero's Intellect. -/
+def endPhaseDrawFrames (s : GameState) (tp : PlayerId) : List Frame :=
+  let targets := if s.turn = 1 then s.turnOrder else [tp]
+  targets.map fun q => Frame.draw q (s.refillCount q)
+
+/-- Apply a decision answer to the top frame of `s.pending` (CR 4.1-4.4). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
   match s.pending, a.actor, a.kind with
   | .chanceFirstPlayer :: rest, .chance, .chanceFirstChooser chooser =>
@@ -237,7 +273,8 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       some ({ s with
                 turnOrder := order
                 active := some first
-                pending := loadouts ++ [.revealLoadouts] ++ shuffles ++ [.openingDraws] ++ rest },
+                pending := loadouts ++ [.revealLoadouts] ++ shuffles ++
+                  [.openingDraws, .beginTurn] ++ rest },
             [])
     else
       none
@@ -269,6 +306,39 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       none
   | .chanceShuffle z :: rest, .chance, .shuffleOrder l =>
     some ({ s.reorder z l with pending := rest }, [])
+  | .priority p passCount :: rest, .player q, .pass =>
+    if p = q then
+      let nextPass := passCount + 1
+      if nextPass < s.turnOrder.length then
+        let nextP := nextInOrder s.turnOrder p
+        some ({ s with pending := .priority nextP nextPass :: rest }, [])
+      else
+        some ({ s with pending := rest }, [])
+    else
+      none
+  | .chooseArsenal tp :: rest, .player q, .arsenalPut id =>
+    if tp = q ∧ (s.zone (.player tp .arsenal)).isEmpty ∧ id ∈ s.zone (.player tp .hand) then
+      match moveObj s id (.player tp .arsenal) .top true with
+      | none => none
+      | some (s1, id') =>
+        some ({ s1 with pending := rest },
+              [.moved id id' (.player tp .hand) (.player tp .arsenal)])
+    else
+      none
+  | .chooseArsenal tp :: rest, .player q, .arsenalSkip =>
+    if tp = q then
+      some ({ s with pending := rest }, [])
+    else
+      none
+  | .choosePitchOrder p :: rest, .player q, .pitchReturnPick id =>
+    if p = q ∧ id ∈ s.zone (.player p .pitch) then
+      match moveObj s id (.player p .deck) .bottom false with
+      | none => none
+      | some (s1, id') =>
+        some ({ s1 with pending := .returnPitch p :: rest },
+              [.moved id id' (.player p .pitch) (.player p .deck)])
+    else
+      none
   | _, _, _ => none
 
 /-- Apply any legal `Action` (either concession in 1v1 or an answer to the top frame). -/
@@ -293,6 +363,40 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .draw p (n + 1) :: rest =>
     let (s1, es) := drawOne s p
     some ({ s1 with pending := .draw p n :: rest }, es)
+  | .beginTurn :: rest =>
+    let tp := turnPlayerAt s.turnOrder s.turn
+    some ({ s with
+              turn := s.turn + 1
+              active := some tp
+              phase := .startPhase
+              pending := turnFrames tp ++ [.beginTurn] ++ rest },
+          [])
+  | .startPhaseWork _ :: rest =>
+    some ({ s with phase := .startPhase, pending := rest }, [])
+  | .actionPhaseStart tp :: rest =>
+    let s1 := s.setPool tp ((s.poolOf tp).addActionPoints 1)
+    some ({ s1 with phase := .actionPhase, pending := .priority tp 0 :: rest }, [])
+  | .endPhaseStart tp :: rest =>
+    let pitchReturns := s.turnOrder.map Frame.returnPitch
+    let arsenalFrames :=
+      if (s.zone (.player tp .arsenal)).isEmpty && !(s.zone (.player tp .hand)).isEmpty then
+        [.chooseArsenal tp]
+      else
+        []
+    some ({ s with
+              phase := .endPhase
+              pending := arsenalFrames ++ pitchReturns ++ [.endTurnCleanup tp] ++ rest },
+          [])
+  | .returnPitch p :: rest =>
+    if (s.zone (.player p .pitch)).isEmpty then
+      some ({ s with pending := rest }, [])
+    else
+      some ({ s with pending := .choosePitchOrder p :: rest }, [])
+  | .endTurnCleanup tp :: rest =>
+    let s1 := untapPlayer s tp
+    let s2 := { s1 with pools := ∅ }
+    let draws := endPhaseDrawFrames s2 tp
+    some ({ s2 with pending := draws ++ rest }, [])
   | _ => none
 
 end Fab

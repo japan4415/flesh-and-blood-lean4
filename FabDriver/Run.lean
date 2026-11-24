@@ -3,10 +3,11 @@ module
 public import Fab
 
 /-!
-# FabDriver: deterministic seeded driver for Start-of-Game setup
+# FabDriver: deterministic seeded driver for Start-of-Game setup and pass-only turns
 
 Supplies reproducible pseudo-random answers to `Actor.chance` frames (`chanceFirstPlayer`,
-`chanceShuffle`) and automated default loadout decisions for testing and simulation.
+`chanceShuffle`), automated default loadout decisions, and passive turn answers (passing
+priority, skipping arsenal, returning pitched cards) for testing and simulation.
 Not subject to the kernel axiom audit (design.md §4).
 -/
 
@@ -53,12 +54,8 @@ def shuffleAux {α : Type} : Nat → Rng → List α → List α × Rng
 def Rng.shuffle {α : Type} (r : Rng) (xs : List α) : List α × Rng :=
   shuffleAux xs.length r xs
 
-/-- Pick the next action automatically for Start-of-Game frames:
-- `chanceFirstPlayer`: random player
-- `chooseFirstPlayer chooser`: picks `chooser` to go first
-- `chooseLoadout p`: equips every equippable armor/weapon, adds every deck-card to deck, then
-  finishes loadout
-- `chanceShuffle z`: shuffles `s.zone z` -/
+/-- Pick the next action automatically for Start-of-Game frames only (stops once Turn 1 Action
+Phase `priority` is reached). -/
 def nextSetupAction (r : Rng) (s : GameState) : Option (Action × Rng) :=
   match s.pending with
   | .chanceFirstPlayer :: _ =>
@@ -81,19 +78,45 @@ def nextSetupAction (r : Rng) (s : GameState) : Option (Action × Rng) :=
     some (⟨.chance, .shuffleOrder perm⟩, r1)
   | _ => none
 
-/-- Run `step` repeatedly using `nextSetupAction` until `pending` is empty or `steps` budget
-expires. -/
+/-- Pick the next action for pass-only play (extends `nextSetupAction` with passing priority,
+skipping arsenal, and returning pitched cards in list order). -/
+def nextPassAction (r : Rng) (s : GameState) : Option (Action × Rng) :=
+  match nextSetupAction r s with
+  | some res => some res
+  | none =>
+    match s.pending with
+    | .priority p _ :: _ => some (⟨.player p, .pass⟩, r)
+    | .chooseArsenal tp :: _ => some (⟨.player tp, .arsenalSkip⟩, r)
+    | .choosePitchOrder p :: _ =>
+      match s.zone (.player p .pitch) with
+      | id :: _ => some (⟨.player p, .pitchReturnPick id⟩, r)
+      | [] => none
+    | _ => none
+
+/-- Run `step` repeatedly using `nextSetupAction` until Start-of-Game completes (entering Turn 1
+Action Phase `priority`) or `steps` budget expires. -/
 def runSetupLoop (fuel : Nat) : Nat → Rng → GameState → Except RuleError GameState
   | 0, _, s => .ok s
   | n + 1, r, s =>
-    if s.pending.isEmpty then .ok s
+    match nextSetupAction r s with
+    | none => .ok s
+    | some (a, r1) =>
+      match step fuel s a with
+      | .error e => .error e
+      | .ok (s', _) => runSetupLoop fuel n r1 s'
+
+/-- Run `steps` automated pass-only actions via `step`. -/
+def runPassLoop (fuel : Nat) : Nat → Rng → GameState → Except RuleError GameState
+  | 0, _, s => .ok s
+  | n + 1, r, s =>
+    if s.result.isSome then .ok s
     else
-      match nextSetupAction r s with
+      match nextPassAction r s with
       | none => .ok s
       | some (a, r1) =>
         match step fuel s a with
         | .error e => .error e
-        | .ok (s', _) => runSetupLoop fuel n r1 s'
+        | .ok (s', _) => runPassLoop fuel n r1 s'
 
 end FabDriver
 
