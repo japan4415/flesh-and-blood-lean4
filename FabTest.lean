@@ -7,6 +7,7 @@ public import FabTest.RulesVersion
 public import FabTest.Fixtures
 public import FabTest.Core
 public import FabTest.Deck
+public import FabTest.Actions
 
 /-!
 # FabTest
