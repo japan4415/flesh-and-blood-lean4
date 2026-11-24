@@ -8,6 +8,7 @@ public import FabTest.Fixtures
 public import FabTest.Core
 public import FabTest.Deck
 public import FabTest.Actions
+public import FabTest.Setup
 
 /-!
 # FabTest

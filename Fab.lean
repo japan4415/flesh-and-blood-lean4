@@ -18,13 +18,21 @@ public import Fab.State.Lki
 public import Fab.State.Object
 public import Fab.State.GameConfig
 public import Fab.State.Event
+public import Fab.State.Phase
+public import Fab.State.Decision
 public import Fab.State.GameState
 public import Fab.Rules.Move
 public import Fab.Rules.Add
+public import Fab.Rules.Reorder
+public import Fab.Rules.Setup
+public import Fab.Rules.Frames
 public import Fab.Rules.Actions.Draw
 public import Fab.Rules.Actions.Pitch
 public import Fab.Rules.Actions.Discard
 public import Fab.Rules.Actions.Banish
+public import Fab.Spec.Legal
+public import Fab.Engine.Step
+public import Fab.Invariant.Step
 
 /-!
 # Fab

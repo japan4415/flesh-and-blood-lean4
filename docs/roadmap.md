@@ -110,6 +110,17 @@ M2a（状態・ゾーン・`moveObj`・イベント経路骨格・基本プリ�
   - 基本アクション: `drawOne_empty_noop`（デッキ切れ敗北なし）/ `drawOne_wf` / `drawOne_physIds` / `drawOne_ownerOk` / `drawOne_lengths_of_ownerOk`、`pitchOne_wf` / `pitchOne_physIds` / `pitchOne_ownerOk` / `pitchOne_adds_assets`（**I8** 1 歩）、`discardOne_*`、`banishOne_*`
 - 検証: `./scripts/verify.sh`（73 jobs `--wfail` ビルド、`lake test`、`lake check` 標準 3 公理のみ、`cr_citations.py` 284 引用 / malformed 0）。
 
+**M2b 実装の記録（2026-11-24）: 完了**
+- 実装: `Fab/State/{Phase,Decision}.lean`、`Fab/Rules/{Reorder,Setup,Frames}.lean`、`Fab/Spec/Legal.lean`、`Fab/Engine/Step.lean`、`Fab/Invariant/Step.lean`、`FabDriver/Run.lean`、`FabTest/Setup.lean`。
+- Start-of-Game Procedure（CR 4.1）を継続スタックフレーム（`chanceFirstPlayer` → `chooseFirstPlayer` → `chooseLoadout` → `revealLoadouts` → `chanceShuffle` → `openingDraws` → `draw`）および 1v1 投了として実装。
+- 証明した主な定理:
+  - 並べ替え・セットアップ: `GameState.wf_reorder` / `physIds_reorder` / `ownerOk_reorder`、`GameState.initial_inv` / `initial_wf` / `initial_ownerOk` / `initial_cards_wf`、`revealAllLoadouts_wf` / `ownerOk` / `physIds`
+  - **I1 / I3 / `OwnerOk`**: `step_physIds`、`step_wf`、`step_ownerOk`、`Reachable`、`Reachable.inv`
+  - **I4（内部エラーなし）**: `advance_not_internal`、`step_not_internal`、`Reachable.not_internal`
+  - **I6（`Legal` 一致: 健全性・完全性・列挙一致）**: `legal_of_step_ok`、`step_illegal`、`step_sound`、`legalFrameActions_iff`、`concedeActions_iff`、`legalActions_iff`
+  - **I15（fuel 単調性）**: `advance_mono`、`step_mono`
+- 検証: `./scripts/verify.sh`（93 jobs `--wfail` ビルド、`lake test`、`lake check` 標準 3 公理のみ、`cr_citations.py` 345 引用 / malformed 0）。
+
 ---
 
 ### M3: ターン骨格・ピッチ＆資産会計・End Phase（CR 1.14, 4.2-4.5）

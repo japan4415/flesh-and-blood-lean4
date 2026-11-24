@@ -166,6 +166,30 @@ theorem active {s s' : GameState} (h : SameMeta s s') : s'.active = s.active := 
   have h2 := congrArg GameState.active h
   exact h2
 
+/-- `pending` is preserved by `SameMeta`. -/
+theorem pending {s s' : GameState} (h : SameMeta s s') : s'.pending = s.pending := by
+  unfold SameMeta at h
+  have h2 := congrArg GameState.pending h
+  exact h2
+
+/-- `turnOrder` is preserved by `SameMeta`. -/
+theorem turnOrder {s s' : GameState} (h : SameMeta s s') : s'.turnOrder = s.turnOrder := by
+  unfold SameMeta at h
+  have h2 := congrArg GameState.turnOrder h
+  exact h2
+
+/-- `phase` is preserved by `SameMeta`. -/
+theorem phase {s s' : GameState} (h : SameMeta s s') : s'.phase = s.phase := by
+  unfold SameMeta at h
+  have h2 := congrArg GameState.phase h
+  exact h2
+
+/-- `result` is preserved by `SameMeta`. -/
+theorem result {s s' : GameState} (h : SameMeta s s') : s'.result = s.result := by
+  unfold SameMeta at h
+  have h2 := congrArg GameState.result h
+  exact h2
+
 end SameMeta
 
 namespace GameState

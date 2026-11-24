@@ -1,0 +1,80 @@
+module
+
+public import Fab.Spec.Legal
+
+/-!
+# The engine (`step`, `advance`, `legalActions`)
+
+`step` checks `Legal`, applies the action, and runs `advance` through automatic work frames up
+to `fuel` steps (design.md §6.1). `legalActions` constructively enumerates every legal player
+action from the board state (design.md §6.3).
+-/
+
+@[expose] public section
+
+namespace Fab
+
+/-- Why `step` failed (design.md §6.1). -/
+inductive RuleError where
+  /-- The submitted `Action` does not satisfy `Legal`. -/
+  | illegal
+  /-- Automatic work did not reach a decision frame or game end within `fuel` steps. -/
+  | fuelExhausted
+  /-- Internal invariant violation (proved impossible under `WF ∧ OwnerOk` by I4). -/
+  | internal (msg : String)
+deriving DecidableEq, Repr
+
+/-- Advance automatic work frames one `microStep` at a time up to `fuel` steps (structural
+recursion on `fuel`: design.md §6.1). -/
+def advance : Nat → GameState → List Event → Except RuleError (GameState × List Event)
+  | 0, s, es =>
+    match s.pending with
+    | f :: _ => if f.isWork then .error .fuelExhausted else .ok (s, es)
+    | [] => .ok (s, es)
+  | n + 1, s, es =>
+    match s.pending with
+    | f :: _ =>
+      if f.isWork then
+        match microStep s with
+        | some (s', es') => advance n s' (es ++ es')
+        | none => .error (.internal "microStep")
+      else .ok (s, es)
+    | [] => .ok (s, es)
+
+/-- Submit one `Action` and advance to the next decision point or end of game (design.md §6.1). -/
+def step (fuel : Nat) (s : GameState) (a : Action) :
+    Except RuleError (GameState × List Event) :=
+  if Legal s a then
+    match applyAction s a with
+    | some (s1, es) => advance fuel s1 es
+    | none => .error (.internal "applyAction")
+  else
+    .error .illegal
+
+/-- Constructively enumerate all legal player actions answering the top frame (chance actions
+are intentionally omitted: design.md §6.3). -/
+def legalFrameActions (s : GameState) : List Action :=
+  match s.pending with
+  | .chooseFirstPlayer chooser :: _ =>
+    (allPlayers s.playerCount).map fun first => ⟨.player chooser, .pickFirstPlayer first⟩
+  | .chooseLoadout p :: _ =>
+    let inv := s.zone (.player p .inventory)
+    let equips := (inv.filter fun id => (loadoutEquipDest? s p id).isSome).map
+      fun id => ⟨.player p, .loadoutEquip id⟩
+    let toDeck := (inv.filter fun id => loadoutCanAddDeck s p id).map
+      fun id => ⟨.player p, .loadoutToDeck id⟩
+    let done := if loadoutCanFinish s p then [⟨.player p, .loadoutDone⟩] else []
+    equips ++ toDeck ++ done
+  | _ => []
+
+/-- Constructively enumerate legal concessions in a 1v1 game (CR 4.5). -/
+def concedeActions (s : GameState) : List Action :=
+  if s.playerCount = 2 then (allPlayers 2).map fun p => ⟨.player p, .concede⟩ else []
+
+/-- All legal player actions in state `s` (empty once the game has ended). -/
+def legalActions (s : GameState) : List Action :=
+  if s.result = none then legalFrameActions s ++ concedeActions s else []
+
+end Fab
+
+end
