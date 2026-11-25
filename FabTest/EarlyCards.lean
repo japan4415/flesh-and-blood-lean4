@@ -158,3 +158,10 @@ meta def kickScenario : Option Bool := do
 
 #guard ((earlyPrintingCardId? "IRA009-P").bind throughWtrDB.find?).any
   (fun c => c.id == ⟨"WTR_191_R"⟩ && c.status == .full)
+
+meta def assaultScenario : Option Bool := do
+  let p := earlyAttacker
+  let (ready, assault) ← earlyPlace earlyBase p (.player p .hand) "IRA_010_B"
+  let hit ← (earlyAttack ready (.playCard assault)).bind earlyDamage
+  pure (hit.lifeOf earlyDefender == 36 && (hit.poolOf p).resources == 6)
+#guard assaultScenario == some true
