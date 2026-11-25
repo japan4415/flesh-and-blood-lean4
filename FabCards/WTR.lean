@@ -732,8 +732,8 @@ def WTR_193_B : CardDef := scarForAScar WTR_193_B_meta
 def WTR_203_R : CardDef := { WTR_203_R_meta with status := .full }
 /-- Wounding Blow Yellow. -/
 def WTR_204_Y : CardDef := { WTR_204_Y_meta with status := .full }
-/-- Wounding Blow Blue (vanilla, drafted IR). -/
-def WTR_205_B : CardDef := draftVanilla WTR_205_B_meta
+/-- Wounding Blow Blue. -/
+def WTR_205_B : CardDef := { WTR_205_B_meta with status := .full }
 
 /-- Shared 3-color helper for Pummel (per-mode `ModeSpec` targets: club/hammer vs cost ≥2 attack). -/
 def pummelCard (base : CardDef) (bonus : Int) : CardDef :=
