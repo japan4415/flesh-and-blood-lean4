@@ -61,8 +61,8 @@ theorem progress_m6b_decisions {s : GameState} (hres : s.result = none) :
     (∀ tp p ps rest, s.pending = .chooseTriggerStart tp :: rest →
       s.turnOrder = p :: ps →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
-    (∀ p rem rest t, s.pending = .chooseTriggerOrder p rem :: rest →
-      t ∈ s.pendingTriggers → t.controller = p →
+    (∀ p rem rest t target, s.pending = .chooseTriggerOrder p rem :: rest →
+      t ∈ s.pendingTriggers → t.controller = p → target ∈ t.heroChoices s.turnOrder →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ aff st c cs cd rest, s.pending = .chooseReplacement aff st (c :: cs) cd :: rest →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
@@ -73,15 +73,15 @@ theorem progress_m6b_decisions {s : GameState} (hres : s.result = none) :
     refine ⟨⟨.player tp, .pickTriggerStart p⟩, ?_, by simp⟩
     rw [legalActions_iff]
     exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp, hord])⟩, rfl⟩
-  · intro p rem rest t hp hmem hctrl
-    refine ⟨⟨.player p, .pickTrigger t.id⟩, ?_, by simp⟩
+  · intro p rem rest t target hp hmem hctrl htarget
+    refine ⟨⟨.player p, .pickTrigger t.id target⟩, ?_, by simp⟩
     rw [legalActions_iff]
     refine ⟨⟨hres, Or.inl ?_⟩, rfl⟩
     unfold LegalFrame
     rw [hp]
     refine ⟨rfl, ?_⟩
     rw [List.any_eq_true]
-    exact ⟨t, hmem, by simp [hctrl]⟩
+    exact ⟨t, hmem, by simp [PendingTrigger.matchesDeclaration, hctrl, htarget]⟩
   · intro aff st c cs cd rest hp
     refine ⟨⟨.player aff, .pickReplacement (some c)⟩, ?_, by simp⟩
     rw [legalActions_iff]

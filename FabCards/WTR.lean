@@ -168,7 +168,8 @@ def WTR_019_B : CardDef := barragingBeatdown WTR_019_B_meta 2
 /-- Shared 3-color helper for Pack Hunt (onAttack intimidate). -/
 def packHunt (base : CardDef) : CardDef :=
   draftCard base
-    [ .triggered .onAttack false none none { body := .prim (.intimidate .opposingHero) } ]
+    [ .triggered .onAttack false none none
+      { targets := [{ kind := .hero }], body := .prim (.intimidate (.ownerOfSlot 0)) } ]
 
 /-- Pack Hunt Red. -/
 def WTR_023_R : CardDef := { packHunt WTR_023_R_meta with status := .full }

@@ -73,6 +73,8 @@ inductive PlayerRef where
   | turnPlayer
   /-- Owner or controller of target slot `i`. -/
   | ownerOfSlot (i : Nat)
+  /-- A player bound to a target slot during declaration. -/
+  | seated (p : PlayerId)
 deriving DecidableEq, Repr
 
 /-- Counter kinds tracked on arena objects (CR 2.0, 8.3). -/

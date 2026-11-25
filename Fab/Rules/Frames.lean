@@ -403,14 +403,20 @@ def resolvingSource (s : GameState) (layer : ObjId) : ObjId :=
   | some (.layer src _ _ _) => src
   | _ => layer
 
-/-- Collect matching untargeted triggers that require no modes or additional costs (CR 6.6). -/
+/-- Whether the engine supports the required declarations for a triggered effect (CR 6.6.6a). -/
+def supportsTriggerTargets (effect : EffectDef) : Bool :=
+  effect.targets.isEmpty ||
+    (effect.targets == [{ kind := .hero }] &&
+      effect.body == .prim (.intimidate (.ownerOfSlot 0)))
+
+/-- Collect matching triggers that require no modes or additional costs (CR 6.6). -/
 def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId) (fromArsenal : Bool)
     (abilities : List Ability) (matchesEvent : Trigger → Option Condition → Bool) :
     List PendingTrigger :=
   let triggers := abilities.zipIdx.filterMap fun (ability, abilityIdx) =>
     match ability with
     | .triggered trigger false none cond eff =>
-      if matchesEvent trigger cond && eff.targets.isEmpty && eff.modes.isEmpty &&
+      if matchesEvent trigger cond && supportsTriggerTargets eff && eff.modes.isEmpty &&
           eff.extraCosts.isEmpty then
         some ({
           id := 0
@@ -694,9 +700,9 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       some ({ s with pending := nextTriggerFrame s order ++ rest }, [])
     else
       none
-  | .chooseTriggerOrder p rem :: rest, .player q, .pickTrigger tid =>
+  | .chooseTriggerOrder p rem :: rest, .player q, .pickTrigger tid target =>
     if p = q then
-      match s.pendingTriggers.find? (fun t => t.id == tid && t.controller == p) with
+      match s.pendingTriggers.find? (fun t => t.matchesDeclaration tid p target s.turnOrder) with
       | none => none
       | some trig =>
         let layerObj : Object :=
@@ -713,12 +719,12 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
               fromArsenal := trig.fromArsenal
               modeIdx := none
               goAgain := false
-              triggerEffect := some trig.effect }
+              triggerEffect := some (trig.declaredEffect target) }
           let s2 := { s1 with
             pendingTriggers := remTrigs
             layerMeta := s1.layerMeta.insert lid.n info }
           let nextF := nextTriggerFrame s2 (p :: rem)
-          some ({ s2 with pending := nextF ++ rest }, [])
+          some ({ s2 with pending := nextF ++ rest }, (target.map (.targetedHero lid)).toList)
     else
       none
   | .chooseReplacement aff _ cands canDecl :: rest, .player q, .pickReplacement choice =>
@@ -1018,16 +1024,18 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         delayedTriggers := kept
         pendingTriggers := sBd.pendingTriggers ++ newTrigs }
     let trigFrames := if fired.isEmpty then [] else [.flushTriggers, .resolveStack]
-    let pitchReturns := s1.turnOrder.map Frame.returnPitch
-    let arsenalFrames :=
-      if (s1.zone (.player tp .arsenal)).isEmpty && !(s1.zone (.player tp .hand)).isEmpty then
-        [.chooseArsenal tp]
-      else
-        []
     some ({ s1 with
               phase := .endPhase
-              pending := trigFrames ++ arsenalFrames ++ pitchReturns ++ [.endTurnCleanup tp] ++ rest },
+              pending := trigFrames ++ [.endPhaseArsenal tp] ++
+                s1.turnOrder.map Frame.returnPitch ++ [.endTurnCleanup tp] ++ rest },
           esBd)
+  | .endPhaseArsenal tp :: rest =>
+    let next :=
+      if (s.zone (.player tp .arsenal)).isEmpty && !(s.zone (.player tp .hand)).isEmpty then
+        .chooseArsenal tp :: rest
+      else
+        rest
+    some ({ s with pending := next }, [])
   | .returnPitch p :: rest =>
     if (s.zone (.player p .pitch)).isEmpty then
       some ({ s with pending := rest }, [])
