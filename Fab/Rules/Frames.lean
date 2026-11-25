@@ -692,7 +692,7 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
     let triggers := collectCardTriggers s source link.attacker false (printed ++ link.grantedAbilities)
       (damageRecipient := some link.defender) fun trigger cond =>
         let matchesEvent := match trigger with
-          | .onHit => link.hit
+          | .onHit | .onHitHero => link.hit
           | .onCrush => crushTriggered link
           | _ => false
         matchesEvent && (cond.map (evalCondition s link.attacker source false)).getD true
@@ -706,6 +706,8 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
         { trigger with effect := .grant (.firstAttackNextTurn (.seated link.defender)) mod dur }
       | .grant (.firstActionNextTurn .defendingHero) mod dur =>
         { trigger with effect := .grant (.firstActionNextTurn (.seated link.defender)) mod dur }
+      | .prim (.discardChoice .defendingHero filter count) =>
+        { trigger with effect := .prim (.discardChoice (.seated link.defender) filter count) }
       | _ => trigger
 
 /-- Collect the card's own on-play triggers once its costs have been paid (CR 5.1, 6.6.5). -/
@@ -1333,6 +1335,14 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
         some ({ s1 with pending := rest }, [.moved id id' (.player p .hand) (.player p .deck)])
     else
       none
+  | .chooseDiscard p remaining candidates selected :: rest, .player q, .pickDiscardCard id =>
+    if q = p ∧ 0 < remaining ∧ id ∈ candidates then
+      if remaining = 1 then
+        let (discarded, events) := discardManyObjs s p (id :: selected).reverse
+        some ({ queueDiscardTriggers discarded events with pending := rest }, events)
+      else
+        some ({ s with pending := .chooseDiscard p (remaining - 1) (candidates.erase id) (id :: selected) :: rest }, [])
+    else none
   | .chooseShuffleCards p remaining candidates selected drawSame search :: rest, .player q, .pickShuffleCard choice =>
     if p = q then
       match choice with

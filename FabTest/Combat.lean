@@ -4255,6 +4255,87 @@ meta def checkRegurgitatingSlog (cid : CardId) (pitch power : Nat) : Option Bool
 #guard checkRegurgitatingSlog ⟨"WTR_198_Y"⟩ 2 5 == some true
 #guard checkRegurgitatingSlog ⟨"WTR_199_B"⟩ 3 4 == some true
 
+/-- Pummel boosts its legal target and the hit hero selects the card discarded in attack-action mode. -/
+meta def checkPummel (cid : CardId) (pitch bonus : Nat) (fromArsenal : Bool) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player defender .hand
+  let grave := Zone.player defender .graveyard
+  let deck := Zone.player defender .deck
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 6 }
+  let card ← funded.cards.find? cid
+  let (withReaction, pummel) ← cPlace funded attacker origin cid fromArsenal
+  let (clubReady, club) ← cPlace withReaction attacker .weapon ⟨"WTR_003"⟩
+  let (hammerReady, hammer) ← cPlace withReaction attacker .weapon ⟨"WTR_040"⟩
+  let (swordReady, sword) ← cPlace withReaction attacker .weapon ⟨"WTR_115"⟩
+  let (withAction, attack) ← cPlace withReaction attacker .hand ⟨"WTR_197_R"⟩
+  let (withCheap, cheap) ← cPlace withAction attacker .hand ⟨"WTR_203_R"⟩
+  let (withArsenal, faceDown) ← cPlace withCheap defender .arsenal ⟨"WTR_205_B"⟩ true
+  let (oneCard, first) ← cPlace withArsenal defender .hand ⟨"WTR_203_R"⟩
+  let (ready, second) ← cPlace oneCard defender .hand ⟨"WTR_204_Y"⟩
+  let act (id : ObjId) : Action := ⟨.player attacker, .playCard id⟩
+  let swing (id : ObjId) : Action := ⟨.player attacker, .attackWeapon id⟩
+  let pick (idx : Nat) : Action := ⟨.player attacker, .pickMode idx⟩
+  let discard (p : PlayerId) (id : ObjId) : Action := ⟨.player p, .pickDiscardCard id⟩
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let reaction := passBoth ++ passBoth ++ [⟨.player defender, .defendDone⟩] ++ passBoth
+  let withBoost (s : GameState) (action : Action) (mode : Nat) := do
+    let offered ← cSteps s (action :: (reaction ++ [act pummel]))
+    let paid ← cSteps offered [pick mode]
+    let resolved ← cSteps paid passBoth
+    pure (offered, resolved)
+  let afterHit (s : GameState) := do
+    let hit ← cSteps s passBoth
+    let trigger ← hit.pendingTriggers.head?
+    cSteps hit ([⟨.player attacker, .pickTriggerStart attacker⟩,
+      ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let (offered, actionBoost) ← withBoost ready (act attack) 1
+  let choice ← afterHit actionBoost
+  let (finished, events) ← (step 64 choice (discard defender first)).toOption
+  let discarded ← (finished.zone grave).head?
+  let (_, singleBoost) ← withBoost oneCard (act attack) 1
+  let noChoice ← afterHit singleBoost
+  let (emptyHand, _) ← moveObj oneCard first deck .top false
+  let (_, emptyBoost) ← withBoost emptyHand (act attack) 1
+  let noDiscard ← afterHit emptyBoost
+  let shielded := (execPrim actionBoost defender ⟨0⟩ []
+    (.preventNextDamage .controller (.const 20) .thisTurn)).1
+  let blocked ← cSteps shielded passBoth
+  let (clubModes, clubBoost) ← withBoost clubReady (swing club) 0
+  let (_, hammerBoost) ← withBoost hammerReady (swing hammer) 0
+  let clubHit ← cSteps clubBoost passBoth
+  let hammerHit ← cSteps hammerBoost passBoth
+  let wrongWeapon ← cSteps swordReady (swing sword :: reaction)
+  let lowCost ← cSteps ready (act cheap :: reaction)
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 2 &&
+    (legalActionsFor attacker offered).contains (pick 1) &&
+    !(legalActionsFor attacker offered).contains (pick 0) &&
+    (legalActionsFor attacker clubModes).contains (pick 0) &&
+    !(legalActionsFor attacker clubModes).contains (pick 1) &&
+    !(legalActionsFor attacker wrongWeapon).contains (act pummel) &&
+    !(legalActionsFor attacker lowCost).contains (act pummel) &&
+    (actionBoost.poolOf attacker).resources == 2 &&
+    (active clubHit).map (·.damageDealt) == some (4 + bonus) && clubHit.pendingTriggers.isEmpty &&
+    (active hammerHit).map (·.damageDealt) == some (4 + bonus) && hammerHit.pendingTriggers.isEmpty &&
+    (active finished).map (·.damageDealt) == some (6 + bonus) &&
+    (active blocked).map (·.damageDealt) == some 0 && blocked.pendingTriggers.isEmpty &&
+    choice.zone hand == [second, first] && choice.zone grave == [] &&
+    (legalActionsFor defender choice).contains (discard defender second) &&
+    !(legalActionsFor attacker choice).contains (discard attacker first) &&
+    (step 64 choice (discard defender faceDown)).toOption.isNone &&
+    (view attacker choice).selectionChoices.isEmpty &&
+    (view attacker choice).pending.head? == some (.chooseDiscard defender 0 [] []) &&
+    (view defender choice).selectionChoices.map Prod.fst == [second, first] &&
+    finished.zone hand == [second] && (finished.zone grave).length == 1 &&
+    events.contains (.discarded defender discarded) &&
+    (finished.cardDefOf? discarded).map (·.id) == some ⟨"WTR_203_R"⟩ &&
+    (noChoice.zone hand).isEmpty && (noChoice.zone grave).length == 1 &&
+    (noDiscard.zone grave).isEmpty)
+
+#guard checkPummel ⟨"WTR_206_R"⟩ 1 4 false == some true
+#guard checkPummel ⟨"WTR_206_R"⟩ 1 4 true == some true
+
 /-- Shunt deals one point of generic damage as it resolves against a weapon. -/
 meta def checkSteelbladeShunt (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool) :
     Option Bool := do

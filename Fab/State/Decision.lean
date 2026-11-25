@@ -89,6 +89,8 @@ inductive ActionKind where
   | die6Roll (roll : Nat)
   /-- Pick a card from hand to place into the deck (e.g. Sink Below). -/
   | handToDeckPick (id : ObjId)
+  /-- Select a card from hand for a discard effect (CR 8.5.5). -/
+  | pickDiscardCard (id : ObjId)
   /-- Add a card to the selection or confirm it with `none` (CR 1.8.6, 8.5.20b). -/
   | pickShuffleCard (choice : Option ObjId)
   /-- Choose a card from hand to pay an additional cost (CR 5.1.9). -/
@@ -231,6 +233,8 @@ inductive Frame where
       (bindVar : VarId) (branches : DieBranchList) (cont : Effect)
   /-- Player decision: pick a card from hand to place into the deck at `pos`. -/
   | chooseHandToDeck (p : PlayerId) (pos : DeckPos)
+  /-- Player selects cards before discarding them together (CR 8.5.5). -/
+  | chooseDiscard (p : PlayerId) (remaining : Nat) (candidates selected : List ObjId)
   /-- Player selects cards for a single shuffle effect. Cards move when the selection is confirmed. -/
   | chooseShuffleCards (p : PlayerId) (remaining : Nat) (candidates selected : List ObjId)
       (drawSame : Bool) (search : Option DeckSearchChoice := none)

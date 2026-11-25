@@ -303,6 +303,15 @@ theorem progress_m4_decisions {s : GameState} (hres : s.result = none) :
   · intro ctrl src fa env bv br ct rest hp
     exact ⟨⟨.chance, .die6Roll 1⟩, ⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩
 
+/-- **I5**: a discard selection has a legal action when a card is available and still needed. -/
+theorem progress_chooseDiscard {s : GameState} (hres : s.result = none)
+    {p : PlayerId} {remaining : Nat} {id : ObjId} {cs selected : List ObjId} {rest : List Frame}
+    (hp : s.pending = .chooseDiscard p remaining (id :: cs) selected :: rest)
+    (hpos : 0 < remaining) : ∃ a ∈ legalActions s, a.kind ≠ .concede := by
+  refine ⟨⟨.player p, .pickDiscardCard id⟩, ?_, by simp⟩
+  rw [legalActions_iff]
+  exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp, hpos])⟩, rfl⟩
+
 /-- **I5**: a player declaring a hero target can always cancel the in-progress play. -/
 theorem progress_choosePlayHero {s : GameState} (hres : s.result = none)
     {p : PlayerId} {lid : ObjId} {fromArsenal : Bool} {mode : Option Nat} {cost : AssetCost}
