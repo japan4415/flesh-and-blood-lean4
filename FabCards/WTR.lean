@@ -147,8 +147,8 @@ def breakneckBattery (base : CardDef) : CardDef :=
 
 /-- Breakneck Battery Red. -/
 def WTR_011_R : CardDef := { breakneckBattery WTR_011_R_meta with status := .full }
-/-- Breakneck Battery Yellow (drafted IR). -/
-def WTR_012_Y : CardDef := breakneckBattery WTR_012_Y_meta
+/-- Breakneck Battery Yellow. -/
+def WTR_012_Y : CardDef := { breakneckBattery WTR_012_Y_meta with status := .full }
 /-- Breakneck Battery Blue (drafted IR). -/
 def WTR_013_B : CardDef := breakneckBattery WTR_013_B_meta
 
