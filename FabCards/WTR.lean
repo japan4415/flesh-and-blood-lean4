@@ -1217,6 +1217,9 @@ def WTR_197_R : CardDef := { regurgitatingSlog WTR_197_R_meta with status := .fu
 /-- Regurgitating Slog Yellow. -/
 def WTR_198_Y : CardDef := { regurgitatingSlog WTR_198_Y_meta with status := .full }
 
+/-- Regurgitating Slog Blue. -/
+def WTR_199_B : CardDef := { regurgitatingSlog WTR_199_B_meta with status := .full }
+
 /-- Wounded Bull gets +1 power if its controller has less life when playing it. -/
 def woundedBull (base : CardDef) : CardDef :=
   draftCard base
@@ -1371,7 +1374,7 @@ def draftedCards : List CardDef :=
   , WTR_173_R, WTR_174_Y, WTR_175_B, WTR_176_R, WTR_177_Y, WTR_178_B, WTR_179_R, WTR_180_Y, WTR_181_B, WTR_182_R, WTR_183_Y, WTR_184_B
   , WTR_185_R, WTR_186_Y, WTR_187_B, WTR_188_R, WTR_189_Y, WTR_190_B
   , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_194_R, WTR_195_Y, WTR_196_B
-  , WTR_197_R, WTR_198_Y, WTR_200_R, WTR_201_Y, WTR_202_B
+  , WTR_197_R, WTR_198_Y, WTR_199_B, WTR_200_R, WTR_201_Y, WTR_202_B
   , WTR_203_R, WTR_204_Y, WTR_205_B
   , WTR_206_R, WTR_207_Y, WTR_208_B, WTR_209_R, WTR_210_Y, WTR_211_B
   , WTR_212_R, WTR_213_Y, WTR_214_B, WTR_215_R, WTR_216_Y, WTR_217_B
