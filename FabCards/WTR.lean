@@ -390,8 +390,8 @@ def bucklingBlow (base : CardDef) (trigger : Trigger := .onDealDamage 4 true) : 
 
 /-- Buckling Blow Red. -/
 def WTR_057_R : CardDef := { bucklingBlow WTR_057_R_meta .onCrush with status := .full }
-/-- Buckling Blow Yellow (drafted IR). -/
-def WTR_058_Y : CardDef := bucklingBlow WTR_058_Y_meta
+/-- Buckling Blow Yellow. -/
+def WTR_058_Y : CardDef := { bucklingBlow WTR_058_Y_meta .onCrush with status := .full }
 /-- Buckling Blow Blue (drafted IR). -/
 def WTR_059_B : CardDef := bucklingBlow WTR_059_B_meta
 
