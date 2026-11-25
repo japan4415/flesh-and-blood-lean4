@@ -555,7 +555,7 @@ def cardPlayRandomDiscardCost (s : GameState) (layerId : ObjId) : Nat :=
     count
   | _ => 0
 
-/-- Finalize a paid layer, then stack its play triggers and return priority (CR 5.1.10, 6.6.6). -/
+/-- Finalize a paid layer, then stack triggers queued during play and return priority (CR 5.1.10, 6.6.6). -/
 def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (rest : List Frame) (discarded : Option CardFace := none) : GameState :=
   let hasGoAgain :=
@@ -572,11 +572,12 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
   let s := { s with layerMeta := s.layerMeta.insert layerId.n updatedInfo }
   let triggers := playedCardTriggers s layerId p fromArsenal
-  let flush := if triggers.isEmpty then [] else [.flushTriggers]
+  let pendingTriggers := s.pendingTriggers ++ triggers
+  let flush := if pendingTriggers.isEmpty then [] else [.flushTriggers]
   { s with
     activeEffects := remainingEffects
     playRollback := none
-    pendingTriggers := s.pendingTriggers ++ triggers
+    pendingTriggers := pendingTriggers
     nextTimestamp := s.nextTimestamp + triggers.length
     pending := flush ++ (.priority p 0 :: rest) }
 
@@ -734,8 +735,14 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
     if p = q ∧ canPitchCard s p id = true then
       match pitchOne s p id with
       | none => none
-      | some (s1, _, es) =>
-        some ({ s1 with pending := .playPayCost p layerId fromArsenal modeIdx cost :: rest }, es)
+      | some (s1, pitched, es) =>
+        let abilities := ((s1.objectFace? pitched).map (·.abilities)).getD []
+        let triggers := collectCardTriggers s1 pitched p false abilities fun trigger cond =>
+          trigger == .onPitch && (cond.map (evalCondition s1 p pitched false)).getD true
+        some ({ s1 with
+                  pendingTriggers := s1.pendingTriggers ++ triggers
+                  nextTimestamp := s1.nextTimestamp + triggers.length
+                  pending := .playPayCost p layerId fromArsenal modeIdx cost :: rest }, es)
     else
       none
   | .choosePitch p _ _ _ _ :: rest, .player q, .cancelPlay =>
