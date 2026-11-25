@@ -435,12 +435,12 @@ def WTR_079 : CardDef :=
       [ .triggered (.onConsecutiveHitLink 3) true none none
           { body := .prim (.draw .controller (.const 1)) } ] with status := .full }
 
-/-- Breaking Scales (drafted IR). -/
+/-- Breaking Scales. -/
 def WTR_080 : CardDef :=
-  draftCard WTR_080_meta
-    [ .activated .attackReaction false {} [{ cost := .destroySelf }] none false
-        { targets := [{ kind := .attackAction, filter := comboFilter }]
-          body := .grant (.obj (.slot 0)) (.addPower (.const 1)) .thisChainLink } ]
+  { draftCard WTR_080_meta
+      [ .activated .attackReaction false {} [{ cost := .destroySelf }] none false
+          { targets := [{ kind := .attackAction, filter := comboFilter }]
+            body := .grant (.obj (.slot 0)) (.addPower (.const 1)) .thisTurn } ] with status := .full }
 
 /-- Lord of Wind (drafted IR — exercises Combo-gated optional `{x}` cost and `NumExpr.xValue`). -/
 def WTR_081_B : CardDef :=
