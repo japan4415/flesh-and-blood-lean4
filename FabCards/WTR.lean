@@ -479,8 +479,8 @@ def WTR_106_B : CardDef := { risingKneeThrust WTR_106_B_meta with status := .ful
 def WTR_107_R : CardDef := { WTR_107_R_meta with status := .full }
 /-- Surging Strike Yellow, whose printed Go Again is handled by combat resolution. -/
 def WTR_108_Y : CardDef := { WTR_108_Y_meta with status := .full }
-/-- Surging Strike Blue (vanilla Go Again, drafted IR). -/
-def WTR_109_B : CardDef := draftVanilla WTR_109_B_meta
+/-- Surging Strike Blue, whose printed Go Again is handled by combat resolution. -/
+def WTR_109_B : CardDef := { WTR_109_B_meta with status := .full }
 
 /-- Shared 3-color helper for Whelming Gustwave (Combo: +1{p}, go again, onHit draw 1). -/
 def whelmingGustwave (base : CardDef) : CardDef :=
