@@ -118,6 +118,7 @@ meta def checkIronrot (cid : CardId) (slot : ZoneKind) : Option Bool := do
 #guard checkIronrot ⟨"WTR_155"⟩ .head == some true
 #guard checkIronrot ⟨"WTR_156"⟩ .chest == some true
 #guard checkIronrot ⟨"WTR_157"⟩ .arms == some true
+#guard checkIronrot ⟨"WTR_158"⟩ .legs == some true
 
 -- 2. Battleworn & Blade Break Equipment Wear + Identical `ObjId` Preservation (I11: CR 3.0.9, 7.7, 8.3.2, 8.3.3):
 --    P0 attacks with Wounding Blow Red (4{p}). P1 defends with Tectonic Plating (Chest, 2{d}, Battleworn)
