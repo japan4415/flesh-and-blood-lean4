@@ -191,11 +191,20 @@ def ARC_019_R : CardDef :=
                 (.grantKeyword .dominate) .thisTurn } ] }
     status := .full }
 
+/-- Formalize an attack that returns to its owner's deck if it hits. -/
+def overLoop (base : CardDef) : CardDef :=
+  { base with front := { base.front with
+    abilities := [.triggered .onHit false none none
+      { body := .prim (.moveCard .self_ .deck .bottom true) }] } }
+
+/-- Over Loop (ARC020). -/
+def ARC_020_R : CardDef := { overLoop Meta.ARC_020_R_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
    ARC_008_R, ARC_009_Y, ARC_010_R, ARC_011_R, ARC_012_Y, ARC_013_B, ARC_014_R, ARC_015_Y,
-   ARC_016_B, ARC_017_Y, ARC_018_B, ARC_019_R]
+   ARC_016_B, ARC_017_Y, ARC_018_B, ARC_019_R, ARC_020_R]
 
 end FabCards.ARC
 
