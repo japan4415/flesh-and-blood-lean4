@@ -1029,6 +1029,92 @@ meta def checkPrimevalBellow (cid : CardId) (pitch bonus : Nat) (fromArsenal : B
 #guard checkPrimevalBellow ⟨"WTR_037_B"⟩ 3 3 false == some true
 #guard checkPrimevalBellow ⟨"WTR_037_B"⟩ 3 3 true == some true
 
+/-- Barraging Beatdown checks the live non-equipment defenders of the first Brute attack. -/
+meta def checkBarragingBeatdown (cid : CardId) (pitch bonus : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let defenderHand := Zone.player defender .hand
+  let banished := Zone.player defender .banished
+  let funded := (m5Base.setPool attacker { actionPoints := 3, resources := 4 }).setPool defender
+    { resources := 3 }
+  let card ← funded.cards.find? cid
+  let (withBellow, bellow) ← cPlace funded attacker .hand cid
+  let (withWeapon, weapon) ← cPlace withBellow attacker .weapon ⟨"WTR_003"⟩
+  let (withOther, other) ← cPlace withWeapon attacker .hand ⟨"WTR_203_R"⟩
+  let (withHidden, hidden) ← cPlace withOther defender .hand ⟨"WTR_205_B"⟩
+  let (withFirst, first) ← cPlace withHidden defender .hand ⟨"WTR_203_R"⟩
+  let (withSecond, second) ← cPlace withFirst defender .hand ⟨"WTR_204_Y"⟩
+  let (withArmor, armor) ← cPlace withSecond defender .chest ⟨"WTR_041"⟩
+  let (ready, reaction) ← cPlace withArmor defender .arsenal ⟨"WTR_214_B"⟩ true
+  let play := fun id => (⟨.player attacker, .playCard id⟩ : Action)
+  let defend := fun id => (⟨.player defender, .defendCard id⟩ : Action)
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let activeLink := fun (s : GameState) => s.combat.bind CombatChain.activeLink?
+  let declaring ← cSteps ready [play bellow]
+  let selfPaid ← cSteps declaring [⟨.player attacker, .pickHeroTarget attacker⟩]
+  let selfBuffed ← cSteps selfPaid passBoth
+  let selfHidden ← (selfBuffed.zone (.player attacker .banished)).head?
+  let paid ← cSteps declaring [⟨.player attacker, .pickHeroTarget defender⟩]
+  let chance ← cSteps paid passBoth
+  let buffed ← cSteps chance [⟨.chance, .shuffleOrder [hidden, first, second]⟩]
+  let intimidation ← (buffed.zone banished).head?
+  let toDefend := passBoth ++ passBoth
+  let finish := done :: (passBoth ++ passBoth ++ passBoth)
+  let generic ← cSteps buffed (play other :: (toDefend ++ finish))
+  let genericLink ← activeLink generic
+  let beforeBrute ← cSteps generic passBoth
+  let swing : Action := ⟨.player attacker, .attackWeapon weapon⟩
+  let defending ← cSteps beforeBrute (swing :: toDefend)
+  let weaponLink ← activeLink defending
+  let unblocked ← cSteps defending finish
+  let hitLink ← activeLink unblocked
+  let oneBlock ← cSteps defending [defend armor, defend first]
+  let oneLink ← activeLink oneBlock
+  let twoBlocks ← cSteps oneBlock [defend second]
+  let twoLink ← activeLink twoBlocks
+  let oneHit ← cSteps oneBlock finish
+  let twoHit ← cSteps twoBlocks finish
+  let reactionStep ← cSteps oneBlock (done :: (passBoth ++ [⟨.player attacker, .pass⟩]))
+  let resolved ← cSteps reactionStep [⟨.player defender, .playCard reaction⟩,
+    ⟨.player defender, .pass⟩, ⟨.player attacker, .pass⟩]
+  let resolvedLink ← activeLink resolved
+  let (removed, _, _) := execPrim resolved attacker weapon []
+    (.returnDefendingCardToHand CardFilter.nonEquipment)
+  let removedLink ← activeLink removed
+  let (cardReady, brute) ← cPlace beforeBrute attacker .hand ⟨"WTR_020_R"⟩
+  let (readyWithCost, _) ← cPlace cardReady attacker .hand ⟨"WTR_204_Y"⟩
+  let bruteHit ← cSteps readyWithCost (play brute :: (toDefend ++ finish))
+  let bruteLink ← activeLink bruteHit
+  let bruteClosed ← cSteps bruteHit passBoth
+  let normal ← cSteps bruteClosed (swing :: (toDefend ++ finish))
+  let normalLink ← activeLink normal
+  let endPhase ← cSteps buffed passBoth
+  let returnTrigger ← endPhase.pendingTriggers.head?
+  let returned ← cSteps endPhase [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger returnTrigger.id⟩]
+  let ended ← cSteps returned [⟨.player attacker, .arsenalSkip⟩]
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    selfBuffed.zone defenderHand == ready.zone defenderHand &&
+    (selfBuffed.obj? selfHidden).map (fun o => (o.kind, o.faceDown)) ==
+      (ready.obj? other).map (fun o => (o.kind, true)) &&
+    (paid.poolOf attacker).resources == 4 && (paid.poolOf attacker).actionPoints == 2 &&
+    (buffed.poolOf attacker).actionPoints == 3 &&
+    chance.pending.head? == some (.chanceShuffle defenderHand) && chance.activeEffects.length == 1 &&
+    buffed.zone defenderHand == [first, second] && (buffed.obj? intimidation).any (·.faceDown) &&
+    genericLink.damageDealt == 4 && beforeBrute.activeEffects == buffed.activeEffects &&
+    defending.activeEffects.isEmpty && linkAttackPower defending weaponLink == 4 + bonus &&
+    hitLink.damageDealt == 4 + bonus && nonEquipmentDefenderCount oneBlock oneLink == 1 &&
+    linkAttackPower oneBlock oneLink == 4 + bonus && nonEquipmentDefenderCount twoBlocks twoLink == 2 &&
+    (activeLink oneHit).map (·.damageDealt) == some (4 + bonus - linkTotalDefense oneBlock oneLink) &&
+    (activeLink twoHit).map (·.damageDealt) == some 0 &&
+    linkAttackPower twoBlocks twoLink == 4 && nonEquipmentDefenderCount resolved resolvedLink == 2 &&
+    linkAttackPower resolved resolvedLink == 4 && linkAttackPower removed removedLink == 4 + bonus &&
+    bruteLink.damageDealt == 7 + bonus && normalLink.damageDealt == 4 &&
+    returnTrigger.source == intimidation && returned.zone banished == [] &&
+    (returned.zone defenderHand).length == 3 && ended.activeEffects.isEmpty)
+
+#guard checkBarragingBeatdown ⟨"WTR_017_R"⟩ 1 4 == some true
+
 /-- Play an attack with Intimidate and use the remaining hand card to defend. -/
 meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) (discardCost : Bool := false)
     (fromArsenal : Bool := false) : Option Bool := do

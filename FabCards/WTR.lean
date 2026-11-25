@@ -172,14 +172,15 @@ def WTR_016_B : CardDef := { savageFeast WTR_016_B_meta with status := .full }
 def barragingBeatdown (base : CardDef) (bonus : Int) : CardDef :=
   draftCard base []
     (some
-      { body := .seqL
+      { targets := [{ kind := .hero }]
+        body := .seqL
           [ .grant (.nextAttack bruteAttackFilter)
               (.conditionalPower (.defendedByFewerNonEquip 2) bonus)
               .thisTurn
-          , .prim (.intimidate .opposingHero) ] })
+          , .prim (.intimidate (.ownerOfSlot 0)) ] })
 
-/-- Barraging Beatdown Red (drafted IR). -/
-def WTR_017_R : CardDef := barragingBeatdown WTR_017_R_meta 4
+/-- Barraging Beatdown Red. -/
+def WTR_017_R : CardDef := { barragingBeatdown WTR_017_R_meta 4 with status := .full }
 /-- Barraging Beatdown Yellow (drafted IR). -/
 def WTR_018_Y : CardDef := barragingBeatdown WTR_018_Y_meta 3
 /-- Barraging Beatdown Blue (drafted IR). -/

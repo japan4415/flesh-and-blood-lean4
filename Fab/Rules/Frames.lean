@@ -533,6 +533,9 @@ def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo
       if effect.controller == info.controller && eligible then
         match effect.op with
         | .addPower bonus => ({ layer with attackPowerBonus := layer.attackPowerBonus + bonus }, rest)
+        | .addPowerIfFewerDefenders limit bonus =>
+          ({ layer with attackPowerForFewerDefenders := (limit, bonus) ::
+              layer.attackPowerForFewerDefenders }, rest)
         | .grantKeyword keyword =>
           ({ layer with attackKeywords := insertUnique keyword layer.attackKeywords }, rest)
         | .grantAttackAbility ability =>

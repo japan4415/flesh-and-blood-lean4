@@ -66,7 +66,9 @@ def linkAttackPower (s : GameState) (link : ChainLink) : Nat :=
     match link.attack.bind (objEffectivePower s) with
     | some p => p
     | none => (link.attackLki.power.getD 0) + Int.ofNat link.attackLki.plusPowerCounters
-  clampNonNeg (basePow + link.powerBonus)
+  let conditionalPower := link.powerForFewerDefenders.foldl (fun total (limit, bonus) =>
+    if nonEquipmentDefenderCount s link < limit then total + bonus else total) 0
+  clampNonNeg (basePow + link.powerBonus + conditionalPower)
 
 /-- Sum of effective defense values `{d}` of all defending cards on a `ChainLink` (CR 7.5.2). -/
 def linkTotalDefense (s : GameState) (link : ChainLink) : Nat :=
@@ -705,6 +707,7 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
       attackLki := lki
       discardedForPlay := attackInfo.discardedForPlay
       powerBonus := attackInfo.attackPowerBonus
+      powerForFewerDefenders := attackInfo.attackPowerForFewerDefenders
       grantedKeywords := attackInfo.attackKeywords
       grantedAbilities := attackInfo.attackAbilities }
   let s3 := { s2 with
