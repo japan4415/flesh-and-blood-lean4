@@ -229,9 +229,19 @@ def limitedWeaponAttackIndex? (c : CardDef) : Option Nat := do
   let (index, once, _) ← weaponAttackSpec? c
   if once then some index else none
 
+/-- Whether an effect grants this player one extra attack with this weapon (CR 5.2.3c). -/
+def ContinuousEffect.allowsWeaponAttack (effect : ContinuousEffect) (p : PlayerId) (weapon : ObjId) : Bool :=
+  effect.controller == p && effect.target == .obj weapon && effect.op == .allowWeaponAttack
+
+/-- Weapon attack sources can stay on an open combat chain between links (CR 1.4.3, 7.6). -/
+def weaponAttackCandidateIds (s : GameState) (p : PlayerId) : List ObjId :=
+  let linked := ((s.combat.map (·.links)).getD []).filterMap fun link =>
+    if link.attacker == p then link.attackSource else none
+  (s.zone (.player p .weapon) ++ (linked.filter (s.zone .combatChain).contains)).eraseDups
+
 /-- Whether player `p` may activate a weapon attack with `weaponId` while holding priority
 (CR 1.4.3, 7.1, 7.6): must be `p`'s Action Phase, empty stack, combat chain either closed or in
-Resolution Step, `weaponId ∈ weapon zone`, and `1 ≤ AP`. -/
+Resolution Step, with an available weapon activation and `1 ≤ AP`. -/
 def canAttackWithWeapon (s : GameState) (p : PlayerId) (weaponId : ObjId) : Bool :=
   let chainReady :=
     match s.combat with
@@ -242,11 +252,12 @@ def canAttackWithWeapon (s : GameState) (p : PlayerId) (weaponId : ObjId) : Bool
   (s.zone .stack).isEmpty &&
   chainReady &&
   1 ≤ (s.poolOf p).actionPoints &&
-  (weaponId ∈ s.zone (.player p .weapon)) &&
+  (weaponId ∈ weaponAttackCandidateIds s p) &&
   match s.cardDefOf? weaponId with
   | some c =>
-    c.isWeapon &&
-      !((limitedWeaponAttackIndex? c).any fun index => s.activatedThisTurn.contains (weaponId, index))
+    let alreadyUsed := (limitedWeaponAttackIndex? c).any fun index =>
+      s.activatedThisTurn.contains (weaponId, index)
+    c.isWeapon && (!alreadyUsed || s.activeEffects.any (fun effect => effect.allowsWeaponAttack p weaponId))
   | none => false
 
 /-- Return an Arena equipment card `id` from `Zone.combatChain` during Close Step (CR 7.7),

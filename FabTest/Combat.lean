@@ -1539,6 +1539,52 @@ meta def checkRefractionBolters : Option Bool := do
 
 #guard checkRefractionBolters == some true
 
+/-- Dorinthea can permit one extra attack with the weapon that hit, independently of action points. -/
+meta def checkDorinthea (cid : CardId) (life : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let card ← m5Base.cards.find? cid
+  let funded := (m5Base.setLife attacker (Int.ofNat life)).setPool attacker { actionPoints := 2, resources := 2 }
+  let (withHero, hero) ← cPlace funded attacker .hero cid
+  let (armed, weapon) ← cPlace withHero attacker .weapon ⟨"WTR_115"⟩
+  let (withBlock, block) ← cPlace armed defender .hand ⟨"WTR_203_R"⟩
+  let (ready, _) ← cPlace withBlock attacker .hand ⟨"WTR_203_R"⟩
+  let swing : Action := ⟨.player attacker, .attackWeapon weapon⟩
+  let enter (s : GameState) := cSteps s (swing :: (passBoth ++ passBoth))
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let accept yes : Action := ⟨.player attacker, .pickMay yes⟩
+  let toDamage := done :: (passBoth ++ passBoth)
+  let defend ← enter ready
+  let hit ← cSteps defend toDamage
+  let trigger ← hit.pendingTriggers.head?
+  let choice ← cSteps hit ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let permitted ← cSteps choice (accept true :: passBoth)
+  let declined ← cSteps choice (accept false :: passBoth)
+  let (expired, _) ← microStep { permitted with pending := [.endTurnCleanup attacker] }
+  let broke := permitted.setPool attacker { actionPoints := 1 }
+  let paying ← cSteps broke [swing]
+  let cancelled ← cSteps paying [⟨.player attacker, .cancelPlay⟩]
+  let secondDefend ← enter permitted
+  let second ← cSteps secondDefend (toDamage ++ passBoth)
+  let extraFunded := second.setPool attacker { actionPoints := 1, resources := 1 }
+  let blocked ← cSteps defend (⟨.player defender, .defendCard block⟩ :: (toDamage ++ passBoth))
+  pure (card.status == .full && card.front.life == some life && card.front.intellect == some 4 &&
+    hit.pendingTriggers.length == 1 && trigger.source == hero &&
+    (legalActionsFor attacker choice).contains (accept true) &&
+    (legalActionsFor attacker choice).contains (accept false) &&
+    (permitted.poolOf attacker).actionPoints == 1 && (permitted.poolOf attacker).resources == 1 &&
+    (legalActionsFor attacker permitted).contains swing &&
+    !(legalActionsFor attacker declined).contains swing && declined.activeEffects.isEmpty &&
+    expired.activeEffects.isEmpty && expired.triggeredThisTurn.isEmpty &&
+    decide (cancelled = broke) && permitted.activeEffects.map (·.target) == [.obj weapon] &&
+    secondDefend.activeEffects.isEmpty && (secondDefend.combat.map (·.links.length)) == some 2 &&
+    second.pendingTriggers.isEmpty && second.triggeredThisTurn == [(hero, 0)] &&
+    !(legalActionsFor attacker extraFunded).contains swing && (step 64 extraFunded swing).toOption.isNone &&
+    blocked.pendingTriggers.isEmpty && blocked.triggeredThisTurn.isEmpty)
+
+#guard checkDorinthea ⟨"WTR_113"⟩ 40 == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do

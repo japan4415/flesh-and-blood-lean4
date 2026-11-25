@@ -809,6 +809,13 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
         (modeOnAttack.map fun body => Ability.triggered .onAttack false none none { body := body }).toList
       goAgain := hasGoAgain }
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
+  let activation := paidWeaponActivation? s layerId
+  let effects := match activation with
+    | some (weapon, index) =>
+      if s.activatedThisTurn.contains (weapon, index) then
+        remainingEffects.eraseP (fun effect => effect.allowsWeaponAttack p weapon)
+      else remainingEffects
+    | none => remainingEffects
   let s := { s with layerMeta := s.layerMeta.insert layerId.n updatedInfo }
   let newTriggers := playedCardTriggers s layerId p fromArsenal ++ arenaAttackPlayTriggers s layerId p
   let triggers := newTriggers.zipIdx.map fun (trigger, index) =>
@@ -816,9 +823,9 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
   let pendingTriggers := s.pendingTriggers ++ triggers
   let flush := if pendingTriggers.isEmpty then [] else [.flushTriggers]
   { s with
-    activeEffects := remainingEffects
+    activeEffects := effects
     playRollback := none
-    activatedThisTurn := s.activatedThisTurn ++ (paidWeaponActivation? s layerId).toList
+    activatedThisTurn := s.activatedThisTurn ++ activation.toList
     pendingTriggers := pendingTriggers
     nextTimestamp := s.nextTimestamp + triggers.length
     pending := flush ++ (.priority p 0 :: rest) }

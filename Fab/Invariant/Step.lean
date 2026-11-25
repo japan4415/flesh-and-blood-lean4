@@ -134,10 +134,10 @@ theorem mem_inventory_of_loadoutCanAddDeck {s : GameState} {p : PlayerId} {id : 
   · assumption
   · cases h
 
-/-- Helper: `canAttackWithWeapon` implies `wid` is in `p`'s weapon zone. -/
-theorem mem_weapon_of_canAttackWithWeapon {s : GameState} {p : PlayerId} {wid : ObjId}
+/-- Helper: `canAttackWithWeapon` implies `wid` is an available weapon attack source. -/
+theorem mem_weaponCandidates_of_canAttackWithWeapon {s : GameState} {p : PlayerId} {wid : ObjId}
     (h : canAttackWithWeapon s p wid = true) :
-    wid ∈ s.zone (.player p .weapon) := by
+    wid ∈ weaponAttackCandidateIds s p := by
   unfold canAttackWithWeapon at h
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   exact h.1.2
@@ -1221,7 +1221,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
             · exact ⟨rfl, hcan⟩
           · rintro ⟨rfl, hcan⟩
             right; right
-            exact ⟨wid, ⟨mem_weapon_of_canAttackWithWeapon hcan, hcan⟩, rfl, rfl⟩
+            exact ⟨wid, ⟨mem_weaponCandidates_of_canAttackWithWeapon hcan, hcan⟩, rfl, rfl⟩
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | defendCard _ | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _
         | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickHandCostCard _ | optPick _ | arsenalPut _

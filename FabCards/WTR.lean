@@ -610,11 +610,11 @@ def WTR_112_B : CardDef := { whelmingGustwave WTR_112_B_meta with status := .ful
 
 /-- Shared Dorinthea hero ability: first weapon attack hit each turn → additional weapon attack. -/
 def dorintheaAbility : List Ability :=
-  [ .triggered .onWeaponAttackHit false (some 1) none
-      { body := .grant (.obj .currentAttack) .additionalWeaponAttack .thisTurn } ]
+  [ .triggered .onWeaponAttackHit true none none
+      { body := .may (.grant (.obj .currentAttack) .additionalWeaponAttack .thisTurn) .nop } ]
 
-/-- Dorinthea Ironsong (drafted IR). -/
-def WTR_113 : CardDef := draftCard WTR_113_meta dorintheaAbility
+/-- Dorinthea Ironsong. -/
+def WTR_113 : CardDef := { draftCard WTR_113_meta dorintheaAbility with status := .full }
 
 /-- Dorinthea (Young, drafted IR). -/
 def WTR_114 : CardDef := draftCard WTR_114_meta dorintheaAbility
