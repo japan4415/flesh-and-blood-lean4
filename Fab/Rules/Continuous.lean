@@ -166,6 +166,8 @@ inductive EffectOp where
   | loseAllAbilities
   /-- Player restriction checked when a draw would occur (CR 8.5.6). -/
   | cantDrawCards
+  /-- Player restriction removes and prohibits Go Again during the affected action phase. -/
+  | cantGainGoAgain
   /-- Stage 7: set base power `{p}` to `v` (CR 6.3.2g). -/
   | setBasePower (v : Int)
   /-- Stage 7: set base defense `{d}` to `v` (CR 6.3.2g). -/
@@ -204,7 +206,7 @@ def EffectOp.stage : EffectOp → EffectStage
   | .addType _ | .addSubtype _ | .setSubtypes _ => .stage4TypeSubtype
   | .addSupertype _ => .stage5Supertype
   | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .loseKeyword _ | .loseAllAbilities
-  | .cantDrawCards => .stage6Ability
+  | .cantDrawCards | .cantGainGoAgain => .stage6Ability
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .stage7BaseNumeric
   | .lockPower | .mulPower _ | .divPower _ | .addPower _ | .subPower _
   | .addDefense _ | .subDefense _ | .addCostRes _ | .subCostRes _
@@ -212,7 +214,7 @@ def EffectOp.stage : EffectOp → EffectStage
 
 /-- Which sub-stage within its stage an `EffectOp` belongs to (CR 6.3.3). -/
 def EffectOp.subStage : EffectOp → SubStage
-  | .lockPower | .cantDrawCards => .restrict
+  | .lockPower | .cantDrawCards | .cantGainGoAgain => .restrict
   | .copyFace _ | .setController _ | .setName _ | .setColor _ | .setSubtypes _
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .set
   | .mulPower _ | .divPower _ => .mulDiv
@@ -252,7 +254,7 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
   | .setSubtypes sts => { c with subtypes := sts }
   | .addSupertype st => { c with supertypes := insertUnique st c.supertypes }
   | .grantKeyword kw => { c with keywords := insertUnique kw c.keywords }
-  | .grantAttackAbility _ | .allowWeaponAttack | .cantDrawCards => c
+  | .grantAttackAbility _ | .allowWeaponAttack | .cantDrawCards | .cantGainGoAgain => c
   | .loseKeyword kw => { c with keywords := c.keywords.filter (· != kw) }
   | .loseAllAbilities => { c with keywords := [], abilitiesLost := true }
   | .setBasePower v => { c with basePower := some v, power := some v }

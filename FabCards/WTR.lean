@@ -317,11 +317,12 @@ def WTR_043_R : CardDef :=
       [ .triggered .onCrush false none none
           { body := .prim (.discardRandom .defendingHero (.const 2)) } ] with status := .full }
 
-/-- Spinal Crush (drafted IR). -/
+/-- Spinal Crush. -/
 def WTR_044_R : CardDef :=
-  draftCard WTR_044_R_meta
-    [ .triggered (.onDealDamage 4 true) false none none
-        { body := .grant (.playerActionsAndAttacks .defendingHero) .cantGainGoAgain .nextActionPhase } ]
+  { draftCard WTR_044_R_meta
+      [ .triggered .onCrush false none none
+          { body := .grant (.playerActionsAndAttacks .defendingHero) .cantGainGoAgain .nextActionPhase } ]
+    with status := .full }
 
 /-- Cranial Crush. -/
 def WTR_045_B : CardDef :=

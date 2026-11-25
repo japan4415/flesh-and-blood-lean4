@@ -682,6 +682,8 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
       match trigger.effect with
       | .grant (.hero .defendingHero) mod dur =>
         { trigger with effect := .grant (.hero (.seated link.defender)) mod dur }
+      | .grant (.playerActionsAndAttacks .defendingHero) mod dur =>
+        { trigger with effect := .grant (.playerActionsAndAttacks (.seated link.defender)) mod dur }
       | _ => trigger
 
 /-- Collect the card's own on-play triggers once its costs have been paid (CR 5.1, 6.6.5). -/
@@ -735,7 +737,8 @@ def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo
           ({ layer with attackPowerForFewerDefenders := (limit, bonus) ::
               layer.attackPowerForFewerDefenders }, rest)
         | .grantKeyword keyword =>
-          ({ layer with attackKeywords := insertUnique keyword layer.attackKeywords }, rest)
+          if keyword == .goAgain && !layerCanGainGoAgain s layerId info.controller then (layer, rest)
+          else ({ layer with attackKeywords := insertUnique keyword layer.attackKeywords }, rest)
         | .grantAttackAbility ability =>
           ({ layer with attackAbilities := ability :: layer.attackAbilities }, rest)
         | .addCostRes _ | .subCostRes _ =>
@@ -859,7 +862,7 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       discardedForPlay := discarded
       attackAbilities :=
         (modeOnAttack.map fun body => Ability.triggered .onAttack false none none { body := body }).toList
-      goAgain := hasGoAgain }
+      goAgain := hasGoAgain && layerCanGainGoAgain s layerId p }
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
   let activation := paidWeaponActivation? s layerId
   let effects := match activation with
@@ -1021,7 +1024,8 @@ def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
       owner := p, controller := p, timestamp := ⟨s.nextTimestamp⟩ }
   let (stacked, layerId) ← addObject s .stack layer .top
   let info : LayerInfo := {
-    controller := p, goAgain := plan.goAgain, triggerEffect := some plan.body,
+    controller := p, goAgain := plan.goAgain && layerCanGainGoAgain stacked layerId p,
+    triggerEffect := some plan.body,
     activationTarget := plan.target, activationPayment := some plan.payment }
   some ({ stacked with
     layerMeta := stacked.layerMeta.insert layerId.n info
@@ -1538,7 +1542,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let isDefReact := isDefenseReactionLayer s layerId
     let joinsDefense := isDefReact && canResolveDefenseReaction s info
     let s1 :=
-      if info.goAgain && (!isDefReact || joinsDefense) then
+      if info.goAgain && layerCanGainGoAgain s layerId info.controller && (!isDefReact || joinsDefense) then
         s.setPool info.controller ((s.poolOf info.controller).addActionPoints 1)
       else
         s

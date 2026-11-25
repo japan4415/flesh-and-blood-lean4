@@ -516,6 +516,11 @@ def arenaDefenseEffects (s : GameState) (id : ObjId) : List ContinuousEffect :=
   let nextId := s.activeEffects.foldl (fun n effect => max n (effect.id + 1)) 0
   effects.zipIdx.map fun (effect, i) => { effect with id := nextId + i }
 
+/-- Whether the active action phase currently restricts this player's actions (CR 4.3). -/
+def hasActionPhaseEffect (s : GameState) (p : PlayerId) (op : EffectOp) : Bool :=
+  s.phase == .actionPhase && s.active == some p &&
+    s.activeEffects.any (fun e => e.duration == .thisActionPhase && e.target == .player p && e.op == op)
+
 /-- Evaluate the 8-stage derived characteristics of object `id` in state `s` (CR 6.3.2). -/
 def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
   match s.obj? id, s.cardDefOf? id with
@@ -523,7 +528,10 @@ def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
     let face := match o.faceState with
       | .front => c.front
       | .back => c.back.getD c.front
-    some (evalCharacteristics (s.activeEffects ++ s.arenaDefenseEffects id) o face id)
+    let chars := evalCharacteristics (s.activeEffects ++ s.arenaDefenseEffects id) o face id
+    if chars.types.contains .action && s.hasActionPhaseEffect chars.controller .cantGainGoAgain then
+      some { chars with keywords := chars.keywords.filter (· != .goAgain) }
+    else some chars
   | _, _ => none
 
 /-- Expire all active continuous effects matching duration `dur` (CR 4.4.3, 7.7). -/
@@ -536,11 +544,6 @@ def startActionPhaseEffects (s : GameState) (p : PlayerId) : GameState :=
       if e.duration == .nextActionPhase && e.target == .player p then
         { e with duration := .thisActionPhase }
       else e }
-
-/-- Whether the active action phase currently restricts this player's actions (CR 4.3). -/
-def hasActionPhaseEffect (s : GameState) (p : PlayerId) (op : EffectOp) : Bool :=
-  s.phase == .actionPhase && s.active == some p &&
-    s.activeEffects.any (fun e => e.duration == .thisActionPhase && e.target == .player p && e.op == op)
 
 /-- Restoring a snapshot taken from `s` (when `s.playRollback = none`) returns the exact state `s`. -/
 theorem restore_snapshot {s : GameState} (h : s.playRollback = none) :
