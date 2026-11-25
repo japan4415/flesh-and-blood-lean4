@@ -251,3 +251,4 @@ meta def checkLegTap (cid : CardId) (power : Nat) : Option Bool := do
     (closed.cardDefOf? graveId).map (·.id) == some cid)
 
 #guard checkLegTap ⟨"WTR_101_R"⟩ 4 == some true
+#guard checkLegTap ⟨"WTR_102_Y"⟩ 3 == some true
