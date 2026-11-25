@@ -41,7 +41,7 @@ def power6Filter : CardFilter := { minPower := some 6 }
 def cost3Filter : CardFilter := { minCost := some 3 }
 
 /-- Helper: filter for Brute attacks (attack actions or weapon attacks). -/
-def bruteAttackFilter : CardFilter := { supertypes := [.class_ .brute], subtypes := [.attack] }
+def bruteAttackFilter : CardFilter := { supertypes := [.class_ .brute] }
 
 /-- Helper: filter for Guardian attack action cards. -/
 def guardianAttackAction : CardFilter :=
@@ -244,6 +244,16 @@ def WTR_032_R : CardDef := { awakeningBellow WTR_032_R_meta 3 with status := .fu
 def WTR_033_Y : CardDef := { awakeningBellow WTR_033_Y_meta 2 with status := .full }
 /-- Awakening Bellow Blue. -/
 def WTR_034_B : CardDef := { awakeningBellow WTR_034_B_meta 1 with status := .full }
+
+/-- Give the next Brute attack extra power after paying a random discard. -/
+def primevalBellow (base : CardDef) (bonus : Int) : CardDef :=
+  draftCard base []
+    (some
+      { extraCosts := [{ cost := .discardRandom 1 }]
+        body := .grant (.nextAttack bruteAttackFilter) (.addPower (.const bonus)) .thisTurn })
+
+/-- Primeval Bellow Red. -/
+def WTR_035_R : CardDef := { primevalBellow WTR_035_R_meta 5 with status := .full }
 
 /-! ## Guardian (WTR038-WTR075) -/
 
@@ -972,7 +982,7 @@ def draftedCards : List CardDef :=
   , WTR_011_R, WTR_012_Y, WTR_013_B, WTR_014_R, WTR_015_Y, WTR_016_B
   , WTR_017_R, WTR_018_Y, WTR_019_B, WTR_020_R, WTR_021_Y, WTR_022_B
   , WTR_023_R, WTR_024_Y, WTR_025_B, WTR_026_R, WTR_027_Y, WTR_028_B, WTR_029_R, WTR_030_Y, WTR_031_B
-  , WTR_032_R, WTR_033_Y, WTR_034_B
+  , WTR_032_R, WTR_033_Y, WTR_034_B, WTR_035_R
   , WTR_038, WTR_039, WTR_040, WTR_041, WTR_042, WTR_043_R, WTR_044_R, WTR_045_B
   , WTR_048_R, WTR_049_Y, WTR_050_B, WTR_051_R, WTR_052_Y, WTR_053_B
   , WTR_054_R, WTR_055_Y, WTR_056_B, WTR_057_R, WTR_058_Y, WTR_059_B, WTR_075
