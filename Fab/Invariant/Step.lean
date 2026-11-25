@@ -164,15 +164,13 @@ theorem mem_defendCandidates_of_canDefendWith {s : GameState} {link : ChainLink}
         have heq := hnot hfalse
         simpa [decide_eq_true_eq] using heq
 
-/-- Helper: `canPlayCard` implies `id` is in `p`'s hand or arsenal. -/
-theorem mem_hand_or_arsenal_of_canPlayCard {s : GameState} {p : PlayerId} {id : ObjId}
-    (h : canPlayCard s p id = true) :
-    id ∈ s.zone (.player p .hand) ∨ id ∈ s.zone (.player p .arsenal) := by
+/-- Helper: `canPlayCard` implies `id` is among the candidate cards. -/
+theorem mem_playCandidateIds_of_canPlayCard {s : GameState} {p : PlayerId} {id : ObjId}
+    (h : canPlayCard s p id = true) : id ∈ playCandidateIds s p := by
   unfold canPlayCard at h
   dsimp only at h
   split at h
-  · rename_i hor
-    simpa [Bool.or_eq_true, decide_eq_true_eq] using hor
+  · assumption
   · cases h
 
 /-- Helper: `canPitchCard` implies `id` is in `p`'s hand. -/
@@ -693,7 +691,8 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
             let cc' := sMoved.combat.map fun cc => cc.updateActiveLink fun l =>
               { l with
                 defending := l.defending ++ [id']
-                defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
+                defendedFromHandCount := l.defendedFromHandCount +
+                  (if !info.fromArsenal && !info.fromBanished then 1 else 0) }
             ({ sMoved with combat := cc' }, [Event.moved layerId id' .stack .combatChain])
           | none => (s1, [])
         else
@@ -702,11 +701,7 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
             match o.kind with
             | .layer _ _ _ _ => (removeNonPhysObj s1 layerId, [])
             | _ =>
-              let isPerm :=
-                match s1.cardDefOf? layerId with
-                | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
-                | none => false
-              let dst := if isPerm then Zone.player info.controller .permanent
+              let dst := if resolvesAsPermanent s1 layerId then Zone.player info.controller .permanent
                          else Zone.player o.owner .graveyard
               match moveObj s1 layerId dst .top false with
               | some (sMoved, id') => (sMoved, [Event.moved layerId id' .stack dst])
@@ -1128,7 +1123,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
             · cases hcontra
           · rintro ⟨rfl, hcan⟩
             right; left
-            exact ⟨id, ⟨mem_hand_or_arsenal_of_canPlayCard hcan, hcan⟩, rfl, rfl⟩
+            exact ⟨id, ⟨mem_playCandidateIds_of_canPlayCard hcan, hcan⟩, rfl, rfl⟩
         | attackWeapon wid =>
           simp only [Actor.isPlayer, and_true, List.mem_cons, List.mem_append, List.mem_map,
             List.mem_filter, Action.mk.injEq, Actor.player.injEq, ActionKind.attackWeapon.injEq]
@@ -1566,15 +1561,18 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           obtain ⟨rfl, hcan⟩ := hlf
           simp only [hcan, and_self, ↓reduceIte]
           have hm : (moveObj s id .stack .top false).isSome = true := by
-            rcases mem_hand_or_arsenal_of_canPlayCard hcan with hmem | hmem
-            · have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem
-              apply moveObj_isSome hwf (Zone.valid_player hq .hand) hmem
+            have hmove (k : ZoneKind) (hmem : id ∈ s.zone (.player q k)) :
+                (moveObj s id .stack .top false).isSome = true := by
+              have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem
+              apply moveObj_isSome hwf (Zone.valid_player hq k) hmem
               intro o _
               exact ⟨Zone.valid_stack s.playerCount, by intro heq; cases heq⟩
-            · have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem
-              apply moveObj_isSome hwf (Zone.valid_player hq .arsenal) hmem
-              intro o _
-              exact ⟨Zone.valid_stack s.playerCount, by intro heq; cases heq⟩
+            have hmem := mem_playCandidateIds_of_canPlayCard hcan
+            simp only [playCandidateIds, List.mem_append] at hmem
+            rcases hmem with (hh | ha) | hb
+            · exact hmove .hand hh
+            · exact hmove .arsenal ha
+            · exact hmove .banished hb
           cases hm' : moveObj s id .stack .top false with
           | none => rw [hm'] at hm; simp at hm
           | some _ => rfl

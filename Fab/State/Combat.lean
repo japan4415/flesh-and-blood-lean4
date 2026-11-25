@@ -82,6 +82,8 @@ structure ChainLink where
   damageDealt : Nat := 0
   /-- Whether Go Again +1 AP has already been granted during Resolution Step (CR 7.6.2). -/
   goAgainGranted : Bool := false
+  /-- Whether the attacking card was played from its owner's banished zone. -/
+  attackFromBanished : Bool := false
 deriving DecidableEq, Repr
 
 /-- Active Combat Chain state while a combat chain is open (CR 3.5, 7.0).

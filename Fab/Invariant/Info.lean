@@ -83,6 +83,12 @@ structure PlayerView where
   pending : List Frame
   /-- Pending triggers. -/
   pendingTriggers : List PendingTrigger
+  /-- Players who put a face-up 6+ power card into banished this turn. -/
+  banishedSixPowerThisTurn : List PlayerId
+  /-- Cards with Blood Debt played this turn, counted by player. -/
+  playedBloodDebtThisTurn : Std.ExtTreeMap Nat Nat
+  /-- Players who played a non-attack action this turn. -/
+  playedNonAttackActionThisTurn : List PlayerId
 deriving DecidableEq, Repr
 
 /-- Compute observer `p`'s observable view `view p s` of `GameState` `s` (**I10**). -/
@@ -99,7 +105,10 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
     combat := s.combat
     tournament := s.tournament
     pending := s.pending
-    pendingTriggers := s.pendingTriggers }
+    pendingTriggers := s.pendingTriggers
+    banishedSixPowerThisTurn := s.banishedSixPowerThisTurn
+    playedBloodDebtThisTurn := s.playedBloodDebtThisTurn
+    playedNonAttackActionThisTurn := s.playedNonAttackActionThisTurn }
 
 /-- All legal actions belonging to player `p` in state `s`. -/
 def legalActionsFor (p : PlayerId) (s : GameState) : List Action :=
@@ -151,6 +160,12 @@ structure HiddenEquiv (p : PlayerId) (s1 s2 : GameState) : Prop where
   activeEffects : s1.activeEffects = s2.activeEffects
   /-- Same pending triggers. -/
   pendingTriggers : s1.pendingTriggers = s2.pendingTriggers
+  /-- Same record of players who banished a 6+ power card this turn. -/
+  banishedSixPowerThisTurn : s1.banishedSixPowerThisTurn = s2.banishedSixPowerThisTurn
+  /-- Same record of cards with Blood Debt played this turn. -/
+  playedBloodDebtThisTurn : s1.playedBloodDebtThisTurn = s2.playedBloodDebtThisTurn
+  /-- Same record of non-attack actions played this turn. -/
+  playedNonAttackActionThisTurn : s1.playedNonAttackActionThisTurn = s2.playedNonAttackActionThisTurn
   /-- Same contents on every zone that is NOT secret to `p`. -/
   visibleZones : ∀ z : Zone, z.isSecretTo p = false → s1.zone z = s2.zone z
   /-- Same deck length for `p` (deck order/contents remain completely secret!). -/
@@ -189,6 +204,32 @@ theorem HiddenEquiv.loadoutEquipDest {p : PlayerId} {s1 s2 : GameState} (h : Hid
   unfold loadoutEquipDest?
   rw [hinv, (h.cardDef_face id).1, hhe, hch, har, hle, hwe, h2h]
 
+/-- Card-play restrictions depend only on the player's own banished zone and turn history. -/
+theorem HiddenEquiv.meetsPlayRestriction_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) (req : PlayRestriction) :
+    meetsPlayRestriction s1 p req = meetsPlayRestriction s2 p req := by
+  cases req with
+  | always => rfl
+  | banishedSixPowerThisTurn => simp [meetsPlayRestriction, h.banishedSixPowerThisTurn]
+  | playedBloodDebtAtLeast n => simp [meetsPlayRestriction, h.playedBloodDebtThisTurn]
+  | playedNonAttackActionThisTurn => simp [meetsPlayRestriction, h.playedNonAttackActionThisTurn]
+  | banishedBloodDebtAtLeast n =>
+    have hz := h.visibleZones (.player p .banished) (by simp [Zone.isSecretTo])
+    have hp : isFaceUpBloodDebt s1 = isFaceUpBloodDebt s2 := by
+      funext id
+      simp [isFaceUpBloodDebt, GameState.obj?, h.objects, (h.cardDef_face id).1]
+    have hc : bloodDebtCount s1 p = bloodDebtCount s2 p := by
+      simp only [bloodDebtCount, hz, hp]
+    simp only [meetsPlayRestriction, hc]
+
+/-- The candidate list uses only zones available to the player. -/
+theorem HiddenEquiv.playCandidateIds_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) : playCandidateIds s1 p = playCandidateIds s2 p := by
+  unfold playCandidateIds
+  rw [h.visibleZones (.player p .hand) (by simp [Zone.isSecretTo]),
+      h.visibleZones (.player p .arsenal) (by simp [Zone.isSecretTo]),
+      h.visibleZones (.player p .banished) (by simp [Zone.isSecretTo])]
+
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canPlayCard s p id`. -/
 theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : HiddenEquiv p s1 s2)
     (id : ObjId) :
@@ -199,6 +240,9 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     h.visibleZones _ (by simp [Zone.isSecretTo])
   have hs : s1.zone .stack = s2.zone .stack := h.visibleZones _ rfl
   have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
+  have hfrom : ∀ c, canPlayFromBanished s1 p id c = canPlayFromBanished s2 p id c := by
+    intro c
+    simp only [canPlayFromBanished, GameState.obj?, h.objects, h.meetsPlayRestriction_eq]
   have hkw : ∀ link kw, linkHasKeyword s1 link kw = linkHasKeyword s2 link kw := by
     intro link kw
     unfold linkHasKeyword
@@ -206,8 +250,8 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     | none => rfl
     | some aid => simp [(h.cardDef_face aid).2]
   unfold canPlayCard
-  rw [hh, ha, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat]
-  simp only [hkw]
+  rw [h.playCandidateIds_eq, hh, ha, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat]
+  simp only [hkw, hfrom, h.meetsPlayRestriction_eq]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canAttackWithWeapon s p wid`. -/
 theorem HiddenEquiv.canAttackWithWeapon_eq {p : PlayerId} {s1 s2 : GameState}
@@ -305,16 +349,12 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
             dsimp only
             by_cases hqp : q = p
             · subst hqp
-              have hh : s1.zone (.player q .hand) = s2.zone (.player q .hand) :=
-                h.visibleZones _ (by simp [Zone.isSecretTo])
-              have ha : s1.zone (.player q .arsenal) = s2.zone (.player q .arsenal) :=
-                h.visibleZones _ (by simp [Zone.isSecretTo])
               have hw : s1.zone (.player q .weapon) = s2.zone (.player q .weapon) :=
                 h.visibleZones _ rfl
               have hplay : canPlayCard s1 q = canPlayCard s2 q := funext h.canPlayCard_eq
               have hwep : canAttackWithWeapon s1 q = canAttackWithWeapon s2 q :=
                 funext h.canAttackWithWeapon_eq
-              rw [hh, ha, hw, hplay, hwep]
+              rw [h.playCandidateIds_eq, hw, hplay, hwep]
             · have hne : (Actor.player q == Actor.player p) = false := by simp [hqp]
               simp only [List.filter_cons, hne, List.filter_append]
               have hnil : ∀ (l : List ObjId) (g : ObjId → ActionKind),
@@ -433,7 +473,8 @@ theorem reorder_deck_noninterference {s : GameState} (p q : PlayerId) {l : List 
     { config := rfl, cards := rfl, objects := rfl, pools := rfl, heroLife := rfl,
       turn := rfl, active := rfl, pending := rfl, turnOrder := rfl, phase := rfl,
       result := rfl, combat := rfl, tournament := rfl, activeEffects := rfl,
-      pendingTriggers := rfl,
+      pendingTriggers := rfl, banishedSixPowerThisTurn := rfl, playedBloodDebtThisTurn := rfl,
+      playedNonAttackActionThisTurn := rfl,
       visibleZones := fun z hns => by
         have hne : z ≠ .player q .deck := by
           intro he; subst he; simp [Zone.isSecretTo] at hns
@@ -472,7 +513,8 @@ theorem opp_hand_noninterference {s : GameState} {p q : PlayerId} (hne : q ≠ p
     { config := rfl, cards := rfl, objects := rfl, pools := rfl, heroLife := rfl,
       turn := rfl, active := rfl, pending := rfl, turnOrder := rfl, phase := rfl,
       result := rfl, combat := rfl, tournament := rfl, activeEffects := rfl,
-      pendingTriggers := rfl,
+      pendingTriggers := rfl, banishedSixPowerThisTurn := rfl, playedBloodDebtThisTurn := rfl,
+      playedNonAttackActionThisTurn := rfl,
       visibleZones := fun z hns => by
         have hnez : z ≠ .player q .hand := by
           intro he; subst he; simp [Zone.isSecretTo, hne] at hns

@@ -349,7 +349,8 @@ theorem createTokens_ttr (p : PlayerId) (tokId : CardId) :
     unfold createTokens
     dsimp only
     cases ha : addObject s (.player p .permanent)
-        { kind := .token tokId, owner := p, controller := p, timestamp := ⟨s.nextTimestamp⟩ } .top with
+        (resetAllyLife s.cards
+          { kind := .token tokId, owner := p, controller := p, timestamp := ⟨s.nextTimestamp⟩ }) .top with
     | none => exact ⟨rfl, rfl, rfl⟩
     | some res =>
       have h1 := addObject_turn_tournament_result ha
@@ -631,7 +632,8 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
             let cc' := sMoved.combat.map fun cc => cc.updateActiveLink fun l =>
               { l with
                 defending := l.defending ++ [id']
-                defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
+                defendedFromHandCount := l.defendedFromHandCount +
+                  (if !info.fromArsenal && !info.fromBanished then 1 else 0) }
             ({ sMoved with combat := cc' }, [Event.moved layerId id' .stack .combatChain])
           | none => (s1, [])
         else
@@ -640,11 +642,7 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
             match o.kind with
             | .layer _ _ _ _ => (removeNonPhysObj s1 layerId, [])
             | _ =>
-              let isPerm :=
-                match s1.cardDefOf? layerId with
-                | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
-                | none => false
-              let dst := if isPerm then Zone.player info.controller .permanent
+              let dst := if resolvesAsPermanent s1 layerId then Zone.player info.controller .permanent
                          else Zone.player o.owner .graveyard
               match moveObj s1 layerId dst .top false with
               | some (sMoved, id') => (sMoved, [Event.moved layerId id' .stack dst])

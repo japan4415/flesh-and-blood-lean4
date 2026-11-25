@@ -50,3 +50,19 @@ IR 構文には収まったが、実行意味論（M4〜M6）で専用のフレ�
 - **ARC（Arcane Rising）**: Arcane Damage Prevention（Arcane Barrier / Spellvoid）、Opt、Mechanologist の Boost / Steam カウンター、Ranger の Arsenal 裏表操作と Arrow（*Endless Arrow* LKI）。
 - **MON（Monarch）**: Soul / Charge、Blood Debt、Phantasm、Spectra、追放領域からのプレイ。
 - **EVO / MST / ROS**: Evo 重ね装備、Transcend 両面反転と Chi `{c}` 支払い、Meld 分割カード（`CardDef.splitRight`）。
+
+## 4. Monarch の検証状況と残作業
+
+Monarch の全 307 枚を `FabCards.monDB` に登録し、`CardDB.WF` を Lean カーネルで検査する。WTR との統合 DB では再録の Cracked Bauble に初出の ID を使う。各カードの実装状況は [カバレッジ](coverage.md) を参照。
+
+通常の合法手列挙と `step` を通じて、表向きの追放カードのプレイ、Blood Debt のプレイ枚数による Eclipse の制限、Doomsday の追放枚数制限、Soul Shackle のアクションフェイズ開始時の誘発を検証した。
+
+| 残っている接続 | 影響を受ける例 |
+|---|---|
+| 追加コストと対象の宣言、汎用の起動型能力 | Prism の Soul 追放コスト、Boltyn の Charge、Beacon of Victory の X |
+| プレイ・ヒット・防御・終了フェイズなどの誘発の収集 | Bounding Demigon、Herald of Erudition、Great Library of Solana |
+| 連続効果の対象・条件・消費と、追放プレイを禁止する効果 | Luminaris、Levia、Herald of Judgment、Dream Weavers |
+| カードの Ward・Spellvoid から置換効果を登録し、競合時に選択する処理。Spectra と Ally の攻撃対象選択 | Spectral Shield、Ebon Fold、Arc Light Sentinel、Ursur |
+| 全ての追放経路で 6 パワー以上の追放履歴を更新する処理 | Deep Rooted Evil |
+
+`drafted` のカードには、能力の条件や対象を近似した定義も含まれる。`full` へ変更する際は元データと照合し、カードごとのシナリオで結果を確認する。

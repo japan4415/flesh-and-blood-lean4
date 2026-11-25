@@ -76,6 +76,7 @@ SUBTYPE_MAP = {
     "Ash": "ash",
     "Attack": "attack",
     "Aura": "aura",
+    "Axe": "axe",
     "Base": "base",
     "Bow": "bow",
     "Chest": "chest",
@@ -83,6 +84,7 @@ SUBTYPE_MAP = {
     "Club": "club",
     "Construct": "construct",
     "Dagger": "dagger",
+    "Demon": "demon",
     "Evo": "evo",
     "Figment": "figment",
     "Flail": "flail",
@@ -115,11 +117,11 @@ PITCH_SUFFIX = {1: ("R", "red"), 2: ("Y", "yellow"), 3: ("B", "blue")}
 EFFECT_ONLY_KEYWORDS = {"Intimidate", "Opt", "Charge", "Transform"}
 
 
-def parse_opt_int(val: object) -> int | None:
+def parse_opt_int(val: object, *, variable: str | None = None) -> int | None:
     if val is None:
         return None
     s = str(val).strip()
-    if s == "":
+    if s == "" or s == variable:
         return None
     return int(s)
 
@@ -143,7 +145,17 @@ def extract_keywords(card: dict) -> list[dict]:
     result: list[dict] = []
 
     for kw in raw_kws:
-        if kw in EFFECT_ONLY_KEYWORDS:
+        if kw in EFFECT_ONLY_KEYWORDS or re.fullmatch(r"Opt \d+", kw):
+            continue
+        m_param = re.fullmatch(r"(Ward|Spellvoid|Arcane Barrier|Quell) (\d+)", kw)
+        if m_param:
+            kind_map = {
+                "Ward": "ward",
+                "Spellvoid": "spellvoid",
+                "Arcane Barrier": "arcaneBarrier",
+                "Quell": "quell",
+            }
+            result.append({"kind": kind_map[m_param.group(1)], "val": int(m_param.group(2))})
             continue
         if kw == "Go again":
             # Only treat as printed static keyword if 'Go again' stands on its own line.
@@ -155,6 +167,13 @@ def extract_keywords(card: dict) -> list[dict]:
         elif kw == "Overpower":
             if any(ln == "Overpower" for ln in lines):
                 result.append({"kind": "overpower"})
+        elif kw == "Phantasm":
+            if any(ln.startswith("Phantasm") for ln in lines):
+                result.append({"kind": "phantasm"})
+        elif kw == "Spectra":
+            result.append({"kind": "spectra"})
+        elif kw == "Blood Debt":
+            result.append({"kind": "bloodDebt"})
         elif kw == "Battleworn":
             result.append({"kind": "battleworn"})
         elif kw == "Blade Break":
@@ -205,7 +224,7 @@ def normalize_card(card: dict) -> dict:
 
     pitch = parse_opt_int(card.get("pitch"))
     color = PITCH_SUFFIX[pitch][1] if pitch in PITCH_SUFFIX else None
-    cost_res = parse_opt_int(card.get("cost"))
+    cost_res = parse_opt_int(card.get("cost"), variable="XX")
     is_action_card = "action" in card_types and "token" not in card_types
     cost = (
         {"actionPoints": 1 if is_action_card else 0, "resources": cost_res}
@@ -229,8 +248,8 @@ def normalize_card(card: dict) -> dict:
         "color": color,
         "pitch": pitch,
         "cost": cost,
-        "power": parse_opt_int(card.get("power")),
-        "defense": parse_opt_int(card.get("defense")),
+        "power": parse_opt_int(card.get("power"), variable="*"),
+        "defense": parse_opt_int(card.get("defense"), variable="*"),
         "intellect": parse_opt_int(card.get("intelligence")),
         "life": parse_opt_int(card.get("health")),
         "keywords": extract_keywords(card),

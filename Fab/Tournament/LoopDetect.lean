@@ -81,6 +81,8 @@ structure CanonicalBoard where
   pools : List (PlayerId × AssetPool)
   /-- Per-player hero life totals. -/
   heroLife : List (PlayerId × Int)
+  /-- Turn history relevant to card-play restrictions, in seat order. -/
+  playHistory : List (Bool × Nat × Bool)
   /-- Current phase. -/
   phase : Phase
   /-- Active turn-player. -/
@@ -101,6 +103,9 @@ def canonicalBoard (s : GameState) : CanonicalBoard :=
       (z, (s.zone z).map fun id => (s.obj? id).map canonicalObj)
     pools := (allPlayers s.playerCount).map fun p => (p, s.poolOf p)
     heroLife := (allPlayers s.playerCount).map fun p => (p, s.lifeOf p)
+    playHistory := (allPlayers s.playerCount).map fun p =>
+      (s.banishedSixPowerThisTurn.contains p, s.playedBloodDebtThisTurn.getD p.n 0,
+        s.playedNonAttackActionThisTurn.contains p)
     phase := s.phase
     active := s.active
     turnOrder := s.turnOrder

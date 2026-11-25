@@ -272,7 +272,25 @@ def canPitchForCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Bool :=
   (0 < (s.poolOf p).resourceDeficit cost || 0 < (s.poolOf p).chiDeficit cost) &&
   !(pitchableCards s p).isEmpty
 
-/-- Whether player `p` may announce playing card `id` from hand or arsenal while holding priority
+/-- Test a printed restriction using the turn history and face-up banished cards. -/
+def meetsPlayRestriction (s : GameState) (p : PlayerId) : PlayRestriction → Bool
+  | .always => true
+  | .banishedSixPowerThisTurn => s.banishedSixPowerThisTurn.contains p
+  | .banishedBloodDebtAtLeast n => n ≤ bloodDebtCount s p
+  | .playedBloodDebtAtLeast n => n ≤ s.playedBloodDebtThisTurn.getD p.n 0
+  | .playedNonAttackActionThisTurn => s.playedNonAttackActionThisTurn.contains p
+
+/-- Candidate objects for card play before checking permissions or timing. -/
+def playCandidateIds (s : GameState) (p : PlayerId) : List ObjId :=
+  (s.zone (.player p .hand) ++ s.zone (.player p .arsenal)) ++ s.zone (.player p .banished)
+
+/-- Whether `id` is face-up and its printed permission allows play from banished. -/
+def canPlayFromBanished (s : GameState) (p : PlayerId) (id : ObjId) (c : CardDef) : Bool :=
+  match s.obj? id, c.front.playFromBanished with
+  | some o, some req => !o.faceDown && meetsPlayRestriction s p req
+  | _, _ => false
+
+/-- Whether player `p` may announce playing card `id` while holding priority
 (CR 5.1.1, 4.3, 3.2.2, 7.1, 7.4, 7.6).
 - Instants: playable anytime on priority.
 - Actions: own Action Phase, empty stack, ≥1 AP, and either combat chain closed or (for Attack
@@ -282,11 +300,12 @@ def canPitchForCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Bool :=
 def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
   let fromHand := id ∈ s.zone (.player p .hand)
   let fromArsenal := id ∈ s.zone (.player p .arsenal)
-  if fromHand || fromArsenal then
+  if id ∈ playCandidateIds s p then
     match s.cardDefOf? id with
     | none => false
     | some c =>
-      if !c.isDeckCard then
+      if !c.isDeckCard || !meetsPlayRestriction s p c.front.playRestriction ||
+          (!(fromHand || fromArsenal) && !canPlayFromBanished s p id c) then
         false
       else if c.front.hasType .instant then
         true
@@ -336,6 +355,12 @@ def isAttackLayer (s : GameState) (id : ObjId) : Bool :=
       | some c => c.front.hasType .action && c.front.hasSubtype .attack
       | none => false
     | _ => false
+
+/-- Whether a resolving card enters the arena as a permanent. -/
+def resolvesAsPermanent (s : GameState) (id : ObjId) : Bool :=
+  (s.cardDefOf? id).any fun c =>
+    c.front.hasSubtype .aura || c.front.hasSubtype .item ||
+      c.front.hasSubtype .landmark || c.front.hasSubtype .ally
 
 /-- Strip a trailing `.combatStep .close _` frame when chaining a new attack during Resolution
 Step so the Combat Chain remains open for Link 2+ (CR 7.6). -/
@@ -392,6 +417,40 @@ def nextTriggerFrame (s : GameState) : List PlayerId → List Frame
       [.chooseTriggerOrder q rem]
     else
       nextTriggerFrame s rem
+
+/-- Source of a resolving ability layer, or the card itself for an ordinary card layer. -/
+def resolvingSource (s : GameState) (layerId : ObjId) : ObjId :=
+  match (s.obj? layerId).map Object.kind with
+  | some (ObjectKind.layer src _ _ _) => src
+  | _ => layerId
+
+/-- Collect targetless start-of-action-phase abilities controlled by the turn-player. -/
+def startActionPhaseTriggers (s : GameState) (tp : PlayerId) : List PendingTrigger :=
+  let sources := (allZones s.playerCount).flatMap fun z =>
+    match z with
+    | .player _ k => if k.isArena && k != .soul then s.zone z else []
+    | _ => []
+  let triggers : List PendingTrigger := sources.flatMap fun src =>
+    match s.obj? src, s.objectFace? src with
+    | some o, some face =>
+      if o.controller == tp && !o.faceDown then
+        face.abilities.zipIdx.filterMap fun (ability, idx) =>
+          match ability with
+          | .triggered .onStartOfActionPhase optional none cond ed =>
+            if ed.targets.isEmpty && ed.modes.isEmpty && ed.extraCosts.isEmpty &&
+                (cond.all (evalCondition s tp src false)) then
+              some {
+                id := 0
+                source := src
+                sourceLki := captureLki s src tp
+                controller := tp
+                abilityIdx := idx
+                effect := if optional then .may ed.body .nop else ed.body }
+            else none
+          | _ => none
+      else []
+    | _, _ => []
+  triggers.zipIdx.map fun (trig, idx) => { trig with id := s.nextTimestamp + idx }
 
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
@@ -454,7 +513,9 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
   | .priority p _ :: rest, .player q, .playCard id =>
     if p = q ∧ canPlayCard s p id = true then
       let fromArsenal := id ∈ s.zone (.player p .arsenal)
-      let srcZone := if fromArsenal then Zone.player p .arsenal else Zone.player p .hand
+      let srcKind := if fromArsenal then ZoneKind.arsenal
+        else if id ∈ s.zone (.player p .hand) then .hand else .banished
+      let srcZone := Zone.player p srcKind
       let snap := s.snapshot
       let cost := match s.cardDefOf? id with | some c => cardPlayCost c | none => {}
       let modes := match s.cardDefOf? id with | some c => cardModeCount c | none => 0
@@ -465,12 +526,15 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       match moveObj s id .stack .top false with
       | none => none
       | some (s1, layerId) =>
+        let layerMeta := if srcKind == .banished then
+          s1.layerMeta.insert layerId.n { controller := p, fromBanished := true }
+          else s1.layerMeta
         let nextFrame :=
           if 0 < modes then
             Frame.chooseMode p layerId fromArsenal modes cost
           else
             Frame.playPayCost p layerId fromArsenal none cost
-        some ({ s1 with playRollback := some snap, pending := nextFrame :: rest' },
+        some ({ s1 with layerMeta := layerMeta, playRollback := some snap, pending := nextFrame :: rest' },
               [.moved id layerId srcZone .stack])
     else
       none
@@ -710,21 +774,35 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     some ({ s with phase := .startPhase, pending := rest }, [])
   | .actionPhaseStart tp :: rest =>
     let s1 := s.setPool tp ((s.poolOf tp).addActionPoints 1)
-    some ({ s1 with phase := .actionPhase, pending := .priority tp 0 :: rest }, [])
+    let triggers := startActionPhaseTriggers s1 tp
+    let trigFrames := if triggers.isEmpty then [] else [.flushTriggers]
+    some ({ s1 with
+      phase := .actionPhase
+      pendingTriggers := s1.pendingTriggers ++ triggers
+      nextTimestamp := s1.nextTimestamp + triggers.length
+      pending := trigFrames ++ [.priority tp 0] ++ rest }, [])
   | .playPayCost p layerId fromArsenal modeIdx cost :: rest =>
     match spendAssetCost s p cost with
     | some s1 =>
-      let hasGoAgain :=
-        match s1.cardDefOf? layerId with
-        | some c => c.front.keywords.contains .goAgain && !c.front.hasSubtype .attack
-        | none => false
+      let card := s1.cardDefOf? layerId
+      let hasGoAgain := card.any fun c => c.front.keywords.contains .goAgain && !c.front.hasSubtype .attack
+      let playedBloodDebt := if card.any (fun c => c.front.keywords.contains .bloodDebt) then
+        s1.playedBloodDebtThisTurn.insert p.n (s1.playedBloodDebtThisTurn.getD p.n 0 + 1)
+        else s1.playedBloodDebtThisTurn
+      let playedNonAttackAction := if card.any (fun c => c.front.hasType .action && !c.front.hasSubtype .attack) &&
+          !s1.playedNonAttackActionThisTurn.contains p then
+        p :: s1.playedNonAttackActionThisTurn
+        else s1.playedNonAttackActionThisTurn
       let info : LayerInfo :=
         { controller := p
           fromArsenal := fromArsenal
           modeIdx := modeIdx
-          goAgain := hasGoAgain }
+          goAgain := hasGoAgain
+          fromBanished := (s1.layerMeta.getD layerId.n { controller := p }).fromBanished }
       some ({ s1 with
                 layerMeta := s1.layerMeta.insert layerId.n info
+                playedBloodDebtThisTurn := playedBloodDebt
+                playedNonAttackActionThisTurn := playedNonAttackAction
                 playRollback := none
                 pending := .priority p 0 :: rest },
             [])
@@ -749,7 +827,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
             | some c => cardResolveEffect c info.modeIdx
             | none => .nop
         some ({ s with
-                  pending := .run info.controller topId info.fromArsenal [] [eff] ::
+                  pending := .run info.controller (resolvingSource s topId) info.fromArsenal [] [eff] ::
                     .finishResolve topId :: rest },
               [])
     | [] =>
@@ -774,7 +852,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
             let cc' := sMoved.combat.map fun cc => cc.updateActiveLink fun l =>
               { l with
                 defending := l.defending ++ [id']
-                defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
+                defendedFromHandCount := l.defendedFromHandCount +
+                  (if !info.fromArsenal && !info.fromBanished then 1 else 0) }
             ({ sMoved with combat := cc' }, [.moved layerId id' .stack .combatChain])
           | none => (s1, [])
         else
@@ -783,11 +862,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
             match o.kind with
             | .layer _ _ _ _ => (removeNonPhysObj s1 layerId, [])
             | _ =>
-              let isPerm :=
-                match s1.cardDefOf? layerId with
-                | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
-                | none => false
-              let dst := if isPerm then Zone.player info.controller .permanent
+              let dst := if resolvesAsPermanent s1 layerId then Zone.player info.controller .permanent
                          else Zone.player o.owner .graveyard
               match moveObj s1 layerId dst .top false with
               | some (sMoved, id') => (sMoved, [.moved layerId id' .stack dst])
@@ -946,6 +1021,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       activeReplacements := []
       chargedThisTurn := []
       banishedSixPowerThisTurn := []
+      playedBloodDebtThisTurn := ∅
+      playedNonAttackActionThisTurn := []
       activatedThisTurn := [] }).expireEffects .thisTurn
     let draws := endPhaseDrawFrames s2 tp
     some ({ s2 with pending := draws ++ rest }, [])

@@ -163,12 +163,18 @@ def ContinuousMod.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Con
   | .additionalWeaponAttack => true
   | .doubleDamageToHero => true
   | .playableFromBanished => true
+  | .loseKeyword _ => true
+  | .cantPlayFromBanished => true
+  | .cantGainLife => true
+  | .cantPlayInstantsOrDefReactions => true
+  | .auraIsWeapon _ _ _ => true
+  | .mustBeAttackTarget => true
 
 end
 
 /-- Whether an extra-cost list declares `{x}` (binding `NumExpr.xValue`). -/
 def hasXCost (ecs : List ExtraCostSpec) : Bool :=
-  ecs.any fun ec => ec.cost == .payX
+  ecs.any fun ec => ec.cost == .payX || ec.cost == .banishXFromSoul
 
 /-- Static well-formedness check for a `ModeSpec`. -/
 def ModeSpec.wfBool (m : ModeSpec) (hasX : Bool) : Bool :=
