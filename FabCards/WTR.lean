@@ -738,6 +738,8 @@ def woundedBull (base : CardDef) : CardDef :=
 def WTR_200_R : CardDef := { woundedBull WTR_200_R_meta with status := .full }
 /-- Wounded Bull Yellow. -/
 def WTR_201_Y : CardDef := { woundedBull WTR_201_Y_meta with status := .full }
+/-- Wounded Bull Blue. -/
+def WTR_202_B : CardDef := { woundedBull WTR_202_B_meta with status := .full }
 
 /-- Wounding Blow Red. -/
 def WTR_203_R : CardDef := { WTR_203_R_meta with status := .full }
@@ -836,7 +838,7 @@ def draftedCards : List CardDef :=
   , WTR_159_R, WTR_160_Y, WTR_162_B, WTR_163_Y
   , WTR_164_R, WTR_165_Y, WTR_166_B, WTR_167_R, WTR_168_Y, WTR_169_B
   , WTR_173_R, WTR_174_Y, WTR_175_B, WTR_188_R, WTR_189_Y, WTR_190_B
-  , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_200_R, WTR_201_Y
+  , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_200_R, WTR_201_Y, WTR_202_B
   , WTR_203_R, WTR_204_Y, WTR_205_B
   , WTR_206_R, WTR_207_Y, WTR_208_B, WTR_209_R, WTR_210_Y, WTR_211_B
   , WTR_215_R, WTR_216_Y, WTR_217_B, WTR_225 ]

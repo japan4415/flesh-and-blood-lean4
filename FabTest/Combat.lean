@@ -436,6 +436,7 @@ meta def checkWoundedBull (cid : CardId) (power : Nat) : Option Bool := do
 
 #guard checkWoundedBull ⟨"WTR_200_R"⟩ 7 == some true
 #guard checkWoundedBull ⟨"WTR_201_Y"⟩ 6 == some true
+#guard checkWoundedBull ⟨"WTR_202_B"⟩ 5 == some true
 
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
