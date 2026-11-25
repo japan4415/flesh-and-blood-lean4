@@ -1012,6 +1012,52 @@ meta def cognitionNodesScenario (blocked : Bool) : Option Bool := do
 #guard cognitionNodesScenario false == some true
 #guard cognitionNodesScenario true == some true
 
+#guard ((earlyPrintingCardId? "ARC019").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Convection Amplifier" && card.status == .full)
+
+meta def convectionAmplifierScenario : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let arena := Zone.player p .permanent
+  let graveyard := Zone.player p .graveyard
+  let getLink (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let (equipped, pistol) ← earlyPlace { earlyBase with cards := throughArcDB } p (.player p .weapon) "ARC_003"
+  let (withAttack, jab) ← earlyPlace equipped p hand "WTR_100_B"
+  let (withSecondAttack, laterJab) ← earlyPlace withAttack p hand "WTR_100_B"
+  let (ready, item) ← earlyPlace withSecondAttack p hand "ARC_019_R"
+  let installed ← earlySteps ready (⟨.player p, .playCard item⟩ :: earlyPass)
+  let amplifier ← (installed.zone arena).head?
+  let steam (s : GameState) := (s.obj? amplifier).map (·.counterCount .steam)
+  let use : Action := ⟨.player p, .activateAbility amplifier 1 none⟩
+  let first ← earlySteps installed (use :: earlyPass)
+  let loaded ← earlySteps first (⟨.player p, .activateAbility pistol 1 none⟩ :: earlyPass)
+  let weapon ← earlyAttack loaded (.attackWeapon pistol)
+  let weaponLink ← getLink weapon
+  let weaponHit ← earlyDamage weapon
+  let weaponResolved ← earlySteps weaponHit earlyPass
+  let closed ← earlySteps weaponResolved earlyPass
+  let paid ← earlySteps closed [use]
+  let destroy ← paid.pendingTriggers.head?
+  let destroyed ← earlySteps paid
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger destroy.id⟩] ++ earlyPass)
+  let buffed ← earlySteps destroyed earlyPass
+  let discard ← (buffed.zone graveyard).head?
+  let attack ← earlyAttack buffed (.playCard jab)
+  let link ← getLink attack
+  let hit ← earlyDamage attack
+  let later ← (earlySteps hit earlyPass).bind (earlyAttack · (.playCard laterJab))
+  let laterLink ← getLink later
+  pure (steam installed == some 2 && steam first == some 1 &&
+    (first.poolOf p).actionPoints == (installed.poolOf p).actionPoints &&
+    !linkHasKeyword weapon weaponLink .dominate &&
+    (earlySteps weaponResolved [use]).isNone && closed.combat.isNone &&
+    steam paid == some 0 && destroy.source == amplifier &&
+    buffed.zone arena == [] &&
+    (buffed.cardDefOf? discard).any (fun card => card.id == ⟨"ARC_019_R"⟩) &&
+    linkHasKeyword attack link .dominate && !linkHasKeyword later laterLink .dominate)
+
+#guard convectionAmplifierScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
