@@ -641,8 +641,8 @@ def snatchCard (base : CardDef) : CardDef :=
   draftCard base
     [ .triggered .onHit false none none { body := .prim (.draw .controller (.const 1)) } ]
 
-/-- Snatch Red (drafted IR). -/
-def WTR_167_R : CardDef := snatchCard WTR_167_R_meta
+/-- Snatch Red. -/
+def WTR_167_R : CardDef := { snatchCard WTR_167_R_meta with status := .full }
 /-- Snatch Yellow (drafted IR). -/
 def WTR_168_Y : CardDef := snatchCard WTR_168_Y_meta
 /-- Snatch Blue (drafted IR). -/
