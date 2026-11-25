@@ -66,3 +66,15 @@ meta def iraAttackOrdinalScenario : Option Bool := do
     thirdLink.turnAttackOrdinal == 3 && linkAttackPower third thirdLink == 1)
 
 #guard iraAttackOrdinalScenario == some true
+
+meta def edgeOfAutumnScenario : Option Bool := do
+  let p := earlyAttacker
+  let (ready, sword) ← earlyPlace earlyBase p (.player p .weapon) "IRA_002"
+  let defending ← earlyAttack ready (.attackWeapon sword)
+  let hit ← earlyDamage defending
+  let finished ← earlySteps hit earlyPass
+  let link ← hit.combat.bind CombatChain.activeLink?
+  pure (linkAttackPower hit link == 1 && linkHasKeyword hit link .goAgain &&
+    (finished.poolOf p).actionPoints == 4 && (finished.poolOf p).resources == 7 &&
+    !(canAttackWithWeapon finished p sword))
+#guard edgeOfAutumnScenario == some true

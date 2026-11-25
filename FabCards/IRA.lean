@@ -23,8 +23,20 @@ def IRA_001 : CardDef :=
     sets := [⟨"IRA"⟩]
     status := .full }
 
+/-- Edge of Autumn. -/
+def IRA_002 : CardDef :=
+  { id := ⟨"IRA_002"⟩
+    front := { name := "Edge of Autumn", supertypes := [.class_ .ninja], types := [.weapon]
+               subtypes := [.sword, .twoHanded], power := some 1
+               abilities := [
+                 .activated .action true { actionPoints := 1, resources := 1 } [] none false
+                   { body := .prim .weaponAttack }
+                 , .static_ none .self_ (.grantKeyword .goAgain)] }
+    sets := [⟨"IRA"⟩]
+    status := .full }
+
 /-- Logical cards first published in the Ira Welcome Deck. -/
-def iraCards : List CardDef := [IRA_001]
+def iraCards : List CardDef := [IRA_001, IRA_002]
 
 end IRA
 end FabCards
