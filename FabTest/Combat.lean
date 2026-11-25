@@ -1117,6 +1117,60 @@ meta def checkBarragingBeatdown (cid : CardId) (pitch bonus : Nat) : Option Bool
 #guard checkBarragingBeatdown ⟨"WTR_018_Y"⟩ 2 3 == some true
 #guard checkBarragingBeatdown ⟨"WTR_019_B"⟩ 3 2 == some true
 
+/-- The printed power bonus tracks non-equipment defenders only while Brawnhide attacks. -/
+meta def checkBarragingBrawnhide (cid : CardId) (pitch power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 3 }
+  let card ← funded.cards.find? cid
+  let (withAttack, attack) ← cPlace funded attacker .hand cid
+  let (withArmor, armor) ← cPlace withAttack defender .chest ⟨"WTR_041"⟩
+  let (withCopy, defendingCopy) ← cPlace withArmor defender .hand cid
+  let (ready, second) ← cPlace withCopy defender .hand ⟨"WTR_203_R"⟩
+  let paid ← cSteps ready [⟨.player attacker, .playCard attack⟩]
+  let layer ← (paid.zone .stack).head?
+  let active := fun (s : GameState) => s.combat.bind CombatChain.activeLink?
+  let defend := fun id => (⟨.player defender, .defendCard id⟩ : Action)
+  let finish := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let defending ← cSteps paid (passBoth ++ passBoth)
+  let attackLink ← active defending
+  let activeAttack ← attackLink.attack
+  let withEquipment ← cSteps defending [defend armor]
+  let armorLink ← active withEquipment
+  let withMixed ← cSteps withEquipment [defend defendingCopy]
+  let mixedLink ← active withMixed
+  let copy ← mixedLink.defending.getLast?
+  let withTwo ← cSteps defending [defend defendingCopy, defend second]
+  let twoLink ← active withTwo
+  let (oneRemoved, _, _) := execPrim withTwo attacker activeAttack []
+    (.returnDefendingCardToHand CardFilter.nonEquipment)
+  let removedLink ← active oneRemoved
+  let lose : ContinuousEffect :=
+    { id := 0, timestamp := ⟨0⟩, source := activeAttack, controller := defender,
+      target := .obj activeAttack, op := .loseAllAbilities, duration := .thisChainLink }
+  let silenced := { defending with activeEffects := [lose] }
+  let hit ← cSteps defending finish
+  let hitMixed ← cSteps withMixed finish
+  let hitTwo ← cSteps withTwo finish
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 2 &&
+    (paid.poolOf attacker).resources == 0 && objEffectivePower ready attack == some (Int.ofNat power) &&
+    objEffectivePower paid layer == some (Int.ofNat power) &&
+    objEffectivePower defending activeAttack == some (Int.ofNat (power + 1)) &&
+    objEffectivePower silenced activeAttack == some (Int.ofNat power) &&
+    nonEquipmentDefenderCount withEquipment armorLink == 0 &&
+    linkAttackPower withEquipment armorLink == power + 1 &&
+    nonEquipmentDefenderCount withMixed mixedLink == 1 &&
+    linkAttackPower withMixed mixedLink == power + 1 &&
+    objEffectivePower withMixed copy == some (Int.ofNat power) && objEffectiveDefense withMixed copy == some 2 &&
+    nonEquipmentDefenderCount withTwo twoLink == 2 && linkAttackPower withTwo twoLink == power &&
+    nonEquipmentDefenderCount oneRemoved removedLink == 1 &&
+    linkAttackPower oneRemoved removedLink == power + 1 &&
+    (active hit).map (·.damageDealt) == some (power + 1) &&
+    (active hitMixed).map (·.damageDealt) == some (power + 1 - linkTotalDefense withMixed mixedLink) &&
+    (active hitTwo).map (·.damageDealt) == some (power - 5))
+
+#guard checkBarragingBrawnhide ⟨"WTR_176_R"⟩ 1 7 == some true
+
 /-- Play an attack with Intimidate and use the remaining hand card to defend. -/
 meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) (discardCost : Bool := false)
     (fromArsenal : Bool := false) : Option Bool := do

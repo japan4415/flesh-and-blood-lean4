@@ -51,8 +51,22 @@ def objEffectivePower (s : GameState) (id : ObjId) : Option Int :=
     match o.kind with
     | .attackProxy _ (some lki) =>
       lki.power.map (· + Int.ofNat lki.plusPowerCounters)
-    | _ =>
-      (s.characteristics id).bind (·.power)
+    | _ => do
+      let chars ← s.characteristics id
+      let power ← chars.power
+      if o.faceDown || chars.abilitiesLost || chars.powerLocked || s.locate id != some .combatChain then
+        return power
+      let link := s.combat.bind fun chain => chain.links.find? (·.attack == some id)
+      match link, s.objectFace? id with
+      | some attack, some face =>
+        let defenders := nonEquipmentDefenderCount s attack
+        let bonus := face.abilities.foldl (fun total ability =>
+          match ability with
+          | .static_ (some (.defendedByFewerNonEquip limit)) scope (.addPower (.const delta)) =>
+            if scope.isSelf && decide (defenders < limit) then total + delta else total
+          | _ => total) 0
+        return power + bonus
+      | _, _ => return power
 
 /-- Effective defense `{d}` of an object on the board via the 8-stage continuous-effect evaluator
 (including `-1{d}` counters) (CR 2.3, 6.3.2). -/
