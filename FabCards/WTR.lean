@@ -857,6 +857,13 @@ def WTR_151 : CardDef :=
     [ .activated .instant false {} [{ cost := .destroySelf }] none false
         { body := .prim (.shuffleZoneIntoDeck .controller .hand CardFilter.any none true) } ]
 
+/-- Heartened Cross Strap. -/
+def WTR_152 : CardDef :=
+  { draftCard WTR_152_meta
+      [ .activated .action false { actionPoints := 1 } [{ cost := .destroySelf }] none true
+          { body := .grant (.nextCardPlayed CardFilter.any) (.modifyCost (-2)) .thisTurn } ]
+    with status := .full }
+
 /-- Snapdragon Scalers (drafted IR). -/
 def WTR_154 : CardDef :=
   draftCard WTR_154_meta
@@ -1208,7 +1215,7 @@ def draftedCards : List CardDef :=
   , WTR_113, WTR_114, WTR_115, WTR_116, WTR_117, WTR_118_B, WTR_119_R, WTR_120_R
   , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_126_R, WTR_127_Y, WTR_128_B, WTR_129_R, WTR_130_Y, WTR_131_B, WTR_132_R, WTR_133_Y, WTR_134_B, WTR_135_R, WTR_136_Y, WTR_137_B, WTR_138_R, WTR_139_Y, WTR_140_B
   , WTR_141_R, WTR_142_Y, WTR_143_B, WTR_144_R, WTR_145_Y, WTR_146_B, WTR_147_R, WTR_148_Y, WTR_149_B
-  , WTR_150, WTR_151, WTR_154, WTR_155, WTR_156, WTR_157, WTR_158
+  , WTR_150, WTR_151, WTR_152, WTR_154, WTR_155, WTR_156, WTR_157, WTR_158
   , WTR_159_R, WTR_160_Y, WTR_161_B, WTR_162_B, WTR_163_Y
   , WTR_164_R, WTR_165_Y, WTR_166_B, WTR_167_R, WTR_168_Y, WTR_169_B, WTR_170_B, WTR_171_B, WTR_172_B
   , WTR_173_R, WTR_174_Y, WTR_175_B, WTR_176_R, WTR_177_Y, WTR_178_B, WTR_179_R, WTR_180_Y, WTR_181_B, WTR_182_R, WTR_183_Y, WTR_184_B
