@@ -120,14 +120,14 @@ def WTR_007_Y : CardDef :=
                 , .grant .self_ (.grantKeyword .goAgain) .thisTurn ])
               .nop ] })
 
-/-- Reckless Swing (drafted IR). -/
+/-- Reckless Swing. -/
 def WTR_008_B : CardDef :=
-  draftCard WTR_008_B_meta []
-    (some
-      { extraCosts := [{ cost := .discardRandom 1 }]
-        body := .ifThen (.lastDiscardedMatches power6Filter)
-          (.prim (.dealDamage .physical .attackingHero (.const 2)))
-          .nop })
+  { draftCard WTR_008_B_meta []
+      (some
+        { extraCosts := [{ cost := .discardRandom 1 }]
+          body := .ifThen (.lastDiscardedMatches power6Filter)
+            (.prim (.dealDamage .generic .attackingHero (.const 2)))
+            .nop }) with status := .full }
 
 /-- Bone Head Barrier (drafted IR). -/
 def WTR_010_Y : CardDef :=

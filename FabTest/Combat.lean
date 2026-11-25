@@ -1197,6 +1197,57 @@ meta def checkSteelbladeShunt (cid : CardId) (pitch defense : Nat) (fromArsenal 
     grave.map (fun id => (resolved.cardDefOf? id).map (·.id)) == [some ⟨"WTR_126_R"⟩]) :
     Option Bool) == some true
 
+/-- Verify Reckless Swing's additional cost and damage during Reaction Step. -/
+meta def checkRecklessSwing (fromArsenal : Bool) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player defender .hand
+  let grave := Zone.player defender .graveyard
+  let cid : CardId := ⟨"WTR_008_B"⟩
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 3 }
+  let card ← funded.cards.find? cid
+  let (withAttack, attack) ← cPlace funded attacker .hand ⟨"WTR_188_R"⟩
+  let (bare, reaction) ← cPlace withAttack defender origin cid fromArsenal
+  let play : Action := ⟨.player defender, .playCard reaction⟩
+  let toReaction := [⟨.player attacker, .playCard attack⟩] ++ passBoth ++ passBoth ++
+    [⟨.player defender, .defendDone⟩] ++ passBoth ++ [⟨.player attacker, .pass⟩]
+  let offeredBare ← cSteps bare toReaction
+  let rejected ← cSteps offeredBare [play]
+  let (withHigh, high) ← cPlace bare defender .hand ⟨"WTR_189_Y"⟩
+  let (ready, low) ← cPlace withHigh defender .hand ⟨"WTR_190_B"⟩
+  let paying ← cSteps ready (toReaction ++ [play])
+  let paidHigh ← cSteps paying [⟨.chance, .shuffleOrder [high, low]⟩]
+  let paidLow ← cSteps paying [⟨.chance, .shuffleOrder [low, high]⟩]
+  let resolve := fun (s : GameState) => do
+    let passed ← cSteps s [⟨.player defender, .pass⟩]
+    (step 64 passed ⟨.player attacker, .pass⟩).toOption
+  let (highResolved, highEvents) ← resolve paidHigh
+  let (lowResolved, lowEvents) ← resolve paidLow
+  let (lethal, _) ← resolve (paidHigh.setLife attacker 2)
+  let highLink ← highResolved.combat.bind CombatChain.activeLink?
+  let lowLink ← lowResolved.combat.bind CombatChain.activeLink?
+  let highDamage ← cSteps highResolved passBoth
+  let lowDamage ← cSteps lowResolved passBoth
+  let highDiscard ← (paidHigh.zone grave).head?
+  let lowDiscard ← (paidLow.zone grave).head?
+  let reactionDamage : Event := .damageDealt attacker .generic 2
+  pure (card.status == .full && card.front.pitch == some 3 && card.front.defense == some 4 &&
+    decide (rejected = offeredBare) && paying.pending.head? == some (.chanceShuffle hand) &&
+    paidHigh.lifeOf attacker == 40 && paidLow.lifeOf attacker == 40 &&
+    paidHigh.zone hand == [low] && paidLow.zone hand == [high] &&
+    (paidHigh.cardDefOf? highDiscard).map (·.id) == some ⟨"WTR_189_Y"⟩ &&
+    (paidLow.cardDefOf? lowDiscard).map (·.id) == some ⟨"WTR_190_B"⟩ &&
+    highResolved.lifeOf attacker == 38 && lowResolved.lifeOf attacker == 40 &&
+    highEvents.countP (· == reactionDamage) == 1 && !lowEvents.contains reactionDamage &&
+    lethal.result == some (.won [defender]) && lethal.lifeOf defender == 40 &&
+    highResolved.combat.map (·.step) == some .reaction &&
+    linkTotalDefense highResolved highLink == 4 && linkTotalDefense lowResolved lowLink == 4 &&
+    highDamage.lifeOf defender == 37 && lowDamage.lifeOf defender == 37)
+
+#guard checkRecklessSwing false == some true
+#guard checkRecklessSwing true == some true
+
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
