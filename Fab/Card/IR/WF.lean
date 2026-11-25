@@ -178,7 +178,8 @@ def hasXCost (ecs : List ExtraCostSpec) : Bool :=
 def ModeSpec.wfBool (m : ModeSpec) (hasX : Bool) : Bool :=
   let numSlots := m.targets.length
   m.targets.all (TargetSpec.wfBool numSlots) &&
-  m.body.wfBool numSlots [] hasX
+  m.body.wfBool numSlots [] hasX &&
+  (m.onAttack.map (·.wfBool 0 [] false)).getD true
 
 /-- Static well-formedness check for `EffectDef`, allowing inherited `hasX` from an enclosing
 ability cost. Checks both direct targets/body and every per-mode `ModeSpec` (CR 5.1.2a). -/

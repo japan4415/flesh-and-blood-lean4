@@ -322,6 +322,8 @@ structure ModeSpec where
   targets : List TargetSpec := []
   /-- Resolution effect body for this mode. -/
   body : Effect := .nop
+  /-- A triggered ability created by this mode and checked when the attack becomes attacking. -/
+  onAttack : Option Effect := none
 deriving DecidableEq, Repr
 
 /-- A complete discrete effect declaration separating play-time mode/target/cost declarations from

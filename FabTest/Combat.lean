@@ -788,6 +788,82 @@ meta def checkDemolitionCrew (cid : CardId) (pitch power : Nat) (fromArsenal : B
 #guard checkDemolitionCrew ⟨"WTR_181_B"⟩ 3 4 false == some true
 #guard checkDemolitionCrew ⟨"WTR_181_B"⟩ 3 4 true == some true
 
+/-- Choose Enlightened Strike's mode before paying its cost, then resolve the chosen effect. -/
+meta def checkEnlightenedStrike (fromArsenal : Bool) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player attacker .hand
+  let deck := Zone.player attacker .deck
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let cid : CardId := ⟨"WTR_159_R"⟩
+  let card ← m5Base.cards.find? cid
+  let (bare, attack) ← cPlace m5Base attacker origin cid fromArsenal
+  let (keptHand, kept) ← cPlace bare attacker .hand ⟨"WTR_203_R"⟩
+  let (withCost, choice) ← cPlace keptHand attacker .hand ⟨"WTR_205_B"⟩
+  let (withBottom, bottom) ← cPlace withCost attacker .deck ⟨"WTR_188_R"⟩
+  let (ready, top) ← cPlace withBottom attacker .deck ⟨"WTR_189_Y"⟩
+  let play : Action := ⟨.player attacker, .playCard attack⟩
+  let pick mode : Action := ⟨.player attacker, .pickMode mode⟩
+  let pay id : Action := ⟨.player attacker, .pickHandCostCard id⟩
+  let cancel : Action := ⟨.player attacker, .cancelPlay⟩
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let noCost ← cSteps bare [play, pick 2]
+  let modePrompt ← cSteps ready [play]
+  let cancelledMode ← cSteps modePrompt [cancel]
+  let choose (mode : Nat) : Option (GameState × ObjId × Bool) := do
+    let costPrompt ← cSteps modePrompt [pick mode]
+    let cancelledCost ← cSteps costPrompt [cancel]
+    let (paid, es) ← (step 64 costPrompt (pay choice)).toOption
+    let moved ← (paid.zone deck).getLast?
+    let layer ← (paid.zone .stack).head?
+    let valid :=
+      (legalActionsFor attacker costPrompt).contains (pay kept) &&
+      (legalActionsFor attacker costPrompt).contains (pay choice) &&
+      (step 64 costPrompt (pay top)).toOption.isNone &&
+      decide (cancelledCost = ready) && costPrompt.zone deck == [top, bottom] &&
+      paid.zone deck == [top, bottom, moved] && paid.zone hand == [kept] &&
+      es == [.moved choice moved hand deck] &&
+      ((paid.layerMeta.get? layer.n).bind (·.modeIdx)) == some mode &&
+      (paid.poolOf attacker).actionPoints == 0
+    pure (paid, moved, valid)
+  let (drawPaid, drawBottom, drawCost) ← choose 0
+  let (powerPaid, powerBottom, powerCost) ← choose 1
+  let (againPaid, againBottom, againCost) ← choose 2
+  let attacking ← cSteps drawPaid passBoth
+  let trigger ← attacking.pendingTriggers.head?
+  let drawLink ← active attacking
+  let stacked ← cSteps attacking [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩]
+  let drawn ← cSteps stacked passBoth
+  let drawnCard ← (drawn.zone hand).head?
+  let toDamage := done :: (passBoth ++ passBoth ++ passBoth)
+  let afterDraw ← cSteps drawn (passBoth ++ toDamage)
+  let afterPower ← cSteps powerPaid (passBoth ++ passBoth ++ toDamage)
+  let afterAgain ← cSteps againPaid (passBoth ++ passBoth ++ toDamage)
+  pure (card.status == .full && card.front.pitch == some 1 && card.front.defense == some 3 &&
+    decide (noCost = bare) && decide (cancelledMode = ready) &&
+    [0, 1, 2].all (fun m => (legalActionsFor attacker modePrompt).contains (pick m)) &&
+    (step 64 modePrompt (pick 3)).toOption.isNone &&
+    drawCost && powerCost && againCost &&
+    some trigger.source == drawLink.attack &&
+    (attacking.zone deck) == [top, bottom, drawBottom] && (stacked.zone deck) == attacking.zone deck &&
+    attacking.combat.map (·.step) == some .attack &&
+    (drawn.cardDefOf? drawnCard).map (·.id) == some ⟨"WTR_189_Y"⟩ &&
+    drawn.zone deck == [bottom, drawBottom] && drawn.zone hand == [drawnCard, kept] &&
+    (active afterDraw).map (·.damageDealt) == some 5 &&
+    (active afterPower).map (·.damageDealt) == some 7 &&
+    (active afterAgain).map (·.damageDealt) == some 5 &&
+    afterPower.zone deck == [top, bottom, powerBottom] &&
+    afterAgain.zone deck == [top, bottom, againBottom] &&
+    afterPower.pendingTriggers.isEmpty && afterAgain.pendingTriggers.isEmpty &&
+    (afterDraw.poolOf attacker).actionPoints == 0 &&
+    (afterPower.poolOf attacker).actionPoints == 0 &&
+    (afterAgain.poolOf attacker).actionPoints == 1)
+
+#guard checkEnlightenedStrike false == some true
+#guard checkEnlightenedStrike true == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
