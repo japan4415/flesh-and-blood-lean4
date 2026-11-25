@@ -108,6 +108,70 @@ theorem untapPlayer_idem (s : GameState) (p : PlayerId) :
   | none => rfl
   | some o => simp [untapIfControlled_idem]
 
+/-- Reset an Ally permanent's life total back to its printed base life at End Phase (CR 4.4.3a). -/
+def resetAllyLife (db : CardDB) (o : Object) : Object :=
+  match o.kind.cardId? with
+  | some cid =>
+    match db.find? cid with
+    | some c =>
+      let face := match o.faceState with
+        | .front => c.front
+        | .back => c.back.getD c.front
+      if face.hasSubtype .ally then
+        match face.life with
+        | some baseHp => { o with life := some baseHp }
+        | none => o
+      else o
+    | none => o
+  | none => o
+
+/-- `resetAllyLife` preserves `kind`. -/
+theorem resetAllyLife_kind (db : CardDB) (o : Object) :
+    (resetAllyLife db o).kind = o.kind := by
+  unfold resetAllyLife
+  cases o.kind.cardId? with
+  | none => rfl
+  | some cid =>
+    dsimp only
+    cases db.find? cid with
+    | none => rfl
+    | some c =>
+      dsimp only
+      cases o.faceState <;> dsimp only <;> split <;> (try split) <;> rfl
+
+/-- `resetAllyLife` preserves `owner`. -/
+theorem resetAllyLife_owner (db : CardDB) (o : Object) :
+    (resetAllyLife db o).owner = o.owner := by
+  unfold resetAllyLife
+  cases o.kind.cardId? with
+  | none => rfl
+  | some cid =>
+    dsimp only
+    cases db.find? cid with
+    | none => rfl
+    | some c =>
+      dsimp only
+      cases o.faceState <;> dsimp only <;> split <;> (try split) <;> rfl
+
+/-- Reset every Ally permanent's life total to its printed base life at End Phase (CR 4.4.3a). -/
+def resetAlliesLife (s : GameState) : GameState :=
+  s.mapObjects (resetAllyLife s.cards)
+
+/-- `resetAlliesLife` preserves `WF`. -/
+theorem resetAlliesLife_wf {s : GameState} (hwf : s.WF) :
+    (resetAlliesLife s).WF :=
+  GameState.mapObjects_wf hwf (resetAllyLife s.cards)
+
+/-- `resetAlliesLife` preserves `OwnerOk`. -/
+theorem resetAlliesLife_ownerOk {s : GameState} (hok : s.OwnerOk) :
+    (resetAlliesLife s).OwnerOk :=
+  GameState.mapObjects_ownerOk hok (resetAllyLife_owner s.cards)
+
+/-- `resetAlliesLife` preserves `physIds` (I1). -/
+theorem resetAlliesLife_physIds (s : GameState) :
+    (resetAlliesLife s).physIds = s.physIds :=
+  GameState.mapObjects_physIds s (resetAllyLife_kind s.cards)
+
 /-- Players whose hero currently has positive life (`0 < lifeOf p`) (CR 1.10.2a, 4.5). -/
 def livingPlayers (s : GameState) : List PlayerId :=
   (allPlayers s.playerCount).filter fun p => decide (0 < s.lifeOf p)

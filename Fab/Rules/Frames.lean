@@ -68,6 +68,12 @@ def loadoutEquipDest? (s : GameState) (p : PlayerId) (id : ObjId) : Option Zone 
           if ws.isEmpty then some (.player p .weapon) else none
         else if c.isOneHanded || c.isOffHand then
           if ws.length < 2 && !s.hasTwoHandedEquipped p then some (.player p .weapon) else none
+        else if c.isEquipment && c.front.keywords.contains .modular then
+          if (s.zone (.player p .head)).isEmpty then some (.player p .head)
+          else if (s.zone (.player p .chest)).isEmpty then some (.player p .chest)
+          else if (s.zone (.player p .arms)).isEmpty then some (.player p .arms)
+          else if (s.zone (.player p .legs)).isEmpty then some (.player p .legs)
+          else none
         else
           none
   else
@@ -926,7 +932,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     else
       some ({ s with pending := .choosePitchOrder p :: rest }, [])
   | .endTurnCleanup tp :: rest =>
-    let s1 := untapPlayer s tp
+    let s0 := resetAlliesLife s
+    let s1 := untapPlayer s0 tp
     let s2 := ({ s1 with pools := ∅ }).expireEffects .thisTurn
     let draws := endPhaseDrawFrames s2 tp
     some ({ s2 with pending := draws ++ rest }, [])

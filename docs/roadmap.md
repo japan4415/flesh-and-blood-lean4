@@ -299,6 +299,12 @@ FaB ルールの中核マイルストーン。
 
 **証明**: 新規プリミティブ・状態遷移に対する I1〜I4, I6, I11 の維持確認。
 
+**M8 実装の記録（2026-11-25）: 完了**
+- 高度メカニクス規則（CR Chapter 8-9）: `Fab/Rules/Advanced.lean`（両面カード Transcend / Transform / Demi-Hero、分割カード Meld（CR 8.3.38 合成コスト・右面先解決）、装備拡張 Evo 重ね置き＆下層参照 `underlyingEquipment`・Modular・Cloaked 表向き化、パーマネント戦闘 Ally 攻撃/ダメージ/Spectra 連携、Tap/Untap `{t}` コスト管理、Soul/Charge、Clash/Wager/Mark/Gold/Fealty の全プリミティブ＋WF/OwnerOk/I1 保存定理）。
+- 盤面・GSP・End Phase 統合: `Fab/State/GameState.lean`（`markedPlayers` 追加＋`BoardSnapshot` 統合）、`Fab/Rules/Objects.lean`（End Phase Ally ライフリセット `resetAlliesLife` CR 4.4.3a）、`Fab/Rules/Gsp.lean`（Landmark 一意性 `olderLandmarks` を `gspPermanentsToClear` として GSP・`Settled`（**I17**）・`gspMeasure`（**I12a**）に統合）、`Fab/Rules/Frames.lean`（`loadoutEquipDest?` の Modular 対応・`endTurnCleanup` の `resetAlliesLife` 統合）。
+- 証明・テスト: `Fab/Invariant/Advanced.lean`（`transcendCard_yields_back_face`, `transformObject_flips_preserving_objId`, `meld_both_combines_costs_and_resolves_right_first`, `revealObject_keeps_cloaked_faceDown`, `turnEquipmentFaceUp_sets_faceUp`, `resetAllyLife_restores_base`, `settled_has_no_older_landmarks`, `payTapCost_taps_and_blocks_second_tap`, `resolveClash_symm`, `markPlayer_and_clearMark`）、`FabTest/Advanced.lean`（全 M8 メカニクス検証）。
+- 検証: `./scripts/verify.sh` 全 5 項目通過（161 jobs、警告 0、`sorry` 0、標準 3 公理のみ、`gen_lean --check` OK、`cr_citations.py` 59 files / 1075 citations / 209 distinct rules / malformed: 0）。
+
 ---
 
 ### M9: 多人数戦（UPF）・隠れ情報非干渉（I10）・ループ検出器（I19）・停止性総仕上げ（I12）
