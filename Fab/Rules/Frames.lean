@@ -691,6 +691,16 @@ def canPickHandCostCard (s : GameState) (p : PlayerId) (cost : HandCardCost) (id
     | .bottomDeck => true
     | .reveal filter => (revealCostCard? s id filter).isSome
 
+/-- Find the source and index of a limited weapon attack when its payment completes (CR 5.2.2). -/
+def paidWeaponActivation? (s : GameState) (layerId : ObjId) : Option (ObjId × Nat) := do
+  let layer ← s.obj? layerId
+  match layer.kind with
+  | .attackProxy source _ =>
+    let card ← s.cardDefOf? source
+    let index ← limitedWeaponAttackIndex? card
+    return (source, index)
+  | _ => none
+
 /-- Finalize a paid layer, then stack triggers queued during play and return priority (CR 5.1.10, 6.6.6). -/
 def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (rest : List Frame) (discarded : Option CardFace := none) : GameState :=
@@ -725,6 +735,7 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
   { s with
     activeEffects := remainingEffects
     playRollback := none
+    activatedThisTurn := s.activatedThisTurn ++ (paidWeaponActivation? s layerId).toList
     pendingTriggers := pendingTriggers
     nextTimestamp := s.nextTimestamp + triggers.length
     pending := flush ++ (.priority p 0 :: rest) }

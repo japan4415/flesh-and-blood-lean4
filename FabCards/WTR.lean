@@ -279,11 +279,12 @@ def WTR_038 : CardDef := draftCard WTR_038_meta bravoAbility
 /-- Bravo (Young, drafted IR). -/
 def WTR_039 : CardDef := draftCard WTR_039_meta bravoAbility
 
-/-- Anothos (drafted IR). -/
+/-- Anothos. -/
 def WTR_040 : CardDef :=
-  draftCard WTR_040_meta
-    [ weaponAttackAbility 3
-    , .static_ (some (.zoneCountGe .controller .pitch cost3Filter 2)) .self_ (.addPower (.const 2)) ]
+  { draftCard WTR_040_meta
+      [ weaponAttackAbility 3
+      , .static_ (some (.zoneCountGe .controller .pitch cost3Filter 2)) .self_ (.addPower (.const 2)) ]
+    with status := .full }
 
 /-- Tectonic Plating (drafted IR). -/
 def WTR_041 : CardDef :=
