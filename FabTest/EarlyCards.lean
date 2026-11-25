@@ -251,3 +251,8 @@ meta def goBananasScenario : Option Bool := do
     hit.unopenedBoosters.length == 1 && hit.physIds.length == ready.physIds.length)
 
 #guard goBananasScenario == some true
+
+#guard
+  (["FAB001-P", "HER005-P", "HER006-P", "HER007-P", "HER008-P"].map fun number =>
+    ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
+  ["Fyendal's Spring Tunic", "Rhinar", "Bravo", "Katsu", "Dorinthea"].map some

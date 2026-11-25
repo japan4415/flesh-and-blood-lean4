@@ -169,6 +169,12 @@ def earlyPrintingCardId? : String → Option CardId
   | "RNR031" => some ⟨"WTR_225"⟩
   -- Mighty Ape special-use promo, distributed at Auckland Armageddon in October 2019.
   | "LSS002" | "LSS002-P" => some ⟨"LSS_002_Y"⟩
+  -- 2019 The Calling prize and participation printings.
+  | "FAB001" | "FAB001-P" => some ⟨"WTR_150"⟩
+  | "HER005" | "HER005-P" => some ⟨"WTR_002"⟩
+  | "HER006" | "HER006-P" => some ⟨"WTR_039"⟩
+  | "HER007" | "HER007-P" => some ⟨"WTR_077"⟩
+  | "HER008" | "HER008-P" => some ⟨"WTR_114"⟩
   | _ => none
 
 end FabCards
