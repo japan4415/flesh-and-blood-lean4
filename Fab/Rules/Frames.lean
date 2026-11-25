@@ -559,33 +559,34 @@ def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
     fun (trigger, once) => if once then none else some trigger
   triggers.zipIdx.map fun (trigger, idx) => { trigger with id := s.nextTimestamp + idx }
 
-/-- Find installed arena abilities triggered by the card just discarded (CR 3.0.14b, 3.10, 6.6.5). -/
+/-- Collect relevant abilities on installed arena objects under the player's control (CR 1.7.4, 3.0.14b). -/
+def installedCardTriggers (s : GameState) (p : PlayerId) (matchesEvent : Trigger → Bool) :
+    List (PendingTrigger × Bool) :=
+  let arena := (allZones s.playerCount).filter fun
+    | .player _ kind => kind.isArena && kind != .soul
+    | _ => false
+  (arena.flatMap s.zone).flatMap fun source =>
+    if (s.characteristics source).any (fun c => c.controller == p && !c.abilitiesLost) &&
+        (s.obj? source).any (fun obj => !obj.faceDown) then
+      let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+      matchingCardTriggers s source p false abilities fun event cond =>
+        matchesEvent event && (cond.map (evalCondition s p source false)).getD true
+    else []
+
+/-- Find arena abilities triggered by the card just discarded (CR 3.10, 6.6.5). -/
 def discardEventTriggers (s : GameState) (p : PlayerId) (discarded : ObjId) :
     List (PendingTrigger × Bool) :=
   match s.objectFace? discarded with
   | none => []
   | some face =>
-    let arena := (allZones s.playerCount).filter fun
-      | .player _ kind => kind.isArena && kind != .soul
+    installedCardTriggers s p fun
+      | .onDiscard filter duringAction =>
+        (!duringAction || (s.phase == .actionPhase && s.active == some p)) &&
+          cardFaceMatches filter face
       | _ => false
-    (arena.flatMap s.zone).flatMap fun source =>
-      if (s.characteristics source).any (fun c => c.controller == p && !c.abilitiesLost) &&
-          (s.obj? source).any (fun obj => !obj.faceDown) then
-        let abilities := ((s.objectFace? source).map (·.abilities)).getD []
-        matchingCardTriggers s source p false abilities fun trigger cond =>
-          match trigger with
-          | .onDiscard filter duringAction =>
-            (!duringAction || (s.phase == .actionPhase && s.active == some p)) &&
-              cardFaceMatches filter face &&
-              (cond.map (evalCondition s p source false)).getD true
-          | _ => false
-      else []
 
-/-- Queue discards in event order, consuming a once-per-turn use as soon as it triggers (CR 6.6.5e). -/
-def queueDiscardTriggers (s : GameState) (events : List Event) : GameState :=
-  let candidates := events.flatMap fun
-    | .discarded p id => discardEventTriggers s p id
-    | _ => []
+/-- Queue abilities in event order, consuming a once-per-turn use as soon as it triggers (CR 6.6.5e). -/
+def queueCardTriggers (s : GameState) (candidates : List (PendingTrigger × Bool)) : GameState :=
   let collected := candidates.foldl (fun (used, pending) (trigger, once) =>
     let key := (trigger.source, trigger.abilityIdx)
     if once && used.contains key then (used, pending)
@@ -596,6 +597,24 @@ def queueDiscardTriggers (s : GameState) (events : List Event) : GameState :=
     triggeredThisTurn := collected.1
     pendingTriggers := if triggers.isEmpty then s.pendingTriggers else s.pendingTriggers ++ triggers
     nextTimestamp := s.nextTimestamp + triggers.length }
+
+/-- Queue discard abilities in event order (CR 6.6). -/
+def queueDiscardTriggers (s : GameState) (events : List Event) : GameState :=
+  queueCardTriggers s (events.flatMap fun
+    | .discarded p id => discardEventTriggers s p id
+    | _ => [])
+
+/-- Find arena abilities that trigger when an attack action card extends the chain's hit streak (CR 7.5.3). -/
+def consecutiveHitCardTriggers (s : GameState) (link : ChainLink) : List (PendingTrigger × Bool) :=
+  if link.attackSource.isSome then [] else
+    match link.attack.bind s.characteristics with
+    | some attack =>
+      if !(attack.types.contains .action && attack.subtypes.contains .attack) then [] else
+        let streak := ((s.combat.map fun chain => chain.links.takeWhile (·.hit)).getD []).length
+        installedCardTriggers s attack.controller fun
+          | .onConsecutiveHitLink minLink => minLink ≤ streak
+          | _ => false
+    | none => []
 
 /-- Collect printed and granted hit and Crush triggers (CR 6.6, 7.5.5, 8.4.2). -/
 def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigger :=
@@ -1348,11 +1367,12 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         let cc' := { cc with step := .damage }.updateActiveLink fun _ => damagedLink
         let withDamage := { s2 with combat := some cc' }
         let damageTriggers := if isHit && withDamage.result.isNone then
-          attackDamageTriggers withDamage damagedLink else []
-        let s3 := gspRun { withDamage with
-          pendingTriggers := withDamage.pendingTriggers ++ damageTriggers
-          nextTimestamp := withDamage.nextTimestamp + damageTriggers.length }
-        let triggers := if damageTriggers.isEmpty then [] else [.flushTriggers]
+          (attackDamageTriggers withDamage damagedLink).map (fun trigger => (trigger, false)) ++
+            consecutiveHitCardTriggers withDamage damagedLink
+          else []
+        let queued := queueCardTriggers withDamage damageTriggers
+        let s3 := gspRun queued
+        let triggers := if queued.pendingTriggers.isEmpty then [] else [.flushTriggers]
         some ({ s3 with pending := triggers ++ [.priority tp 0, .combatStep .resolution atkId] ++ rest }, es)
       | none =>
         some ({ s with
