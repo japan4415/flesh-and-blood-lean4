@@ -721,8 +721,8 @@ def scarForAScar (base : CardDef) : CardDef :=
     [ .triggered .onPlay false none (some .lessLifeThanOpponent)
         { body := .grant .self_ (.grantKeyword .goAgain) .thisChainLink } ]
 
-/-- Scar for a Scar Red (drafted IR). -/
-def WTR_191_R : CardDef := scarForAScar WTR_191_R_meta
+/-- Scar for a Scar Red. -/
+def WTR_191_R : CardDef := { scarForAScar WTR_191_R_meta with status := .full }
 /-- Scar for a Scar Yellow (drafted IR). -/
 def WTR_192_Y : CardDef := scarForAScar WTR_192_Y_meta
 /-- Scar for a Scar Blue (drafted IR). -/
