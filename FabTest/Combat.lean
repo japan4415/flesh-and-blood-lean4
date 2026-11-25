@@ -4724,6 +4724,79 @@ meta def checkDebilitate (cid : CardId) (pitch power : Nat) : Option Bool := do
 #guard checkDebilitate ⟨"WTR_067_Y"⟩ 2 7 == some true
 #guard checkDebilitate ⟨"WTR_068_B"⟩ 3 6 == some true
 
+/-- Cartilage Crush taxes the first paid action card, weapon attack, or action activation. -/
+meta def checkCartilageCrush (cid : CardId) (pitch power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let base := m5Base.setPool attacker { actionPoints := 1, resources := 3 }
+  let card ← base.cards.find? cid
+  let (withCrush, crush) ← cPlace { base with pending := base.pending ++ [.beginTurn] } attacker .hand cid
+  let (withAttack, attack) ← cPlace withCrush defender .hand ⟨"WTR_203_R"⟩
+  let (withItem, item) ← cPlace withAttack defender .hand ⟨"WTR_171_B"⟩
+  let (withInstant, sigil) ← cPlace withItem defender .hand ⟨"WTR_173_R"⟩
+  let (withDagger, dagger) ← cPlace withInstant defender .weapon ⟨"WTR_078"⟩
+  let (withPotion, potion) ← cPlace withDagger defender .permanent ⟨"WTR_172_B"⟩
+  let (withTunic, tunic) ← cPlace withPotion defender .chest ⟨"WTR_150"⟩
+  let ready := updateSingleObject withTunic tunic (fun o => o.addCounterVal .energy 3)
+  let defending ← cSteps ready (⟨.player attacker, .playCard crush⟩ :: (passBoth ++ passBoth))
+  let finish := ⟨.player defender, .defendDone⟩ :: (passBoth ++ passBoth)
+  let prevent (n : Nat) :=
+    (execPrim defending defender ⟨0⟩ [] (.preventNextDamage .controller (.const n) .thisTurn)).1
+  let hit ← cSteps (prevent (power - 4)) finish
+  let short ← cSteps (prevent (power - 3)) finish
+  let trigger ← hit.pendingTriggers.head?
+  let waiting ← cSteps hit ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let nextTurn (s : GameState) := cSteps s (List.replicate 3 passBoth).flatten
+  let restricted ← nextTurn waiting
+  let normal ← nextTurn short
+  let fund (s : GameState) := s.setPool defender { actionPoints := 1, resources := 3 }
+  let play (id : ObjId) : Action := ⟨.player defender, .playCard id⟩
+  let swing : Action := ⟨.player defender, .attackWeapon dagger⟩
+  let activate : Action := ⟨.player defender, .activateAbility potion 0⟩
+  let activateTunic : Action := ⟨.player defender, .activateAbility tunic 1⟩
+  let cancel : Action := ⟨.player defender, .cancelPlay⟩
+  let revPass := passBoth.reverse
+  let cardAnnouncement ← cSteps restricted [play attack]
+  let afterCardCancel ← cSteps cardAnnouncement [cancel]
+  let weaponAnnouncement ← cSteps restricted [swing]
+  let afterWeaponCancel ← cSteps weaponAnnouncement [cancel]
+  let activationAnnouncement ← cSteps restricted [activate]
+  let afterActivationCancel ← cSteps activationAnnouncement [cancel]
+  let paidWithPitch ← cSteps cardAnnouncement [⟨.player defender, .pitchCard item⟩]
+  let paidWeapon ← cSteps (fund restricted) [swing]
+  let afterSigil ← cSteps restricted (play sigil :: revPass)
+  let afterTunic ← cSteps afterSigil (activateTunic :: revPass)
+  let afterPotion ← cSteps afterTunic (activate :: revPass)
+  let afterItem ← cSteps (fund afterPotion) (play item :: revPass)
+  let itemFirst ← cSteps (fund restricted) (play item :: revPass)
+  let normalAttack ← cSteps (fund normal) [play attack]
+  let discount : ContinuousEffect :=
+    { id := restricted.nextTimestamp, controller := defender, source := tunic
+      target := .nextAttackCard CardFilter.any, op := .subCostRes 2
+      duration := .thisTurn, timestamp := ⟨restricted.nextTimestamp⟩ }
+  let lowered ← cSteps { restricted with activeEffects := discount :: restricted.activeEffects } [play attack]
+  let otherTurn ← cSteps restricted (revPass ++ [⟨.player defender, .arsenalSkip⟩])
+  let later ← cSteps otherTurn passBoth
+  let resources (s : GameState) := (s.poolOf defender).resources
+  let tax (s : GameState) := nextActionSurcharge s defender
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    (defending.poolOf attacker).resources == 0 && hit.lifeOf defender == 36 && short.lifeOf defender == 37 &&
+    short.pendingTriggers.isEmpty && tax waiting == 0 && tax normal == 0 &&
+    restricted.active == some defender && tax restricted == 1 &&
+    decide (afterCardCancel = restricted) && decide (afterWeaponCancel = restricted) &&
+    decide (afterActivationCancel = restricted) &&
+    tax paidWithPitch == 0 && resources paidWithPitch == 2 &&
+    tax paidWeapon == 0 && resources paidWeapon == 1 &&
+    tax afterSigil == 1 && resources afterSigil == 0 && afterSigil.lifeOf defender == 39 &&
+    tax afterTunic == 1 && resources afterTunic == 1 &&
+    tax afterPotion == 0 && resources afterPotion == 0 && (afterPotion.poolOf defender).actionPoints == 2 &&
+    tax afterItem == 0 && resources afterItem == 3 && tax itemFirst == 0 && resources itemFirst == 2 &&
+    tax normalAttack == 0 && resources normalAttack == 3 &&
+    tax lowered == 0 && resources lowered == 0 && later.active == some defender && tax later == 0)
+
+#guard checkCartilageCrush ⟨"WTR_060_R"⟩ 1 7 == some true
+
 /-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
 meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
     (keywords : List KeywordInst := []) : Option Bool := do

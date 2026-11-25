@@ -366,20 +366,33 @@ def cardPlayCost (c : CardDef) : AssetCost :=
   let ap := if c.front.hasType .action then max base.actionPoints 1 else base.actionPoints
   { base with actionPoints := ap }
 
-/-- Apply the announcing player's next-attack card cost modifiers (CR 5.1.2a, 5.1.7). -/
+/-- Check whether an effect increases the cost of the player's next action. -/
+def ContinuousEffect.isNextActionCostFor (effect : ContinuousEffect) (p : PlayerId) : Bool :=
+  !effect.waitsForNextTurn && effect.target == .nextActionBy p &&
+    (match effect.op with | .addCostRes _ => true | _ => false)
+
+/-- Sum the waiting increases before applying any discounts (CR 5.1.7). -/
+def nextActionSurcharge (s : GameState) (p : PlayerId) : Nat :=
+  s.activeEffects.foldl (fun total effect =>
+    match effect.op with
+    | .addCostRes n => if effect.isNextActionCostFor p then total + n else total
+    | _ => total) 0
+
+/-- Apply the announcing player's first-action and next-attack cost modifiers (CR 5.1.7). -/
 def modifiedCardPlayCost (s : GameState) (p : PlayerId) (card : CardDef) : AssetCost :=
   let base := cardPlayCost card
-  if card.front.hasType .action && card.front.hasSubtype .attack then
+  if card.front.hasType .action then
     let delta := s.activeEffects.foldl (fun total effect =>
       match effect.target with
       | .nextAttackCard filter =>
-        if effect.controller == p && !filter.isWeaponAttack && cardFaceMatches filter card.front then
+        if card.front.hasSubtype .attack && effect.controller == p &&
+            !filter.isWeaponAttack && cardFaceMatches filter card.front then
           match effect.op with
           | .addCostRes n => total + Int.ofNat n
           | .subCostRes n => total - Int.ofNat n
           | _ => total
         else total
-      | _ => total) (0 : Int)
+      | _ => total) (Int.ofNat (nextActionSurcharge s p))
     { base with resources := clampNonNeg (Int.ofNat base.resources + delta) }
   else base
 
@@ -686,6 +699,8 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
         { trigger with effect := .grant (.playerActionsAndAttacks (.seated link.defender)) mod dur }
       | .grant (.firstAttackNextTurn .defendingHero) mod dur =>
         { trigger with effect := .grant (.firstAttackNextTurn (.seated link.defender)) mod dur }
+      | .grant (.firstActionNextTurn .defendingHero) mod dur =>
+        { trigger with effect := .grant (.firstActionNextTurn (.seated link.defender)) mod dur }
       | _ => trigger
 
 /-- Collect the card's own on-play triggers once its costs have been paid (CR 5.1, 6.6.5). -/
@@ -870,6 +885,10 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
         (modeOnAttack.map fun body => Ability.triggered .onAttack false none none { body := body }).toList
       goAgain := hasGoAgain && layerCanGainGoAgain s layerId p }
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
+  let isAction := card.any (fun c => c.front.hasType .action) ||
+    (s.obj? layerId).any (fun obj => match obj.kind with | .attackProxy _ _ => true | _ => false)
+  let remainingEffects := if isAction then remainingEffects.filter (fun e => !e.isNextActionCostFor p)
+    else remainingEffects
   let activation := paidWeaponActivation? s layerId
   let effects := match activation with
     | some (weapon, index) =>
@@ -972,10 +991,13 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
     let (body, declared) ← activationResolution? s effect target
     some (speed, once, cost, destroy, removeCounters, goAgain, body, declared))
   let (speed, once, cost, destroy, removeCounters, goAgain, body, declared) := terms
-  let cost := if speed == .action then { cost with actionPoints := max cost.actionPoints 1 } else cost
+  let isAction := speed == .action
+  let cost := if isAction then
+      { cost with actionPoints := max cost.actionPoints 1, resources := cost.resources + nextActionSurcharge s p }
+    else cost
   let pool := s.poolOf p
   if cost.actionPoints ≤ pool.actionPoints && (pool.canPay cost || canPitchForCost s p cost) then
-    some ⟨⟨source, index, origin, obj.owner, destroy, once, removeCounters⟩, cost, goAgain, body, declared⟩
+    some ⟨⟨source, index, origin, obj.owner, destroy, once, removeCounters, isAction⟩, cost, goAgain, body, declared⟩
   else none
 
 /-- The indexed abilities currently available to a player holding priority. -/
@@ -1016,6 +1038,8 @@ def finishPaidActivation (s : GameState) (p : PlayerId) (layerId : ObjId)
   let flush := if paid.pendingTriggers.isEmpty then [] else [.flushTriggers]
   some ({ paid with
     activatedThisTurn := uses
+    activeEffects := if payment.isAction then paid.activeEffects.filter (fun e => !e.isNextActionCostFor p)
+      else paid.activeEffects
     layerMeta := paid.layerMeta.insert layerId.n { info with activationPayment := none }
     playRollback := none
     pending := flush ++ (.priority p 0 :: rest) }, events)
@@ -1141,7 +1165,8 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
   | .priority p _ :: rest, .player q, .attackWeapon wid =>
     if p = q ∧ canAttackWithWeapon s p wid = true then
       let snap := s.snapshot
-      let cost := match s.cardDefOf? wid with | some c => weaponAttackCost c | none => { actionPoints := 1 }
+      let base := match s.cardDefOf? wid with | some c => weaponAttackCost c | none => { actionPoints := 1 }
+      let cost := { base with resources := base.resources + nextActionSurcharge s p }
       let lki := captureLki s wid p
       let proxyObj : Object :=
         { kind := .attackProxy wid (some lki)
