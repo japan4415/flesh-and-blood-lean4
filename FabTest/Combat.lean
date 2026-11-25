@@ -526,6 +526,7 @@ meta def checkNextAttackCardPower (cid : CardId) (cost bonus : Nat) (lowCost : B
 #guard checkNextAttackCardPower ⟨"WTR_220_B"⟩ 0 1 true == some true
 #guard checkNextAttackCardPower ⟨"WTR_221_R"⟩ 3 6 false == some true
 #guard checkNextAttackCardPower ⟨"WTR_222_Y"⟩ 3 5 false == some true
+#guard checkNextAttackCardPower ⟨"WTR_223_B"⟩ 3 4 false == some true
 
 /-- Each cost filter keeps its effect until a qualifying attack is played. -/
 meta def checkSloggismWithNimblism : Option Bool := do
