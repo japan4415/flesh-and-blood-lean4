@@ -239,6 +239,13 @@ FaB ルールの中核マイルストーン。
 - **I14**（時間切れ後、高々 2 ターンでゲーム終了）。
 - Top Cut 設定で合意引き分けが `Legal` で拒否されること。
 
+**M5b 実装の記録（2026-11-25）: 完了**
+- 大会ルール実装: `Fab/State/GameConfig.lean`（`RuleSet.{isTournament, hasTimeLimit, allowsIntentionalDraw}`）、`Fab/Tournament/TimeLimit.lean`（`TournamentState`, `startTimeLimit`, `tickAtTurnStart`, `setIdOffer`, `clearIdOffer`）、`Fab/Tournament/Match.lean`（`MatchFormat.{bo1, boN}`, `MatchOutcome`, `MatchState.recordGame`, `swissBo1_decides_win`, `swissBo1_decides_draw`, `topCut_config_rules`）、`Fab/Tournament/Loop.lean`（`applyTimeExpired`, `applyOfferDraw`, `applyAcceptDraw`, `applyDeclineDraw`, `applyJudgeLoopDraw` + 保存定理群）。
+- エンジン・合法性統合: `Fab/State/Decision.lean`（`ActionKind.{timeExpired, offerDraw, acceptDraw, declineDraw, judgeLoopDraw}`）、`Fab/State/GameState.lean`（`tournament : TournamentState`、`BoardSnapshot` から独立）、`Fab/Rules/Frames.lean`（`applyAction` 5 分岐＋`microStep` `.beginTurn` での時間切れカウントダウンと `.draw .timeLimit` 終了）、`Fab/Spec/Legal.lean`（`LegalTournament` + `Legal` 統合）、`Fab/Engine/Step.lean`（`tournamentPlayerActions` + `legalActions`）。
+- 証明: `Fab/Invariant/Step.lean`（全 M5b 分岐の `StepPreserves`・**I4**・`tournamentPlayerActions_iff` / `legalActions_iff` **I6**）、`Fab/Invariant/Tournament.lean`（**I14**: `timeExpired_sets_bound`, `microStep_preserves_timeLimit`, `advance_preserves_timeLimit`, `step_preserves_timeLimit`, `timeLimit_at_most_two_turns`, `beginTurn_zero_ends_timeLimit`；Top Cut 合意引き分け禁止: `topCut_forbids_intentional_draw`, `topCut_legalActions_no_draw`；Swiss ID 交渉＆自己承諾禁止: `swiss_self_accept_forbidden`, `swiss_accept_draw_ends_game`；Clock/Judge 規則ガード: `nonSwiss_forbids_timeExpired`, `clock_second_timeExpired_forbidden`, `judgeLoopDraw_legal_iff`, `judgeLoopDraw_ends_in_loop_draw`, `coreOnly_forbids_judgeLoopDraw`）。
+- テスト: `FabTest/Tournament.lean`（5 シナリオ: スイス時間切れ現行＋追加 1 ターン・ライフ差無視ドロー・Bo1 決着、追加ターン中の致死戦闘勝利、スイス ID 提案→自己承諾拒否→辞退→再提案→合意成立、Top Cut ID/時間切れ禁止＋ジャッジループ引き分け＋Bo3 進行、`coreOnly` 全大会アクション拒否）。
+- 検証: `./scripts/verify.sh` 全 5 項目通過（139 jobs、警告 0、`sorry` 0、標準 3 公理のみ、`gen_lean --check` WTR 226 枚一致、`cr_citations.py` 51 files / 731 citations / 180 distinct rules / malformed: 0）。
+
 ---
 
 ### M6: 効果システム完全化（8 ステージ連続効果・4 区分置換・誘発・Arcane Prevention）（CR Chapter 6）

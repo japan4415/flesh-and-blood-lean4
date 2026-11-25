@@ -493,12 +493,34 @@ theorem applyAction_preserves {s s' : GameState} {a : Action} {es : List Event}
            GameState.OwnerOk.congr hok rfl rfl,
            GameState.RollbackOk.of_none rfl,
            List.Perm.refl _, rfl⟩
-  · rename_i hnc
-    rcases hl.2 with hlf | hlc
+  · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    obtain ⟨hwf1, hok1, hrb1, hp1, hc1⟩ := applyTimeExpired_inv hwf hok hrb
+    exact ⟨hwf1, hok1, hrb1, by rw [hp1], hc1⟩
+  · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    obtain ⟨hwf1, hok1, hrb1, hp1, hc1⟩ := applyJudgeLoopDraw_inv hwf hok
+    exact ⟨hwf1, hok1, hrb1, by rw [hp1], hc1⟩
+  · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    obtain ⟨hwf1, hok1, hrb1, hp1, hc1⟩ := applyOfferDraw_inv hwf hok hrb _
+    exact ⟨hwf1, hok1, hrb1, by rw [hp1], hc1⟩
+  · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    obtain ⟨hwf1, hok1, hrb1, hp1, hc1⟩ := applyAcceptDraw_inv hwf hok
+    exact ⟨hwf1, hok1, hrb1, by rw [hp1], hc1⟩
+  · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    obtain ⟨hwf1, hok1, hrb1, hp1, hc1⟩ := applyDeclineDraw_inv hwf hok hrb
+    exact ⟨hwf1, hok1, hrb1, by rw [hp1], hc1⟩
+  · rename_i hnc hnt hnj hno hna hnd
+    rcases hl.2 with hlf | hlc | hlt
     · exact applyFrame_preserves hwf hok hrb hlf h
     · unfold LegalConcede at hlc
       cases ha : a.actor <;> cases hk : a.kind <;> simp [ha, hk] at hlc
       exact False.elim (hnc _ ha hk)
+    · unfold LegalTournament at hlt
+      cases ha : a.actor <;> cases hk : a.kind <;> simp [ha, hk] at hlt
+      · exact False.elim (hno _ ha hk)
+      · exact False.elim (hna _ ha hk)
+      · exact False.elim (hnd _ ha hk)
+      · exact False.elim (hnt ha hk)
+      · exact False.elim (hnj ha hk)
 
 /-- Helper: `drawOne` preserves `config` and `playRollback`. -/
 theorem drawOne_meta (s : GameState) (p : PlayerId) :
@@ -563,8 +585,17 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
            GameState.RollbackOk.preserve hrb hmeta.1 hmeta.2 hperm,
            hperm, hmeta.1⟩
   · -- beginTurn
-    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    split at h
+    · split at h
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
+               GameState.OwnerOk.congr hok rfl rfl,
+               GameState.RollbackOk.of_none rfl,
+               List.Perm.refl _, rfl⟩
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
   · -- startPhaseWork
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
     exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
@@ -948,7 +979,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | chanceFirstChooser _ | pickFirstPlayer _ | shuffleOrder _ | pass | playCard _
         | attackWeapon _ | defendCard _ | defendDone
         | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _
-        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_map, List.mem_filter,
             Action.mk.injEq, Actor.player.injEq, iff_false]
           rintro ((⟨_, _, _, hcontra⟩ | ⟨_, _, _, hcontra⟩) | hdone)
@@ -1001,7 +1032,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | defendCard _ | defendDone | pickMode _ | pitchCard _
         | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _
-        | arsenalSkip | pitchReturnPick _ | concede =>
+        | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
@@ -1042,7 +1073,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | pickMode _
         | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
-        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_singleton,
             Action.mk.injEq, iff_false]
           rintro (hdef | ⟨_, hcontra⟩)
@@ -1094,7 +1125,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pickMode _ | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
-        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
@@ -1107,7 +1138,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pickMode _ | pitchCard _ | cancelPlay | die6Roll _ | handToDeckPick _
-        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
@@ -1126,7 +1157,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | handToDeckPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
@@ -1169,7 +1200,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | optPick _ | pitchReturnPick _ | concede =>
+        | handToDeckPick _ | optPick _ | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_singleton,
             Action.mk.injEq, iff_false]
           rintro (hput | ⟨_, hcontra⟩)
@@ -1209,19 +1240,38 @@ theorem concedeActions_iff (s : GameState) (a : Action) :
     simp [Actor.isPlayer, h, allPlayers]
   all_goals grind
 
+/-- **I6** (tournament player action enumeration): `tournamentPlayerActions` matches
+`LegalTournament` for player actions (Swiss Bo1 Intentional Draw). -/
+theorem tournamentPlayerActions_iff (s : GameState) (a : Action) :
+    a ∈ tournamentPlayerActions s ↔ LegalTournament s a ∧ a.actor.isPlayer = true := by
+  obtain ⟨actor, kind⟩ := a
+  unfold tournamentPlayerActions LegalTournament
+  by_cases hcond : s.playerCount = 2 ∧ s.config.ruleSet.allowsIntentionalDraw = true
+  · cases hoid : s.tournament.idOffer with
+    | none =>
+      cases actor <;> cases kind <;> simp [Actor.isPlayer, hcond, allPlayers]
+      all_goals grind
+    | some q =>
+      cases actor <;> cases kind <;> simp [Actor.isPlayer, hcond, allPlayers]
+      all_goals grind
+  · cases actor <;> cases kind <;> simp [Actor.isPlayer, hcond]
+    all_goals (intro h1 _ h2 _; exact hcond ⟨h1, h2⟩)
+
 /-- **I6** (enumeration): `legalActions` enumerates exactly the legal player actions. -/
 theorem legalActions_iff (s : GameState) (a : Action) :
     a ∈ legalActions s ↔ Legal s a ∧ a.actor.isPlayer = true := by
   unfold legalActions Legal
   by_cases h : s.result = none
   · simp only [h, ite_true, true_and, List.mem_append]
-    rw [legalFrameActions_iff, concedeActions_iff]
+    rw [legalFrameActions_iff, concedeActions_iff, tournamentPlayerActions_iff]
     constructor
-    · rintro (⟨h1, h2⟩ | ⟨h1, h2⟩)
+    · rintro ((⟨h1, h2⟩ | ⟨h1, h2⟩) | ⟨h1, h2⟩)
       · exact ⟨Or.inl h1, h2⟩
-      · exact ⟨Or.inr h1, h2⟩
-    · rintro ⟨h1 | h1, h2⟩
-      · exact Or.inl ⟨h1, h2⟩
+      · exact ⟨Or.inr (Or.inl h1), h2⟩
+      · exact ⟨Or.inr (Or.inr h1), h2⟩
+    · rintro ⟨h1 | h1 | h1, h2⟩
+      · exact Or.inl (Or.inl ⟨h1, h2⟩)
+      · exact Or.inl (Or.inr ⟨h1, h2⟩)
       · exact Or.inr ⟨h1, h2⟩
   · simp [h]
 
@@ -1312,7 +1362,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | shuffleOrder _ | pass | playCard _
         | attackWeapon _ | defendCard _ | defendDone
         | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _
-        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1366,7 +1416,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | defendCard _ | defendDone | pickMode _ | pitchCard _
         | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _
-        | arsenalSkip | pitchReturnPick _ | concede =>
+        | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1411,7 +1461,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | pickMode _
         | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
-        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1428,7 +1478,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pitchCard _ | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
-        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1451,7 +1501,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pickMode _ | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
-        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1465,7 +1515,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pickMode _ | pitchCard _ | cancelPlay | die6Roll _ | handToDeckPick _
-        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1479,7 +1529,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _
-        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1514,7 +1564,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1531,7 +1581,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+        | handToDeckPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1560,7 +1610,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | optPick _ | pitchReturnPick _ | concede =>
+        | handToDeckPick _ | optPick _ | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1586,7 +1636,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
         | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip | concede =>
+        | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1603,12 +1653,24 @@ theorem applyAction_isSome {s : GameState} {a : Action}
   unfold applyAction
   split
   · rfl
-  · rename_i hnc
-    rcases hl.2 with hlf | hlc
+  · rfl
+  · rfl
+  · rfl
+  · rfl
+  · rfl
+  · rename_i hnc hnt hnj hno hna hnd
+    rcases hl.2 with hlf | hlc | hlt
     · exact applyFrame_isSome hwf hok hlf
     · unfold LegalConcede at hlc
       cases ha : a.actor <;> cases hk : a.kind <;> simp [ha, hk] at hlc
       exact False.elim (hnc _ ha hk)
+    · unfold LegalTournament at hlt
+      cases ha : a.actor <;> cases hk : a.kind <;> simp [ha, hk] at hlt
+      · exact False.elim (hno _ ha hk)
+      · exact False.elim (hna _ ha hk)
+      · exact False.elim (hnd _ ha hk)
+      · exact False.elim (hnt ha hk)
+      · exact False.elim (hnj ha hk)
 
 /-- Every work frame on top of `s.pending` succeeds under `microStep`. -/
 theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
@@ -1620,7 +1682,11 @@ theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
   | revealLoadouts => rfl
   | openingDraws => rfl
   | draw p n => cases n <;> rfl
-  | beginTurn => rfl
+  | beginTurn =>
+    dsimp only
+    split
+    · split <;> rfl
+    · rfl
   | startPhaseWork _ => rfl
   | actionPhaseStart _ => rfl
   | playPayCost _ _ _ _ _ =>

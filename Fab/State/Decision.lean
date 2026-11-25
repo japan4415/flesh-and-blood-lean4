@@ -94,6 +94,16 @@ inductive ActionKind where
   | pitchReturnPick (id : ObjId)
   /-- Concede the game (CR 4.5). -/
   | concede
+  /-- Tournament clock signals end-of-round time limit (current turn + 1 additional turn) (TRP 4). -/
+  | timeExpired
+  /-- Swiss round player offers an Intentional Draw to the opponent (TRP 4). -/
+  | offerDraw
+  /-- Swiss round opponent accepts a pending Intentional Draw offer (TRP 4). -/
+  | acceptDraw
+  /-- Swiss round opponent declines a pending Intentional Draw offer (TRP 4). -/
+  | declineDraw
+  /-- Tournament judge declares a draw due to an unbreakable mandatory loop (TRP 4). -/
+  | judgeLoopDraw
 deriving DecidableEq, Repr
 
 /-- A single decision input paired with its `Actor`. -/
