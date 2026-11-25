@@ -447,6 +447,15 @@ def playedCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
     collectCardTriggers s source controller fromArsenal face.abilities fun trigger cond =>
       trigger == .onPlay && (cond.map (evalCondition s controller source fromArsenal)).getD true
 
+/-- Collect an attack's own triggered abilities when it becomes attacking (CR 7.2.3). -/
+def attackingCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
+    (fromArsenal : Bool) : List PendingTrigger :=
+  match s.objectFace? source with
+  | none => []
+  | some face =>
+    collectCardTriggers s source controller fromArsenal face.abilities fun trigger cond =>
+      trigger == .onAttack && (cond.map (evalCondition s controller source fromArsenal)).getD true
+
 /-- Claim the controller's matching next-attack bonuses after a card's costs are paid.
 Cost filters read the unmodified cost of the card (CR 2.2.4b, 5.1.6). -/
 def consumeNextAttackPower (s : GameState) (p : PlayerId) (layerId : ObjId) :
@@ -887,8 +896,13 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let tp := s1.active.getD ⟨0⟩
     let effFrames :=
       if eff == .nop then [] else [.run info.controller atkId info.fromArsenal [] [eff]]
+    let attackTriggers := attackingCardTriggers s1 atkId info.controller info.fromArsenal
+    let triggerFrames := if attackTriggers.isEmpty then [] else [.flushTriggers]
     some ({ s1 with
-              pending := effFrames ++ [.gameStateProcess, .priority tp 0, .combatStep .defend atkId] ++ rest },
+              pendingTriggers := s1.pendingTriggers ++ attackTriggers
+              nextTimestamp := s1.nextTimestamp + attackTriggers.length
+              pending := effFrames ++ [.gameStateProcess] ++ triggerFrames ++
+                [.priority tp 0, .combatStep .defend atkId] ++ rest },
           es)
   | .combatStep .defend atkId :: rest =>
     match s.combat with

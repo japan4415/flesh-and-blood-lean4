@@ -170,8 +170,8 @@ def packHunt (base : CardDef) : CardDef :=
   draftCard base
     [ .triggered .onAttack false none none { body := .prim (.intimidate .opposingHero) } ]
 
-/-- Pack Hunt Red (drafted IR). -/
-def WTR_023_R : CardDef := packHunt WTR_023_R_meta
+/-- Pack Hunt Red. -/
+def WTR_023_R : CardDef := { packHunt WTR_023_R_meta with status := .full }
 /-- Pack Hunt Yellow (drafted IR). -/
 def WTR_024_Y : CardDef := packHunt WTR_024_Y_meta
 /-- Pack Hunt Blue (drafted IR). -/

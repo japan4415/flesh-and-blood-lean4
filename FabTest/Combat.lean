@@ -602,6 +602,54 @@ meta def checkAwakeningBellow (cid : CardId) (bonus : Int) : Option Bool := do
 #guard checkAwakeningBellow ⟨"WTR_033_Y"⟩ 2 == some true
 #guard checkAwakeningBellow ⟨"WTR_034_B"⟩ 1 == some true
 
+/-- Play an attack with Intimidate and use the remaining hand card to defend. -/
+meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := cost + 1 }
+  let hand := Zone.player defender .hand
+  let banished := Zone.player defender .banished
+  let card ← funded.cards.find? cid
+  let (withAttack, attackId) ← cPlace funded attacker .hand cid
+  let (withFirst, first) ← cPlace withAttack defender .hand ⟨"WTR_203_R"⟩
+  let (ready, second) ← cPlace withFirst defender .hand ⟨"WTR_204_Y"⟩
+  let paid ← cSteps ready [⟨.player attacker, .playCard attackId⟩]
+  let attacking ← cSteps paid passBoth
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let trigger ← attacking.pendingTriggers.head?
+  let stacked ← cSteps attacking [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩]
+  let chance ← cSteps stacked passBoth
+  let (intimidated, events) ← (step 64 chance ⟨.chance, .shuffleOrder [first, second]⟩).toOption
+  let hidden ← (intimidated.zone banished).head?
+  let defending ← cSteps intimidated passBoth
+  let closed ← cSteps defending ([⟨.player defender, .defendCard second⟩,
+    ⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth ++ passBoth)
+  let atEnd ← cSteps closed passBoth
+  let delayed ← atEnd.pendingTriggers.head?
+  let returned ← cSteps atEnd [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player defender, .pickTrigger delayed.id⟩]
+  let returnedId ← (returned.zone hand).head?
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    paid.pendingTriggers.isEmpty && paid.zone hand == ready.zone hand &&
+    (paid.poolOf attacker).resources == 1 && (paid.poolOf attacker).actionPoints == 0 &&
+    attacking.combat.map (·.step) == some .attack &&
+    attacking.pending.head? == some (.chooseTriggerStart attacker) &&
+    attacking.pendingTriggers.length == 1 && some trigger.source == link.attack &&
+    stacked.pending.head? == some (.priority attacker 0) && (stacked.zone .stack).length == 1 &&
+    chance.pending.head? == some (.chanceShuffle hand) && chance.zone banished == [] &&
+    intimidated.zone hand == [second] && (intimidated.obj? hidden).map (·.faceDown) == some true &&
+    events.countP (· == .banished defender hidden true) == 1 &&
+    defending.pending.head? == some (.defendPick defender) &&
+    (step 64 defending ⟨.player defender, .defendCard hidden⟩).toOption.isNone &&
+    closed.combat.isNone && closed.lifeOf defender == 40 - Int.ofNat (power - 3) &&
+    closed.delayedTriggers.length == 1 && delayed.source == hidden &&
+    returned.zone banished == [] && returned.zone hand == [returnedId] &&
+    (returned.obj? returnedId).map (fun o => (o.kind, o.faceDown)) ==
+      (ready.obj? first).map (fun o => (o.kind, false)))
+
+#guard checkIntimidateAttack ⟨"WTR_023_R"⟩ 1 2 6 == some true
+
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
