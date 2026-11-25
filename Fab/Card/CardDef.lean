@@ -42,6 +42,12 @@ inductive PitchAsset where
   | chi
 deriving DecidableEq, Repr
 
+/-- A card's additional requirement for declaring a play (CR 5.1.1b). -/
+inductive PlayRequirement where
+  /-- The player has already paid at least this many boost costs this turn. -/
+  | boostedAtLeast (count : Nat)
+deriving DecidableEq, Repr
+
 /-- One face of a card (front face, back face of a double-faced card, or right half of a split
 card) (CR 2.0-2.16). -/
 structure CardFace where
@@ -77,6 +83,8 @@ structure CardFace where
   entryCounters : List (CounterKind × Nat) := []
   /-- Optional resolution effect executed when this card is played and resolves (CR 5.3). -/
   playEffect : Option EffectDef := none
+  /-- A requirement checked when announcing this card, independently of pitch or defense. -/
+  playRequirement : Option PlayRequirement := none
 deriving DecidableEq, Repr
 
 /-- Test whether a `CardFace` matches a syntactic `CardFilter`. -/

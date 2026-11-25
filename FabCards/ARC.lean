@@ -87,9 +87,15 @@ def ARC_007_B : CardDef :=
                 , .prim (.gainResource .controller (.const 2)) ] } ] }
     status := .full }
 
+/-- Maximum Velocity (ARC008). -/
+def ARC_008_R : CardDef :=
+  { Meta.ARC_008_R_meta with
+    front := { Meta.ARC_008_R_meta.front with playRequirement := some (.boostedAtLeast 3) }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
-  [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B]
+  [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B, ARC_008_R]
 
 end FabCards.ARC
 
