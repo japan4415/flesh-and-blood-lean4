@@ -173,8 +173,8 @@ def packHunt (base : CardDef) : CardDef :=
 
 /-- Pack Hunt Red. -/
 def WTR_023_R : CardDef := { packHunt WTR_023_R_meta with status := .full }
-/-- Pack Hunt Yellow (drafted IR). -/
-def WTR_024_Y : CardDef := packHunt WTR_024_Y_meta
+/-- Pack Hunt Yellow. -/
+def WTR_024_Y : CardDef := { packHunt WTR_024_Y_meta with status := .full }
 /-- Pack Hunt Blue (drafted IR). -/
 def WTR_025_B : CardDef := packHunt WTR_025_B_meta
 
