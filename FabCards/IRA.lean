@@ -53,8 +53,13 @@ def IRA_003_Y : CardDef :=
     [.specialization "Ira", .goAgain]
     [.triggered (.onConsecutiveHitLink 2) false none none { body := .prim (.draw .controller (.const 2)) }]
 
+/-- Salt the Wound. -/
+def IRA_004_Y : CardDef :=
+  iraAttackCard "IRA_004_Y" "Salt the Wound" (.class_ .ninja) 2 0 2 3
+    (abilities := [.static_ none .self_ (.addPower .chainHits)])
+
 /-- Logical cards first published in the Ira Welcome Deck. -/
-def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y]
+def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y]
 
 end IRA
 end FabCards
