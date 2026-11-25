@@ -255,6 +255,7 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
   | .addSubtype st => { c with subtypes := insertUnique st c.subtypes }
   | .setSubtypes sts => { c with subtypes := sts }
   | .addSupertype st => { c with supertypes := insertUnique st c.supertypes }
+  | .grantKeyword (.arcaneBarrier n) => { c with keywords := .arcaneBarrier n :: c.keywords }
   | .grantKeyword kw => { c with keywords := insertUnique kw c.keywords }
   | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _
   | .cantDrawCards | .cantGainGoAgain => c
