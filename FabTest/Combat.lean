@@ -1143,6 +1143,61 @@ meta def checkSeismicSurge : Option Bool := do
 
 #guard checkSeismicSurge == some true
 
+/-- Tectonic Plating supports pitching and cancellation, with a token and Go Again on resolution. -/
+meta def checkTectonicPlating : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_041"⟩
+  let chest := Zone.player player .chest
+  let arena := Zone.player player .permanent
+  let pitch := Zone.player player .pitch
+  let base : GameState := { m5Base with pending := m5Base.pending ++ [.beginTurn] }
+  let card ← base.cards.find? cid
+  let (equipped, source) ← cPlace base player .chest cid
+  let (ready, pitchCard) ← cPlace equipped player .hand ⟨"WTR_203_R"⟩
+  let activate : Action := ⟨.player player, .activateAbility source 0⟩
+  let funded := equipped.setPool player { actionPoints := 1, resources := 1 }
+  let fromPool ← cSteps funded [activate]
+  let fromPoolResolved ← cSteps fromPool passBoth
+  let unpayable := equipped.setPool player { actionPoints := 1 }
+  let noAP := ready.setPool player {}
+  let choosing ← cSteps ready [activate]
+  let canceled ← cSteps choosing [⟨.player player, .cancelPlay⟩]
+  let paid ← cSteps choosing [⟨.player player, .pitchCard pitchCard⟩]
+  let pitched ← (paid.zone pitch).head?
+  let resolved ← cSteps paid passBoth
+  let surge ← (resolved.zone arena).head?
+  let returning ← cSteps resolved passBoth
+  let otherTurn ← cSteps returning [⟨.player player, .pitchReturnPick pitched⟩]
+  let ownTurn ← cSteps otherTurn passBoth.reverse
+  let trigger ← ownTurn.pendingTriggers.head?
+  let stacked ← cSteps ownTurn [⟨.player player, .pickTriggerStart player⟩, ⟨.player player, .pickTrigger trigger.id⟩]
+  let reduced ← cSteps stacked passBoth
+  let (withAttack, attack) ← cPlace reduced player .hand ⟨"WTR_048_R"⟩
+  let applying := withAttack.setPool player { actionPoints := 1, resources := 4 }
+  let discounted ← cSteps applying [⟨.player player, .playCard attack⟩]
+  pure (card.status == .full && card.front.defense == some 2 && card.front.keywords.contains .battleworn &&
+    (legalActionsFor player ready).contains activate && !(legalActionsFor player unpayable).contains activate &&
+    (step 64 noAP activate).toOption.isNone && (step 64 unpayable activate).toOption.isNone &&
+    (match choosing.pending.head? with | some (.choosePitch _ _ _ _ cost) => cost.resources == 1 | _ => false) &&
+    choosing.zone chest == [source] && choosing.activatedThisTurn.isEmpty &&
+    (choosing.poolOf player).actionPoints == 1 && decide (canceled = ready) &&
+    paid.zone chest == [source] && paid.zone arena == [] && paid.playRollback.isNone &&
+    paid.activatedThisTurn.contains (source, 0) &&
+    (paid.poolOf player).actionPoints == 0 && (paid.poolOf player).resources == 0 &&
+    (paid.cardDefOf? pitched).map (·.id) == some ⟨"WTR_203_R"⟩ &&
+    (resolved.poolOf player).actionPoints == 1 && (resolved.cardDefOf? surge).map (·.id) == some ⟨"WTR_075"⟩ &&
+    fromPoolResolved.zone chest == [source] && (fromPoolResolved.zone arena).length == 1 &&
+    (fromPool.poolOf player).resources == 0 && (fromPoolResolved.poolOf player).actionPoints == 1 &&
+    (step 64 (resolved.setPool player { actionPoints := 1, resources := 1 }) activate).toOption.isNone &&
+    otherTurn.active == some opponent && otherTurn.zone arena == [surge] &&
+    ownTurn.active == some player && ownTurn.activatedThisTurn.isEmpty && trigger.source == surge &&
+    reduced.zone arena == [] && reduced.activeEffects.length == 1 &&
+    (legalActionsFor player applying).contains activate &&
+    (discounted.poolOf player).resources == 0 && discounted.activeEffects.isEmpty)
+
+#guard checkTectonicPlating == some true
+
 /-- Anothos tracks its own activation, and its proxy sees cards pitched during the reaction step. -/
 meta def checkAnothos : Option Bool := do
   let player : PlayerId := ⟨0⟩

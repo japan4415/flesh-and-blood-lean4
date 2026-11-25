@@ -86,13 +86,14 @@ theorem playCard_pushes_stack_top {s s1 sOut : GameState} {p : PlayerId} {passCo
   · cases hm
 
 /-- **I9** (priority retention & no over-pitching): when `p`'s pool can already pay `cost`
-and the layer has neither a chosen hand-card cost nor a random-discard cost,
+and card payment has neither a chosen hand-card cost nor a random-discard cost,
 `playPayCost` spends the cost immediately without prompting `choosePitch`, clears `playRollback`,
 and retains priority for `p` with `passCount = 0` after any on-play triggers are stacked
 (CR 1.14.3b, 5.1.1i, 6.6.6). -/
 theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : ObjId}
     {fromArsenal : Bool} {modeIdx : Option Nat} {cost : AssetCost} {rest : List Frame}
     (hp : s.pending = .playPayCost p layerId fromArsenal modeIdx cost :: rest)
+    (hcard : (s.layerMeta.get? layerId.n).bind (·.activationPayment) = none)
     (hpay : (s.poolOf p).canPay cost) (hhand : cardPlayHandCost? s layerId = none)
     (hdiscard : cardPlayRandomDiscardCost s layerId = 0) :
     ∃ s' es, microStep s = some (s', es) ∧
@@ -123,7 +124,7 @@ theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : O
   rw [hp]
   dsimp only
   rw [hspend]
-  simp only [hhand, hdiscard, ↓reduceIte]
+  simp only [hcard, hhand, hdiscard, ↓reduceIte]
   refine ⟨_, [], rfl, ?_, rfl, ?_, ?_⟩
   · unfold finishPaidPlay
     dsimp only

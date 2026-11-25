@@ -287,11 +287,11 @@ def WTR_040 : CardDef :=
       , .static_ (some (.zoneCountGe .controller .pitch cost3Filter 2)) .self_ (.addPower (.const 2)) ]
     with status := .full }
 
-/-- Tectonic Plating (drafted IR). -/
+/-- Tectonic Plating. -/
 def WTR_041 : CardDef :=
-  draftCard WTR_041_meta
-    [ .activated .action true { actionPoints := 1, resources := 1 } [] none true
-        { body := .prim (.createToken .controller ⟨"WTR_075"⟩ 1) } ]
+  { draftCard WTR_041_meta
+      [ .activated .action true { actionPoints := 1, resources := 1 } [] none true
+          { body := .prim (.createToken .controller ⟨"WTR_075"⟩ 1) } ] with status := .full }
 
 /-- Helm of Isen's Peak (drafted IR). -/
 def WTR_042 : CardDef :=

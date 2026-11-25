@@ -554,6 +554,28 @@ theorem timeLimitBounded_gspRun_pending {deadline : Nat} {s s1 : GameState}
   exact timeLimitBounded_of_eq hb (hg.1.trans ht) (hg.2.trans htourn)
     (fun hr => hres (gspRun_result_none hr))
 
+private theorem payActivationSource_turn_tournament_result {s paid : GameState}
+    {payment : ActivationPayment} {events : List Event}
+    (h : payActivationSource s payment = some (paid, events)) :
+    paid.turn = s.turn ∧ paid.tournament = s.tournament ∧ paid.result = s.result := by
+  unfold payActivationSource at h
+  split at h
+  · cases h
+    exact ⟨rfl, rfl, rfl⟩
+  · obtain ⟨⟨moved, spent⟩, hm, h⟩ := Option.bind_eq_some_iff.mp h
+    cases h
+    exact moveObj_turn_tournament_result hm
+
+private theorem finishPaidActivation_ttr {s s' : GameState} {p : PlayerId} {layerId : ObjId}
+    {payment : ActivationPayment} {rest : List Frame} {es : List Event}
+    (h : finishPaidActivation s p layerId payment rest = some (s', es)) :
+    s'.turn = s.turn ∧ s'.tournament = s.tournament ∧ s'.result = s.result := by
+  unfold finishPaidActivation at h
+  obtain ⟨⟨paid, events⟩, hpay, h⟩ := Option.bind_eq_some_iff.mp h
+  cases h
+  obtain ⟨ht, htn, hr⟩ := payActivationSource_turn_tournament_result hpay
+  exact ⟨ht, htn, hr⟩
+
 /-- **I14** (microStep preservation): every `microStep` preserves `TimeLimitBounded deadline`.
 In particular, `beginTurn` either terminates in `.draw .timeLimit` (when `k = 0`) or increments
 `turn` by 1 while decrementing `timeLimitTurnsLeft` by 1, preserving `turn + k ≤ deadline` (TRP 4). -/
@@ -616,20 +638,30 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
       dsimp only at h
       split at h
       · split at h
-        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-          exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
-        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        · rename_i _ hfinish
+          cases h
+          obtain ⟨ht, htn, hr⟩ := finishPaidActivation_ttr hfinish
+          exact timeLimitBounded_of_eq hb (ht.trans hs1.1) (htn.trans hs1.2.1)
+            (fun heq => (hr.trans hs1.2.2) ▸ heq)
+        · cases h
           unfold rollbackPlay
           cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
       · split at h
-        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-          exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
         · split at h
           · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
             exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
           · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
             unfold rollbackPlay
             cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
+        · split at h
+          · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+            exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
+          · split at h
+            · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+              exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
+            · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+              unfold rollbackPlay
+              cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
     · split at h
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact timeLimitBounded_of_eq hb rfl rfl id
@@ -883,30 +915,16 @@ theorem advance_preserves_timeLimit {deadline : Nat} :
       · simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact hb
     · simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact hb
 
-private theorem payActivationSource_turn_tournament_result {s paid : GameState}
-    {source : ObjId} {plan : ActivationPlan} {events : List Event}
-    (h : payActivationSource s source plan = some (paid, events)) :
-    paid.turn = s.turn ∧ paid.tournament = s.tournament ∧ paid.result = s.result := by
-  unfold payActivationSource at h
-  split at h
-  · cases h
-    exact ⟨rfl, rfl, rfl⟩
-  · obtain ⟨⟨moved, spent⟩, hm, h⟩ := Option.bind_eq_some_iff.mp h
-    cases h
-    exact moveObj_turn_tournament_result hm
-
 private theorem startActivation_turn_tournament_result {s s' : GameState} {p : PlayerId}
     {source : ObjId} {index : Nat} {target : Option ObjId} {rest : List Frame} {es : List Event}
     (h : startActivation s p source index target rest = some (s', es)) :
     s'.turn = s.turn ∧ s'.tournament = s.tournament ∧ s'.result = s.result := by
   unfold startActivation at h
   obtain ⟨plan, _, h⟩ := Option.bind_eq_some_iff.mp h
-  obtain ⟨⟨paid, events⟩, hpay, h⟩ := Option.bind_eq_some_iff.mp h
   obtain ⟨⟨stacked, layerId⟩, hadd, h⟩ := Option.bind_eq_some_iff.mp h
   cases h
-  obtain ⟨ht, htourn, hr⟩ := payActivationSource_turn_tournament_result hpay
-  obtain ⟨hat, hatourn, har⟩ := addObject_turn_tournament_result hadd
-  exact ⟨hat.trans ht, hatourn.trans htourn, har.trans hr⟩
+  obtain ⟨ht, htn, hr⟩ := addObject_turn_tournament_result hadd
+  exact ⟨ht, htn, hr⟩
 
 /-- Helper: `applyFrame` preserves `turn`, `tournament`, and `result`. -/
 theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : List Event}
