@@ -718,6 +718,10 @@ def attackActionHitController? (s : GameState) (link : ChainLink) : Option Playe
     if attack.types.contains .action && attack.subtypes.contains .attack then
       some attack.controller else none
 
+/-- Count uninterrupted hits ending at the active link (CR 7.5.3). -/
+def consecutiveChainHits (s : GameState) : Nat :=
+  ((s.combat.map (·.links)).getD []).takeWhile (·.hit) |>.length
+
 /-- Find installed arena abilities triggered by a successful attack (CR 7.5.3). -/
 def installedHitTriggers (s : GameState) (link : ChainLink) : List (PendingTrigger × Bool) :=
   let source := link.attackSource.or link.attack
@@ -725,7 +729,7 @@ def installedHitTriggers (s : GameState) (link : ChainLink) : List (PendingTrigg
   | some attack =>
     let isAction := link.attackSource.isNone && attack.types.contains .action && attack.subtypes.contains .attack
     let isWeapon := link.attackSource.isSome && attack.types.contains .weapon
-    let streak := ((s.combat.map fun chain => chain.links.takeWhile (·.hit)).getD []).length
+    let streak := consecutiveChainHits s
     let count := s.attackActionHitsThisTurn.count attack.controller
     installedCardTriggers s attack.controller (matchesOrdinal := fun ordinal => ordinal.all (· == count)) fun
       | .onConsecutiveHitLink minLink => isAction && minLink ≤ streak
@@ -767,6 +771,7 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
       (damageRecipient := some link.defender) fun trigger cond =>
         let matchesEvent := match trigger with
           | .onHit | .onHitHero => link.hit
+          | .onConsecutiveHitLink minimum => link.hit && minimum ≤ consecutiveChainHits s
           | .onCrush => crushTriggered link
           | _ => false
         matchesEvent && (cond.map (evalCondition s link.attacker source false)).getD true
