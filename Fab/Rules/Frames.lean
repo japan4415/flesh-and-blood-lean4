@@ -620,10 +620,16 @@ def canPickHandCostCard (s : GameState) (p : PlayerId) (cost : HandCardCost) (id
 /-- Finalize a paid layer, then stack triggers queued during play and return priority (CR 5.1.10, 6.6.6). -/
 def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (rest : List Frame) (discarded : Option CardFace := none) : GameState :=
+  let card := s.cardDefOf? layerId
   let hasGoAgain :=
-    match s.cardDefOf? layerId with
+    match card with
     | some c => c.front.keywords.contains .goAgain && !c.front.hasSubtype .attack
     | none => false
+  let modeOnAttack : Option Effect := do
+    let effect ← card.bind (·.front.playEffect)
+    let index ← modeIdx
+    let mode ← effect.modes[index]?
+    mode.onAttack
   let info : LayerInfo :=
     { controller := p
       fromArsenal := fromArsenal
@@ -632,6 +638,8 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       attackTarget := (s.layerMeta.get? layerId.n).bind (·.attackTarget)
       additionalCostPaid := (s.layerMeta.get? layerId.n).any (·.payAdditionalResources)
       discardedForPlay := discarded
+      attackAbilities :=
+        (modeOnAttack.map fun body => Ability.triggered .onAttack false none none { body := body }).toList
       goAgain := hasGoAgain }
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
   let s := { s with layerMeta := s.layerMeta.insert layerId.n updatedInfo }

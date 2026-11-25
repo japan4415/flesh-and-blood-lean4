@@ -834,15 +834,15 @@ def WTR_157 : CardDef := { WTR_157_meta with status := .full }
 /-- Ironrot Legs, with Blade Break applied when the combat chain closes. -/
 def WTR_158 : CardDef := { WTR_158_meta with status := .full }
 
-/-- Enlightened Strike (drafted IR — modal choice + deck-bottom extra cost). -/
+/-- Enlightened Strike. -/
 def WTR_159_R : CardDef :=
-  draftCard WTR_159_R_meta []
-    (some
-      { extraCosts := [{ cost := .putHandCardOnDeckBottom }]
-        body := .chooseOneL
-          [ .grant .self_ (.grantTrigger .onAttack none (.prim (.draw .controller (.const 1)))) .thisChainLink
-          , .grant .self_ (.addPower (.const 2)) .thisChainLink
-          , .grant .self_ (.grantKeyword .goAgain) .thisChainLink ] })
+  { draftCard WTR_159_R_meta []
+      (some
+        { extraCosts := [{ cost := .putHandCardOnDeckBottom }]
+          modes :=
+            [ { onAttack := some (.prim (.draw .controller (.const 1))) }
+            , { body := .grant .self_ (.addPower (.const 2)) .thisChainLink }
+            , { body := .grant .self_ (.grantKeyword .goAgain) .thisChainLink } ] }) with status := .full }
 
 /-- Tome of Fyendal. -/
 def WTR_160_Y : CardDef :=
