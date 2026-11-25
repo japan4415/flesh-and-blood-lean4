@@ -948,6 +948,16 @@ def WTR_180_Y : CardDef := { demolitionCrew WTR_180_Y_meta with status := .full 
 /-- Demolition Crew Blue. -/
 def WTR_181_B : CardDef := { demolitionCrew WTR_181_B_meta with status := .full }
 
+/-- Flock reveals a low-cost card and creates Quicken when it attacks. -/
+def flockOfTheFeatherWalkers (base : CardDef) : CardDef :=
+  draftCard base
+    [ .triggered .onAttack false none none
+        { body := .prim (.createToken .controller ⟨"WTR_225"⟩ 1) } ]
+    (some { extraCosts := [{ cost := .revealHandCard { maxCost := some 1 } }] })
+
+/-- Flock of the Feather Walkers Red. -/
+def WTR_182_R : CardDef := { flockOfTheFeatherWalkers WTR_182_R_meta with status := .full }
+
 /-- Raging Onslaught Red. -/
 def WTR_188_R : CardDef := { WTR_188_R_meta with status := .full }
 /-- Raging Onslaught Yellow. -/
@@ -1137,7 +1147,7 @@ def draftedCards : List CardDef :=
   , WTR_150, WTR_151, WTR_154, WTR_155, WTR_156, WTR_157, WTR_158
   , WTR_159_R, WTR_160_Y, WTR_161_B, WTR_162_B, WTR_163_Y
   , WTR_164_R, WTR_165_Y, WTR_166_B, WTR_167_R, WTR_168_Y, WTR_169_B
-  , WTR_173_R, WTR_174_Y, WTR_175_B, WTR_176_R, WTR_177_Y, WTR_178_B, WTR_179_R, WTR_180_Y, WTR_181_B
+  , WTR_173_R, WTR_174_Y, WTR_175_B, WTR_176_R, WTR_177_Y, WTR_178_B, WTR_179_R, WTR_180_Y, WTR_181_B, WTR_182_R
   , WTR_188_R, WTR_189_Y, WTR_190_B
   , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_194_R, WTR_195_Y, WTR_196_B
   , WTR_200_R, WTR_201_Y, WTR_202_B

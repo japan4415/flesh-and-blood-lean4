@@ -923,6 +923,68 @@ meta def checkQuicken (weaponAttack : Bool) (count : Nat) : Option Bool := do
 #guard checkQuicken false 1 == some true
 #guard checkQuicken true 2 == some true
 
+/-- Flock creates Quicken during Attack Step, for an attack played after Flock. -/
+meta def checkFlockOfTheFeatherWalkers (cid : CardId) (pitch power : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player attacker .hand
+  let arena := Zone.player attacker .permanent
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let base := m5Base.setPool attacker { actionPoints := 2, resources := 1 }
+  let card ← base.cards.find? cid
+  let (withCard, flock) ← cPlace base attacker origin cid fromArsenal
+  let (unqualified, expensive) ← cPlace withCard attacker .hand ⟨"WTR_107_R"⟩
+  let boundaryId : CardId := ⟨"WTR_101_R"⟩
+  let (withBoundary, boundary) ← cPlace unqualified attacker .hand boundaryId
+  let (withFallback, nextAttack) ← cPlace withBoundary attacker .hand ⟨"WTR_203_R"⟩
+  let (withFirst, first) ← cPlace withFallback defender .hand ⟨"WTR_188_R"⟩
+  let (ready, second) ← cPlace withFirst defender .hand ⟨"WTR_189_Y"⟩
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let pick id : Action := ⟨.player attacker, .pickHandCostCard id⟩
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let defend id : Action := ⟨.player defender, .defendCard id⟩
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let resolveTrigger (s : GameState) (trigger : PendingTrigger) :=
+    cSteps s ([⟨.player attacker, .pickTriggerStart attacker⟩, ⟨.player attacker, .pickTrigger trigger.id⟩] ++
+      passBoth)
+  let rejected ← cSteps unqualified [play flock]
+  let choosing ← cSteps ready [play flock]
+  let (paid, reveal) ← (step 64 choosing (pick boundary)).toOption
+  let attacking ← cSteps paid passBoth
+  let flockTrigger ← attacking.pendingTriggers.head?
+  let flockLink ← active attacking
+  let created ← resolveTrigger attacking flockTrigger
+  let token ← (created.zone arena).head?
+  let defending ← cSteps created (passBoth ++ [defend first, defend second])
+  let blocked ← cSteps defending (done :: (passBoth ++ passBoth ++ passBoth))
+  let closed ← cSteps blocked passBoth
+  let next ← cSteps closed [play nextAttack]
+  let quickenTrigger ← next.pendingTriggers.head?
+  let quickened ← resolveTrigger next quickenTrigger
+  let nextHit ← cSteps quickened (passBoth ++ passBoth ++
+    (done :: (passBoth ++ passBoth ++ passBoth)))
+  let endLink ← active nextHit
+  let blockedLink ← active blocked
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 2 &&
+    decide (rejected = unqualified) &&
+    !(legalActionsFor attacker choosing).contains (pick expensive) &&
+    (legalActionsFor attacker choosing).contains (pick nextAttack) &&
+    reveal == [.revealed attacker boundary boundaryId] && paid.zone hand == choosing.zone hand &&
+    (paid.poolOf attacker).resources == 0 && (paid.poolOf attacker).actionPoints == 1 &&
+    paid.zone arena == [] && attacking.zone arena == [] && attacking.pendingTriggers.length == 1 &&
+    linkAttackPower attacking flockLink == power && some flockTrigger.source == flockLink.attack &&
+    (created.cardDefOf? token).map (·.id) == some ⟨"WTR_225"⟩ &&
+    !linkHasKeyword blocked blockedLink .goAgain && blockedLink.damageDealt == 0 &&
+    blocked.zone arena == [token] && blocked.pendingTriggers.isEmpty &&
+    (blocked.poolOf attacker).actionPoints == 1 &&
+    quickenTrigger.source == token && next.zone arena == [token] && quickened.zone arena == [] &&
+    endLink.damageDealt == 4 && linkHasKeyword nextHit endLink .goAgain &&
+    (nextHit.poolOf attacker).actionPoints == 1)
+
+#guard checkFlockOfTheFeatherWalkers ⟨"WTR_182_R"⟩ 1 5 false == some true
+#guard checkFlockOfTheFeatherWalkers ⟨"WTR_182_R"⟩ 1 5 true == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
