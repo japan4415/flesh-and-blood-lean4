@@ -64,8 +64,14 @@ def IRA_005_Y : CardDef :=
     [.triggered .onHit false none none
       { body := .grant (.nextAttack CardFilter.any) (.addPower (.const 1)) .thisTurn }]
 
+/-- Torrent of Tempo. -/
+def IRA_006_R : CardDef :=
+  iraAttackCard "IRA_006_R" "Torrent of Tempo" (.class_ .ninja) 1 1 5 3 []
+    [.triggered .onHit false none none
+      { body := .grant .self_ (.grantKeyword .goAgain) .thisChainLink }]
+
 /-- Logical cards first published in the Ira Welcome Deck. -/
-def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y, IRA_005_Y]
+def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y, IRA_005_Y, IRA_006_R]
 
 end IRA
 end FabCards
