@@ -308,6 +308,10 @@ meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat)
   let defending ← cSteps ready (enterAttack id)
   let active ← defending.combat.bind CombatChain.activeLink?
   let attack ← active.attack
+  let (oneBlock, first) ← cPlace defending defender .hand ⟨"WTR_203_R"⟩
+  let (twoBlocks, second) ← cPlace oneBlock defender .hand ⟨"WTR_204_Y"⟩
+  let afterFirst ← cSteps twoBlocks [⟨.player defender, .defendCard first⟩]
+  let secondBlock : Action := ⟨.player defender, .defendCard second⟩
   let resolved ← cSteps defending finishAttack
   let result ← resolved.combat.bind CombatChain.activeLink?
   pure (card.status == .full && (defending.cardDefOf? attack).map (·.id) == some cid &&
@@ -316,6 +320,8 @@ meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat)
     defending.lifeOf defender - resolved.lifeOf defender == Int.ofNat power &&
     linkHasKeyword defending active .goAgain == keywords.contains .goAgain &&
     linkHasKeyword defending active .dominate == keywords.contains .dominate &&
+    (legalActions afterFirst).contains secondBlock == !(keywords.contains .dominate) &&
+    (cSteps afterFirst [secondBlock]).isSome == !(keywords.contains .dominate) &&
     (resolved.poolOf attacker).actionPoints == (defending.poolOf attacker).actionPoints +
       (if keywords.contains .goAgain then 1 else 0))
 
@@ -338,3 +344,11 @@ meta def checkRisingKneeThrust (cid : CardId) (basePower : Nat) : Bool :=
 #guard checkRisingKneeThrust ⟨"WTR_104_R"⟩ 3
 #guard checkRisingKneeThrust ⟨"WTR_105_Y"⟩ 2
 #guard checkRisingKneeThrust ⟨"WTR_106_B"⟩ 1
+
+/-- Open the Center gets power, Go Again, and Dominate only immediately after Head Jab. -/
+meta def checkOpenTheCenter (cid : CardId) (basePower : Nat) : Bool :=
+  checkComboAttack [⟨"WTR_098_R"⟩] cid (basePower + 1) 1 [.goAgain, .dominate] == some true &&
+  checkComboAttack [] cid basePower 0 == some true &&
+  checkComboAttack [⟨"WTR_098_R"⟩, ⟨"WTR_203_R"⟩] cid basePower 0 == some true
+
+#guard checkOpenTheCenter ⟨"WTR_095_R"⟩ 5
