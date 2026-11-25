@@ -825,6 +825,9 @@ meta def pedalToTheMetalScenario (cardId : String) (power : Int) (weaponNext blo
 #guard pedalToTheMetalScenario "ARC_011_R" 5 true false == some true
 #guard pedalToTheMetalScenario "ARC_011_R" 5 false false == some true
 #guard pedalToTheMetalScenario "ARC_011_R" 5 false true == some true
+#guard (earlyPrintingCardId? "ARC012").map (·.val) == some "ARC_012_Y"
+#guard pedalToTheMetalScenario "ARC_012_Y" 4 true false == some true
+#guard pedalToTheMetalScenario "ARC_012_Y" 4 false true == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
