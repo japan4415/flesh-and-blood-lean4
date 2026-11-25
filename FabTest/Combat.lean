@@ -4337,6 +4337,8 @@ meta def checkPummel (cid : CardId) (pitch bonus : Nat) (fromArsenal : Bool) : O
 #guard checkPummel ⟨"WTR_206_R"⟩ 1 4 true == some true
 #guard checkPummel ⟨"WTR_207_Y"⟩ 2 3 false == some true
 #guard checkPummel ⟨"WTR_207_Y"⟩ 2 3 true == some true
+#guard checkPummel ⟨"WTR_208_B"⟩ 3 2 false == some true
+#guard checkPummel ⟨"WTR_208_B"⟩ 3 2 true == some true
 
 /-- Shunt deals one point of generic damage as it resolves against a weapon. -/
 meta def checkSteelbladeShunt (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool) :

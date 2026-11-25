@@ -1259,8 +1259,8 @@ def pummelCard (base : CardDef) (bonus : Int) : CardDef :=
 def WTR_206_R : CardDef := { pummelCard WTR_206_R_meta 4 with status := .full }
 /-- Pummel Yellow. -/
 def WTR_207_Y : CardDef := { pummelCard WTR_207_Y_meta 3 with status := .full }
-/-- Pummel Blue (drafted IR). -/
-def WTR_208_B : CardDef := pummelCard WTR_208_B_meta 2
+/-- Pummel Blue. -/
+def WTR_208_B : CardDef := { pummelCard WTR_208_B_meta 2 with status := .full }
 
 /-- Shared 3-color helper for Razor Reflex (per-mode `ModeSpec` targets: dagger/sword vs cost ≤1 attack). -/
 def razorReflex (base : CardDef) (bonus : Int) : CardDef :=
