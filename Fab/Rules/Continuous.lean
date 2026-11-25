@@ -349,6 +349,8 @@ structure ContinuousEffect where
   op : EffectOp
   /-- How long this effect remains active. -/
   duration : Duration := .thisTurn
+  /-- On a turn after creation, expire at the specified player's turn end. -/
+  endAfterTurnOf : Option (PlayerId × Nat) := none
   /-- Timestamp when this continuous effect was generated (CR 6.3.3). -/
   timestamp : Timestamp
 deriving DecidableEq, Repr

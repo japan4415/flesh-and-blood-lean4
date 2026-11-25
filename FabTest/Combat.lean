@@ -4608,6 +4608,59 @@ meta def checkSpinalCrush : Option Bool := do
 
 #guard checkSpinalCrush == some true
 
+/-- Crush Confidence removes only the damaged hero's abilities through their next End Phase. -/
+meta def checkCrushConfidence (cid : CardId) (pitch power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let base := m5Base.setPool attacker { actionPoints := 1, resources := 3 }
+  let card ← base.cards.find? cid
+  let (withAttack, attack) ← cPlace { base with pending := base.pending ++ [.beginTurn] } attacker .hand cid
+  let (withOwn, own) ← cPlace withAttack attacker .hero ⟨"WTR_038"⟩
+  let (withHero, hero) ← cPlace withOwn defender .hero ⟨"WTR_038"⟩
+  let (withTunic, tunic) ← cPlace withHero defender .chest ⟨"WTR_150"⟩
+  let charged := updateSingleObject withTunic tunic (fun o => o.addCounterVal .energy 3)
+  let (ready, _) ← cPlace charged defender .hand ⟨"WTR_203_R"⟩
+  let defending ← cSteps ready (⟨.player attacker, .playCard attack⟩ :: (passBoth ++ passBoth))
+  let finish := ⟨.player defender, .defendDone⟩ :: (passBoth ++ passBoth)
+  let prevent (n : Nat) :=
+    (execPrim defending defender ⟨0⟩ [] (.preventNextDamage .controller (.const n) .thisTurn)).1
+  let hit ← cSteps (prevent (power - 4)) finish
+  let short ← cSteps (prevent (power - 3)) finish
+  let trigger ← hit.pendingTriggers.head?
+  let resolved ← cSteps hit ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let nextTurn (s : GameState) := cSteps s (List.replicate 3 passBoth).flatten
+  let restricted ← nextTurn resolved
+  let normal ← nextTurn short
+  let funded (s : GameState) := s.setPool defender { actionPoints := 1, resources := 2 }
+  let activate : Action := ⟨.player defender, .activateAbility hero 0⟩
+  let useGear : Action := ⟨.player defender, .activateAbility tunic 1⟩
+  let gearResolved ← cSteps restricted (useGear :: passBoth.reverse)
+  let ending ← cSteps restricted passBoth.reverse
+  let afterTurn ← cSteps ending [⟨.player defender, .arsenalSkip⟩]
+  let later ← cSteps afterTurn passBoth
+  let regained ← cSteps (funded later) (activate :: passBoth.reverse)
+  let loses (s : GameState) (id : ObjId) := (s.characteristics id).any (·.abilitiesLost)
+  let stats (s : GameState) := (s.characteristics hero).map (fun c => (c.name, c.life, c.intellect))
+  let sameTurn := applyChainLinkMod { restricted with activeEffects := [] } attacker attack []
+    (.hero (.seated defender)) .loseAllAbilities .untilEndOfNextTurn
+  let stillActive := sameTurn.finishTurnEffects
+  let future := { stillActive with turn := stillActive.turn + 1 }
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    (defending.poolOf attacker).resources == 0 && hit.lifeOf defender == 36 && short.lifeOf defender == 37 &&
+    short.pendingTriggers.isEmpty && !loses hit hero && loses resolved hero && !loses resolved own &&
+    stats resolved == stats ready && !loses normal hero && (legalActionsFor defender (funded normal)).contains activate &&
+    restricted.active == some defender && loses restricted hero && !loses restricted tunic &&
+    !(legalActionsFor defender (funded restricted)).contains activate &&
+    (step 64 (funded restricted) activate).toOption.isNone &&
+    (legalActionsFor defender restricted).contains useGear && (gearResolved.poolOf defender).resources == 1 &&
+    ending.phase == .endPhase && loses ending hero && !loses afterTurn hero &&
+    later.active == some defender && (legalActionsFor defender (funded later)).contains activate &&
+    (regained.poolOf defender).actionPoints == 1 && regained.activeEffects.any (fun e => e.op == .grantKeyword .dominate) &&
+    loses stillActive hero && !loses future.finishTurnEffects hero)
+
+#guard checkCrushConfidence ⟨"WTR_063_R"⟩ 1 7 == some true
+
 /-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
 meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
     (keywords : List KeywordInst := []) : Option Bool := do
