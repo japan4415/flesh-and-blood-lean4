@@ -68,6 +68,8 @@ structure ChainLink where
   powerBonus : Int := 0
   /-- Temporary defense `{d}` modifier granted to this chain link. -/
   defenseBonus : Int := 0
+  /-- Factor applied to this link's damage to the defending hero before prevention. -/
+  damageMultiplier : Nat := 1
   /-- Keywords dynamically granted to this link's attack (e.g., Go Again, Dominate). -/
   grantedKeywords : List KeywordInst := []
   /-- Triggered abilities granted to this attack for this chain link. -/

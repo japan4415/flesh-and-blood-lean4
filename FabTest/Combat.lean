@@ -652,6 +652,45 @@ meta def checkOpenTheCenter (cid : CardId) (basePower : Nat) : Bool :=
 #guard checkOpenTheCenter ⟨"WTR_096_Y"⟩ 4
 #guard checkOpenTheCenter ⟨"WTR_097_B"⟩ 3
 
+/-- Pounding Gale doubles damage left after defense, then applies damage prevention. -/
+meta def checkPoundingGale : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_085_R"⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 3 }
+  let card ← funded.cards.find? cid
+  let (withJab, jab) ← cPlace funded attacker .hand ⟨"WTR_098_R"⟩
+  let (withCenter, center) ← cPlace withJab attacker .hand ⟨"WTR_095_R"⟩
+  let (withGale, gale) ← cPlace withCenter attacker .hand cid
+  let (oneBlock, first) ← cPlace withGale defender .hand ⟨"WTR_203_R"⟩
+  let (ready, second) ← cPlace oneBlock defender .hand ⟨"WTR_204_Y"⟩
+  let enter := fun id => [⟨.player attacker, .playCard id⟩] ++ passBoth ++ passBoth
+  let toDamage := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth
+  let finish := toDamage ++ passBoth
+  let prior ← cSteps ready (enter jab ++ finish ++ enter center ++ finish)
+  let combo ← cSteps prior (enter gale)
+  let (shielded, _, _) := execPrim combo defender ⟨0⟩ []
+    (.preventNextDamage .controller (.const 1) .thisTurn)
+  let blockFirst : Action := ⟨.player defender, .defendCard first⟩
+  let openHit ← cSteps combo toDamage
+  let reduced ← cSteps combo (blockFirst :: toDamage)
+  let prevented ← cSteps shielded (blockFirst :: toDamage)
+  let blocked ← cSteps combo
+    (blockFirst :: ⟨.player defender, .defendCard second⟩ :: toDamage)
+  let standalone ← cSteps ready (enter gale ++ (blockFirst :: toDamage))
+  let check := fun (s : GameState) (life : Int) (defense damage : Nat) =>
+    s.lifeOf defender == life &&
+    match s.combat.bind CombatChain.activeLink? with
+    | some link =>
+      linkAttackPower s link == 5 && linkTotalDefense s link == defense &&
+      link.damageDealt == damage && link.hit == (damage != 0)
+    | none => false
+  pure (card.status == .full && prior.lifeOf defender == 31 &&
+    check openHit 21 0 10 && check reduced 27 3 4 && check prevented 28 3 3 &&
+    check blocked 31 6 0 && check standalone 38 3 2)
+
+#guard checkPoundingGale == some true
+
 /-- Fluster Fist counts prior hits, even when the same links were attacked in every case. -/
 meta def checkFlusterFist (cid : CardId) (basePower : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

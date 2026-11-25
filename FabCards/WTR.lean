@@ -388,13 +388,13 @@ def WTR_084_Y : CardDef :=
                   .thisChainLink ])
             .nop }) with status := .full }
 
-/-- Pounding Gale (drafted IR). -/
+/-- Pounding Gale. -/
 def WTR_085_R : CardDef :=
-  draftCard WTR_085_R_meta []
-    (some
-      { body := .ifThen (.prevChainLinkNamed "Open the Center")
-          (.grant .self_ .doubleDamageToHero .thisChainLink)
-          .nop })
+  { draftCard WTR_085_R_meta []
+      (some
+        { body := .ifThen (.prevChainLinkNamed "Open the Center")
+            (.grant .self_ .doubleDamageToHero .thisChainLink)
+            .nop }) with status := .full }
 
 /-- Shared 3-color helper for Fluster Fist (Combo: +1{p} per hit this combat chain). -/
 def flusterFist (base : CardDef) : CardDef :=

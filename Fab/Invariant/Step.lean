@@ -820,9 +820,9 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
         rw [hl] at h
         dsimp only at h
         have hinv := applyDamageWithPrevention_inv hwf hok link.defender .physical
-          (calcCombatDamage (linkAttackPower s link) (linkTotalDefense s link))
+          (linkDamageBeforePrevention s link)
         cases hdmg : applyDamageWithPrevention s link.defender .physical
-            (calcCombatDamage (linkAttackPower s link) (linkTotalDefense s link)) with
+            (linkDamageBeforePrevention s link) with
         | mk s2 es2 =>
           rw [hdmg] at h hinv
           dsimp only at h hinv

@@ -733,9 +733,9 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
       | some link =>
         rw [hl] at h; dsimp only at h
         have hd_ttr := applyDamageWithPrevention_ttr s link.defender .physical
-          (calcCombatDamage (linkAttackPower s link) (linkTotalDefense s link))
+          (linkDamageBeforePrevention s link)
         cases hd : applyDamageWithPrevention s link.defender .physical
-            (calcCombatDamage (linkAttackPower s link) (linkTotalDefense s link)) with
+            (linkDamageBeforePrevention s link) with
         | mk s2 es2 =>
           rw [hd] at h hd_ttr; dsimp only at h hd_ttr
           simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
