@@ -1254,6 +1254,76 @@ meta def checkForgedForWar : Option Bool := do
 
 #guard checkForgedForWar == some true
 
+/-- Show Time! lets Bravo privately search for a Guardian attack action, then draws next turn. -/
+meta def checkShowTime : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_047_B"⟩
+  let chosenCid : CardId := ⟨"WTR_048_R"⟩
+  let alternateCid : CardId := ⟨"WTR_049_Y"⟩
+  let deck := Zone.player player .deck
+  let hand := Zone.player player .hand
+  let arena := Zone.player player .permanent
+  let grave := Zone.player player .graveyard
+  let funded := m5Base.setPool player { actionPoints := 1, resources := 3 }
+  let base : GameState := { funded with pending := funded.pending ++ [.beginTurn] }
+  let card ← base.cards.find? cid
+  let (withHero, _) ← cPlace base player .hero ⟨"WTR_038"⟩
+  let (withAura, aura) ← cPlace withHero player .hand cid
+  let (withChosen, chosen) ← cPlace withAura player .deck chosenCid
+  let (withTwo, alternate) ← cPlace withChosen player .deck alternateCid
+  let (withGeneric, generic) ← cPlace withTwo player .deck ⟨"WTR_203_R"⟩
+  let (withNonAttack, nonAttack) ← cPlace withGeneric player .deck ⟨"WTR_072_R"⟩
+  let (ready, _) ← cPlace withNonAttack player .deck ⟨"WTR_188_R"⟩
+  let play : Action := ⟨.player player, .playCard aura⟩
+  let choose (id : ObjId) : Action := ⟨.player player, .pickShuffleCard (some id)⟩
+  let done : Action := ⟨.player player, .pickShuffleCard none⟩
+  let shuffle (s : GameState) : Action := ⟨.chance, .shuffleOrder (s.zone deck).reverse⟩
+  let order (id : Nat) : List Action :=
+    [⟨.player player, .pickTriggerStart player⟩, ⟨.player player, .pickTrigger id⟩]
+  let placed ← cSteps ready (play :: passBoth)
+  let source ← (placed.zone arena).head?
+  let enter ← placed.pendingTriggers.head?
+  let picking ← cSteps placed (order enter.id ++ passBoth)
+  let (declined, declinedEvents) ← (step 64 picking done).toOption
+  let withoutCard ← cSteps declined [shuffle declined]
+  let (picked, pickEvents) ← (step 64 picking (choose chosen)).toOption
+  let (revealed, revealEvents) ← (step 64 picked done).toOption
+  let moved ← (revealed.zone hand).head?
+  let afterSearch ← cSteps revealed [shuffle revealed]
+  let afterEnd ← cSteps afterSearch (passBoth ++ [⟨.player player, .arsenalSkip⟩])
+  let nextTurn ← cSteps afterEnd passBoth.reverse
+  let start ← nextTurn.pendingTriggers.head?
+  let stacked ← cSteps nextTurn (order start.id ++ [⟨.player player, .pass⟩])
+  let (finished, endEvents) ← (step 64 stacked ⟨.player opponent, .pass⟩).toOption
+  let destroyed ← (finished.zone grave).head?
+  pure (card.status == .full && card.front.pitch == some 3 && card.front.defense == some 3 &&
+    card.front.keywords.contains (.specialization "Bravo") &&
+    enter.source == source && start.source == source &&
+    (afterSearch.poolOf player).actionPoints == 0 && (afterSearch.poolOf player).resources == 0 &&
+    viewZone player ready deck == .countOnly 5 &&
+    (match viewZone player picking deck with | .entries entries => entries.length == 5 | _ => false) &&
+    viewZone opponent picking deck == .countOnly 5 &&
+    (view player picking).selectionChoices == [(alternate, alternateCid), (chosen, chosenCid)] &&
+    (view opponent picking).selectionChoices.isEmpty && view opponent picking == view opponent picked &&
+    (step 64 picking (choose generic)).toOption.isNone &&
+    (step 64 picking (choose nonAttack)).toOption.isNone &&
+    (step 64 picking ⟨.player opponent, .pickShuffleCard (some chosen)⟩).toOption.isNone &&
+    (step 64 picked (choose alternate)).toOption.isNone &&
+    picked.zone deck == picking.zone deck && picked.zone hand == [] && pickEvents == [] &&
+    revealEvents == [.revealed player chosen chosenCid, .moved chosen moved deck hand] &&
+    revealed.pending.head? == some (.chanceShuffle deck) &&
+    (afterSearch.cardDefOf? moved).map (·.id) == some chosenCid &&
+    afterSearch.zone arena == [source] && viewZone player afterSearch deck == .countOnly 4 &&
+    declinedEvents == [] && declined.pending.head? == some (.chanceShuffle deck) &&
+    withoutCard.zone hand == [] && (withoutCard.zone deck).length == 5 &&
+    (nextTurn.zone hand).length == 4 && finished.zone arena == [] &&
+    (finished.cardDefOf? destroyed).map (·.id) == some cid &&
+    endEvents.head? == some (.moved source destroyed arena grave) &&
+    (finished.zone hand).length == 5 && (finished.zone deck).isEmpty)
+
+#guard checkShowTime == some true
+
 /-- Remembrance lets its caster choose up to three action cards, then banishes itself. -/
 meta def checkRemembrance : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
@@ -1349,6 +1419,8 @@ meta def checkHopeMerchantsHood : Option Bool := do
     (paid.cardDefOf? spent).map (·.id) == some cid && payment.contains (.moved source spent head grave) &&
     (step 64 paid (choose one)).toOption.isNone &&
     (legalActionsFor player picking).contains (choose one) && (legalActionsFor player picking).contains done &&
+    (view player picking).selectionChoices.contains (one, pickOneCid) &&
+    (view attacker picking).selectionChoices.isEmpty && view attacker picking == view attacker beforeConfirm &&
     !(legalActionsFor attacker picking).any (fun a => match a.kind with | .pickShuffleCard _ => true | _ => false) &&
     (step 64 picking ⟨.player attacker, .pickShuffleCard (some one)⟩).toOption.isNone &&
     (step 64 picking (choose top)).toOption.isNone &&

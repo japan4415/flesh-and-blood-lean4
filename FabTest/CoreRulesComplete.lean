@@ -143,7 +143,7 @@ meta def soulShadowSearchTest : Bool :=
     match addObject baseState (.player p0 .deck)
         { kind := .card ⟨21⟩ ⟨"B6"⟩, owner := p0, controller := p0, timestamp := ⟨1⟩ } .top with
     | none => false
-    | some (sD, _) =>
+    | some (sD, deckCard) =>
       let (sBan, _, _) := execPrim sD p0 ⟨0⟩ [] (.banishTopDeck .controller 1 false)
       let ban6Ok :=
         evalCondition sBan p0 ⟨0⟩ false .banishedSixPowerThisTurn == true &&
@@ -151,10 +151,22 @@ meta def soulShadowSearchTest : Bool :=
       -- Reveal top to arsenal
       let (sArs, _, _) := execPrim sD p0 ⟨0⟩ [] (.revealTopToArsenalIf .controller { minPower := some 6 })
       let arsOk := (sArs.zone (.player p0 .arsenal)).length == 1
-      -- Search deck pushes chanceShuffle
+      -- Search waits for the player to choose which matching card to reveal.
       let (sSrch, _, extraSrch) := execPrim sD p0 ⟨0⟩ [] (.searchDeck .controller { minPower := some 6 } (some 1) .hand true none)
-      let srchOk := (sSrch.zone (.player p0 .hand)).length == 1 && extraSrch == [.chanceShuffle (.player p0 .deck)]
-      chOk && bsOk && ban6Ok && arsOk && srchOk
+      let srchOk := (sSrch.zone (.player p0 .hand)).isEmpty &&
+        extraSrch == [.chooseShuffleCards p0 1 [deckCard] [] false (some ⟨.player p0 .hand, true, true⟩)]
+      let (_, _, noMatches) := execPrim sD p0 ⟨0⟩ [] (.searchDeck .controller { minPower := some 7 } (some 1) .hand true none)
+      let (_, _, unrestricted) := execPrim sD p0 ⟨0⟩ [] (.searchDeck .controller .any (some 1) .hand false none)
+      let choose : Action := ⟨.player p0, .pickShuffleCard (some deckCard)⟩
+      let done : Action := ⟨.player p0, .pickShuffleCard none⟩
+      let noMatchesState := { sD with pending := noMatches }
+      let unrestrictedState := { sD with pending := unrestricted }
+      let withoutMatchOk := legalFrameActions noMatchesState == [done]
+      let unrestrictedOk := (legalActionsFor p0 unrestrictedState).contains choose &&
+        !(legalActionsFor p0 unrestrictedState).contains done && (applyFrame unrestrictedState done).isNone &&
+        (applyFrame unrestrictedState choose).any fun picked =>
+          (legalActionsFor p0 picked.1).contains done
+      chOk && bsOk && ban6Ok && arsOk && srchOk && withoutMatchOk && unrestrictedOk
 
 #guard soulShadowSearchTest == true
 
