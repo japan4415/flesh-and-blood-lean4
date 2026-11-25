@@ -202,6 +202,8 @@ meta def checkWreckerRomp (cid : CardId) (pitch power : Nat) (fromArsenal : Bool
 
 #guard checkWreckerRomp ⟨"WTR_029_R"⟩ 1 8 false == some true
 #guard checkWreckerRomp ⟨"WTR_029_R"⟩ 1 8 true == some true
+#guard checkWreckerRomp ⟨"WTR_030_Y"⟩ 2 7 false == some true
+#guard checkWreckerRomp ⟨"WTR_030_Y"⟩ 2 7 true == some true
 
 -- 5. Playing face-down card from Arsenal (CR 3.2.2) triggers `playedFromArsenal` on Tome of Fyendal:
 --    Tome starts face-down in Arsenal, P0 has 1 floating {r}, 1 card in hand & 2 in deck.
