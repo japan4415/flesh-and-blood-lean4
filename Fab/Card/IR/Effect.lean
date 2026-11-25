@@ -189,6 +189,9 @@ inductive Prim where
   | putHandOnDeck (p : PlayerRef) (pos : DeckPos)
   /-- Put a card from player `p`'s arsenal on the bottom of its owner's deck (Disable). -/
   | putArsenalOnDeckBottom (p : PlayerRef)
+  /-- Put an arsenal card on the bottom of the deck, then put the new top card face up
+  into arsenal. Grant the specified keyword until end of turn if it has the given subtype. -/
+  | cycleArsenal (p : PlayerRef) (subtype : Subtype) (keyword : KeywordInst)
   /-- Choose a matching defending card on the active link to return to its owner's hand (Rout). -/
   | returnDefendingCardToHand (f : CardFilter)
   /-- Return the defending card picked during resolution. -/

@@ -367,7 +367,8 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     simp only [href, h.arenaContents_eq, hobj, hface, h.characteristics_eq]
   unfold canPlayCard
   rw [hh, ha, hbanished, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat, h.boostsThisTurn]
-  simp only [canLinkTakeDefenseReaction, hdom, attackReactionCanTarget, h.hasRequiredAttackTarget_eq, hweapon]
+  simp only [canLinkTakeDefenseReaction, hdom, attackReactionCanTarget, h.hasRequiredAttackTarget_eq,
+    hweapon, h.characteristics_eq, h.arenaContents_eq, GameState.obj?, h.objects] <;> rfl
 
 /-- The current weapon attack candidates depend on the visible weapon zone and combat chain. -/
 theorem HiddenEquiv.weaponAttackCandidateIds_eq {p : PlayerId} {s1 s2 : GameState}

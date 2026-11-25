@@ -294,6 +294,14 @@ def ARC_037_B : CardDef :=
             { body := .prim (.opt .controller 1) } ] }
     status := .full }
 
+/-- Azalea, Ace in the Hole (ARC038). -/
+def ARC_038 : CardDef :=
+  { Meta.ARC_038_meta with
+    front := { Meta.ARC_038_meta.front with
+      abilities := [ .activated .action true { actionPoints := 1 } [] none true
+        { body := .prim (.cycleArsenal .controller .arrow .dominate) } ] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -302,7 +310,7 @@ def arcCards : List CardDef :=
    ARC_023_R, ARC_024_Y, ARC_025_B,
    ARC_026_R, ARC_027_Y, ARC_028_B,
    ARC_029_R, ARC_030_Y, ARC_031_B,
-   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R, ARC_037_B]
+   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R, ARC_037_B, ARC_038]
 
 end FabCards.ARC
 
