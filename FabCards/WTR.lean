@@ -183,8 +183,8 @@ def barragingBeatdown (base : CardDef) (bonus : Int) : CardDef :=
 def WTR_017_R : CardDef := { barragingBeatdown WTR_017_R_meta 4 with status := .full }
 /-- Barraging Beatdown Yellow. -/
 def WTR_018_Y : CardDef := { barragingBeatdown WTR_018_Y_meta 3 with status := .full }
-/-- Barraging Beatdown Blue (drafted IR). -/
-def WTR_019_B : CardDef := barragingBeatdown WTR_019_B_meta 2
+/-- Barraging Beatdown Blue. -/
+def WTR_019_B : CardDef := { barragingBeatdown WTR_019_B_meta 2 with status := .full }
 
 /-- Attack with a mandatory random discard in addition to its asset cost. -/
 def randomDiscardAttack (base : CardDef) : CardDef :=
