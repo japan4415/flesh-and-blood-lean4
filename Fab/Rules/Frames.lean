@@ -1322,6 +1322,19 @@ def searchPlayOp (s : GameState) : Duration → Option EffectOp
       (fun attack => EffectOp.allowBanishedPlay (some attack))
   | _ => none
 
+/-- Apply a selection's entry counter before its arena movement is observed by rule events. -/
+def applySelectionEntryCounter (s : GameState) (events : List Event)
+    (selection : Option DeckSearchChoice) : GameState :=
+  match selection.bind (·.entryCounter) with
+  | none => s
+  | some kind =>
+    let entered := events.findSome? fun
+      | .moved _ id _ dst => if dst.isArena then some id else none
+      | _ => none
+    match entered with
+    | none => s
+    | some id => updateSingleObject s id (fun obj => obj.addCounterVal kind 1)
+
 /-- Resolve a confirmed search or shuffle selection, then schedule shuffle and draw (CR 8.5.19, 8.5.20b). -/
 def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
     (drawSame : Bool) (search : Option DeckSearchChoice) (rest : List Frame) : GameState × List Event :=
@@ -1332,6 +1345,7 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
     (s.cardDefOf? id).map (fun card => Event.revealed p id card.id)) else []
   let moved := moveManyObjs s selected.reverse destination position false
   let events := moved.2
+  let entered := applySelectionEntryCounter moved.1 events search
   let draw := if drawSame && !events.isEmpty then [.draw p events.length] else []
   let shuffle := if search.all (·.shuffleAfter) then [.chanceShuffle deck] else []
   let banished := events.filterMap fun
@@ -1348,10 +1362,10 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
           op := op
           duration := duration
           timestamp := ⟨timestamp⟩ }).getD []
-  ({ moved.1 with
+  ({ entered with
       pending := shuffle ++ draw ++ rest
-      activeEffects := moved.1.activeEffects ++ permissions
-      nextTimestamp := moved.1.nextTimestamp + permissions.length },
+      activeEffects := entered.activeEffects ++ permissions
+      nextTimestamp := entered.nextTimestamp + permissions.length },
     revealed ++ events ++ banished.map (fun id => .banished p id false))
 
 /-- Add a triggered layer with its declared targets, then continue trigger ordering (CR 6.6.6). -/

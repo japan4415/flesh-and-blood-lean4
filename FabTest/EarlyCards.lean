@@ -832,6 +832,41 @@ meta def pedalToTheMetalScenario (cardId : String) (power : Int) (weaponNext blo
 #guard pedalToTheMetalScenario "ARC_013_B" 3 true false == some true
 #guard pedalToTheMetalScenario "ARC_013_B" 3 false true == some true
 
+#guard ((earlyPrintingCardId? "ARC014").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Pour the Mold" && card.status == .full)
+
+meta def pourTheMoldScenario (boosted : Bool) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let arena := Zone.player p .permanent
+  let base := { earlyBase with cards := throughArcDB, boostsThisTurn := [if boosted then p else q] }
+  let (withDeck, hidden) ← earlyPlace base p deck "WTR_203_R"
+  let (withGeneric, genericItem) ← earlyPlace withDeck p hand "WTR_170_B"
+  let (withExpensive, expensiveItem) ← earlyPlace withGeneric p hand "ARC_010_R"
+  let (withCore, core) ← earlyPlace withExpensive p hand "ARC_007_B"
+  let (ready, mold) ← earlyPlace withCore p hand "ARC_014_R"
+  let play : Action := ⟨.player p, .playCard mold⟩
+  let pick (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let choice ← earlySteps ready (play :: earlyPass)
+  let declined ← earlySteps choice [pick none]
+  let selected ← earlySteps choice [pick (some core)]
+  let (placed, events) ← (step 64 selected (pick none)).toOption
+  let entered ← (placed.zone arena).head?
+  pure ((view p choice).selectionChoices == [(core, ⟨"ARC_007_B"⟩)] &&
+    (view q choice).selectionChoices.isEmpty && viewZone p choice deck == .countOnly 1 &&
+    (earlySteps choice [pick (some expensiveItem)]).isNone &&
+    (earlySteps choice [pick (some genericItem)]).isNone &&
+    declined.zone arena == [] && declined.zone hand == [core, expensiveItem, genericItem] &&
+    events.contains (.moved core entered hand arena) && placed.zone deck == [hidden] &&
+    (placed.cardDefOf? entered).any (fun card => card.id == ⟨"ARC_007_B"⟩) &&
+    (placed.obj? entered).any (fun obj => obj.counterCount .steam == if boosted then 3 else 2) &&
+    placed.zone hand == [expensiveItem, genericItem] && placed.poolOf p == ready.poolOf p)
+
+#guard pourTheMoldScenario false == some true
+#guard pourTheMoldScenario true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

@@ -196,6 +196,8 @@ inductive Prim where
   | searchDeck (p : PlayerRef) (f : CardFilter) (maxCount : Option Nat) (dst : ZoneRef)
       (reveal : Bool) (playableDuration : Option Duration) (shuffleAfter : Bool := true)
       (exactCost : Option NumExpr := none)
+  /-- Optionally put one matching card from hand into the arena with an additional entry counter. -/
+  | putHandPermanent (p : PlayerRef) (f : CardFilter) (entryCounter : Option CounterKind := none)
   /-- Randomize the order of a player's zone using a chance decision (CR 8.5.20). -/
   | shuffleZone (p : PlayerRef) (z : ZoneRef)
   /-- Player `p` chooses up to `maxCount` cards matching `f` from `src` to shuffle into their deck.

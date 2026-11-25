@@ -1197,6 +1197,14 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
           if shuffleAfter then [.chanceShuffle (.player target .deck)] else []
         else [.chooseShuffleCards target limit matching [] false (some choice)]
       (s, [], follow)
+  | .putHandPermanent pref filter entryCounter =>
+    let target := evalPlayerRef s ctrl pref
+    let hand := s.zone (.player target .hand)
+    let matching := hand.filter fun id => (s.objectFace? id).any (cardFaceMatches filter)
+    let choice : DeckSearchChoice :=
+      { destination := .player target .permanent, reveal := false, mayFail := true,
+        shuffleAfter := false, searchesDeck := false, entryCounter }
+    (s, [], if hand.isEmpty then [] else [.chooseShuffleCards target 1 matching [] false (some choice)])
   | .shuffleZone pref ref =>
     (s, [], ((zoneOfRef (evalPlayerRef s ctrl pref) ref).map Frame.chanceShuffle).toList)
   | .shuffleZoneIntoDeck pref srcRef f maxCount drawSame =>
@@ -1469,6 +1477,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     | some _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | putHandPermanent _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | shuffleZone _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | shuffleZoneIntoDeck pref srcRef f maxCount drawSame =>
     unfold execPrim; dsimp only
@@ -1724,6 +1733,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨rfl, rfl, id⟩
     | some _ => exact ⟨rfl, rfl, id⟩
+  | putHandPermanent _ _ _ => exact ⟨rfl, rfl, id⟩
   | shuffleZone _ _ => exact ⟨rfl, rfl, id⟩
   | shuffleZoneIntoDeck pref srcRef f maxCount _ =>
     unfold execPrim; dsimp only

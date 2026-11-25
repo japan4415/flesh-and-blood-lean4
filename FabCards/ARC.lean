@@ -135,10 +135,21 @@ def ARC_012_Y : CardDef := { pedalToTheMetal Meta.ARC_012_Y_meta with status := 
 /-- Pedal to the Metal (ARC013). -/
 def ARC_013_B : CardDef := { pedalToTheMetal Meta.ARC_013_B_meta with status := .full }
 
+/-- Formalize optional item placement and the additional entry counter after a boost. -/
+def pourTheMold (base : CardDef) (maxCost : Nat) : CardDef :=
+  let place (counter : Option CounterKind) :=
+    Effect.prim (.putHandPermanent .controller
+      { supertypes := [.class_ .mechanologist], subtypes := [.item], maxCost := some maxCost } counter)
+  { base with front := { base.front with
+      playEffect := some { body := .ifThen (.boostedThisTurn 1) (place (some .steam)) (place none) } } }
+
+/-- Pour the Mold (ARC014). -/
+def ARC_014_R : CardDef := { pourTheMold Meta.ARC_014_R_meta 0 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
-   ARC_008_R, ARC_009_Y, ARC_010_R, ARC_011_R, ARC_012_Y, ARC_013_B]
+   ARC_008_R, ARC_009_Y, ARC_010_R, ARC_011_R, ARC_012_Y, ARC_013_B, ARC_014_R]
 
 end FabCards.ARC
 

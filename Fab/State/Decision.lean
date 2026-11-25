@@ -149,7 +149,7 @@ inductive HandCardCost where
   | reveal (filter : CardFilter)
 deriving DecidableEq, Repr
 
-/-- Completion instructions for selecting cards while searching a deck (CR 8.5.19). -/
+/-- Completion instructions for moving selected cards, including deck searches (CR 8.5.19). -/
 structure DeckSearchChoice where
   /-- Zone that receives the chosen cards before the deck is shuffled. -/
   destination : Zone
@@ -161,6 +161,10 @@ structure DeckSearchChoice where
   shuffleAfter : Bool := true
   /-- Permission granted to the selected card if it is moved to banished. -/
   playableDuration : Option Duration := none
+  /-- Whether this selection grants the chooser temporary visibility of their deck. -/
+  searchesDeck : Bool := true
+  /-- An extra counter for a single selected card entering the arena. -/
+  entryCounter : Option CounterKind := none
 deriving DecidableEq, Repr
 
 /-- A filtered deck search may fail, while an unrestricted search must select a card if possible. -/
