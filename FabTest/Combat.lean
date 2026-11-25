@@ -4253,6 +4253,7 @@ meta def checkRegurgitatingSlog (cid : CardId) (pitch power : Nat) : Option Bool
 
 #guard checkRegurgitatingSlog ⟨"WTR_197_R"⟩ 1 6 == some true
 #guard checkRegurgitatingSlog ⟨"WTR_198_Y"⟩ 2 5 == some true
+#guard checkRegurgitatingSlog ⟨"WTR_199_B"⟩ 3 4 == some true
 
 /-- Shunt deals one point of generic damage as it resolves against a weapon. -/
 meta def checkSteelbladeShunt (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool) :
