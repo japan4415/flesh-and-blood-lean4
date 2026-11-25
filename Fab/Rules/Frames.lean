@@ -785,11 +785,23 @@ def queuePitchTriggers (s : GameState) (p : PlayerId) (pitched : ObjId) : GameSt
     pendingTriggers := s.pendingTriggers ++ triggers
     nextTimestamp := s.nextTimestamp + triggers.length }
 
-/-- Queue discard abilities in event order (CR 6.6). -/
-def queueDiscardTriggers (s : GameState) (events : List Event) : GameState :=
+/-- Queue supported rule-event triggers in event order (CR 6.6). -/
+def queueRuleEventTriggers (s : GameState) (events : List Event) : GameState :=
   queueCardTriggers s (events.flatMap fun
     | .discarded p id => discardEventTriggers s p id
+    | .countersEmptied source kind =>
+      match s.characteristics source with
+      | some chars =>
+        if chars.abilitiesLost then [] else
+          let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+          matchingCardTriggers s source chars.controller false abilities fun trigger cond =>
+            trigger == .onCountersEmptied kind &&
+              (cond.map (evalCondition s chars.controller source false)).getD true
+      | none => []
     | _ => [])
+
+/-- Queue triggers for events returned by discard effects (CR 6.6). -/
+abbrev queueDiscardTriggers := queueRuleEventTriggers
 
 /-- The controller credited with an attack action card's hit (CR 7.5.3). -/
 def attackActionHitController? (s : GameState) (link : ChainLink) : Option PlayerId := do
@@ -1231,7 +1243,9 @@ def payActivationSource (s : GameState) (payment : ActivationPayment) :
     | none => some (s, [])
     | some (kind, n) =>
       if (s.obj? payment.source).any (fun o => decide (n ≤ o.counterCount kind)) then
-        some (updateSingleObject s payment.source (fun o => o.removeCounterVal kind n), [])
+        let events := counterRemovalEvents s payment.source kind n
+        let paid := updateSingleObject s payment.source (fun o => o.removeCounterVal kind n)
+        some (queueRuleEventTriggers paid events, events)
       else none
   else
     let graveyard := Zone.player payment.owner .graveyard
@@ -1641,7 +1655,7 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
     if q = p ∧ 0 < remaining ∧ id ∈ candidates then
       if remaining = 1 then
         let (discarded, events) := discardManyObjs s p (id :: selected).reverse
-        some ({ queueDiscardTriggers discarded events with pending := rest }, events)
+        some ({ queueRuleEventTriggers discarded events with pending := rest }, events)
       else
         some ({ s with pending := .chooseDiscard p (remaining - 1) (candidates.erase id) (id :: selected) :: rest }, [])
     else none
@@ -1890,7 +1904,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let discarded := events.reverse.findSome? fun
       | .discarded _ id => paid.objectFace? id
       | _ => none
-    some (finishPaidPlay (queueDiscardTriggers paid events) p layerId fromArsenal modeIdx rest discarded, events)
+    some (finishPaidPlay (queueRuleEventTriggers paid events) p layerId fromArsenal modeIdx rest discarded, events)
   | .resolveStack :: rest =>
     match s.zone .stack with
     | topId :: _ =>
@@ -2071,7 +2085,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     some ({ s1 with pending := rest }, [])
   | .run ctrl src fromArsenal env todo :: rest =>
     let ran := interpRunStep s ctrl src fromArsenal env todo rest
-    some (queueDiscardTriggers ran.1 ran.2, ran.2)
+    some (queueRuleEventTriggers ran.1 ran.2, ran.2)
   | .optStep _ 0 :: rest =>
     some ({ s with pending := rest }, [])
   | .optStep p (n + 1) :: rest =>

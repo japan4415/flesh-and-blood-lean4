@@ -285,7 +285,8 @@ private theorem payActivationSource_preserves {s paid : GameState}
         have hp := updateSingleObject_physIds s payment.source (Object.removeCounterVal_kind · kind n)
         have hm := updateSingleObject_meta s payment.source f
         have hperm : (updateSingleObject s payment.source f).physIds.Perm s.physIds := by rw [hp]
-        exact ⟨hw, ho, GameState.RollbackOk.preserve hrb hm.1 hm.2 hperm, hperm, hm.1⟩
+        exact ⟨GameState.WF.congr hw rfl rfl rfl rfl, GameState.OwnerOk.congr ho rfl rfl,
+          GameState.RollbackOk.preserve hrb hm.1 hm.2 hperm, hperm, hm.1⟩
       · cases h
   · obtain ⟨⟨moved, spent⟩, hm, h⟩ := Option.bind_eq_some_iff.mp h
     cases h
@@ -1180,7 +1181,7 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
     rename_i ctrl src fromArsenal env todo rest _
     simp only [Option.some.injEq] at h
     let ran := interpRunStep s ctrl src fromArsenal env todo rest
-    have hs' : s' = queueDiscardTriggers ran.1 ran.2 :=
+    have hs' : s' = queueRuleEventTriggers ran.1 ran.2 :=
       congrArg Prod.fst h.symm
     subst hs'
     have hmeta := interpRunStep_meta hwf hok ctrl src fromArsenal env todo rest

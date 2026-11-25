@@ -102,7 +102,8 @@ def moveObj (s : GameState) (id : ObjId) (dst : Zone) (pos : Pos := .top)
     if src = dst ∨ ¬ dst.Valid s.playerCount then none
     else if Zone.crosses src dst then
       let id' : ObjId := ⟨s.nextId⟩
-      let o' : Object := o.resetOnZoneChange ⟨s.nextTimestamp⟩ faceDown
+      let entry := if dst.isArena then ((s.objectFace? id).map (·.entryCounters)).getD [] else []
+      let o' := (o.resetOnZoneChange ⟨s.nextTimestamp⟩ faceDown).withEntryCounters entry
       let s1 := (s.setZone src ((s.zone src).erase id)).setZone dst (pos.insert id' (s.zone dst))
       some ({ s1 with
                 objects := (s.objects.erase id.n).insert id'.n o',

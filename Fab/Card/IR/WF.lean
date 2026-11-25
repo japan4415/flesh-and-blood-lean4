@@ -106,7 +106,7 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .searchDeck p _ _ _ _ _ _ | .shuffleZone p _ => p.wfBool numSlots
   | .shuffleZoneIntoDeck p _ _ _ _ => p.wfBool numSlots
   | .revealTopToArsenalIf p _ => p.wfBool numSlots
-  | .addCounter o _ n => o.wfBool numSlots env && n.wfBool numSlots env hasX
+  | .addCounter o _ n | .removeCounter o _ n => o.wfBool numSlots env && n.wfBool numSlots env hasX
   | .removeAllCounters o _ => o.wfBool numSlots env
   | .preventNextDamage p n _ => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .closeCombatChain => true

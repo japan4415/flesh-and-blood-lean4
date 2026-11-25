@@ -2,6 +2,7 @@ module
 
 public import Fab.State.Zone
 public import Fab.Core.Property
+public import Fab.Card.IR.Filter
 
 /-!
 # Events and 4-stage replacement classification
@@ -28,6 +29,8 @@ inductive Event where
   | opted (player : PlayerId) (top bottom : Nat)
   /-- A player paid a boost cost, regardless of the class of the banished card (CR 8.3.9). -/
   | boosted (player : PlayerId)
+  /-- An arena object lost its last counter of this kind (CR 6.6.5c). -/
+  | countersEmptied (source : ObjId) (kind : CounterKind)
   /-- A private card became public while applying a zone move, independently of reveal effects (CR 3.0.8). -/
   | madePublic (player : PlayerId) (obj : ObjId) (card : CardId)
   /-- Player `player` pitched object `obj` generating `resources` `{r}` and `chi` `{c}` (CR 1.14.3). -/

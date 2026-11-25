@@ -73,8 +73,23 @@ def ARC_006_R : CardDef :=
           , .prim (.draw .controller (.const 1)) ] } }
     status := .full }
 
+/-- Teklo Core (ARC007). -/
+def ARC_007_B : CardDef :=
+  { Meta.ARC_007_B_meta with
+    front := { Meta.ARC_007_B_meta.front with
+      entryCounters := [(.steam, 2)]
+      abilities :=
+        [ .triggered (.onCountersEmptied .steam) false none none
+            { body := .prim (.destroy .self_) }
+        , .triggered .onStartOfActionPhase false none none
+            { body := .seqL
+                [ .prim (.removeCounter .self_ .steam (.const 1))
+                , .prim (.gainResource .controller (.const 2)) ] } ] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
-def arcCards : List CardDef := [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R]
+def arcCards : List CardDef :=
+  [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B]
 
 end FabCards.ARC
 
