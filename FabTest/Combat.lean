@@ -991,6 +991,60 @@ meta def checkFlockOfTheFeatherWalkers (cid : CardId) (pitch power : Nat) (fromA
 #guard checkFlockOfTheFeatherWalkers ⟨"WTR_184_B"⟩ 3 3 false == some true
 #guard checkFlockOfTheFeatherWalkers ⟨"WTR_184_B"⟩ 3 3 true == some true
 
+/-- Emerging Power waits for its controller's action phase and the next Guardian attack action. -/
+meta def checkEmergingPower (cid : CardId) (pitch bonus : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let card ← m5Base.cards.find? cid
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 7 }
+  let (withAura, aura) ← cPlace funded attacker .hand cid
+  let (withOtherAura, opponentAura) ← cPlace withAura defender .permanent cid
+  let (withGeneric, genericAttack) ← cPlace withOtherAura attacker .hand ⟨"WTR_203_R"⟩
+  let (withGuardian, guardianAttack) ← cPlace withGeneric attacker .hand ⟨"WTR_048_R"⟩
+  let (ready, guardianWeapon) ← cPlace withGuardian attacker .weapon ⟨"WTR_040"⟩
+  let auraZone := Zone.player attacker .permanent
+  let graveyard := Zone.player attacker .graveyard
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let attackWith id : Action := ⟨.player attacker, .attackWeapon id⟩
+  let startActionPhase (s : GameState) (p : PlayerId) :=
+    (advance 64 { s with active := some p, phase := .startPhase, pending := [.actionPhaseStart p] } []).toOption
+  let resolve (s : GameState) (p : PlayerId) (trigger : PendingTrigger) :=
+    cSteps s [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩,
+      ⟨.player p, .pass⟩, ⟨.player (if p == attacker then defender else attacker), .pass⟩]
+  let beginAttack (s : GameState) (a : Action) :=
+    cSteps s (a :: (passBoth ++ passBoth))
+  let attackPower (s : GameState) :=
+    (s.combat.bind CombatChain.activeLink?).map (linkAttackPower s)
+  let played ← cSteps ready (play aura :: passBoth)
+  let permanent ← (played.zone auraZone).head?
+  let (opponentStart, _) ← startActionPhase played defender
+  let opponentTrigger ← opponentStart.pendingTriggers.head?
+  let opponentFinished ← resolve opponentStart defender opponentTrigger
+  let (turnStart, _) ← startActionPhase (played.setPool attacker { resources := 5 }) attacker
+  let trigger ← turnStart.pendingTriggers.head?
+  let resolved ← resolve turnStart attacker trigger
+  let generic ← beginAttack resolved (play genericAttack)
+  let weapon ← beginAttack (resolved.setPool attacker { actionPoints := 1, resources := 8 })
+    (attackWith guardianWeapon)
+  let guardian ← beginAttack resolved (play guardianAttack)
+  let (expired, _) ← microStep { resolved with pending := [.endTurnCleanup attacker] }
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    permanent != aura && (played.poolOf attacker).actionPoints == 1 &&
+    (played.poolOf attacker).resources == 5 && played.pendingTriggers.isEmpty &&
+    played.activeEffects.isEmpty && opponentStart.pendingTriggers.length == 1 &&
+    opponentTrigger.source == opponentAura && opponentFinished.zone auraZone == [permanent] &&
+    turnStart.phase == .actionPhase && (turnStart.poolOf attacker).actionPoints == 1 &&
+    turnStart.pendingTriggers.length == 1 && trigger.source == permanent &&
+    resolved.zone auraZone == [] &&
+    (resolved.zone graveyard).filterMap (fun id => (resolved.cardDefOf? id).map (·.id)) == [cid] &&
+    resolved.activeEffects.length == 1 &&
+    attackPower generic == some 4 && generic.activeEffects == resolved.activeEffects &&
+    attackPower weapon == some 4 && weapon.activeEffects == resolved.activeEffects &&
+    attackPower guardian == some (9 + bonus) && guardian.activeEffects.isEmpty &&
+    expired.activeEffects.isEmpty)
+
+#guard checkEmergingPower ⟨"WTR_069_R"⟩ 1 3 == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
