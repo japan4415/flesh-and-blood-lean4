@@ -678,11 +678,17 @@ meta def checkNextWeaponBuff (cid : CardId) (pitch cost bonus : Nat) (givesGoAga
   let (equipped, weapon) ← cPlace funded attacker .weapon ⟨"WTR_078"⟩
   let flagged := applyChainLinkMod equipped attacker weapon []
     (.nextAttack CardFilter.weaponAttack) (.grantKeyword .goAgain) .thisTurn
+  let (withSource, source) ← cPlace flagged attacker .permanent ⟨"WTR_203_R"⟩
+  let (withProxy, proxy) ← addObject withSource .stack
+    { kind := .attackProxy source none, owner := attacker, controller := attacker, timestamp := ⟨0⟩ }
+    .top
+  let (otherInfo, remaining) := consumeNextAttackEffects withProxy proxy { controller := attacker }
   let resolved ← cSteps flagged ([⟨.player attacker, .attackWeapon weapon⟩] ++ passBoth ++ passBoth ++
     [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth)
   let link ← resolved.combat.bind CombatChain.activeLink?
   let weaponFace ← resolved.objectFace? weapon
-  pure (link.attackSource == some weapon && linkHasKeyword resolved link .goAgain &&
+  pure (otherInfo.attackKeywords.isEmpty && remaining == flagged.activeEffects &&
+    link.attackSource == some weapon && linkHasKeyword resolved link .goAgain &&
     !weaponFace.keywords.contains .goAgain && resolved.activeEffects.isEmpty &&
     (resolved.poolOf attacker).actionPoints == 1) : Option Bool) == some true
 

@@ -511,11 +511,10 @@ def attackingCardTriggers (s : GameState) (source : ObjId) (controller : PlayerI
     collectCardTriggers s source controller fromArsenal face.abilities fun trigger cond =>
       trigger == .onAttack && (cond.map (evalCondition s controller source fromArsenal)).getD true
 
-/-- Read the face used to match the pending attack, with its weapon-attack context
-(CR 1.4.3a). -/
+/-- Read the face used to match a pending attack and whether the attack is a proxy (CR 1.4.3a). -/
 def attackLayerFace? (s : GameState) (layerId : ObjId) : Option (CardFace × Bool) :=
   match (s.obj? layerId).map Object.kind with
-  | some (.attackProxy weapon _) => (s.objectFace? weapon).map fun face => (face, true)
+  | some (.attackProxy source _) => (s.objectFace? source).map fun face => (face, true)
   | some (.card _ _) => do
     let face ← s.objectFace? layerId
     if face.hasType .action && face.hasSubtype .attack then some (face, false) else none
@@ -527,11 +526,12 @@ def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo
     LayerInfo × List ContinuousEffect :=
   match attackLayerFace? s layerId with
   | none => (info, s.activeEffects)
-  | some (face, isWeapon) =>
+  | some (face, isProxy) =>
+    let isWeapon := isProxy && face.hasType .weapon
     s.activeEffects.foldr (fun effect (layer, rest) =>
       let eligible := match effect.target with
         | .nextAttackCard filter =>
-          !isWeapon && !filter.isWeaponAttack && cardFaceMatches filter face
+          !isProxy && !filter.isWeaponAttack && cardFaceMatches filter face
         | .nextAttack filter => (!filter.isWeaponAttack || isWeapon) && cardFaceMatches filter face
         | _ => false
       if effect.controller == info.controller && eligible then
