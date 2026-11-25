@@ -263,6 +263,13 @@ FaB ルールの中核マイルストーン。
 - **L5**: 8 ステージ連続効果・4 区分置換効果・資産コスト計算の独立関係仕様との一致。
 - 公式 Release Notes 裁定の回帰テスト群（Ward 強制破壊 vs Arcane Barrier 任意支払い、Phantasm 強制クローズ、Endless Arrow LKI 等）。
 
+**M6a 実装の記録（2026-11-25）: 完了**
+- 8 ステージ連続効果・依存関係・L5 資産コスト: `Fab/Rules/Continuous.lean`（`EffectStage` Stage 1〜8、`SubStage` 5 区分、`DerivedChars`、`EffectOp`、`EffectTarget`、`ContinuousEffect`、`dependsOn`、`pickNextInBucket`（依存優先＋循環時 Timestamp フォールバック）、`evalCharacteristicsWithSteps` / `evalCharacteristics`、`calcFinalAssetCost`）。
+- 盤面・戦闘・解釈器・失効統合: `Fab/State/GameState.lean`（`activeEffects` を `GameState` / `BoardSnapshot` に追加、`characteristics` / `expireEffects`）、`Fab/Rules/Combat.lean`（`objEffectivePower` / `objEffectiveDefense` を `characteristics` 経由へ、`closeCombatChainStep` で `.thisChainLink`/`.thisCombatChain` 失効）、`Fab/Rules/Interp.lean`（`Effect.grant` の `.thisTurn`/`.thisCombatChain` 登録）、`Fab/Rules/Frames.lean`（`endTurnCleanup` で `.thisTurn` 失効）。
+- 証明: `Fab/Rules/Continuous.lean`・`Fab/Invariant/Continuous.lean`（**I12c**: `applyBucketLoop_steps_le`, `applyBucketLoop_exhausts`, `evalCharacteristics_steps_eq`；**L5**: `StageOrderSpec` + `evalCharacteristics_matches_spec` + `StageOrderSpec.unique`、`AssetCostSpec` + `calcFinalAssetCost_matches_spec` + `AssetCostSpec.unique`、`stage7_setBase_precedes_stage8_add`, `stage8_restrict_blocks_add`, `dependency_overrides_timestamp`, `cycle_falls_back_to_timestamp`, `expireEffects_removes_duration`, `expireEffects_keeps_other`）。
+- テスト: `FabTest/Continuous.lean`（6 シナリオ: 全 8 ステージ＋カウンタ、Stage 1 Copy、依存優先、循環 Timestamp フォールバック、資産コスト Set→Add→Sub、*Awakening Bellow* 実カード効果の `characteristics` 反映と End Phase 失効）。
+- 検証: `./scripts/verify.sh` 全 5 項目通過（145 jobs、警告 0、`sorry` 0、標準 3 公理のみ、`gen_lean --check` OK、`cr_citations.py` 53 files / 863 citations / 193 distinct rules / malformed: 0）。
+
 ---
 
 ### M7: 初期セット完全実装と段階的カード展開

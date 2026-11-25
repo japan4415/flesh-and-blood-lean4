@@ -906,8 +906,9 @@ theorem execPrim_meta (s : GameState) (ctrl : PlayerId) (src : ObjId)
     | none => exact ⟨rfl, rfl⟩
     | some oid => exact updateSingleObject_meta s oid _
 
-/-- Apply a `.thisChainLink` continuous modification directly to the active `ChainLink` if a
-combat chain is open (CR 6.2, 7.4). -/
+/-- Apply a continuous modification from `Effect.grant`: updates the active `ChainLink` directly
+for `.thisChainLink` combat buffs, and registers a `ContinuousEffect` in `s.activeEffects` for
+turn- and chain-scoped continuous effects (CR 6.2-6.3, 7.4). -/
 def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
     (mod : ContinuousMod) (dur : Duration) : GameState :=
   match dur, s.combat with
@@ -919,9 +920,34 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (env : List (VarId × In
       | .grantKeyword kw => { link with grantedKeywords := kw :: link.grantedKeywords }
       | _ => link
     { s with combat := some cc' }
+  | .thisTurn, _ | .thisCombatChain, _ =>
+    let op? : Option EffectOp :=
+      match mod with
+      | .addPower d => some (.addPower (evalNumExpr s ctrl env d))
+      | .addDefense d => some (.addDefense (evalNumExpr s ctrl env d))
+      | .addIntellect d => some (.addIntellect d)
+      | .modifyCost d =>
+        if 0 ≤ d then some (.addCostRes d.toNat) else some (.subCostRes (-d).toNat)
+      | .grantKeyword kw => some (.grantKeyword kw)
+      | _ => none
+    match op? with
+    | some op =>
+      let eff : ContinuousEffect :=
+        { id := s.nextTimestamp
+          source := ⟨0⟩
+          controller := ctrl
+          target := .matching (ctrl := some ctrl)
+          op := op
+          duration := dur
+          timestamp := ⟨s.nextTimestamp⟩ }
+      { s with
+        activeEffects := s.activeEffects ++ [eff]
+        nextTimestamp := s.nextTimestamp + 1 }
+    | none => s
   | _, _ => s
 
-/-- `applyChainLinkMod` only updates `combat`, preserving board structure and `playRollback`. -/
+/-- `applyChainLinkMod` only updates `combat`/`activeEffects`/`nextTimestamp`, preserving board
+structure and `playRollback`. -/
 theorem applyChainLinkMod_fields (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
     (mod : ContinuousMod) (dur : Duration) :
     (applyChainLinkMod s ctrl env mod dur).config = s.config ∧
@@ -930,7 +956,13 @@ theorem applyChainLinkMod_fields (s : GameState) (ctrl : PlayerId) (env : List (
     (applyChainLinkMod s ctrl env mod dur).nextId = s.nextId ∧
     (applyChainLinkMod s ctrl env mod dur).playRollback = s.playRollback := by
   unfold applyChainLinkMod
-  cases dur <;> cases s.combat <;> exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+  cases dur <;> cases s.combat <;>
+    first
+    | exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+    | (dsimp only; cases mod <;>
+        first
+        | exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+        | (dsimp only; split <;> exact ⟨rfl, rfl, rfl, rfl, rfl⟩))
 
 /-- Execute a single step of `Frame.run ctrl src fromArsenal env todo :: rest` (CR 1.7, 6.0).
 Always succeeds (total), never returning `none`. -/

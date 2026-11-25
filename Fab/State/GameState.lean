@@ -7,6 +7,7 @@ public import Fab.State.Event
 public import Fab.State.Phase
 public import Fab.State.Decision
 public import Fab.Tournament.TimeLimit
+public import Fab.Rules.Continuous
 public import Fab.Core.Cost
 public import Fab.Card.CardDB
 public import Std.Data.ExtTreeMap
@@ -59,6 +60,8 @@ structure BoardSnapshot where
   layerMeta : Std.ExtTreeMap Nat LayerInfo
   /-- Saved combat chain state. -/
   combat : Option CombatChain := none
+  /-- Saved active continuous effects. -/
+  activeEffects : List ContinuousEffect := []
 deriving DecidableEq, Repr
 
 /-- Complete state of a Flesh and Blood game (M2-M5 core). -/
@@ -99,6 +102,8 @@ structure GameState where
   combat : Option CombatChain := none
   /-- Per-game tournament clock and intentional-draw state (TRP 4). -/
   tournament : TournamentState := {}
+  /-- Active continuous effects evaluated by the 8-stage `characteristics` engine (CR 6.2-6.3). -/
+  activeEffects : List ContinuousEffect := []
 deriving DecidableEq, Repr
 
 /-- List of every valid zone in an `n`-player game (CR 3.0). -/
@@ -341,7 +346,8 @@ def snapshot (s : GameState) : BoardSnapshot :=
     nextTimestamp := s.nextTimestamp
     pending := s.pending
     layerMeta := s.layerMeta
-    combat := s.combat }
+    combat := s.combat
+    activeEffects := s.activeEffects }
 
 /-- Restore a saved `BoardSnapshot` and clear `playRollback` (CR 5.1.1). -/
 def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
@@ -355,7 +361,22 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     pending := snap.pending
     layerMeta := snap.layerMeta
     combat := snap.combat
+    activeEffects := snap.activeEffects
     playRollback := none }
+
+/-- Evaluate the 8-stage derived characteristics of object `id` in state `s` (CR 6.3.2). -/
+def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
+  match s.obj? id, s.cardDefOf? id with
+  | some o, some c =>
+    let face := match o.faceState with
+      | .front => c.front
+      | .back => c.back.getD c.front
+    some (evalCharacteristics s.activeEffects o face id)
+  | _, _ => none
+
+/-- Expire all active continuous effects matching duration `dur` (CR 4.4.3, 7.7). -/
+def expireEffects (s : GameState) (dur : Duration) : GameState :=
+  { s with activeEffects := s.activeEffects.filter fun e => e.duration != dur }
 
 /-- Restoring a snapshot taken from `s` (when `s.playRollback = none`) returns the exact state `s`. -/
 theorem restore_snapshot {s : GameState} (h : s.playRollback = none) :

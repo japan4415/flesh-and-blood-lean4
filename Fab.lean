@@ -27,6 +27,7 @@ public import Fab.State.Event
 public import Fab.State.Phase
 public import Fab.State.Combat
 public import Fab.State.Decision
+public import Fab.Rules.Continuous
 public import Fab.State.GameState
 public import Fab.Rules.Move
 public import Fab.Rules.Add
@@ -48,6 +49,7 @@ public import Fab.Invariant.Turn
 public import Fab.Invariant.Stack
 public import Fab.Invariant.Combat
 public import Fab.Invariant.Tournament
+public import Fab.Invariant.Continuous
 
 /-!
 # Fab
