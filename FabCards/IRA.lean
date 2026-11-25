@@ -77,8 +77,12 @@ def IRA_007_R : CardDef :=
       { body := .ifThen (.chainLinkAtLeast 3)
           (.grant .self_ (.addPower (.const 2)) .thisChainLink) .nop })
 
+/-- Brutal Assault. -/
+def IRA_010_B : CardDef :=
+  iraAttackCard "IRA_010_B" "Brutal Assault" .generic 3 2 4 3
+
 /-- Logical cards first published in the Ira Welcome Deck. -/
-def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y, IRA_005_Y, IRA_006_R, IRA_007_R]
+def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y, IRA_005_Y, IRA_006_R, IRA_007_R, IRA_010_B]
 
 end IRA
 end FabCards
