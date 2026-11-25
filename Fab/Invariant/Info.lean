@@ -255,31 +255,33 @@ theorem HiddenEquiv.canAttackWithWeapon_eq {p : PlayerId} {s1 s2 : GameState}
   rw [h.combat, h.phase, h.active, hs, hp, h.weaponAttackCandidateIds_eq,
       (h.cardDef_face wid).1, h.activatedThisTurn, h.activeEffects]
 
-private theorem installedArenaZone_visible {s : GameState} {p : PlayerId} {z : Zone}
-    (hz : z ∈ installedArenaZones s) : z.isSecretTo p = false := by
-  have ha := (List.mem_filter.mp hz).2
-  cases z with
-  | player q kind => cases kind <;> simp_all [Zone.isSecretTo, ZoneKind.isArena]
-  | combatChain | stack => rfl
+private theorem activationArenaZone_visible {s : GameState} {p : PlayerId} {z : Zone}
+    (hz : z ∈ activationArenaZones s) : z.isSecretTo p = false := by
+  rcases List.mem_cons.mp hz with rfl | hinstalled
+  · rfl
+  · have ha := (List.mem_filter.mp hinstalled).2
+    cases z with
+    | player q kind => cases kind <;> simp_all [Zone.isSecretTo, ZoneKind.isArena]
+    | combatChain | stack => rfl
 
 private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) : availableActivations s1 p = availableActivations s2 p := by
-  have hz : installedArenaZones s1 = installedArenaZones s2 := by
-    unfold installedArenaZones
+  have hz : activationArenaZones s1 = activationArenaZones s2 := by
+    unfold activationArenaZones installedArenaZones
     rw [h.playerCount]
-  have hvisible (z : Zone) (hm : z ∈ installedArenaZones s2) : s1.zone z = s2.zone z :=
-    h.visibleZones z (installedArenaZone_visible hm)
+  have hvisible (z : Zone) (hm : z ∈ activationArenaZones s2) : s1.zone z = s2.zone z :=
+    h.visibleZones z (activationArenaZone_visible hm)
   have hfind (id : ObjId) :
-      (installedArenaZones s2).find? (fun z => (s1.zone z).contains id) =
-        (installedArenaZones s2).find? (fun z => (s2.zone z).contains id) := by
-    generalize heq : installedArenaZones s2 = zones at *
+      (activationArenaZones s2).find? (fun z => (s1.zone z).contains id) =
+        (activationArenaZones s2).find? (fun z => (s2.zone z).contains id) := by
+    generalize heq : activationArenaZones s2 = zones at *
     clear heq hz
     induction zones with
     | nil => rfl
     | cons z zs ih =>
       simp only [List.find?_cons, hvisible z (by simp), ih (fun a ha => hvisible a (by simp [ha]))]
-  have hsources : (installedArenaZones s2).flatMap s1.zone = (installedArenaZones s2).flatMap s2.zone := by
-    generalize heq : installedArenaZones s2 = zones at *
+  have hsources : (activationArenaZones s2).flatMap s1.zone = (activationArenaZones s2).flatMap s2.zone := by
+    generalize heq : activationArenaZones s2 = zones at *
     clear heq hz hfind
     induction zones with
     | nil => rfl

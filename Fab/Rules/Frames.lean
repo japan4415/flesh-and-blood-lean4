@@ -868,10 +868,14 @@ structure ActivationPlan where
   /-- Resolution effect stored on the activated layer. -/
   body : Effect
 
+/-- Arena zones where public activated abilities are functional (CR 1.7.4). -/
+def activationArenaZones (s : GameState) : List Zone :=
+  .combatChain :: installedArenaZones s
+
 /-- Read the announced ability and its payable costs from a visible arena source (CR 5.2.2). -/
 def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat) :
     Option ActivationPlan := do
-  let origin ← (installedArenaZones s).find? (fun z => (s.zone z).contains source)
+  let origin ← (activationArenaZones s).find? (fun z => (s.zone z).contains source)
   let obj ← s.obj? source
   if obj.owner.n ≥ s.playerCount || obj.faceDown then none else
   let terms ← (do
@@ -897,7 +901,7 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
 
 /-- The indexed abilities currently available to a player holding priority. -/
 def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat) :=
-  let sources := (installedArenaZones s).flatMap s.zone
+  let sources := (activationArenaZones s).flatMap s.zone
   let candidates := sources.flatMap fun source =>
     let count := ((s.objectFace? source).map (·.abilities.length)).getD 0
     (List.range count).map fun index => (source, index)
