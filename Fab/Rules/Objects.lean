@@ -13,6 +13,25 @@ hero life defeat / simultaneous draw checks (CR 1.10.2a, 4.5).
 
 namespace Fab
 
+/-- Capture an immutable `LkiSnapshot` of object `id` in state `s` (CR 1.2.3).
+For an `attackProxy` carrying `sourceLki`, uses that snapshot directly. -/
+def captureLki (s : GameState) (id : ObjId) (fallbackOwner : PlayerId) : LkiSnapshot :=
+  match s.obj? id with
+  | none =>
+    { cardId := none, name := "", owner := fallbackOwner, controller := fallbackOwner }
+  | some o =>
+    match o.kind with
+    | .attackProxy _ (some lki) => lki
+    | _ =>
+      match s.objectFace? id with
+      | some face =>
+        LkiSnapshot.ofFace o.owner o.controller o.kind.cardId? face
+          o.minusDefenseCounters o.plusPowerCounters
+      | none =>
+        { cardId := o.kind.cardId?, name := "", owner := o.owner, controller := o.controller,
+          minusDefenseCounters := o.minusDefenseCounters,
+          plusPowerCounters := o.plusPowerCounters }
+
 /-- Untap a single object if it is controlled by player `p` (CR 4.4.3d). -/
 def untapIfControlled (p : PlayerId) (o : Object) : Object :=
   if o.controller == p then { o with tapped := false } else o

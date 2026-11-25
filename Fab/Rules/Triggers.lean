@@ -60,6 +60,14 @@ def PendingTrigger.declaredEffect (t : PendingTrigger) (hero : Option PlayerId)
   | .prim (.addCounter (.slot 0) kind amount), some id => .prim (.addCounter (.declared id) kind amount)
   | _, _ => (hero.bind t.effect.bindIntimidateTarget).getD t.effect
 
+/-- An event that a delayed trigger can watch (CR 6.6.3). -/
+inductive DelayedTriggerWatch where
+  /-- Trigger once at the beginning of this phase. -/
+  | phase (phase : Phase)
+  /-- Trigger every time the controller pays a boost cost in the specified turn. -/
+  | boostThisTurn (turn : Nat)
+deriving DecidableEq, Repr
+
 /-- A delayed triggered ability waiting for a future phase/event even if its source leaves the
 arena (e.g. Intimidate returning banished cards at End Phase) (CR 6.6.3, 8.5.10). -/
 structure DelayedTrigger where
@@ -69,8 +77,10 @@ structure DelayedTrigger where
   controller : PlayerId
   /-- Source object that created the delayed trigger. -/
   source : ObjId
-  /-- Phase at which this delayed trigger fires. -/
-  watchPhase : Phase
+  /-- Identity at registration, for delayed effects created by a resolving layer. -/
+  sourceLki : Option LkiSnapshot := none
+  /-- Event that causes this delayed trigger to fire. -/
+  watch : DelayedTriggerWatch
   /-- Effect executed when triggered. -/
   effect : Effect := .nop
 deriving DecidableEq, Repr

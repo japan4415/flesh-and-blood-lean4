@@ -521,6 +521,64 @@ meta def acceleratorShieldOrderScenario : Option Bool := do
 
 #guard acceleratorShieldOrderScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC006").bind throughArcDB.find?).any
+  (fun card => card.front.name == "High Octane" && card.status == .full)
+
+meta def highOctaneScenario : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let fixture : CardDef :=
+    { id := ⟨"High Octane Boost fixture"⟩
+      front :=
+        { name := "High Octane Boost fixture"
+          supertypes := [.class_ .mechanologist]
+          types := [.action]
+          subtypes := [.attack]
+          cost := some { actionPoints := 1 }
+          power := some 3
+          keywords := [.boost] } }
+  let cards : CardDB := ⟨fixture :: throughArcDB.cards⟩
+  let start := { earlyBase with cards, boostsThisTurn := [p] }
+  let (tail, mech) ← earlyPlace start p deck fixture.id.val
+  let (middle, generic) ← earlyPlace tail p deck "WTR_191_R"
+  let (drawReady, _) ← earlyPlace middle p deck "WTR_203_R"
+  let (withFirst, first) ← earlyPlace drawReady p hand fixture.id.val
+  let (withSecond, second) ← earlyPlace withFirst p hand fixture.id.val
+  let (ready, octane) ← earlyPlace withSecond p hand "ARC_006_R"
+  let resolved ← earlySteps ready (⟨.player p, .playCard octane⟩ :: earlyPass)
+  let firstChoice ← earlySteps resolved [⟨.player p, .playCard first⟩]
+  let declined ← earlySteps firstChoice [⟨.player p, .pickMay false⟩]
+  let firstBoost ← earlySteps firstChoice [⟨.player p, .pickMay true⟩]
+  let firstTrigger ← firstBoost.pendingTriggers.head?
+  let answer (id : Nat) : List Action :=
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger id⟩] ++ earlyPass
+  let firstGain ← earlySteps firstBoost (answer firstTrigger.id)
+  let firstAttack ← earlySteps firstGain (earlyPass ++ earlyPass)
+  let firstHit ← earlyDamage firstAttack
+  let closed ← earlySteps firstHit (earlyPass ++ earlyPass)
+  let secondBoost ← earlySteps closed
+    [⟨.player p, .playCard second⟩, ⟨.player p, .pickMay true⟩]
+  let secondTrigger ← secondBoost.pendingTriggers.head?
+  let secondGain ← earlySteps secondBoost (answer secondTrigger.id)
+  let secondAttack ← earlySteps secondGain (earlyPass ++ earlyPass)
+  let secondHit ← (earlyDamage secondAttack).bind (earlySteps · earlyPass)
+  let (expired, _) ← microStep { secondHit with pending := [.endTurnCleanup p] }
+  let firstLink ← firstAttack.combat.bind CombatChain.activeLink?
+  let secondLink ← secondAttack.combat.bind CombatChain.activeLink?
+  pure (resolved.zone deck == [generic, mech] && (resolved.zone hand).length == 3 &&
+    resolved.delayedTriggers.length == 1 && resolved.pendingTriggers.isEmpty &&
+    (resolved.poolOf p).actionPoints == 4 && (resolved.poolOf p).resources == 7 &&
+    declined.pendingTriggers.isEmpty && declined.boostsThisTurn == [p] &&
+    firstBoost.pendingTriggers.length == 1 && secondBoost.pendingTriggers.length == 1 &&
+    firstTrigger.sourceLki.name == "High Octane" && secondTrigger.sourceLki.name == "High Octane" &&
+    (firstBoost.poolOf p).actionPoints == 3 && (firstGain.poolOf p).actionPoints == 4 &&
+    (secondBoost.poolOf p).actionPoints == 3 && (secondGain.poolOf p).actionPoints == 4 &&
+    !linkHasKeyword firstAttack firstLink .goAgain && linkHasKeyword secondAttack secondLink .goAgain &&
+    (secondHit.poolOf p).actionPoints == 5 && expired.delayedTriggers.isEmpty)
+
+#guard highOctaneScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

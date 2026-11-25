@@ -36,6 +36,7 @@ def effectSize : Effect → Nat
   | .chooseOne ms => 1 + effectListSize ms
   | .rollDie6 _ _ c => 1 + effectSize c
   | .bindRevealTopCount _ _ _ _ c | .bindBanishTopCount _ _ _ _ c => 1 + effectSize c
+  | .onBoostThisTurn body => 1 + effectSize body
   | .discardTopOfHand _ _ m n => 1 + max (effectSize m) (effectSize n)
   | .grant _ _ _ => 1
   | .custom _ _ => 1
@@ -70,7 +71,7 @@ theorem todoSize_append (xs ys : List Effect) :
 /-- Whether an `Effect` is a pure automatic IR step that never spawns external sub-frames or
 interactive prompts. -/
 def Effect.isPureAuto : Effect → Bool
-  | .nop | .seq _ | .ifThen _ _ _ | .grant _ _ _ | .custom _ _ => true
+  | .nop | .seq _ | .ifThen _ _ _ | .grant _ _ _ | .onBoostThisTurn _ | .custom _ _ => true
   | _ => false
 
 /-- **I12b** (`interpRunStep` strict decrease on pure automatic combinators):
@@ -104,9 +105,9 @@ theorem interpRunStep_pure_decreases (s : GameState) (ctrl : PlayerId) (src : Ob
   | grant _ mod dur =>
     refine ⟨_, [], more, rfl, rfl, ?_⟩
     simp [todoSize, effectSize]
-  | custom _ _ =>
+  | onBoostThisTurn _ | custom _ _ =>
     refine ⟨_, [], more, rfl, rfl, ?_⟩
-    simp [todoSize, effectSize]
+    simp [todoSize, effectSize] <;> omega
   | prim _ | may _ _ | chooseOne _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
   | bindBanishTopCount _ _ _ _ _ | discardTopOfHand _ _ _ _ =>
     simp [Effect.isPureAuto] at hpure
