@@ -64,7 +64,7 @@ inductive ReplacementAction where
   /-- Stage C (optional): Quell X — pay `amt` `{r}` to prevent up to `amt` damage of any kind and
   mark source for destruction (CR 8.3.19). -/
   | quellPrevent (amt : Nat)
-  /-- Stage C: shielding prevention preventing up to `amt` damage (CR 6.4.10d). -/
+  /-- Stage C: prevent the next `amt` points of damage (CR 6.4.10a). -/
   | shieldPrevent (amt : Nat)
   /-- Stage D: replace an event's outcome tag (CR 6.4.10e). -/
   | replaceOutcome (newTag : Nat)
@@ -98,6 +98,8 @@ structure ReplacementState where
   event : ProposedEvent
   /-- IDs of replacement effects already applied to this event for at-most-once (CR 6.4.5). -/
   usedIds : List Nat := []
+  /-- Remaining amounts of damage shields used in this event (CR 6.4.10a). -/
+  shieldRemainders : List (Nat × Nat) := []
   /-- Sources destroyed as part of Ward / Spellvoid prevention (CR 8.3.11, 8.3.21). -/
   destroyedSources : List ObjId := []
   /-- Sources marked to be destroyed at end of chain/turn by Quell (CR 8.3.19). -/
@@ -165,12 +167,23 @@ def applyOneReplacement (st : ReplacementState) (e : ReplacementEffect) : Replac
       resourcesPaid := st.resourcesPaid + amt
       quellMarked := st.quellMarked ++ [e.source] }
   | .shieldPrevent amt, .damage target kind dmg tag =>
-    { stUsed with event := .damage target kind (dmg - amt) tag }
+    { stUsed with
+      event := .damage target kind (dmg - amt) tag
+      shieldRemainders := (e.id, amt - dmg) :: stUsed.shieldRemainders }
   | .replaceOutcome newTag, .damage target kind dmg _ =>
     { stUsed with event := .damage target kind dmg newTag }
   | .replaceOutcome newTag, .clashOutcome w _ =>
     { stUsed with event := .clashOutcome w newTag }
   | _, _ => stUsed
+
+/-- Preserve unused effects and the unspent amounts of applied shields (CR 6.4.10a). -/
+def keepDamageReplacements (effects : List ReplacementEffect) (result : ReplacementState) :
+    List ReplacementEffect :=
+  effects.filterMap fun effect =>
+    if !result.usedIds.contains effect.id then some effect
+    else match result.shieldRemainders.lookup effect.id with
+    | some (amount + 1) => some { effect with action := .shieldPrevent (amount + 1) }
+    | _ => none
 
 /-- Choose the next eligible replacement effect in `stage` respecting the affected player's
 explicit choice list `acceptedIds` (CR 6.5.1):

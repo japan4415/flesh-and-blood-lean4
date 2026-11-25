@@ -129,12 +129,12 @@ def WTR_008_B : CardDef :=
             (.prim (.dealDamage .generic .attackingHero (.const 2)))
             .nop }) with status := .full }
 
-/-- Bone Head Barrier (drafted IR). -/
+/-- Bone Head Barrier. -/
 def WTR_010_Y : CardDef :=
-  draftCard WTR_010_Y_meta []
-    (some
-      { body := .rollDie6 ⟨0⟩ .nil
-          (.prim (.preventNextDamage .controller (.varVal ⟨0⟩) .thisTurn)) })
+  { draftCard WTR_010_Y_meta []
+      (some
+        { body := .rollDie6 ⟨0⟩ .nil
+            (.prim (.preventNextDamage .controller (.varVal ⟨0⟩) .thisTurn)) }) with status := .full }
 
 /-- Shared 3-color helper for Breakneck Battery. -/
 def breakneckBattery (base : CardDef) : CardDef :=
