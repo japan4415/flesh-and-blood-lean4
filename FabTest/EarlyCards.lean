@@ -1058,6 +1058,43 @@ meta def convectionAmplifierScenario : Option Bool := do
 
 #guard convectionAmplifierScenario == some true
 
+meta def overLoopScenario (cardId : String) (power : Int) (blocked : Bool) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let hand := Zone.player p .hand
+  let getLink (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let (bottom, marker) ← earlyPlace { earlyBase with cards := throughArcDB } p deck "WTR_191_R"
+  let (withBoost, _) ← earlyPlace bottom p deck "ARC_007_B"
+  let (withBlock, first) ← earlyPlace withBoost q (.player q .hand) "WTR_188_R"
+  let (withTwoBlocks, second) ← earlyPlace withBlock q (.player q .hand) "WTR_188_R"
+  let (ready, attack) ← earlyPlace withTwoBlocks p hand cardId
+  let attacking ← earlySteps ready
+    ([⟨.player p, .playCard attack⟩, ⟨.player p, .pickMay true⟩] ++ earlyPass ++ earlyPass)
+  let link ← getLink attacking
+  let attackOnChain ← link.attack
+  let blocks : List Action := if blocked then
+    [⟨.player q, .defendCard first⟩, ⟨.player q, .defendCard second⟩] else []
+  let damage ← (earlySteps attacking blocks).bind earlyDamage
+  let settled ← if blocked then some damage else do
+    let trigger ← damage.pendingTriggers.head?
+    earlySteps damage
+      ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let resolved ← earlySteps settled earlyPass
+  let endingLink ← getLink resolved
+  pure (linkAttackPower attacking link == power && linkHasKeyword attacking link .goAgain &&
+    attacking.zone deck == [marker] && damage.pendingTriggers.length == (if blocked then 0 else 1) &&
+    endingLink.linkId == link.linkId && endingLink.hit == !blocked &&
+    (resolved.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    if blocked then resolved.zone deck == [marker] && (resolved.zone .combatChain).contains attackOnChain
+    else resolved.locate attackOnChain == none &&
+      (resolved.zone deck).map (fun id => (resolved.cardDefOf? id).map (·.id.val)) ==
+        [some "WTR_191_R", some cardId])
+
+#guard (earlyPrintingCardId? "ARC020").map (·.val) == some "ARC_020_R"
+#guard overLoopScenario "ARC_020_R" 5 false == some true
+#guard overLoopScenario "ARC_020_R" 5 true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
