@@ -10,19 +10,19 @@ import re
 from collections import Counter
 
 
-def scan_statuses(wtr_lean_path: pathlib.Path, card_ids: list[str]) -> tuple[dict[str, str], int]:
-    """Scan FabCards/WTR.lean to determine each card's ImplStatus and custom IR count."""
+def scan_statuses(lean_path: pathlib.Path, card_ids: list[str]) -> tuple[dict[str, str], int]:
+    """Read explicit card overrides and their implementation status."""
     statuses = {cid: "todo" for cid in card_ids}
-    if not wtr_lean_path.exists():
+    if not lean_path.exists():
         return statuses, 0
 
-    text = wtr_lean_path.read_text(encoding="utf-8")
+    text = lean_path.read_text(encoding="utf-8")
     custom_uses = len(re.findall(r"\.custom\b", text))
 
-    # Any card defined as `def WTR_xxx : CardDef := ...` in FabCards/WTR.lean is an override;
+    # Explicit card definitions in a set module override generated metadata.
     # default to `drafted` unless explicitly marked `.full`, `.«partial»`, or `.todo`.
     for m in re.finditer(
-        r"def\s+(WTR_\d+(?:_[RYB])?)\s*:\s*CardDef\s*:=(.*?)(?=\n(?:/--|def |private |end ))",
+        r"def\s+([A-Z0-9]+_\d+(?:_[RYB])?)\s*:\s*CardDef\s*:=(.*?)(?=\n(?:/--|def |private |end ))",
         text,
         re.S,
     ):
@@ -42,66 +42,94 @@ def scan_statuses(wtr_lean_path: pathlib.Path, card_ids: list[str]) -> tuple[dic
     return statuses, custom_uses
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data", default="data/normalized/wtr_cards.json")
-    parser.add_argument("--lean", default="FabCards/WTR.lean")
-    parser.add_argument("--out", default="docs/coverage.md")
-    args = parser.parse_args()
-
-    payload = json.loads(pathlib.Path(args.data).read_text(encoding="utf-8"))
-    cards = payload["cards"]
-    card_ids = [c["card_id"] for c in cards]
-    statuses, custom_uses = scan_statuses(pathlib.Path(args.lean), card_ids)
-
-    counts = Counter(statuses.values())
-    total = len(cards)
-    unique_names = len({c["name"] for c in cards})
-    drafted_or_better = counts["drafted"] + counts["partial"] + counts["full"]
-
-    # Breakdown by supertype/class
-    by_class: dict[str, Counter] = {}
-    for c in cards:
-        supers = c["supertypes"]
-        if not supers:
-            cls = "None"
-        elif supers[0]["kind"] == "generic":
-            cls = "Generic"
-        else:
-            cls = supers[0]["val"].capitalize()
-        by_class.setdefault(cls, Counter())[statuses[c["card_id"]]] += 1
-
+def report(sources: list[tuple[pathlib.Path, pathlib.Path]]) -> tuple[str, list[str]]:
+    datasets = [(json.loads(data.read_text(encoding="utf-8")), lean) for data, lean in sources]
+    source_refs = dict.fromkeys(
+        f"{payload.get('source_repo')}@{(payload.get('source_commit') or '')[:12]}"
+        for payload, _ in datasets
+    )
+    reference = ", ".join(f"`{ref}`" for ref in source_refs)
     lines = [
         "# カード実装カバレッジ（自動生成）",
         "",
         "`scripts/coverage.py` によって自動生成されています。",
         "",
-        f"- **データ源**: `{payload.get('source_repo')}@{(payload.get('source_commit') or '')[:12]}`",
-        f"- **対象セット**: Welcome to Rathe (`{payload.get('set_code')}`)",
+        f"データ源は {reference} です。",
         "",
         "## セット別サマリ",
         "",
-        "| セット | 論理カード数 | ユニーク名数 | `full` | `partial` | `drafted` | `todo` | IR 転記率 | `custom` 数 |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
-        f"| WTR | {total} | {unique_names} | {counts['full']} | {counts['partial']} | {counts['drafted']} | {counts['todo']} | {drafted_or_better}/{total} ({100.0 * drafted_or_better / total:.1f}%) | {custom_uses} |",
-        "",
-        "## WTR クラス別内訳",
-        "",
-        "| クラス | 合計 | `full` | `partial` | `drafted` | `todo` |",
-        "|---|---:|---:|---:|---:|---:|",
+        "| セット | 新規論理カード | ユニーク名 | 再録 | `full` | `partial` | "
+        "`drafted` | `todo` | IR 転記率 | `custom` |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
-
-    for cls in sorted(by_class):
-        cc = by_class[cls]
-        ctot = sum(cc.values())
+    seen: set[str] = set()
+    classes: list[str] = []
+    summaries: list[str] = []
+    for payload, lean in datasets:
+        code = payload["set_code"]
+        cards = []
+        for card in payload["cards"]:
+            identity = card.get("unique_id") or card["card_id"]
+            if identity not in seen:
+                cards.append(card)
+                seen.add(identity)
+        statuses, custom = scan_statuses(lean, [card["card_id"] for card in cards])
+        counts = Counter(statuses.values())
+        total = len(cards)
+        reprints = len(payload["cards"]) - total
+        names = len({card["name"] for card in cards})
+        implemented = total - counts["todo"]
+        percent = 100.0 * implemented / total if total else 0.0
         lines.append(
-            f"| {cls} | {ctot} | {cc['full']} | {cc['partial']} | {cc['drafted']} | {cc['todo']} |"
+            f"| {code} | {total} | {names} | {reprints} | {counts['full']} | {counts['partial']} | "
+            f"{counts['drafted']} | {counts['todo']} | {implemented}/{total} ({percent:.1f}%) | {custom} |"
         )
+        summaries.append(f"{code} {counts['full']}/{total} full")
+        by_class: dict[str, Counter[str]] = {}
+        for card in cards:
+            supers = card["supertypes"]
+            cls = "None" if not supers else (
+                "Generic" if supers[0]["kind"] == "generic" else supers[0]["val"].capitalize()
+            )
+            by_class.setdefault(cls, Counter())[statuses[card["card_id"]]] += 1
+        classes.extend([
+            "",
+            f"## {code} クラス別内訳",
+            "",
+            "| クラス | 合計 | `full` | `partial` | `drafted` | `todo` |",
+            "|---|---:|---:|---:|---:|---:|",
+        ])
+        for cls, cc in sorted(by_class.items()):
+            classes.append(
+                f"| {cls} | {sum(cc.values())} | {cc['full']} | {cc['partial']} | {cc['drafted']} | {cc['todo']} |"
+            )
+    return "\n".join([*lines, *classes, ""]), summaries
 
-    lines.append("")
-    out_path = pathlib.Path(args.out)
-    out_path.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Wrote {out_path}: {drafted_or_better}/{total} drafted+, {counts['full']} full, {custom_uses} custom")
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data", type=pathlib.Path)
+    parser.add_argument("--lean", type=pathlib.Path)
+    parser.add_argument("--out", type=pathlib.Path, default=pathlib.Path("docs/coverage.md"))
+    parser.add_argument("--check", action="store_true")
+    args = parser.parse_args()
+    sources = [
+        (pathlib.Path(f"data/normalized/{code.lower()}_cards.json"), pathlib.Path(f"FabCards/{code}.lean"))
+        for code in ("WTR", "ARC")
+    ]
+    if args.data is not None or args.lean is not None:
+        wtr_data, wtr_lean = sources[0]
+        sources = [(args.data or wtr_data, args.lean or wtr_lean)]
+
+    content, summaries = report(sources)
+    if args.check:
+        if not args.out.is_file() or args.out.read_text(encoding="utf-8") != content:
+            print(f"coverage --check: {args.out} is out of date")
+            return 1
+        print(f"coverage --check: OK ({', '.join(summaries)})")
+    else:
+        args.out.write_text(content, encoding="utf-8")
+        print(f"Wrote {args.out}: {', '.join(summaries)}")
     return 0
 
 

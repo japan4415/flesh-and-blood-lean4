@@ -63,8 +63,18 @@ def ARC_005 : CardDef :=
             { body := .prim (.gainAP .controller (.const 1)) } ] }
     status := .full }
 
+/-- High Octane (ARC006). -/
+def ARC_006_R : CardDef :=
+  { Meta.ARC_006_R_meta with
+    front := { Meta.ARC_006_R_meta.front with
+      playEffect := some {
+        body := .seqL
+          [ .onBoostThisTurn (.prim (.gainAP .controller (.const 1)))
+          , .prim (.draw .controller (.const 1)) ] } }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
-def arcCards : List CardDef := [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005]
+def arcCards : List CardDef := [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R]
 
 end FabCards.ARC
 

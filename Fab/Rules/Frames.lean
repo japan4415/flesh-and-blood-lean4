@@ -1106,7 +1106,18 @@ def finishBoostedPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArse
     (modeIdx : Option Nat) (rest : List Frame) : GameState × List Event :=
   let (boosted, goAgain, events) := applyBoost s p false
   let paid := if events.isEmpty then none else some goAgain
-  (finishPaidPlay boosted p layerId fromArsenal modeIdx rest none paid, events)
+  let delayed := boosted.delayedTriggers.filterMap fun trigger =>
+    if paid.isSome && trigger.controller == p && trigger.watch == .boostThisTurn boosted.turn then
+      let pending : PendingTrigger :=
+        { id := trigger.id
+          source := trigger.source
+          sourceLki := trigger.sourceLki.getD (captureLki boosted trigger.source p)
+          controller := p
+          effect := trigger.effect }
+      some (pending, false)
+    else none
+  let queued := queueCardTriggers boosted delayed
+  (finishPaidPlay queued p layerId fromArsenal modeIdx rest none paid, events)
 
 /-- The declarations and payment for a supported activated ability (CR 5.2.2). -/
 structure ActivationPlan where
@@ -1761,7 +1772,7 @@ def applyAction (s : GameState) (a : Action) : Option (GameState × List Event) 
 def beginEndPhase (s : GameState) (tp : PlayerId) (rest : List Frame) : GameState :=
   let phaseState := { s.expireEffects .thisActionPhase with phase := .endPhase }
   let queued := queueCardTriggers phaseState (installedCardTriggers phaseState tp (· == .onStartOfEndPhase))
-  let selected := s.delayedTriggers.partition fun trigger => trigger.watchPhase == .endPhase
+  let selected := s.delayedTriggers.partition fun trigger => trigger.watch == .phase .endPhase
   let delayed := selected.1.map fun trigger =>
     { id := trigger.id
       source := trigger.source
@@ -2092,6 +2103,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       activeReplacements := []
       chargedThisTurn := []
       boostsThisTurn := []
+      delayedTriggers := s.delayedTriggers.filter fun trigger => trigger.watch != .boostThisTurn s.turn
       banishedSixPowerThisTurn := []
       activatedThisTurn := []
       weaponHitsThisTurn := []

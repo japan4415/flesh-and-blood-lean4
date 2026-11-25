@@ -994,7 +994,7 @@ def intimidateHandFront (s : GameState) (ctrl target : PlayerId) : GameState × 
         { id := s1.nextTimestamp
           controller := ctrl
           source := banId
-          watchPhase := .endPhase
+          watch := .phase .endPhase
           effect := .prim (.moveCard .self_ .hand .top false) }
       ({ s1 with
           delayedTriggers := s1.delayedTriggers ++ [dt]
@@ -2100,6 +2100,18 @@ def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     ({ banished with
         pending := .run ctrl src fromArsenal ((bindVar, Int.ofNat matched) :: env) [cont] ::
           .run ctrl src fromArsenal env more :: rest }, events)
+  | .onBoostThisTurn body :: more =>
+    let delayed : DelayedTrigger :=
+      { id := s.nextTimestamp
+        controller := ctrl
+        source := src
+        sourceLki := some (captureLki s src ctrl)
+        watch := .boostThisTurn s.turn
+        effect := body }
+    ({ s with
+        delayedTriggers := s.delayedTriggers ++ [delayed]
+        nextTimestamp := s.nextTimestamp + 1
+        pending := .run ctrl src fromArsenal env more :: rest }, [])
   | .discardTopOfHand pref filter ifMatches otherwise :: more =>
     let player := evalPlayerRef s ctrl pref
     let (discarded, events) := discardManyObjs s player ((s.zone (.player player .hand)).take 1)
@@ -2124,7 +2136,7 @@ theorem interpRunStep_wf {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : 
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | custom _ _ =>
+    | onBoostThisTurn _ | custom _ _ =>
       exact GameState.WF.congr hwf rfl rfl rfl rfl
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref
@@ -2152,7 +2164,7 @@ theorem interpRunStep_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | custom _ _ =>
+    | onBoostThisTurn _ | custom _ _ =>
       exact GameState.OwnerOk.congr hok rfl rfl
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref
@@ -2181,7 +2193,7 @@ theorem interpRunStep_physIds {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | custom _ _ =>
+    | onBoostThisTurn _ | custom _ _ =>
       exact List.Perm.refl _
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref
@@ -2214,7 +2226,7 @@ theorem interpRunStep_meta {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl 
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | custom _ _ =>
+    | onBoostThisTurn _ | custom _ _ =>
       exact ⟨rfl, rfl⟩
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref

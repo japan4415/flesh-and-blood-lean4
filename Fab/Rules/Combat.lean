@@ -23,25 +23,6 @@ Implements the Combat Chain mechanics (CR 1.2.3, 1.4.3, 3.5, 7.0-7.7):
 
 namespace Fab
 
-/-- Capture an immutable `LkiSnapshot` of object `id` in state `s` (CR 1.2.3).
-For an `attackProxy` carrying `sourceLki`, uses that snapshot directly. -/
-def captureLki (s : GameState) (id : ObjId) (fallbackOwner : PlayerId) : LkiSnapshot :=
-  match s.obj? id with
-  | none =>
-    { cardId := none, name := "", owner := fallbackOwner, controller := fallbackOwner }
-  | some o =>
-    match o.kind with
-    | .attackProxy _ (some lki) => lki
-    | _ =>
-      match s.objectFace? id with
-      | some face =>
-        LkiSnapshot.ofFace o.owner o.controller o.kind.cardId? face
-          o.minusDefenseCounters o.plusPowerCounters
-      | none =>
-        { cardId := o.kind.cardId?, name := "", owner := o.owner, controller := o.controller,
-          minusDefenseCounters := o.minusDefenseCounters,
-          plusPowerCounters := o.plusPowerCounters }
-
 /-- Find self-scoped static modifiers that are active on the weapon (CR 1.4.3a, 6.3.1). -/
 def weaponStaticModifiers (s : GameState) (source : ObjId) (chars : DerivedChars) :
     List ContinuousMod :=
