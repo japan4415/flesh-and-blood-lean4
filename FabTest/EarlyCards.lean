@@ -194,3 +194,22 @@ meta def springboardScenario : Option Bool := do
   let arsenal ← defendWith (.player q .arsenal)
   pure (hand == 2 && arsenal == 4)
 #guard springboardScenario == some true
+
+-- The original Ira deck has twelve printings, two of which share WTR card IDs.
+#guard
+  ["IRA001-P", "IRA002-P", "IRA003-P", "IRA004-P", "IRA005-P", "IRA006-P",
+   "IRA007-P", "IRA008-P", "IRA009-P", "IRA010-P", "IRA011-P", "IRA012-P"].map
+    earlyPrintingCardId? ==
+  (["IRA_001", "IRA_002", "IRA_003_Y", "IRA_004_Y", "IRA_005_Y", "IRA_006_R",
+    "IRA_007_R", "WTR_100_B", "WTR_191_R", "IRA_010_B", "IRA_011_B", "IRA_012_Y"].map
+      fun id => some (CardId.mk id))
+
+#guard
+  ["LGS001-P", "LGS002-P", "LGS003-P", "LGS004-P", "LGS005-P", "LGS006-P",
+   "LGS007-P", "LGS008-P"].map earlyPrintingCardId? ==
+  (["WTR_003", "WTR_040", "WTR_078", "WTR_115", "WTR_031_B", "WTR_054_R", "WTR_110_R",
+    "WTR_132_R"].map fun id => some (CardId.mk id))
+
+#guard wtrDB.cards.length == 226
+#guard IRA.iraCards.length == 10
+#guard throughWtrDB.cards.length == 236 && throughWtrDB.cards.all (·.status == .full)

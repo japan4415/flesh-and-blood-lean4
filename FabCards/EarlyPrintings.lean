@@ -34,6 +34,15 @@ def earlyPrintingCardId? : String → Option CardId
   | "IRA010" | "IRA010-P" => some ⟨"IRA_010_B"⟩
   | "IRA011" | "IRA011-P" => some ⟨"IRA_011_B"⟩
   | "IRA012" | "IRA012-P" => some ⟨"IRA_012_Y"⟩
+  -- The first LGS promo print run shares logical cards with the WTR booster.
+  | "LGS001" | "LGS001-P" => some ⟨"WTR_003"⟩
+  | "LGS002" | "LGS002-P" => some ⟨"WTR_040"⟩
+  | "LGS003" | "LGS003-P" => some ⟨"WTR_078"⟩
+  | "LGS004" | "LGS004-P" => some ⟨"WTR_115"⟩
+  | "LGS005" | "LGS005-P" => some ⟨"WTR_031_B"⟩
+  | "LGS006" | "LGS006-P" => some ⟨"WTR_054_R"⟩
+  | "LGS007" | "LGS007-P" => some ⟨"WTR_110_R"⟩
+  | "LGS008" | "LGS008-P" => some ⟨"WTR_132_R"⟩
   | _ => none
 
 end FabCards
