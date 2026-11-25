@@ -550,8 +550,7 @@ meta def checkSloggismWithNimblism : Option Bool := do
 #guard checkSloggismWithNimblism == some true
 
 /-- Check Awakening Bellow's hidden random card, return, and next Brute attack bonus. -/
-meta def checkAwakeningBellow (cid : CardId) (bonus : Int) (targeted : Bool := false) :
-    Option Bool := do
+meta def checkAwakeningBellow (cid : CardId) (bonus : Int) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
   let defender : PlayerId := ⟨1⟩
   let hand := Zone.player defender .hand
@@ -568,8 +567,7 @@ meta def checkAwakeningBellow (cid : CardId) (bonus : Int) (targeted : Bool := f
   let play := fun id => [⟨.player attacker, .playCard id⟩]
   let choosing ← cSteps ready (play bellow)
   let declare := fun target => (⟨.player attacker, .pickHeroTarget target⟩ : Action)
-  let (paidBellow, declaration) ←
-    if targeted then (step 64 choosing (declare defender)).toOption else some (choosing, [])
+  let (paidBellow, declaration) ← (step 64 choosing (declare defender)).toOption
   let chance ← cSteps paidBellow passBoth
   let shuffle := fun ids => (⟨.chance, .shuffleOrder ids⟩ : Action)
   let (buffed, events) ← (step 64 chance (shuffle [first, second])).toOption
@@ -586,38 +584,36 @@ meta def checkAwakeningBellow (cid : CardId) (bonus : Int) (targeted : Bool := f
     ⟨.player attacker, .pickTrigger returnTrigger.id⟩]
   let returnedId ← (returned.zone hand).head?
   let ended ← cSteps returned [⟨.player attacker, .arsenalSkip⟩]
-  let targetChecks ← if targeted then do
-    let layer ← (choosing.zone .stack).head?
-    let cancel := (⟨.player attacker, .cancelPlay⟩ : Action)
-    let cancelled ← cSteps choosing [cancel]
-    let unfunded := ready.setPool attacker { actionPoints := 1 }
-    let pitching ← cSteps unfunded (play bellow ++ [declare attacker])
-    let cancelledAfterTarget ← cSteps pitching [cancel]
-    let selfBuffed ← cSteps pitching ([⟨.player attacker, .pitchCard jab⟩] ++ passBoth)
-    let selfHidden ← (selfBuffed.zone (.player attacker .banished)).head?
-    let atSelfEnd ← cSteps selfBuffed passBoth
-    let selfTrigger ← atSelfEnd.pendingTriggers.head?
-    let selfReturned ← cSteps atSelfEnd [⟨.player attacker, .pickTriggerStart attacker⟩,
-      ⟨.player attacker, .pickTrigger selfTrigger.id⟩]
-    let selfReturnedId ← (selfReturned.zone (.player attacker .hand)).head?
-    let huntCard ← ready.obj? hunt
-    pure (choosing.pending.head? == some (.choosePlayHero attacker layer false none
-        { actionPoints := 1, resources := 1 }) &&
-      choosing.poolOf attacker == ready.poolOf attacker &&
-      (legalActionsFor attacker choosing).contains (declare attacker) &&
-      (legalActionsFor attacker choosing).contains (declare defender) &&
-      (step 64 choosing (declare ⟨2⟩)).toOption.isNone &&
-      (step 64 choosing ⟨.player defender, .pickHeroTarget defender⟩).toOption.isNone &&
-      decide (cancelled = ready) && decide (cancelledAfterTarget = unfunded) &&
-      declaration == [.targetedHero layer defender] &&
-      (paidBellow.layerMeta.get? layer.n).bind (·.heroTarget) == some defender &&
-      selfBuffed.zone hand == ready.zone hand &&
-      selfBuffed.activeEffects.map (·.op) == buffed.activeEffects.map (·.op) &&
-      (selfBuffed.obj? selfHidden).map (fun o => (o.kind, o.faceDown)) == some (huntCard.kind, true) &&
-      (selfReturned.obj? selfReturnedId).map (fun o => (o.kind, o.faceDown)) ==
-        some (huntCard.kind, false) &&
-      selfReturned.pending.head? == some (.chooseArsenal attacker))
-  else pure true
+  let layer ← (choosing.zone .stack).head?
+  let cancel := (⟨.player attacker, .cancelPlay⟩ : Action)
+  let cancelled ← cSteps choosing [cancel]
+  let unfunded := ready.setPool attacker { actionPoints := 1 }
+  let pitching ← cSteps unfunded (play bellow ++ [declare attacker])
+  let cancelledAfterTarget ← cSteps pitching [cancel]
+  let selfBuffed ← cSteps pitching ([⟨.player attacker, .pitchCard jab⟩] ++ passBoth)
+  let selfHidden ← (selfBuffed.zone (.player attacker .banished)).head?
+  let atSelfEnd ← cSteps selfBuffed passBoth
+  let selfTrigger ← atSelfEnd.pendingTriggers.head?
+  let selfReturned ← cSteps atSelfEnd [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger selfTrigger.id⟩]
+  let selfReturnedId ← (selfReturned.zone (.player attacker .hand)).head?
+  let huntCard ← ready.obj? hunt
+  let targetChecks := (choosing.pending.head? == some (.choosePlayHero attacker layer false none
+      { actionPoints := 1, resources := 1 }) &&
+    choosing.poolOf attacker == ready.poolOf attacker &&
+    (legalActionsFor attacker choosing).contains (declare attacker) &&
+    (legalActionsFor attacker choosing).contains (declare defender) &&
+    (step 64 choosing (declare ⟨2⟩)).toOption.isNone &&
+    (step 64 choosing ⟨.player defender, .pickHeroTarget defender⟩).toOption.isNone &&
+    decide (cancelled = ready) && decide (cancelledAfterTarget = unfunded) &&
+    declaration == [.targetedHero layer defender] &&
+    (paidBellow.layerMeta.get? layer.n).bind (·.heroTarget) == some defender &&
+    selfBuffed.zone hand == ready.zone hand &&
+    selfBuffed.activeEffects.map (·.op) == buffed.activeEffects.map (·.op) &&
+    (selfBuffed.obj? selfHidden).map (fun o => (o.kind, o.faceDown)) == some (huntCard.kind, true) &&
+    (selfReturned.obj? selfReturnedId).map (fun o => (o.kind, o.faceDown)) ==
+      some (huntCard.kind, false) &&
+    selfReturned.pending.head? == some (.chooseArsenal attacker))
   pure (card.status == .full && targetChecks && chance.pending.head? == some (.chanceShuffle hand) &&
     chance.zone hand == ready.zone hand && chance.zone banished == [] &&
     (step 64 chance (shuffle [first, first])).toOption.isNone &&
@@ -635,8 +631,8 @@ meta def checkAwakeningBellow (cid : CardId) (bonus : Int) (targeted : Bool := f
     (returned.obj? returnedId).map (fun o => (o.kind, o.faceDown)) == some (firstCard.kind, false) &&
     ended.delayedTriggers.isEmpty && ended.activeEffects.isEmpty)
 
-#guard checkAwakeningBellow ⟨"WTR_032_R"⟩ 3 true == some true
-#guard checkAwakeningBellow ⟨"WTR_033_Y"⟩ 2 true == some true
+#guard checkAwakeningBellow ⟨"WTR_032_R"⟩ 3 == some true
+#guard checkAwakeningBellow ⟨"WTR_033_Y"⟩ 2 == some true
 #guard checkAwakeningBellow ⟨"WTR_034_B"⟩ 1 == some true
 
 /-- Play an attack with Intimidate and use the remaining hand card to defend. -/

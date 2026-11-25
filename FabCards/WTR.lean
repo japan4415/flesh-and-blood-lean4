@@ -188,20 +188,20 @@ def WTR_027_Y : CardDef := { intimidateAttack WTR_027_Y_meta with status := .ful
 def WTR_028_B : CardDef := { intimidateAttack WTR_028_B_meta with status := .full }
 
 /-- Shared 3-color helper for Awakening Bellow (intimidate + next Brute attack +3/+2/+1). -/
-def awakeningBellow (base : CardDef) (bonus : Int) (targeted : Bool := false) : CardDef :=
+def awakeningBellow (base : CardDef) (bonus : Int) : CardDef :=
   draftCard base []
     (some
-      { targets := if targeted then [{ kind := .hero }] else []
+      { targets := [{ kind := .hero }]
         body := .seqL
-          [ .prim (.intimidate (if targeted then .ownerOfSlot 0 else .opposingHero))
+          [ .prim (.intimidate (.ownerOfSlot 0))
           , .grant (.nextCardPlayed { supertypes := [.class_ .brute], types := [.action], subtypes := [.attack] })
               (.addPower (.const bonus))
               .thisTurn ] })
 
 /-- Awakening Bellow Red. -/
-def WTR_032_R : CardDef := { awakeningBellow WTR_032_R_meta 3 true with status := .full }
+def WTR_032_R : CardDef := { awakeningBellow WTR_032_R_meta 3 with status := .full }
 /-- Awakening Bellow Yellow. -/
-def WTR_033_Y : CardDef := { awakeningBellow WTR_033_Y_meta 2 true with status := .full }
+def WTR_033_Y : CardDef := { awakeningBellow WTR_033_Y_meta 2 with status := .full }
 /-- Awakening Bellow Blue. -/
 def WTR_034_B : CardDef := { awakeningBellow WTR_034_B_meta 1 with status := .full }
 
