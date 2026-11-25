@@ -626,8 +626,8 @@ def WTR_155 : CardDef := { WTR_155_meta with status := .full }
 def WTR_156 : CardDef := { WTR_156_meta with status := .full }
 /-- Ironrot Gauntlet, with Blade Break applied when the combat chain closes. -/
 def WTR_157 : CardDef := { WTR_157_meta with status := .full }
-/-- Ironrot Legs (keyword-only Blade Break, drafted IR). -/
-def WTR_158 : CardDef := draftVanilla WTR_158_meta
+/-- Ironrot Legs, with Blade Break applied when the combat chain closes. -/
+def WTR_158 : CardDef := { WTR_158_meta with status := .full }
 
 /-- Enlightened Strike (drafted IR — modal choice + deck-bottom extra cost). -/
 def WTR_159_R : CardDef :=
