@@ -418,6 +418,9 @@ def WTR_099_Y : CardDef := draftVanilla WTR_099_Y_meta
 /-- Head Jab Blue (vanilla Go Again, drafted IR). -/
 def WTR_100_B : CardDef := draftVanilla WTR_100_B_meta
 
+/-- Leg Tap Red, whose printed Go Again is handled by combat resolution. -/
+def WTR_101_R : CardDef := { WTR_101_R_meta with status := .full }
+
 /-- Surging Strike Red (vanilla Go Again, drafted IR). -/
 def WTR_107_R : CardDef := draftVanilla WTR_107_R_meta
 /-- Surging Strike Yellow (vanilla Go Again, drafted IR). -/
@@ -747,7 +750,7 @@ def WTR_225 : CardDef :=
 
 /-! ## Merged WTR card list (all 226 logical cards) -/
 
-/-- All WTR cards with handwritten IR transcriptions (`status := .drafted`). -/
+/-- All WTR cards with handwritten overrides. -/
 def draftedCards : List CardDef :=
   [ WTR_000_B
   , WTR_001, WTR_002, WTR_003, WTR_004, WTR_005, WTR_006_R, WTR_007_Y, WTR_008_B, WTR_010_Y
@@ -757,7 +760,7 @@ def draftedCards : List CardDef :=
   , WTR_048_R, WTR_049_Y, WTR_050_B, WTR_051_R, WTR_052_Y, WTR_053_B
   , WTR_054_R, WTR_055_Y, WTR_056_B, WTR_057_R, WTR_058_Y, WTR_059_B, WTR_075
   , WTR_076, WTR_077, WTR_078, WTR_079, WTR_080, WTR_081_B, WTR_082_R, WTR_084_Y, WTR_085_R
-  , WTR_086_R, WTR_087_Y, WTR_088_B, WTR_098_R, WTR_099_Y, WTR_100_B
+  , WTR_086_R, WTR_087_Y, WTR_088_B, WTR_098_R, WTR_099_Y, WTR_100_B, WTR_101_R
   , WTR_107_R, WTR_108_Y, WTR_109_B, WTR_110_R, WTR_111_Y, WTR_112_B
   , WTR_113, WTR_114, WTR_115, WTR_116, WTR_117, WTR_118_B, WTR_119_R, WTR_120_R
   , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_141_R, WTR_142_Y, WTR_143_B
