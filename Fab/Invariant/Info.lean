@@ -318,9 +318,16 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
   have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
   have hdom (link : ChainLink) : linkHasKeyword s1 link .dominate = linkHasKeyword s2 link .dominate :=
     h.linkHasKeyword_eq_of_ne_goAgain link .dominate (by decide)
+  have hweapon (card : CardDef) : cardWeaponTargetChoices s1 p card = cardWeaponTargetChoices s2 p card := by
+    have hobj (id : ObjId) : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
+    have hface (id : ObjId) : s1.objectFace? id = s2.objectFace? id := (h.cardDef_face id).2
+    have href (who : PlayerRef) : evalPlayerRef s1 p who = evalPlayerRef s2 p who := by
+      cases who <;> simp only [evalPlayerRef, h.playerCount, h.active]
+    unfold cardWeaponTargetChoices
+    simp only [href, h.arenaContents_eq, hobj, hface, h.characteristics_eq]
   unfold canPlayCard
   rw [hh, ha, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat]
-  simp only [canLinkTakeDefenseReaction, hdom, attackReactionCanTarget, h.hasRequiredAttackTarget_eq]
+  simp only [canLinkTakeDefenseReaction, hdom, attackReactionCanTarget, h.hasRequiredAttackTarget_eq, hweapon]
 
 /-- The current weapon attack candidates depend on the visible weapon zone and combat chain. -/
 theorem HiddenEquiv.weaponAttackCandidateIds_eq {p : PlayerId} {s1 s2 : GameState}
@@ -540,7 +547,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                     (l.map fun id => Action.mk (.player q) (.pitchCard id)) = [] := by
                 intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
               rw [hnil, hnil]
-          | chooseOptionalResources _ _ _ _ _ _ => rfl
+          | choosePlayWeapon _ _ _ _ _ _ | chooseOptionalResources _ _ _ _ _ _ => rfl
           | chooseGraveyardCost _ _ _ _ _ _ => rfl
           | chooseHandCardCost q _ _ _ cost =>
             dsimp only

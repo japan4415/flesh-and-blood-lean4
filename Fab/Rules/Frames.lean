@@ -291,6 +291,23 @@ def attackReactionCanTarget (s : GameState) (card : CardDef) : Bool :=
   if modeCount = 0 then hasRequiredAttackTarget s card none
   else (List.range modeCount).any fun idx => hasRequiredAttackTarget s card (some idx)
 
+/-- The public weapon permanents matching a card's single required weapon target (CR 1.8.5). -/
+def cardWeaponTargetChoices (s : GameState) (p : PlayerId) (card : CardDef) : Option (List ObjId) := do
+  let effect ← card.front.playEffect
+  let [spec] := effect.targets | none
+  let .weapon who := spec.kind | none
+  if spec.minCount != 1 || spec.maxCount != some 1 then none else
+    let controller := evalPlayerRef s p who
+    some ((activationArenaZones s).flatMap s.zone |>.filter fun id =>
+      (s.obj? id).any (fun obj => !obj.faceDown) &&
+        match s.objectFace? id, s.characteristics id with
+        | some face, some chars =>
+          chars.controller == controller && chars.types.contains .weapon &&
+            cardFaceMatches spec.filter { face with
+              types := chars.types, subtypes := chars.subtypes, keywords := chars.keywords,
+              cost := chars.baseCost }
+        | _, _ => false)
+
 /-- Whether player `p` may announce playing card `id` from hand or arsenal while holding priority
 (CR 5.1.1, 4.3, 3.2.2, 7.1, 7.4, 7.6).
 - Instants: playable anytime on priority.
@@ -318,6 +335,7 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
         s.active == some p &&
         (s.zone .stack).isEmpty &&
         chainOk &&
+        (cardWeaponTargetChoices s p c).all (fun targets => !targets.isEmpty) &&
         1 ≤ (s.poolOf p).actionPoints
       else if c.front.hasType .attackReaction then
         match s.combat with
@@ -436,11 +454,13 @@ def cardPlayTargetFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromAr
   | some card =>
     let targets := card.front.playEffect.map fun effect =>
       (modeIdx.bind (fun idx => effect.modes[idx]?)).map (·.targets) |>.getD effect.targets
-    if targets == some [{ kind := .hero }] &&
-        ((cardResolveEffect card modeIdx).bindIntimidateTarget p).isSome then
-      .choosePlayHero p layerId fromArsenal modeIdx cost
-    else
-      pay
+    match cardWeaponTargetChoices s p card with
+    | some weapons => .choosePlayWeapon p layerId fromArsenal modeIdx cost weapons
+    | none =>
+      if targets == some [{ kind := .hero }] &&
+          ((cardResolveEffect card modeIdx).bindIntimidateTarget p).isSome then
+        .choosePlayHero p layerId fromArsenal modeIdx cost
+      else pay
 
 /-- Bind the unique attack target before payment. Hero targets use their existing choice frame. -/
 def cardAttackTarget? (s : GameState) (layerId : ObjId) (modeIdx : Option Nat) : Option ObjId := do
@@ -462,7 +482,9 @@ def cardLayerEffect (s : GameState) (layerId : ObjId) (info : LayerInfo) : Effec
   | none => .nop
   | some card =>
     let effect := cardResolveEffect card info.modeIdx
-    (info.heroTarget.bind effect.bindIntimidateTarget).getD effect
+    if info.weaponTarget.any (fun id => !(cardWeaponTargetChoices s info.controller card).any (·.contains id)) then
+      .nop
+    else (info.heroTarget.bind effect.bindIntimidateTarget).getD effect
 
 /-- Whether the card-layer is a defense reaction. -/
 def isDefenseReactionLayer (s : GameState) (id : ObjId) : Bool :=
@@ -675,7 +697,12 @@ def weaponHitTriggers (s : GameState) (link : ChainLink) : List (PendingTrigger 
   match hitWeapon? s link with
   | some source =>
     if (s.obj? source).any (·.faceDown) || (s.characteristics source).any (·.abilitiesLost) then [] else
-      let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+      let printed := ((s.objectFace? source).map (·.abilities)).getD []
+      let granted := s.activeEffects.filterMap fun effect =>
+        match effect.target, effect.op with
+        | .obj id, .grantAttackAbility ability => if id == source then some ability else none
+        | _, _ => none
+      let abilities := printed ++ granted
       let count := s.weaponHitsThisTurn.count source
       matchingCardTriggers s source link.attacker false abilities
         (fun trigger cond =>
@@ -886,6 +913,7 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       modeIdx := modeIdx
       heroTarget := (s.layerMeta.get? layerId.n).bind (·.heroTarget)
       attackTarget := (s.layerMeta.get? layerId.n).bind (·.attackTarget)
+      weaponTarget := (s.layerMeta.get? layerId.n).bind (·.weaponTarget)
       additionalCostPaid := (s.layerMeta.get? layerId.n).any
         (fun info => info.payAdditionalResources || info.additionalCostPaid)
       discardedForPlay := discarded
@@ -1246,6 +1274,16 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       some (rollbackPlay s rest, [])
     else
       none
+  | .choosePlayWeapon p layerId fromArsenal modeIdx cost candidates :: rest, .player q, .pickWeaponTarget id =>
+    if p = q ∧ id ∈ candidates then
+      let info := s.layerMeta.getD layerId.n { controller := p }
+      some ({ s with
+        layerMeta := s.layerMeta.insert layerId.n { info with weaponTarget := some id }
+        pending := cardPaymentFrame s p layerId fromArsenal modeIdx cost :: rest },
+        [.targetedWeapon layerId id])
+    else none
+  | .choosePlayWeapon p _ _ _ _ _ :: rest, .player q, .cancelPlay =>
+    if p = q then some (rollbackPlay s rest, []) else none
   | .choosePitch p layerId fromArsenal modeIdx cost :: rest, .player q, .pitchCard id =>
     if p = q ∧ canPitchCard s p id = true then
       match pitchOne s p id with
