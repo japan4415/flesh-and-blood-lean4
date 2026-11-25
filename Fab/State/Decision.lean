@@ -75,6 +75,8 @@ inductive ActionKind where
   | defendDone
   /-- Select modal branch index `idx` during play declaration or `Effect.chooseOne` (CR 5.1.2a). -/
   | pickMode (idx : Nat)
+  /-- Declare a hero target for the card currently being played (CR 5.1.4a). -/
+  | pickHeroTarget (hero : PlayerId)
   /-- Pitch card `id` from hand to pay an asset cost during `choosePitch` (CR 1.14.3, 5.1.6). -/
   | pitchCard (id : ObjId)
   /-- Cancel and roll back an in-progress card play to the pre-play snapshot (CR 5.1.1). -/
@@ -149,6 +151,9 @@ inductive Frame where
   | priority (p : PlayerId) (passCount : Nat)
   /-- Player decision: declare mode index for modal card `layerId` during play (CR 5.1.2a). -/
   | chooseMode (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeCount : Nat)
+      (cost : AssetCost)
+  /-- Player decision: declare a hero target for a card before paying for it (CR 5.1.4a). -/
+  | choosePlayHero (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
       (cost : AssetCost)
   /-- Work frame: calculate/pay asset costs for `layerId`, prompting pitch or rolling back (CR 5.1.5, 5.1.6). -/
   | playPayCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)

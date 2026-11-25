@@ -354,6 +354,9 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
               cases s1.combat.bind CombatChain.activeLink? <;>
                 cases s2.combat.bind CombatChain.activeLink? <;> simp [hnil]
           | chooseMode _ _ _ _ _ => rfl
+          | choosePlayHero _ _ _ _ _ =>
+            dsimp only
+            rw [h.turnOrder]
           | choosePitch q _ _ _ _ =>
             dsimp only
             by_cases hqp : q = p

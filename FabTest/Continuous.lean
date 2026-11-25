@@ -131,7 +131,8 @@ meta def testFace : CardFace :=
     let (s2, bellow) ← addObject s1 (.player ⟨0⟩ .hand)
       { kind := .card ⟨1⟩ ⟨"WTR_032_R"⟩, owner := ⟨0⟩, controller := ⟨0⟩, timestamp := ⟨1⟩ } .top
     -- Play Awakening Bellow Red and let it resolve
-    let s3 ← match step 64 s2 ⟨.player ⟨0⟩, .playCard bellow⟩ with | .ok (s', _) => some s' | .error _ => none
+    let declare ← (step 64 s2 ⟨.player ⟨0⟩, .playCard bellow⟩).toOption.map Prod.fst
+    let s3 ← (step 64 declare ⟨.player ⟨0⟩, .pickHeroTarget ⟨1⟩⟩).toOption.map Prod.fst
     let s4 ← match step 64 s3 ⟨.player ⟨0⟩, .pass⟩ with | .ok (s', _) => some s' | .error _ => none
     let s5 ← match step 64 s4 ⟨.player ⟨1⟩, .pass⟩ with | .ok (s', _) => some s' | .error _ => none
     let pendingBonus := match s5.activeEffects with

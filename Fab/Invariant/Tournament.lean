@@ -928,6 +928,15 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       unfold rollbackPlay; cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
     · cases h
+  · -- choosePlayHero pickHeroTarget
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact ⟨rfl, rfl, rfl⟩
+    · cases h
+  · -- choosePlayHero cancelPlay
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      unfold rollbackPlay; cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
+    · cases h
   · -- choosePitch pitchCard
     split at h
     · split at h
