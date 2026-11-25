@@ -4203,6 +4203,8 @@ meta def checkNimbleStrike (cid : CardId) (pitch power : Nat) (fromArsenal : Boo
 
 #guard checkNimbleStrike ⟨"WTR_185_R"⟩ 1 4 false == some true
 #guard checkNimbleStrike ⟨"WTR_185_R"⟩ 1 4 true == some true
+#guard checkNimbleStrike ⟨"WTR_186_Y"⟩ 2 3 false == some true
+#guard checkNimbleStrike ⟨"WTR_186_Y"⟩ 2 3 true == some true
 
 /-- Shunt deals one point of generic damage as it resolves against a weapon. -/
 meta def checkSteelbladeShunt (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool) :
