@@ -224,3 +224,30 @@ meta def passBoth : List Action :=
       sSettled.result == some (.won [⟨0⟩]))) with
   | some b => b
   | none => false
+
+/-- Play Leg Tap through resolution, checking payment, damage, and Go Again even on a miss. -/
+meta def checkLegTap (cid : CardId) (power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let s0 := m5Base.setPool attacker { actionPoints := 1, resources := 1 }
+  let card ← s0.cards.find? cid
+  let (s1, attack) ← cPlace s0 attacker .hand cid
+  let (s2, defender1) ← cPlace s1 defender .hand ⟨"WTR_203_R"⟩
+  let (s3, defender2) ← cPlace s2 defender .hand ⟨"WTR_204_Y"⟩
+  let paid ← cSteps s3 [⟨.player attacker, .playCard attack⟩]
+  let defense ← cSteps paid (passBoth ++ passBoth)
+  let resolve : List Action := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let hit ← cSteps defense resolve
+  let miss ← cSteps defense
+    ([⟨.player defender, .defendCard defender1⟩, ⟨.player defender, .defendCard defender2⟩] ++ resolve)
+  let closed ← cSteps hit passBoth
+  let graveId ← (closed.zone (.player attacker .graveyard)).head?
+  pure (card.status == .full &&
+    (paid.poolOf attacker).actionPoints == 0 && (paid.poolOf attacker).resources == 0 &&
+    hit.combat.map (·.step) == some .resolution && hit.lifeOf defender == 40 - Int.ofNat power &&
+    miss.combat.map (·.step) == some .resolution && miss.lifeOf defender == 40 &&
+    (hit.poolOf attacker).actionPoints == 1 && (miss.poolOf attacker).actionPoints == 1 &&
+    closed.combat.isNone && (closed.poolOf attacker).actionPoints == 1 &&
+    (closed.cardDefOf? graveId).map (·.id) == some cid)
+
+#guard checkLegTap ⟨"WTR_101_R"⟩ 4 == some true
