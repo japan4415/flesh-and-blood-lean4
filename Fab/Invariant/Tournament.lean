@@ -885,6 +885,9 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
   · -- endTurnCleanup
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
     exact timeLimitBounded_of_eq hb rfl rfl id
+  · -- endTurnFinish
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact timeLimitBounded_of_eq hb rfl rfl id
   · -- flushTriggers
     split at h <;>
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
