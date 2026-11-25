@@ -76,8 +76,8 @@ def rhinarAbility : List Ability :=
 /-- Rhinar, Reckless Rampage. -/
 def WTR_001 : CardDef := { draftCard WTR_001_meta rhinarAbility with status := .full }
 
-/-- Rhinar (Young, drafted IR). -/
-def WTR_002 : CardDef := draftCard WTR_002_meta rhinarAbility
+/-- Rhinar (Young). -/
+def WTR_002 : CardDef := { draftCard WTR_002_meta rhinarAbility with status := .full }
 
 /-- Romping Club. -/
 def WTR_003 : CardDef :=
