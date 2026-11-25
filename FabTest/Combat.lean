@@ -600,6 +600,7 @@ meta def checkAwakeningBellow (cid : CardId) (bonus : Int) : Option Bool := do
 
 #guard checkAwakeningBellow ⟨"WTR_032_R"⟩ 3 == some true
 #guard checkAwakeningBellow ⟨"WTR_033_Y"⟩ 2 == some true
+#guard checkAwakeningBellow ⟨"WTR_034_B"⟩ 1 == some true
 
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
