@@ -948,6 +948,12 @@ def WTR_168_Y : CardDef := { snatchCard WTR_168_Y_meta with status := .full }
 /-- Snatch Blue. -/
 def WTR_169_B : CardDef := { snatchCard WTR_169_B_meta with status := .full }
 
+/-- Energy Potion. -/
+def WTR_170_B : CardDef :=
+  { draftCard WTR_170_B_meta
+      [ .activated .instant false {} [{ cost := .destroySelf }] none false
+          { body := .prim (.gainResource .controller (.const 2)) } ] with status := .full }
+
 /-- Timesnap Potion. -/
 def WTR_172_B : CardDef :=
   { draftCard WTR_172_B_meta
@@ -1197,7 +1203,7 @@ def draftedCards : List CardDef :=
   , WTR_141_R, WTR_142_Y, WTR_143_B, WTR_144_R, WTR_145_Y, WTR_146_B, WTR_147_R, WTR_148_Y, WTR_149_B
   , WTR_150, WTR_151, WTR_154, WTR_155, WTR_156, WTR_157, WTR_158
   , WTR_159_R, WTR_160_Y, WTR_161_B, WTR_162_B, WTR_163_Y
-  , WTR_164_R, WTR_165_Y, WTR_166_B, WTR_167_R, WTR_168_Y, WTR_169_B, WTR_172_B
+  , WTR_164_R, WTR_165_Y, WTR_166_B, WTR_167_R, WTR_168_Y, WTR_169_B, WTR_170_B, WTR_172_B
   , WTR_173_R, WTR_174_Y, WTR_175_B, WTR_176_R, WTR_177_Y, WTR_178_B, WTR_179_R, WTR_180_Y, WTR_181_B, WTR_182_R, WTR_183_Y, WTR_184_B
   , WTR_188_R, WTR_189_Y, WTR_190_B
   , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_194_R, WTR_195_Y, WTR_196_B
