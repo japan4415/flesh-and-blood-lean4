@@ -289,3 +289,4 @@ meta def checkSnatch (cid : CardId) (power : Nat) : Option Bool := do
     events.countP (· == .drawn attacker drawnId) == 1)
 
 #guard checkSnatch ⟨"WTR_167_R"⟩ 4 == some true
+#guard checkSnatch ⟨"WTR_168_Y"⟩ 3 == some true
