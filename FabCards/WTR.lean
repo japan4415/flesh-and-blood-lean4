@@ -512,8 +512,8 @@ def katsuAbility : List Ability :=
 /-- Katsu, the Wanderer. -/
 def WTR_076 : CardDef := { draftCard WTR_076_meta katsuAbility with status := .full }
 
-/-- Katsu (Young, drafted IR). -/
-def WTR_077 : CardDef := draftCard WTR_077_meta katsuAbility
+/-- Katsu (Young). -/
+def WTR_077 : CardDef := { draftCard WTR_077_meta katsuAbility with status := .full }
 
 /-- Harmonized Kodachi. -/
 def WTR_078 : CardDef :=

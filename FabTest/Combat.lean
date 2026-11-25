@@ -2406,6 +2406,7 @@ meta def checkKatsu (cid : CardId) (life : Nat) : Option Bool := do
     secondAfterSilence.pendingTriggers.isEmpty && secondAfterSilence.attackActionHitsThisTurn == [player, player])
 
 #guard checkKatsu ⟨"WTR_076"⟩ 40 == some true
+#guard checkKatsu ⟨"WTR_077"⟩ 20 == some true
 
 /-- Dawnblade's second hit and its counter retention both use the whole turn, across chains. -/
 meta def checkDawnblade : Option Bool := do
