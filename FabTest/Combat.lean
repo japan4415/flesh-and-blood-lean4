@@ -1645,6 +1645,42 @@ meta def checkDawnblade : Option Bool := do
 
 #guard checkDawnblade == some true
 
+/-- Energy Potion can respond to the opponent's attack and adds resources on resolution. -/
+meta def checkEnergyPotion : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_170_B"⟩
+  let arena := Zone.player player .permanent
+  let grave := Zone.player player .graveyard
+  let base : GameState := { m5Base with pending := m5Base.pending ++ [.beginTurn] }
+  let card ← base.cards.find? cid
+  let (ready, item) ← cPlace base player .hand cid
+  let installed ← cSteps ready (⟨.player player, .playCard item⟩ :: passBoth)
+  let source ← (installed.zone arena).head?
+  let activate : Action := ⟨.player player, .activateAbility source 0⟩
+  let next ← cSteps installed passBoth
+  let (withAttack, attack) ← cPlace next opponent .hand ⟨"WTR_098_R"⟩
+  let queued ← cSteps withAttack [⟨.player opponent, .playCard attack⟩]
+  let attackLayer ← (queued.zone .stack).head?
+  let window ← cSteps queued [⟨.player opponent, .pass⟩]
+  let (paid, events) ← (step 64 window activate).toOption
+  let spent ← (paid.zone grave).head?
+  let resolved ← cSteps paid passBoth
+  pure (card.status == .full && card.front.pitch == some 3 &&
+    (step 64 ready ⟨.player player, .activateAbility item 0⟩).toOption.isNone &&
+    next.active == some opponent && !(legalActionsFor player queued).contains activate &&
+    (legalActionsFor player window).contains activate &&
+    (step 64 queued ⟨.player opponent, .activateAbility source 0⟩).toOption.isNone &&
+    paid.zone arena == [] && events.contains (.moved source spent arena grave) &&
+    (paid.cardDefOf? spent).map (·.id) == some cid && (paid.zone .stack).length == 2 &&
+    (paid.poolOf player).resources == 0 && (paid.poolOf player).actionPoints == 0 &&
+    resolved.zone .stack == [attackLayer] && (resolved.poolOf player).resources == 2 &&
+    (resolved.poolOf player).actionPoints == 0 &&
+    (resolved.poolOf opponent).resources == (window.poolOf opponent).resources &&
+    (step 64 resolved activate).toOption.isNone)
+
+#guard checkEnergyPotion == some true
+
 /-- Timesnap Potion destroys itself as an activation cost and grants AP only on resolution. -/
 meta def checkTimesnapPotion : Option Bool := do
   let player : PlayerId := ⟨0⟩
