@@ -4542,6 +4542,72 @@ meta def checkCranialCrush : Option Bool := do
 
 #guard checkCranialCrush == some true
 
+/-- Spinal Crush removes printed and granted Go Again while leaving direct action-point gains intact. -/
+meta def checkSpinalCrush : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_044_R"⟩
+  let base := m5Base.setPool attacker { actionPoints := 1, resources := 5 }
+  let card ← base.cards.find? cid
+  let (withAttack, spinal) ← cPlace { base with pending := base.pending ++ [.beginTurn] } attacker .hand cid
+  let (withAttackAction, surge) ← cPlace withAttack defender .hand ⟨"WTR_107_R"⟩
+  let (withAction, driving) ← cPlace withAttackAction defender .hand ⟨"WTR_144_R"⟩
+  let (withPlain, plain) ← cPlace withAction defender .hand ⟨"WTR_203_R"⟩
+  let (withWeapon, dagger) ← cPlace withPlain defender .weapon ⟨"WTR_078"⟩
+  let (withChest, strap) ← cPlace withWeapon defender .chest ⟨"WTR_152"⟩
+  let (withLegs, scalers) ← cPlace withChest defender .legs ⟨"WTR_154"⟩
+  let (ready, potion) ← cPlace withLegs defender .permanent ⟨"WTR_172_B"⟩
+  let defending ← cSteps ready (⟨.player attacker, .playCard spinal⟩ :: (passBoth ++ passBoth))
+  let finish := ⟨.player defender, .defendDone⟩ :: (passBoth ++ passBoth)
+  let prevent (n : Nat) :=
+    (execPrim defending defender ⟨0⟩ [] (.preventNextDamage .controller (.const n) .thisTurn)).1
+  let hit ← cSteps (prevent 5) finish
+  let short ← cSteps (prevent 6) finish
+  let trigger ← hit.pendingTriggers.head?
+  let waiting ← cSteps hit ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let nextTurn (s : GameState) := cSteps s (List.replicate 3 passBoth).flatten
+  let restricted ← nextTurn waiting
+  let noRestriction ← nextTurn short
+  let funded (s : GameState) := s.setPool defender { actionPoints := 1, resources := 3 }
+  let play (id : ObjId) : Action := ⟨.player defender, .playCard id⟩
+  let revPass := passBoth.reverse
+  let enter (action : Action) := action :: (revPass ++ revPass)
+  let done : Action := ⟨.player attacker, .defendDone⟩
+  let finishAttack := done :: (List.replicate 3 revPass).flatten
+  let surgeBlocked ← cSteps (funded restricted) (enter (play surge) ++ finishAttack)
+  let surgeNormal ← cSteps (funded noRestriction) (enter (play surge) ++ finishAttack)
+  let drink ← cSteps (funded restricted) (⟨.player defender, .activateAbility potion 0⟩ :: revPass)
+  let boosted ← cSteps drink (play driving :: revPass)
+  let swung ← cSteps boosted (enter ⟨.player defender, .attackWeapon dagger⟩ ++ finishAttack)
+  let weaponLink ← swung.combat.bind CombatChain.activeLink?
+  let otherAction ← cSteps (funded restricted) (⟨.player defender, .activateAbility strap 0⟩ :: revPass)
+  let reaction ← cSteps (funded restricted) (enter (play plain) ++ [done] ++ revPass)
+  let plainLink ← reaction.combat.bind CombatChain.activeLink?
+  let plainId ← plainLink.attack
+  let granted ← cSteps reaction (⟨.player defender, .activateAbility scalers 0 (some plainId)⟩ :: revPass)
+  let afterGrant ← granted.combat.bind CombatChain.activeLink?
+  let otherTurn ← cSteps restricted (revPass ++ [⟨.player defender, .arsenalSkip⟩])
+  let later ← cSteps otherTurn passBoth
+  let affected (s : GameState) := s.hasActionPhaseEffect defender .cantGainGoAgain
+  let hasKeyword (s : GameState) (id : ObjId) :=
+    (s.characteristics id).any (fun chars => chars.keywords.contains .goAgain)
+  pure (card.status == .full && card.front.pitch == some 1 && card.front.defense == some 3 &&
+    hit.lifeOf defender == 36 && short.lifeOf defender == 37 && short.pendingTriggers.isEmpty &&
+    !affected waiting && hasKeyword waiting surge && affected restricted && !hasKeyword restricted surge &&
+    !affected noRestriction && hasKeyword noRestriction surge &&
+    (surgeBlocked.poolOf defender).actionPoints == 0 && (surgeNormal.poolOf defender).actionPoints == 1 &&
+    (drink.poolOf defender).actionPoints == 2 && (boosted.poolOf defender).actionPoints == 1 &&
+    weaponLink.powerBonus == 3 && weaponLink.damageDealt == 4 &&
+    !linkHasKeyword swung weaponLink .goAgain && (swung.poolOf defender).actionPoints == 0 &&
+    (otherAction.poolOf defender).actionPoints == 0 && (otherAction.zone (.player defender .chest)).isEmpty &&
+    otherAction.activeEffects.any (fun e => e.op == .subCostRes 2) &&
+    !linkHasKeyword granted afterGrant .goAgain && !afterGrant.grantedKeywords.contains .goAgain &&
+    (granted.zone (.player defender .legs)).isEmpty &&
+    later.active == some defender && !affected later && hasKeyword later surge)
+
+#guard checkSpinalCrush == some true
+
 /-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
 meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
     (keywords : List KeywordInst := []) : Option Bool := do

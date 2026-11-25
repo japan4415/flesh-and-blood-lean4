@@ -733,6 +733,7 @@ theorem sameBoard_gspRun_pending_preserves {s s1 : GameState} (hwf : s.WF) (hok 
   have hp1 := sameBoard_preserves hwf hok hrb hc ho hz hn hr
   exact hp1.trans (gspRun_pending_preserves hp1.wf hp1.ownerOk hp1.rollbackOk newPending)
 
+set_option maxHeartbeats 400000 in
 /-- One `microStep` preserves `WF`, `OwnerOk`, `RollbackOk`, `physIds`, and `config` (L2 + L4). -/
 theorem microStep_preserves {s s' : GameState} {es : List Event}
     (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
@@ -840,7 +841,7 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
     let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
     let isDefReact := isDefenseReactionLayer s layerId
     let joinsDefense := isDefReact && canResolveDefenseReaction s info
-    let s1 := if info.goAgain && (!isDefReact || joinsDefense) then
+    let s1 := if info.goAgain && layerCanGainGoAgain s layerId info.controller && (!isDefReact || joinsDefense) then
       s.setPool info.controller ((s.poolOf info.controller).addActionPoints 1) else s
     have hp1 : StepPreserves s s1 := by
       dsimp only [s1]

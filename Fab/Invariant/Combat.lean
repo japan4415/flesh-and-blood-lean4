@@ -33,7 +33,7 @@ theorem combatStep_chain_order :
 
 /-- **I11** (Go Again via LKI at Resolution Step) (CR 3.5.4b, 7.6.2): even when `link.attack = none`
 (for example, after *Endless Arrow* or *Hurricane Technique* left the combat chain), if
-`link.attackLki` had `Go Again` and `goAgainGranted = false`, Resolution Step grants the attacker
+`link.attackLki` had `Go Again`, it is allowed, and `goAgainGranted = false`, Resolution Step grants the attacker
 exact +1 AP. -/
 theorem resolutionStep_grants_goAgain_lki {s s' : GameState} {atkId : ObjId} {rest : List Frame}
     {cc : CombatChain} {link : ChainLink} {older : List ChainLink} {es : List Event}
@@ -41,13 +41,14 @@ theorem resolutionStep_grants_goAgain_lki {s s' : GameState} {atkId : ObjId} {re
     (hcc : s.combat = some cc)
     (hlinks : cc.links = link :: older)
     (hga : link.attackLki.keywords.contains .goAgain = true)
+    (hallowed : s.hasActionPhaseEffect link.attacker .cantGainGoAgain = false)
     (hnot : link.goAgainGranted = false)
     (hm : microStep s = some (s', es)) :
     (s'.poolOf link.attacker).actionPoints = (s.poolOf link.attacker).actionPoints + 1 := by
   have hhas : linkHasKeyword s link .goAgain = true := by
     unfold linkHasKeyword
     rw [hga]
-    simp
+    simp [hallowed]
   unfold microStep at hm
   rw [hp] at hm
   dsimp only at hm

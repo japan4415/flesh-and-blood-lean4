@@ -1748,6 +1748,14 @@ def ModScope.isSelf : ModScope → Bool
   | .self_ | .obj .self_ => true
   | _ => false
 
+/-- Whether a layer is eligible to have Go Again under active player restrictions (CR 8.3.5). -/
+def layerCanGainGoAgain (s : GameState) (id : ObjId) (p : PlayerId) : Bool :=
+  if !s.hasActionPhaseEffect p .cantGainGoAgain then true else
+  match (s.obj? id).map Object.kind with
+  | some (.attackProxy _ _) => false
+  | some (.layer _ _ _ triggered) => triggered
+  | _ => !(s.characteristics id).any (fun c => c.types.contains .action)
+
 /-- Modify the source action or the paid attack bound to a trigger (CR 5.3.5, 8.3.5). -/
 def modifyPendingAction (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) :
@@ -1768,9 +1776,11 @@ def modifyPendingAction (s : GameState) (ctrl : PlayerId) (src : ObjId)
     | true, true, _, .addPower d =>
       some (target, { info with attackPowerBonus := info.attackPowerBonus + evalNumExpr s ctrl env d })
     | true, true, _, .grantKeyword kw =>
-      some (target, { info with attackKeywords := insertUnique kw info.attackKeywords })
+      if kw == .goAgain && !layerCanGainGoAgain s target info.controller then some (target, info)
+      else some (target, { info with attackKeywords := insertUnique kw info.attackKeywords })
     | false, _, .thisTurn, .grantKeyword .goAgain =>
-      if scope.isSelf && face.any (·.hasType .action) then some (target, { info with goAgain := true })
+      if scope.isSelf && face.any (·.hasType .action) then
+        some (target, { info with goAgain := layerCanGainGoAgain s target info.controller })
       else none
     | _, _, _, _ => none
 
@@ -1799,6 +1809,13 @@ def declaredAttackStillMatches (s : GameState) (src : ObjId) (link : ChainLink) 
     let spec ← singleAttackTargetSpec card info.modeIdx
     pure (matchingActiveAttack s link spec == some target) : Option Bool).getD false
 
+/-- Match a player restriction and the scope on which it can be scheduled (CR 4.3, 6.2). -/
+def actionPhaseRestriction? (scope : ModScope) (mod : ContinuousMod) : Option (PlayerRef × EffectOp) :=
+  match scope, mod with
+  | .hero player, .cantDrawCards => some (player, .cantDrawCards)
+  | .playerActionsAndAttacks player, .cantGainGoAgain => some (player, .cantGainGoAgain)
+  | _, _ => none
+
 /-- Apply combat buffs to a pending attack card or the active `ChainLink`, and register
 turn- and chain-scoped continuous effects in `s.activeEffects` (CR 6.2-6.3, 7.4). -/
 def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
@@ -1825,7 +1842,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | .grantKeyword kw =>
         if scope.isSelf && !targetsAttack then link
         else if kw == .goAgain then
-          if link.attackLki.keywords.contains kw then link
+          if s.hasActionPhaseEffect link.attacker .cantGainGoAgain || link.attackLki.keywords.contains kw then link
           else { link with grantedKeywords := insertUnique kw link.grantedKeywords }
         else { link with grantedKeywords := kw :: link.grantedKeywords }
       | .doubleDamageToHero =>
@@ -1838,14 +1855,14 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | _ => link
     { s with combat := some cc' }
   | .nextActionPhase, _ =>
-    match scope, mod with
-    | .hero player, .cantDrawCards =>
+    match actionPhaseRestriction? scope mod with
+    | some (player, op) =>
       let effect : ContinuousEffect :=
         { id := s.nextTimestamp, source := src, controller := ctrl
-          target := .player (evalPlayerRef s ctrl player), op := .cantDrawCards
+          target := .player (evalPlayerRef s ctrl player), op := op
           duration := .nextActionPhase, timestamp := ⟨s.nextTimestamp⟩ }
       { s with activeEffects := s.activeEffects ++ [effect], nextTimestamp := s.nextTimestamp + 1 }
-    | _, _ => s
+    | none => s
   | .thisTurn, _ | .thisCombatChain, _ =>
     let op? : Option EffectOp :=
       match mod with

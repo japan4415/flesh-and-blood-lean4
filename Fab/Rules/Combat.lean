@@ -169,10 +169,11 @@ def weaponAttackHasGoAgain (s : GameState) (link : ChainLink) : Bool :=
 /-- Whether a `ChainLink`'s attack has keyword `kw` — dynamically granted, printed on the
 live attack card, or preserved in `attackLki` (CR 3.5.4b). -/
 def linkHasKeyword (s : GameState) (link : ChainLink) (kw : KeywordInst) : Bool :=
-  link.grantedKeywords.contains kw ||
-  link.attackLki.keywords.contains kw ||
-  (if kw = .goAgain then weaponAttackHasGoAgain s link else false) ||
-  (link.attack.bind s.characteristics).any (fun chars => chars.keywords.contains kw)
+  if kw = .goAgain ∧ s.hasActionPhaseEffect link.attacker .cantGainGoAgain then false else
+    link.grantedKeywords.contains kw ||
+    link.attackLki.keywords.contains kw ||
+    (if kw = .goAgain then weaponAttackHasGoAgain s link else false) ||
+    (link.attack.bind s.characteristics).any (fun chars => chars.keywords.contains kw)
 
 /-- All currently un-defended armor equipment `ObjId`s in player `p`'s Arena equipment slots. -/
 def equipZoneIds (s : GameState) (p : PlayerId) : List ObjId :=

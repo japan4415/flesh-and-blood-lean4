@@ -275,8 +275,11 @@ private theorem HiddenEquiv.characteristics_eq {p : PlayerId} {s1 s2 : GameState
   have hstatic : s1.arenaDefenseEffects id = s2.arenaDefenseEffects id := by
     unfold GameState.arenaDefenseEffects
     rw [h.arenaContents_eq, h.combat, hsource, h.activeEffects]
+  have hphase : s1.hasActionPhaseEffect = s2.hasActionPhaseEffect := by
+    funext player op
+    simp only [GameState.hasActionPhaseEffect, h.phase, h.active, h.activeEffects]
   unfold GameState.characteristics
-  rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic]
+  rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic, hphase]
 
 private theorem HiddenEquiv.triggerTargetChoices_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) (t : PendingTrigger) :
@@ -295,7 +298,7 @@ theorem HiddenEquiv.linkHasKeyword_eq_of_ne_goAgain {p : PlayerId} {s1 s2 : Game
     (h : HiddenEquiv p s1 s2) (link : ChainLink) (kw : KeywordInst) (hgo : kw ≠ .goAgain) :
     linkHasKeyword s1 link kw = linkHasKeyword s2 link kw := by
   unfold linkHasKeyword
-  simp only [ite_eq_right hgo]
+  simp only [hgo, false_and, ↓reduceIte]
   cases link.attack with
   | none => rfl
   | some aid => simp [h.characteristics_eq aid]
