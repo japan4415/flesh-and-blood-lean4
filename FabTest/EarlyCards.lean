@@ -113,3 +113,16 @@ meta def saltScenario : Option Bool := do
   pure (linkAttackPower opening baseLink == 2 && linkAttackPower follow linked == 3 &&
     linkAttackPower saltHit afterHit == 4 && saltHit.lifeOf earlyDefender == 36)
 #guard saltScenario == some true
+
+meta def thornsScenario : Option Bool := do
+  let p := earlyAttacker
+  let (hand, thorns) ← earlyPlace earlyBase p (.player p .hand) "IRA_005_Y"
+  let (ready, jab) ← earlyPlace hand p (.player p .hand) "WTR_100_B"
+  let hit ← (earlyAttack ready (.playCard thorns)).bind earlyDamage
+  let trigger ← hit.pendingTriggers.head?
+  let resolved ← earlySteps hit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let follow ← (earlySteps resolved earlyPass).bind (earlyAttack · (.playCard jab))
+  let link ← follow.combat.bind CombatChain.activeLink?
+  pure (linkAttackPower follow link == 2)
+#guard thornsScenario == some true

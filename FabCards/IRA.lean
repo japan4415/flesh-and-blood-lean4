@@ -58,8 +58,14 @@ def IRA_004_Y : CardDef :=
   iraAttackCard "IRA_004_Y" "Salt the Wound" (.class_ .ninja) 2 0 2 3
     (abilities := [.static_ none .self_ (.addPower .chainHits)])
 
+/-- Bittering Thorns. -/
+def IRA_005_Y : CardDef :=
+  iraAttackCard "IRA_005_Y" "Bittering Thorns" (.class_ .ninja) 2 1 3 2 [.goAgain]
+    [.triggered .onHit false none none
+      { body := .grant (.nextAttack CardFilter.any) (.addPower (.const 1)) .thisTurn }]
+
 /-- Logical cards first published in the Ira Welcome Deck. -/
-def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y]
+def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y, IRA_005_Y]
 
 end IRA
 end FabCards
