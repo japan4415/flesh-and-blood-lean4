@@ -40,6 +40,7 @@ public import Fab.Rules.Interp
 public import Fab.Rules.Combat
 public import Fab.Rules.CombatKeywords
 public import Fab.Rules.Advanced
+public import Fab.Rules.Upf
 public import Fab.Rules.Setup
 public import Fab.Rules.Frames
 public import Fab.Rules.Actions.Draw
@@ -56,6 +57,9 @@ public import Fab.Invariant.Tournament
 public import Fab.Invariant.Continuous
 public import Fab.Invariant.Effects
 public import Fab.Invariant.Advanced
+public import Fab.Invariant.Info
+public import Fab.Tournament.LoopDetect
+public import Fab.Invariant.Termination
 
 /-!
 # Fab

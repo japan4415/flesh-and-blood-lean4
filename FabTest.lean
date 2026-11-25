@@ -17,6 +17,7 @@ public import FabTest.Tournament
 public import FabTest.Continuous
 public import FabTest.Effects
 public import FabTest.Advanced
+public import FabTest.MultiAndInfo
 
 /-!
 # FabTest
