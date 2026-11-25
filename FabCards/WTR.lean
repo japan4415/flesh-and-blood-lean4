@@ -953,8 +953,8 @@ def razorReflex (base : CardDef) (bonus : Int) : CardDef :=
 def WTR_209_R : CardDef := { razorReflex WTR_209_R_meta 3 with status := .full }
 /-- Razor Reflex Yellow. -/
 def WTR_210_Y : CardDef := { razorReflex WTR_210_Y_meta 2 with status := .full }
-/-- Razor Reflex Blue (drafted IR). -/
-def WTR_211_B : CardDef := razorReflex WTR_211_B_meta 1
+/-- Razor Reflex Blue. -/
+def WTR_211_B : CardDef := { razorReflex WTR_211_B_meta 1 with status := .full }
 
 /-- Add one defense to Unmovable when it resolves after being played from arsenal. -/
 def unmovable (base : CardDef) : CardDef :=
