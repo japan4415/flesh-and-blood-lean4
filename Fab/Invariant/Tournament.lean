@@ -412,6 +412,13 @@ private theorem afterPermanentEntry_turn_tournament_result (s : GameState)
     (afterPermanentEntry s triggers rest).result = s.result :=
   ⟨rfl, rfl, rfl⟩
 
+private theorem beginEndPhase_turn_tournament_result (s : GameState)
+    (player : PlayerId) (rest : List Frame) :
+    (beginEndPhase s player rest).turn = s.turn ∧
+    (beginEndPhase s player rest).tournament = s.tournament ∧
+    (beginEndPhase s player rest).result = s.result :=
+  ⟨rfl, rfl, rfl⟩
+
 /-- Helper: `gspRun` only ever sets `result` from `none` to `some`, never back to `none`. -/
 theorem gspStep_result_none {s s' : GameState} (h : gspStep s = some s') (hr : s'.result = none) :
     s.result = none := by
@@ -833,7 +840,9 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
       rw [hba] at h hbd
       dsimp only at h hbd
       simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-      split <;> exact timeLimitBounded_of_eq hb hbd.1 hbd.2.1 hbd.2.2
+      have he := beginEndPhase_turn_tournament_result sBd tp rest
+      exact timeLimitBounded_of_eq hb (he.1.trans hbd.1) (he.2.1.trans hbd.2.1)
+        (fun hr => hbd.2.2 (he.2.2.trans hr))
   · -- endPhaseArsenal
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
     exact timeLimitBounded_of_eq hb rfl rfl id
