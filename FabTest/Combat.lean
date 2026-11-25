@@ -985,6 +985,9 @@ meta def checkFlockOfTheFeatherWalkers (cid : CardId) (pitch power : Nat) (fromA
 #guard checkFlockOfTheFeatherWalkers ⟨"WTR_182_R"⟩ 1 5 false == some true
 #guard checkFlockOfTheFeatherWalkers ⟨"WTR_182_R"⟩ 1 5 true == some true
 
+#guard checkFlockOfTheFeatherWalkers ⟨"WTR_183_Y"⟩ 2 4 false == some true
+#guard checkFlockOfTheFeatherWalkers ⟨"WTR_183_Y"⟩ 2 4 true == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
