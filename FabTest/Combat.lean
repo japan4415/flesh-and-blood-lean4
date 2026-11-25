@@ -196,35 +196,59 @@ meta def checkIronrot (cid : CardId) (slot : ZoneKind) : Option Bool := do
   | some b => b
   | none => false
 
--- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6):
---    Link 1: Surging Strike Red (5{p}, cost 2{r}, Go Again) -> hits P1 (40 -> 35), Resolution +1 AP!
---    Link 2: Whelming Gustwave Red (3{p}, cost 0, Combo off "Surging Strike" -> +1{p}=4{p} & Go Again!)
---            chains directly on the SAME open Combat Chain -> hits P1 (35 -> 31), +1 AP again!
-#guard match (do
-    let s0 := m5Base.setPool ⟨0⟩ { actionPoints := 1, resources := 2 }
-    let (s1, surgeId) ← cPlace s0 ⟨0⟩ .hand ⟨"WTR_107_R"⟩
-    let (s2, gustId) ← cPlace s1 ⟨0⟩ .hand ⟨"WTR_110_R"⟩
-    -- Link 1: Surging Strike through Resolution Step
-    let sRes1 ← cSteps s2
-      ([⟨.player ⟨0⟩, .playCard surgeId⟩] ++ passBoth ++ passBoth ++
-       [⟨.player ⟨1⟩, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth)
-    let link1Ok := sRes1.lifeOf ⟨1⟩ == 35 &&
-      (sRes1.poolOf ⟨0⟩).actionPoints == 1 &&
-      sRes1.combat.map (fun cc => (cc.step, cc.links.length)) == some (.resolution, 1)
-    -- Link 2: Play Whelming Gustwave during Resolution Step (Combo triggers +1{p} & Go Again!)
-    let sRes2 ← cSteps sRes1
-      ([⟨.player ⟨0⟩, .playCard gustId⟩] ++ passBoth ++ passBoth ++
-       [⟨.player ⟨1⟩, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth)
-    let link2Ok := sRes2.lifeOf ⟨1⟩ == 31 &&
-      (sRes2.poolOf ⟨0⟩).actionPoints == 1 &&
-      sRes2.combat.map (fun cc => (cc.step, cc.links.length)) == some (.resolution, 2)
-    -- Close chain -> both attack cards go to graveyard
-    let sClosed ← cSteps sRes2 passBoth
-    pure (link1Ok && link2Ok &&
-      sClosed.combat == none &&
-      (sClosed.zone (.player ⟨0⟩ .graveyard)).length == 2)) with
-  | some b => b
-  | none => false
+-- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
+/-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
+meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let deck := Zone.player attacker .deck
+  let hand := Zone.player attacker .hand
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 2 }
+  let card ← funded.cards.find? cid
+  let (withSurge, surge) ← cPlace funded attacker .hand ⟨"WTR_107_R"⟩
+  let (withGust, gust) ← cPlace withSurge attacker .hand cid
+  let (withJab, jab) ← cPlace withGust attacker .hand ⟨"WTR_098_R"⟩
+  let (withDeck, top) ← cPlace withJab attacker .deck ⟨"WTR_188_R"⟩
+  let (oneBlock, first) ← cPlace withDeck defender .hand ⟨"WTR_203_R"⟩
+  let (ready, second) ← cPlace oneBlock defender .hand ⟨"WTR_204_Y"⟩
+  let enter := fun id => [⟨.player attacker, .playCard id⟩] ++ passBoth ++ passBoth
+  let toDamage := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth
+  let finish := toDamage ++ passBoth
+  let firstLink ← cSteps ready (enter surge ++ finish)
+  let defense ← cSteps firstLink (enter gust)
+  let hit ← cSteps defense toDamage
+  let blocked ← cSteps defense ([⟨.player defender, .defendCard first⟩,
+    ⟨.player defender, .defendCard second⟩] ++ finish)
+  let trigger ← hit.pendingTriggers.head?
+  let stacked ← cSteps hit [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩, ⟨.player attacker, .pass⟩]
+  let (resolved, events) ← (step 64 stacked ⟨.player defender, .pass⟩).toOption
+  let drawn ← (resolved.zone hand).head?
+  let secondLink ← cSteps resolved passBoth
+  let closed ← cSteps secondLink passBoth
+  let standalone ← cSteps ready (enter gust ++ finish)
+  let intervened ← cSteps firstLink (enter jab ++ finish ++ enter gust ++ finish)
+  let withoutCombo := fun (s : GameState) =>
+    (s.combat.bind CombatChain.activeLink?).map (fun link => (link.powerBonus, link.damageDealt)) ==
+      some (0, basePower) &&
+    (s.poolOf attacker).actionPoints == 0 && s.pendingTriggers.isEmpty && s.zone deck == [top]
+  pure (card.status == .full && firstLink.lifeOf defender == 35 &&
+    (firstLink.poolOf attacker).actionPoints == 1 &&
+    firstLink.combat.map (fun cc => (cc.step, cc.links.length)) == some (.resolution, 1) &&
+    hit.lifeOf defender == 35 - Int.ofNat (basePower + 1) &&
+    (hit.combat.bind CombatChain.activeLink?).map (·.powerBonus) == some 1 &&
+    hit.pendingTriggers.length == 1 && hit.zone deck == [top] && stacked.zone deck == [top] &&
+    resolved.zone deck == [] && resolved.zone hand == [drawn, jab] &&
+    (resolved.cardDefOf? drawn).map (·.id) == some ⟨"WTR_188_R"⟩ &&
+    events.countP (· == .drawn attacker drawn) == 1 &&
+    secondLink.combat.map (fun cc => (cc.step, cc.links.length)) == some (.resolution, 2) &&
+    (secondLink.poolOf attacker).actionPoints == 1 &&
+    blocked.lifeOf defender == 35 && blocked.pendingTriggers.isEmpty && blocked.zone deck == [top] &&
+    (blocked.poolOf attacker).actionPoints == 1 &&
+    closed.combat.isNone && (closed.zone (.player attacker .graveyard)).length == 2 &&
+    withoutCombo standalone && withoutCombo intervened)
+
+#guard checkWhelmingGustwave ⟨"WTR_110_R"⟩ 3 == some true
 
 -- 6. Weapon Attack-Proxy + Weapon Identical `ObjId` Return + LKI Go Again (CR 1.4.3, 3.5.4b):
 --    P0 attacks with Harmonized Kodachi (1{p}, cost 1{r}) via `.attackWeapon` -> creates proxy ->

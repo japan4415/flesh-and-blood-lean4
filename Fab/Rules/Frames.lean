@@ -399,7 +399,8 @@ def resolvingSource (s : GameState) (layer : ObjId) : ObjId :=
   | some (.layer src _ _ _) => src
   | _ => layer
 
-/-- Collect an attack card's unconditional, untargeted hit and Crush triggers (CR 7.5.3, 8.4.2). -/
+/-- Collect an attack's unconditional, untargeted hit and Crush triggers, including granted abilities
+(CR 7.5.3, 8.4.2). -/
 def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigger :=
   match link.attack with
   | none => []
@@ -407,7 +408,7 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
     match s.objectFace? source with
     | none => []
     | some face =>
-      let triggers := face.abilities.zipIdx.filterMap fun (ability, abilityIdx) =>
+      let triggers := (face.abilities ++ link.grantedAbilities).zipIdx.filterMap fun (ability, abilityIdx) =>
         match ability with
         | .triggered trigger false none none eff =>
           let applies := match trigger with
