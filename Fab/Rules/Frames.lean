@@ -459,6 +459,23 @@ def canResolveDefenseReaction (s : GameState) (info : LayerInfo) : Bool :=
   (s.combat.bind CombatChain.activeLink?).any fun link =>
     canLinkTakeDefenseReaction s link info.controller !info.fromArsenal
 
+/-- Apply a next-defender effect to the first defending card, in declaration order (CR 7.3.2c). -/
+def nextDefendEffects (s : GameState) (p : PlayerId) (id : ObjId) (sourceLayer : Option ObjId := none) :
+    List ContinuousEffect :=
+  let matchesDefender (filter : CardFilter) :=
+    match s.objectFace? id, s.characteristics id with
+    | some printed, some effective =>
+      cardFaceMatches filter { printed with keywords := effective.keywords }
+    | _, _ => false
+  s.activeEffects.filterMap fun effect =>
+    match effect.target with
+    | .nextDefend filter =>
+      if effect.controller != p || sourceLayer == some effect.source then some effect
+      else if matchesDefender filter then
+        some { effect with target := .obj id, duration := .thisChainLink }
+      else none
+    | _ => some effect
+
 /-- Keep a defense reaction's card-specific modifier when it becomes a defender. The engine
 rekeys the object on this move, while its defense effect still applies (CR 3.0.9, 5.3.6b). -/
 def defenseReactionEffects (effects : List ContinuousEffect) (layer card : ObjId) :
@@ -858,7 +875,10 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
               defending := l.defending ++ [id']
               defendedFromHandCount := l.defendedFromHandCount + (if fromHand then 1 else 0)
               defendedActionCount := l.defendedActionCount + (if isAction then 1 else 0) }
-          some ({ s1 with combat := cc', pending := .defendPick defender :: rest },
+          some ({ s1 with
+                    combat := cc'
+                    activeEffects := nextDefendEffects s1 defender id'
+                    pending := .defendPick defender :: rest },
                 [.moved id id' srcZ .combatChain])
         | _, _ => none
       else
@@ -1196,7 +1216,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
                 defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
             ({ sMoved with
                 combat := cc'
-                activeEffects := defenseReactionEffects sMoved.activeEffects layerId id' },
+                activeEffects := defenseReactionEffects
+                  (nextDefendEffects sMoved info.controller id' (some layerId)) layerId id' },
              [.moved layerId id' .stack .combatChain])
           | none => (s1, [])
         else

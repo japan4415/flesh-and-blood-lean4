@@ -1901,6 +1901,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .nextAttack filter, .grantKeyword _
         | .nextAttack filter, .grantAttackAbility _
         | .nextAttack filter, .addPowerIfFewerDefenders _ _ => .nextAttack filter
+        | .nextDefend filter, .addDefense _ => .nextDefend filter
         | .allAttacks filter, .addPower _ => .allAttacks filter
         | .paidAttack id, _ => .obj id
         | .arenaObjectsOfType player kind, _ =>

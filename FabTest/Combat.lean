@@ -1233,6 +1233,44 @@ meta def checkHarmonizedKodachi : Option Bool := do
 
 #guard checkHarmonizedKodachi == some true
 
+/-- Flic Flak applies only to the first subsequent defending card, even across combat chains. -/
+meta def checkFlicFlak (cid : CardId) (pitch defense : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let card ← m5Base.cards.find? cid
+  let funded := (m5Base.setPool attacker { actionPoints := 2 }).setPool defender { resources := 1 }
+  let (withFirst, first) ← cPlace funded attacker .hand ⟨"WTR_203_R"⟩
+  let (withSecond, second) ← cPlace withFirst attacker .hand ⟨"WTR_203_R"⟩
+  let (withFlic, flic) ← cPlace withSecond defender .hand cid
+  let (withCombo, combo) ← cPlace withFlic defender .hand ⟨"WTR_104_R"⟩
+  let (withGeneric, genericBlock) ← cPlace withCombo defender .hand ⟨"WTR_205_B"⟩
+  let (ready, reaction) ← cPlace withGeneric defender .hand ⟨"WTR_126_R"⟩
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let block id : Action := ⟨.player defender, .defendCard id⟩
+  let react id : Action := ⟨.player defender, .playCard id⟩
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let firstPass : Action := ⟨.player attacker, .pass⟩
+  let secondPass : Action := ⟨.player defender, .pass⟩
+  let start (s : GameState) id := cSteps s (play id :: (passBoth ++ passBoth))
+  let values (s : GameState) := (s.combat.bind CombatChain.activeLink?).map fun link =>
+    link.defending.filterMap (objEffectiveDefense s)
+  let firstDefense ← start ready first
+  let added ← cSteps firstDefense (done :: (passBoth ++ [firstPass, react flic, secondPass, firstPass]))
+  let firstClosed ← cSteps added (passBoth ++ passBoth ++ passBoth)
+  let secondDefense ← start firstClosed second
+  let comboFirst ← cSteps secondDefense [block combo, block genericBlock]
+  let comboSecond ← cSteps secondDefense [block genericBlock, block combo]
+  let reply ← cSteps secondDefense (done :: (passBoth ++ [firstPass, react reaction, secondPass, firstPass]))
+  let (expired, _) ← microStep { firstClosed with pending := [.endTurnCleanup attacker] }
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some defense &&
+    values added == some [Int.ofNat defense] && added.activeEffects.length == 1 &&
+    firstClosed.combat.isNone && firstClosed.activeEffects == added.activeEffects &&
+    values comboFirst == some [5, 3] && comboFirst.activeEffects.length == 1 &&
+    values comboSecond == some [3, 3] && comboSecond.activeEffects.isEmpty &&
+    reply.activeEffects.isEmpty && expired.activeEffects.isEmpty)
+
+#guard checkFlicFlak ⟨"WTR_092_R"⟩ 1 4 == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
