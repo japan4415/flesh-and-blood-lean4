@@ -1103,13 +1103,14 @@ def WTR_223_B : CardDef := { nextAttackCardPower WTR_223_B_meta { minCost := som
 def WTR_224_Y : CardDef :=
   { WTR_224_Y_meta with front := { WTR_224_Y_meta.front with subtypes := [.gem] }, status := .full }
 
-/-- Quicken Token (drafted IR). -/
+/-- Quicken Token. -/
 def WTR_225 : CardDef :=
-  draftCard WTR_225_meta
-    [ .triggered .onPlayAttackOrWeapon false none none
-        { body := .seqL
-            [ .prim (.destroy .self_)
-            , .grant (.obj .currentAttack) (.grantKeyword .goAgain) .thisChainLink ] } ]
+  { draftCard WTR_225_meta
+      [ .triggered .onPlayAttackOrWeapon false none none
+          { body := .seqL
+              [ .prim (.destroy .self_)
+              , .grant (.obj .currentAttack) (.grantKeyword .goAgain) .thisChainLink ] } ]
+    with status := .full }
 
 /-! ## Merged WTR card list (all 226 logical cards) -/
 
