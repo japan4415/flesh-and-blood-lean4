@@ -66,7 +66,7 @@ def legalFrameActions (s : GameState) : List Action :=
     let done := if loadoutCanFinish s p then [⟨.player p, .loadoutDone⟩] else []
     equips ++ toDeck ++ done
   | .priority p _ :: _ =>
-    let candidates := s.zone (.player p .hand) ++ s.zone (.player p .arsenal)
+    let candidates := playCardCandidateIds s p
     let plays := (candidates.filter (canPlayCard s p)).map fun id => ⟨.player p, .playCard id⟩
     let weapons := ((weaponAttackCandidateIds s p).filter (canAttackWithWeapon s p)).map
       fun wid => ⟨.player p, .attackWeapon wid⟩

@@ -1196,7 +1196,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
               l.removeDefender id isAction
             ({ s1 with combat := cc' }, [.moved id id' .combatChain (.player o.owner .hand)], [])
       else (s, [], [])
-  | .searchDeck pref f maxCount dstRef reveal _ shuffleAfter =>
+  | .searchDeck pref f maxCount dstRef reveal playable shuffleAfter =>
     let target := evalPlayerRef s ctrl pref
     match zoneOfRef target dstRef with
     | none => (s, [], [])
@@ -1206,10 +1206,15 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         | some face => cardFaceMatches f face
         | none => false
       let limit := min (maxCount.getD matching.length) matching.length
+      let choice : DeckSearchChoice :=
+        { destination := dstZ
+          reveal := reveal
+          mayFail := f != CardFilter.any
+          shuffleAfter := shuffleAfter
+          playableDuration := playable }
       let follow := if maxCount == some 0 || (s.zone (.player target .deck)).isEmpty then
           if shuffleAfter then [.chanceShuffle (.player target .deck)] else []
-        else [.chooseShuffleCards target limit matching [] false
-          (some ⟨dstZ, reveal, f != CardFilter.any, shuffleAfter⟩)]
+        else [.chooseShuffleCards target limit matching [] false (some choice)]
       (s, [], follow)
   | .shuffleZone pref ref =>
     (s, [], ((zoneOfRef (evalPlayerRef s ctrl pref) ref).map Frame.chanceShuffle).toList)

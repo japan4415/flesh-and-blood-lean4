@@ -164,15 +164,21 @@ theorem mem_defendCandidates_of_canDefendWith {s : GameState} {link : ChainLink}
         have heq := hnot hfalse
         simpa [decide_eq_true_eq] using heq
 
-/-- Helper: `canPlayCard` implies `id` is in `p`'s hand or arsenal. -/
-theorem mem_hand_or_arsenal_of_canPlayCard {s : GameState} {p : PlayerId} {id : ObjId}
+/-- A playable card is in the set of cards considered by the priority action enumerator. -/
+theorem mem_playCardCandidateIds_of_canPlayCard {s : GameState} {p : PlayerId} {id : ObjId}
     (h : canPlayCard s p id = true) :
-    id ∈ s.zone (.player p .hand) ∨ id ∈ s.zone (.player p .arsenal) := by
+    id ∈ playCardCandidateIds s p := by
   unfold canPlayCard at h
   dsimp only at h
   split at h
   · rename_i hor
-    simpa [Bool.or_eq_true, decide_eq_true_eq] using hor
+    simp only [Bool.or_eq_true, decide_eq_true_eq] at hor
+    simp only [playCardCandidateIds, List.mem_append]
+    rcases hor with (hh | ha) | hb
+    · exact Or.inl (Or.inl hh)
+    · exact Or.inl (Or.inr ha)
+    · simp only [canPlayFromBanished, Bool.and_eq_true, List.contains_iff_mem] at hb
+      exact Or.inr hb.1.1
   · cases h
 
 /-- Helper: `canPitchCard` implies `id` is in `p`'s hand. -/
@@ -1352,7 +1358,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
             · cases hcontra
           · rintro ⟨rfl, hcan⟩
             right; left
-            exact ⟨id, ⟨mem_hand_or_arsenal_of_canPlayCard hcan, hcan⟩, rfl, rfl⟩
+            exact ⟨id, ⟨mem_playCardCandidateIds_of_canPlayCard hcan, hcan⟩, rfl, rfl⟩
         | attackWeapon wid =>
           simp only [Actor.isPlayer, and_true, List.mem_cons, List.mem_append, List.mem_map,
             List.mem_filter, Action.mk.injEq, Actor.player.injEq, ActionKind.attackWeapon.injEq, or_assoc]
@@ -1867,15 +1873,18 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           obtain ⟨rfl, hcan⟩ := hlf
           simp only [hcan, and_self, ↓reduceIte]
           have hm : (moveObj s id .stack .top false).isSome = true := by
-            rcases mem_hand_or_arsenal_of_canPlayCard hcan with hmem | hmem
-            · have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem
-              apply moveObj_isSome hwf (Zone.valid_player hq .hand) hmem
+            have fromZone (kind : ZoneKind) (hmem : id ∈ s.zone (.player q kind)) :
+                (moveObj s id .stack .top false).isSome = true := by
+              have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem
+              apply moveObj_isSome hwf (Zone.valid_player hq kind) hmem
               intro o _
               exact ⟨Zone.valid_stack s.playerCount, by intro heq; cases heq⟩
-            · have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem
-              apply moveObj_isSome hwf (Zone.valid_player hq .arsenal) hmem
-              intro o _
-              exact ⟨Zone.valid_stack s.playerCount, by intro heq; cases heq⟩
+            have hmem := mem_playCardCandidateIds_of_canPlayCard hcan
+            simp only [playCardCandidateIds, List.mem_append] at hmem
+            rcases hmem with (hh | ha) | hb
+            · exact fromZone .hand hh
+            · exact fromZone .arsenal ha
+            · exact fromZone .banished hb
           cases hm' : moveObj s id .stack .top false with
           | none => rw [hm'] at hm; simp at hm
           | some _ => rfl

@@ -153,6 +153,8 @@ structure DeckSearchChoice where
   mayFail : Bool
   /-- Whether this particular search instruction ends with a shuffle. -/
   shuffleAfter : Bool := true
+  /-- Permission granted to the selected card if it is moved to banished. -/
+  playableDuration : Option Duration := none
 deriving DecidableEq, Repr
 
 /-- A filtered deck search may fail, while an unrestricted search must select a card if possible. -/

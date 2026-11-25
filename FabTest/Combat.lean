@@ -2247,6 +2247,76 @@ meta def checkIronsongDetermination : Option Bool := do
 
 #guard checkIronsongDetermination == some true
 
+/-- Singing Steelblade gives only its chosen reaction permission to be played on this link. -/
+meta def checkSingingSteelblade : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let deck := Zone.player player .deck
+  let banished := Zone.player player .banished
+  let grave := Zone.player player .graveyard
+  let cid : CardId := ⟨"WTR_121_Y"⟩
+  let reactionId : CardId := ⟨"WTR_123_R"⟩
+  let funded := m5Base.setPool player { actionPoints := 2, resources := 3 }
+  let card ← funded.cards.find? cid
+  let (withHero, hero) ← cPlace funded player .hero ⟨"WTR_113"⟩
+  let (withWeapon, weapon) ← cPlace withHero player .weapon ⟨"WTR_115"⟩
+  let (withCard, singing) ← cPlace withWeapon player .hand cid
+  let (withPitch, pitch) ← cPlace withCard player .hand ⟨"WTR_205_B"⟩
+  let (withUnrelated, unrelated) ← cPlace withPitch player .banished ⟨"WTR_132_R"⟩
+  let (withReaction, reaction) ← cPlace withUnrelated player .deck reactionId
+  let (withOther, otherReaction) ← cPlace withReaction player .deck ⟨"WTR_118_B"⟩
+  let (withWrong, wrong) ← cPlace withOther player .deck ⟨"WTR_203_R"⟩
+  let (ready, block) ← cPlace withWrong opponent .hand ⟨"WTR_203_R"⟩
+  let play (id : ObjId) : Action := ⟨.player player, .playCard id⟩
+  let swing : Action := ⟨.player player, .attackWeapon weapon⟩
+  let pick (choice : Option ObjId) : Action := ⟨.player player, .pickShuffleCard choice⟩
+  let cancel : Action := ⟨.player player, .cancelPlay⟩
+  let done : Action := ⟨.player opponent, .defendDone⟩
+  let enter (s : GameState) := cSteps s (swing :: (passBoth ++ passBoth))
+  let resolve (s : GameState) (blocks : List Action) :=
+    cSteps s (blocks ++ [done] ++ passBoth ++ [play singing] ++ passBoth)
+  let defending ← enter ready
+  let noReprise ← resolve defending []
+  let search ← resolve defending [⟨.player opponent, .defendCard block⟩]
+  let failSearch ← cSteps search [pick none, ⟨.chance, .shuffleOrder [reaction, wrong, otherReaction]⟩]
+  let selected ← cSteps search [pick (some reaction)]
+  let (beforeShuffle, found) ← (step 64 selected (pick none)).toOption
+  let chosen ← (beforeShuffle.zone banished).head?
+  let enabled ← cSteps beforeShuffle [⟨.chance, .shuffleOrder [otherReaction, wrong]⟩]
+  let announcing ← cSteps enabled [play chosen]
+  let cancelled ← cSteps announcing [cancel]
+  let paid ← cSteps announcing [⟨.player player, .pitchCard pitch⟩]
+  let boosted ← cSteps paid passBoth
+  let hit ← cSteps boosted passBoth
+  let skipped ← cSteps enabled passBoth
+  let trigger ← skipped.pendingTriggers.head?
+  let extra ← cSteps skipped ([⟨.player player, .pickTriggerStart player⟩,
+    ⟨.player player, .pickTrigger trigger.id⟩] ++ passBoth ++
+    [⟨.player player, .pickMay true⟩] ++ passBoth)
+  let nextDefend ← enter extra
+  let nextLink ← cSteps nextDefend (done :: passBoth)
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let power (s : GameState) := (active s).map (linkAttackPower s)
+  pure (card.status == .full && card.specializations == ["Dorinthea"] && card.front.pitch == some 2 &&
+    card.front.defense == some 3 && power search == some 4 && power noReprise == some 4 &&
+    noReprise.zone deck == ready.zone deck && noReprise.zone banished == [unrelated] &&
+    (legalActionsFor player search).contains (pick (some reaction)) &&
+    (legalActionsFor player search).contains (pick (some otherReaction)) &&
+    (step 64 search (pick (some wrong))).toOption.isNone &&
+    failSearch.zone banished == [unrelated] && failSearch.zone deck == [reaction, wrong, otherReaction] &&
+    found.contains (.banished player chosen false) && found.contains (.revealed player reaction reactionId) &&
+    enabled.zone banished == [chosen, unrelated] && enabled.zone deck == [otherReaction, wrong] &&
+    (legalActionsFor player enabled).contains (play chosen) &&
+    !(legalActionsFor player enabled).contains (play unrelated) &&
+    decide (cancelled = enabled) && (paid.poolOf player).resources == 1 &&
+    power boosted == some 10 && (active hit).map (·.damageDealt) == some 7 &&
+    (boosted.zone grave).any (fun id => (boosted.cardDefOf? id).map (·.id) == some reactionId) &&
+    trigger.source == hero && (nextLink.combat.map (·.links.length)) == some 2 &&
+    nextLink.zone banished == [chosen, unrelated] && !(canPlayFromBanished nextLink player chosen) &&
+    !(legalActionsFor player nextLink).contains (play chosen))
+
+#guard checkSingingSteelblade == some true
+
 /-- Dawnblade's second hit and its counter retention both use the whole turn, across chains. -/
 meta def checkDawnblade : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
