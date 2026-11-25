@@ -179,6 +179,12 @@ def Object.clearCounterVal (o : Object) : CounterKind → Object
   | .aim => { o with extraCounters := o.extraCounters.filter (·.1 != "aim") }
   | .named lbl => { o with extraCounters := o.extraCounters.filter (·.1 != lbl) }
 
+/-- Remove up to `n` counters of the specified kind. -/
+def Object.removeCounterVal (o : Object) (k : CounterKind) (n : Nat) : Object :=
+  let remaining := o.counterCount k - n
+  let cleared := o.clearCounterVal k
+  if remaining = 0 then cleared else cleared.addCounterVal k remaining
+
 /-- `Object.addCounterVal` preserves `kind`. -/
 theorem Object.addCounterVal_kind (o : Object) (k : CounterKind) (d : Nat) :
     (o.addCounterVal k d).kind = o.kind := by
@@ -194,10 +200,24 @@ theorem Object.clearCounterVal_kind (o : Object) (k : CounterKind) :
     (o.clearCounterVal k).kind = o.kind := by
   cases k <;> rfl
 
+/-- Removing counters preserves the physical/card identity of the object. -/
+theorem Object.removeCounterVal_kind (o : Object) (k : CounterKind) (n : Nat) :
+    (o.removeCounterVal k n).kind = o.kind := by
+  unfold Object.removeCounterVal
+  dsimp only
+  split <;> simp only [Object.clearCounterVal_kind, Object.addCounterVal_kind]
+
 /-- `Object.clearCounterVal` preserves `owner`. -/
 theorem Object.clearCounterVal_owner (o : Object) (k : CounterKind) :
     (o.clearCounterVal k).owner = o.owner := by
   cases k <;> rfl
+
+/-- Removing counters preserves ownership. -/
+theorem Object.removeCounterVal_owner (o : Object) (k : CounterKind) (n : Nat) :
+    (o.removeCounterVal k n).owner = o.owner := by
+  unfold Object.removeCounterVal
+  dsimp only
+  split <;> simp only [Object.clearCounterVal_owner, Object.addCounterVal_owner]
 
 /-- Count live defenders whose current type does not include Equipment (CR 7.0.5). -/
 def nonEquipmentDefenderCount (s : GameState) (link : ChainLink) : Nat :=

@@ -265,8 +265,20 @@ private theorem payActivationSource_preserves {s paid : GameState}
     StepPreserves s paid := by
   unfold payActivationSource at h
   split at h
-  · cases h
-    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · split at h
+    · cases h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · rename_i kind n _
+      split at h
+      · cases h
+        let f := fun o : Object => o.removeCounterVal kind n
+        have hw := updateSingleObject_wf hwf payment.source f
+        have ho := updateSingleObject_ownerOk hok payment.source (Object.removeCounterVal_owner · kind n)
+        have hp := updateSingleObject_physIds s payment.source (Object.removeCounterVal_kind · kind n)
+        have hm := updateSingleObject_meta s payment.source f
+        have hperm : (updateSingleObject s payment.source f).physIds.Perm s.physIds := by rw [hp]
+        exact ⟨hw, ho, GameState.RollbackOk.preserve hrb hm.1 hm.2 hperm, hperm, hm.1⟩
+      · cases h
   · obtain ⟨⟨moved, spent⟩, hm, h⟩ := Option.bind_eq_some_iff.mp h
     cases h
     exact moveObj_preserves hwf hok hrb hm
