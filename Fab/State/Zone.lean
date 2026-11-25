@@ -14,7 +14,7 @@ Every zone stores a `List ObjId` as the source of truth; for ordered zones (`dec
 
 namespace Fab
 
-/-- Per-player zone kinds (CR 3.0-3.16). Eight are Arena zones and seven are Non-Arena zones. -/
+/-- Per-player arena and non-arena zones (CR 3.0-3.16), plus outside-game storage. -/
 inductive ZoneKind where
   /-- Hero zone, Arena (CR 3.9). -/
   | hero
@@ -46,14 +46,16 @@ inductive ZoneKind where
   | banished
   /-- Inventory zone for unused registered card-pool cards, Non-Arena (CR 4.1.4). -/
   | inventory
+  /-- Physical cards in externally supplied boosters, outside the game (CR 1.9.1a). -/
+  | outside
 deriving DecidableEq, Repr, Hashable
 
 /-- List of every per-player `ZoneKind`. -/
 def ZoneKind.all : List ZoneKind :=
   [ .hero, .soul, .head, .chest, .arms, .legs, .weapon, .permanent,
-    .deck, .hand, .arsenal, .pitch, .graveyard, .banished, .inventory ]
+    .deck, .hand, .arsenal, .pitch, .graveyard, .banished, .inventory, .outside ]
 
-/-- Distinct ordinal below 15 for each `ZoneKind`. -/
+/-- Distinct ordinal below 16 for each `ZoneKind`. -/
 def ZoneKind.idx : ZoneKind → Nat
   | .hero => 0
   | .soul => 1
@@ -70,9 +72,10 @@ def ZoneKind.idx : ZoneKind → Nat
   | .graveyard => 12
   | .banished => 13
   | .inventory => 14
+  | .outside => 15
 
-/-- Every `ZoneKind` index is below 15. -/
-theorem ZoneKind.idx_lt (k : ZoneKind) : k.idx < 15 := by
+/-- Every `ZoneKind` index is below 16. -/
+theorem ZoneKind.idx_lt (k : ZoneKind) : k.idx < 16 := by
   cases k <;> decide
 
 /-- Distinct `ZoneKind`s have distinct indices. -/
@@ -82,7 +85,7 @@ theorem ZoneKind.idx_inj {a b : ZoneKind} (h : a.idx = b.idx) : a = b := by
 /-- Whether a per-player zone kind belongs to the Arena (CR 3.0.5). -/
 def ZoneKind.isArena : ZoneKind → Bool
   | .hero | .soul | .head | .chest | .arms | .legs | .weapon | .permanent => true
-  | .deck | .hand | .arsenal | .pitch | .graveyard | .banished | .inventory => false
+  | .deck | .hand | .arsenal | .pitch | .graveyard | .banished | .inventory | .outside => false
 
 /-- Every `ZoneKind` is listed in `ZoneKind.all`. -/
 theorem ZoneKind.mem_all (k : ZoneKind) : k ∈ ZoneKind.all := by
@@ -120,11 +123,11 @@ def normalize (owner : PlayerId) : Zone → Zone
   | .player q k => if k.isArena then .player q k else .player owner k
   | z => z
 
-/-- Numeric key encoding each zone uniquely: `0` and `1` for shared zones, then 15 per seat. -/
+/-- Numeric key encoding each zone uniquely: `0` and `1` for shared zones, then 16 per seat. -/
 def key : Zone → Nat
   | .combatChain => 0
   | .stack => 1
-  | .player p k => 2 + p.n * 15 + k.idx
+  | .player p k => 2 + p.n * 16 + k.idx
 
 /-- Different zones have different numeric keys. -/
 theorem key_inj {a b : Zone} (h : a.key = b.key) : a = b := by

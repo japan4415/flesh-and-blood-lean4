@@ -41,6 +41,7 @@ deriving DecidableEq, Repr
 /-- Whether zone `z` is completely hidden (count-only) to observer `p` (CR 3.0, 4.4.3c). -/
 def Zone.isCountOnlyFor (p : PlayerId) : Zone → Bool
   | .player _ .deck => true
+  | .player _ .outside => true
   | .player q .hand => q != p
   | .player q .inventory => q != p
   | _ => false
@@ -134,6 +135,7 @@ own legal moves: any player's Deck (only length matters for `p`'s own loadout) a
 Hand, Arsenal, Banished, or Inventory (CR 3.0, 4.4.3c). -/
 def Zone.isSecretTo (p : PlayerId) : Zone → Bool
   | .player _ .deck => true
+  | .player _ .outside => true
   | .player q .hand => q != p
   | .player q .arsenal => q != p
   | .player q .banished => q != p

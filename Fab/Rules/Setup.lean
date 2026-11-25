@@ -29,6 +29,27 @@ def addPoolCards (s : GameState) (p : PlayerId) (physStart : Nat) :
     | none => none
     | some (s1, _) => addPoolCards s1 p (physStart + 1) rest
 
+/-- Set up the tracked physical cards in one sealed, outside-game booster. -/
+def addBoosterCards (s : GameState) (p : PlayerId) (physStart : Nat) :
+    List CardId → Option (GameState × List ObjId)
+  | [] => some (s, [])
+  | cid :: rest => do
+    let (next, id) ← addObject s (.player p .outside)
+      { kind := .card ⟨physStart⟩ cid, owner := p, controller := p,
+        faceDown := true, timestamp := ⟨0⟩ } .bottom
+    let (finished, ids) ← addBoosterCards next p (physStart + 1) rest
+    return (finished, id :: ids)
+
+/-- During casual setup, register an externally supplied booster without putting its cards into play. -/
+def supplyBooster (s : GameState) (p : PlayerId) (cards : List CardId) : Option GameState := do
+  if s.phase != .setup || s.config.ruleSet.isTournament || p.n ≥ s.playerCount ||
+      cards.isEmpty || !cards.all (fun id => (s.cards.find? id).isSome) then
+    none
+  else
+    let firstPhys := (s.physIds.foldl (fun greatest id => max greatest id.n) 0) + 1
+    let (next, ids) ← addBoosterCards s p firstPhys cards
+    return { next with unopenedBoosters := next.unopenedBoosters ++ [(p, ids)] }
+
 /-- `addPoolCards` preserves `WF` and `OwnerOk`. -/
 theorem addPoolCards_inv {s s' : GameState} {p : PlayerId} {ph ph' : Nat} {cids : List CardId}
     (hwf : s.WF) (hok : s.OwnerOk) (h : addPoolCards s p ph cids = some (s', ph')) :

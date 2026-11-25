@@ -22,6 +22,8 @@ inductive Event where
   | drawn (player : PlayerId) (obj : ObjId)
   /-- A private card's identity became public through a reveal effect (CR 8.5.17). -/
   | revealed (player : PlayerId) (obj : ObjId) (card : CardId)
+  /-- Contents of a revealed outside-game booster. This is informational (CR 1.9.1a). -/
+  | boosterOpened (player : PlayerId) (cards : List CardId)
   /-- A private card became public while applying a zone move, independently of reveal effects (CR 3.0.8). -/
   | madePublic (player : PlayerId) (obj : ObjId) (card : CardId)
   /-- Player `player` pitched object `obj` generating `resources` `{r}` and `chi` `{c}` (CR 1.14.3). -/
