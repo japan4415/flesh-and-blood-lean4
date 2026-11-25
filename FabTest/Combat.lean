@@ -1049,6 +1049,54 @@ meta def checkEmergingPower (cid : CardId) (pitch bonus : Nat) : Option Bool := 
 
 #guard checkEmergingPower ⟨"WTR_071_B"⟩ 3 1 == some true
 
+/-- Blessing checks its pitch condition on entry-trigger resolution and reveals cards next action phase. -/
+meta def checkBlessingOfDeliverance (cid : CardId) (pitch count gain : Nat) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let card ← m5Base.cards.find? cid
+  let deck := Zone.player player .deck
+  let hand := Zone.player player .hand
+  let permanent := Zone.player player .permanent
+  let firstId : CardId := ⟨"WTR_188_R"⟩
+  let secondId : CardId := ⟨"WTR_203_R"⟩
+  let thirdId : CardId := ⟨"WTR_048_R"⟩
+  let (base, aura) ← cPlace m5Base player .hand cid
+  let (withCheapPitch, cheapPitch) ← cPlace base player .hand ⟨"WTR_205_B"⟩
+  let (withExpensivePitch, expensivePitch) ← cPlace withCheapPitch player .hand ⟨"WTR_190_B"⟩
+  let (withThird, third) ← cPlace withExpensivePitch player .deck thirdId
+  let (withSecond, second) ← cPlace withThird player .deck secondId
+  let (ready, first) ← cPlace withSecond player .deck firstId
+  let play : Action := ⟨.player player, .playCard aura⟩
+  let pitchCard id : Action := ⟨.player player, .pitchCard id⟩
+  let orderTrigger (id : Nat) :=
+    [⟨.player player, .pickTriggerStart player⟩, ⟨.player player, .pickTrigger id⟩]
+  let entering ← cSteps ready ([play, pitchCard cheapPitch] ++ passBoth)
+  let enteringQualified ← cSteps ready ([play, pitchCard expensivePitch] ++ passBoth)
+  let entry ← entering.pendingTriggers.head?
+  let qualifiedEntry ← enteringQualified.pendingTriggers.head?
+  let entered ← (entering.zone permanent).head?
+  let withoutDraw ← cSteps entering (orderTrigger entry.id ++ passBoth)
+  let withDraw ← cSteps enteringQualified (orderTrigger qualifiedEntry.id ++ passBoth)
+  let nextPhase := { withoutDraw with phase := .startPhase, pending := [.actionPhaseStart player] }
+  let (turnStart, _) ← (advance 64 nextPhase []).toOption
+  let start ← turnStart.pendingTriggers.head?
+  let stacked ← cSteps turnStart (orderTrigger start.id ++ [⟨.player player, .pass⟩])
+  let (resolved, es) ← (step 64 stacked ⟨.player ⟨1⟩, .pass⟩).toOption
+  let revealed := es.filterMap fun
+    | .revealed p id face => some (p, id, face)
+    | _ => none
+  let expected := [(player, first, firstId), (player, second, secondId), (player, third, thirdId)].take count
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    entry.source == entered && entering.pendingTriggers.length == 1 &&
+    enteringQualified.pendingTriggers.length == 1 && (entering.poolOf player).actionPoints == 1 &&
+    entering.zone deck == [first, second, third] && withoutDraw.zone deck == [first, second, third] &&
+    (withoutDraw.zone hand).length == 1 && withDraw.zone deck == [second, third] &&
+    (withDraw.zone hand).length == 2 && withDraw.lifeOf player == 40 &&
+    turnStart.pendingTriggers.length == 1 && start.source == entered &&
+    revealed == expected && resolved.zone deck == withoutDraw.zone deck &&
+    resolved.zone permanent == [] && resolved.lifeOf player == 40 + Int.ofNat gain)
+
+#guard checkBlessingOfDeliverance ⟨"WTR_054_R"⟩ 1 3 2 == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do

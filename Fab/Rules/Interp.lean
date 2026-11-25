@@ -1976,13 +1976,13 @@ def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
   | .bindRevealTopCount pref n f bindVar cont :: more =>
     let target := evalPlayerRef s ctrl pref
     let topN := (s.zone (.player target .deck)).take n
-    let matched := (topN.filter fun id =>
-      match s.objectFace? id with
-      | some face => cardFaceMatches f face
-      | none => false).length
+    let revealed := topN.filterMap fun id =>
+      (s.cardDefOf? id).map fun card => Event.revealed target id card.id
+    let matched := topN.countP fun id =>
+      (s.objectFace? id).any (cardFaceMatches f)
     ({ s with
         pending := .run ctrl src fromArsenal ((bindVar, Int.ofNat matched) :: env) [cont] ::
-          .run ctrl src fromArsenal env more :: rest }, [])
+          .run ctrl src fromArsenal env more :: rest }, revealed)
   | .grant scope mod dur :: more =>
     let s1 := applyChainLinkMod s ctrl src env scope mod dur
     ({ s1 with pending := .run ctrl src fromArsenal env more :: rest }, [])

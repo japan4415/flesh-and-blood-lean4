@@ -152,19 +152,27 @@ theorem resolveStack_lifo {s : GameState} {topId : ObjId} {below : List ObjId}
   simp only [hna, Bool.false_eq_true, ↓reduceIte]
   exact ⟨_, _, _, rfl⟩
 
+private theorem afterPermanentEntry_pending (s : GameState) (triggers : List PendingTrigger)
+    (rest : List Frame) :
+    (afterPermanentEntry s triggers rest).pending = afterLayerResolution (afterPermanentEntry s triggers rest) :: rest ∨
+      (afterPermanentEntry s triggers rest).pending =
+        .flushTriggers :: afterLayerResolution (afterPermanentEntry s triggers rest) :: rest := by
+  cases triggers <;> simp [afterPermanentEntry, afterLayerResolution]
+
 /-- **I9**: after a layer resolves, end-phase layers resolve automatically. Otherwise the
-turn-player regains priority with `passCount = 0` (CR 4.4.2, 5.3.5). -/
+turn-player regains priority with `passCount = 0`. New triggers go on the stack before that next
+frame (CR 4.4.2, 5.3.5, 6.6.6). -/
 theorem finishResolve_continues_stack {s s' : GameState} {layerId : ObjId} {rest : List Frame}
     {es : List Event}
     (hp : s.pending = .finishResolve layerId :: rest)
     (hm : microStep s = some (s', es)) :
-    s'.pending = (if s'.phase = .endPhase then .resolveStack else
-      .priority (s'.active.getD ⟨0⟩) 0) :: rest := by
+    s'.pending = afterLayerResolution s' :: rest ∨
+      s'.pending = .flushTriggers :: afterLayerResolution s' :: rest := by
   unfold microStep at hm
   rw [hp] at hm
   simp only [Option.some.injEq, Prod.mk.injEq] at hm
   obtain ⟨rfl, -⟩ := hm
-  rfl
+  exact afterPermanentEntry_pending _ _ _
 
 /-- **I18** (mandatory prompt for optional choices): `microStep` on `Frame.run` with head
 `Effect.may` always prompts `Frame.chooseMay` rather than deciding silently. -/

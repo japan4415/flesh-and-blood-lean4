@@ -347,16 +347,17 @@ def WTR_053_B : CardDef := { staunchResponse WTR_053_B_meta with status := .full
 /-- Shared 3-color helper for Blessing of Deliverance (reveal top 3/2/1, gain life for cost ≥3). -/
 def blessingOfDeliverance (base : CardDef) (revealCount : Nat) : CardDef :=
   draftCard base
-    [ .triggered .onEnterArena false none (some (.zoneCountGe .controller .pitch cost3Filter 1))
-        { body := .prim (.draw .controller (.const 1)) }
+    [ .triggered .onEnterArena false none none
+        { body := .ifThen (.zoneCountGe .controller .pitch cost3Filter 1)
+            (.prim (.draw .controller (.const 1))) .nop }
     , .triggered .onStartOfActionPhase false none none
         { body := .seqL
             [ .prim (.destroy .self_)
             , .bindRevealTopCount .controller revealCount cost3Filter ⟨0⟩
                 (.prim (.gainLife .controller (.varVal ⟨0⟩))) ] } ]
 
-/-- Blessing of Deliverance Red (drafted IR). -/
-def WTR_054_R : CardDef := blessingOfDeliverance WTR_054_R_meta 3
+/-- Blessing of Deliverance Red. -/
+def WTR_054_R : CardDef := { blessingOfDeliverance WTR_054_R_meta 3 with status := .full }
 /-- Blessing of Deliverance Yellow (drafted IR). -/
 def WTR_055_Y : CardDef := blessingOfDeliverance WTR_055_Y_meta 2
 /-- Blessing of Deliverance Blue (drafted IR). -/

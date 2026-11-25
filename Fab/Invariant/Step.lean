@@ -611,6 +611,11 @@ theorem applyAction_preserves {s s' : GameState} {a : Action} {es : List Event}
       · exact False.elim (hnt ha hk)
       · exact False.elim (hnj ha hk)
 
+private theorem afterPermanentEntry_preserves {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
+    (hrb : s.RollbackOk) (triggers : List PendingTrigger) (rest : List Frame) :
+    StepPreserves s (afterPermanentEntry s triggers rest) :=
+  sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+
 /-- Helper: `drawOne` preserves `config` and `playRollback`. -/
 theorem drawOne_meta (s : GameState) (p : PlayerId) :
     (drawOne s p).1.config = s.config ∧ (drawOne s p).1.playRollback = s.playRollback := by
@@ -816,14 +821,14 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
     have hok_e : p2e.OwnerOk := GameState.OwnerOk.congr hp12.ownerOk rfl rfl
     have hmeta3 := gspRun_meta p2e
     have hphys3 : (gspRun p2e).physIds.Perm p2.1.physIds := gspRun_physIds hwf_e
-    have hp3 : StepPreserves p2.1
-        { gspRun p2e with
-            pending := afterLayerResolution (gspRun p2e) :: rest } :=
+    have hp3 : StepPreserves p2.1 (gspRun p2e) :=
       ⟨GameState.WF.congr (gspRun_wf hwf_e) rfl rfl rfl rfl,
        GameState.OwnerOk.congr (gspRun_ownerOk hwf_e hok_e) rfl rfl,
        GameState.RollbackOk.preserve hp12.rollbackOk hmeta3.1 hmeta3.2 hphys3,
        hphys3, hmeta3.1⟩
-    exact hp12.trans hp3
+    let triggers := permanentEntryTriggers p2.1 info.fromArsenal p2.2
+    exact hp12.trans (hp3.trans (afterPermanentEntry_preserves hp3.wf hp3.ownerOk hp3.rollbackOk
+      triggers rest))
   · -- combatStep .layer
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
     exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
