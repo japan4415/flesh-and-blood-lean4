@@ -251,6 +251,20 @@ def playerCount (s : GameState) : Nat :=
 def zone (s : GameState) (z : Zone) : List ObjId :=
   s.zones.getD z.key []
 
+end GameState
+
+/-- Zones holding installed arena objects, excluding cards underneath a hero (CR 3.0.14b). -/
+def installedArenaZones (s : GameState) : List Zone :=
+  (allZones s.playerCount).filter fun
+    | .player _ kind => kind.isArena && kind != .soul
+    | _ => false
+
+/-- Zones where public arena sources can supply functional abilities (CR 1.7.4). -/
+def activationArenaZones (s : GameState) : List Zone :=
+  .combatChain :: installedArenaZones s
+
+namespace GameState
+
 /-- Replace the contents of zone `z`. -/
 def setZone (s : GameState) (z : Zone) (l : List ObjId) : GameState :=
   { s with zones := s.zones.insert z.key l }
@@ -466,6 +480,34 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     triggeredThisTurn := snap.triggeredThisTurn
     playRollback := none }
 
+/-- Constant matching-card defense effects of a public arena source (CR 6.2.3, 6.3.2). -/
+def arenaDefenseSourceEffects (s : GameState) (source : ObjId) : List ContinuousEffect :=
+  match s.obj? source, s.cardDefOf? source with
+  | some obj, some card =>
+    if obj.faceDown then [] else
+    let face := match obj.faceState with
+      | .front => card.front
+      | .back => card.back.getD card.front
+    let mods := face.abilities.filterMap fun
+      | .static_ none (.allMatching .controller filter) (.addDefense (.const bonus)) => some (filter, bonus)
+      | _ => none
+    if mods.isEmpty then [] else
+    let chars := evalCharacteristics s.activeEffects obj face source
+    if chars.abilitiesLost then [] else
+    mods.map fun (filter, bonus) =>
+      { id := 0, source := source, controller := chars.controller, timestamp := obj.timestamp,
+        target := .matchingCard chars.controller filter, op := .addDefense bonus, duration := .whileSourceInArena }
+  | _, _ => []
+
+/-- Collect live static defense effects for an arena object (CR 6.2.3, 6.3.2). -/
+def arenaDefenseEffects (s : GameState) (id : ObjId) : List ContinuousEffect :=
+  let arena := (activationArenaZones s).flatMap s.zone
+  if !arena.contains id then [] else
+  let effects := arena.flatMap s.arenaDefenseSourceEffects
+  if effects.isEmpty then [] else
+  let nextId := s.activeEffects.foldl (fun n effect => max n (effect.id + 1)) 0
+  effects.zipIdx.map fun (effect, i) => { effect with id := nextId + i }
+
 /-- Evaluate the 8-stage derived characteristics of object `id` in state `s` (CR 6.3.2). -/
 def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
   match s.obj? id, s.cardDefOf? id with
@@ -473,7 +515,7 @@ def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
     let face := match o.faceState with
       | .front => c.front
       | .back => c.back.getD c.front
-    some (evalCharacteristics s.activeEffects o face id)
+    some (evalCharacteristics (s.activeEffects ++ s.arenaDefenseEffects id) o face id)
   | _, _ => none
 
 /-- Expire all active continuous effects matching duration `dur` (CR 4.4.3, 7.7). -/

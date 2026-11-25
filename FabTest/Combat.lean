@@ -1143,6 +1143,55 @@ meta def checkSeismicSurge : Option Bool := do
 
 #guard checkSeismicSurge == some true
 
+/-- Forged for War gives live equipment defense until the aura leaves the arena. -/
+meta def checkForgedForWar : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_046_Y"⟩
+  let arena := Zone.player player .permanent
+  let grave := Zone.player player .graveyard
+  let funded := m5Base.setPool player { actionPoints := 1, resources := 2 }
+  let base : GameState := { funded with pending := funded.pending ++ [.beginTurn] }
+  let card ← base.cards.find? cid
+  let (withChest, chest) ← cPlace base player .chest ⟨"WTR_005"⟩
+  let (withHead, head) ← cPlace withChest player .head ⟨"WTR_155"⟩
+  let (withOpponent, otherChest) ← cPlace withHead opponent .chest ⟨"WTR_005"⟩
+  let (withAura, aura) ← cPlace withOpponent player .hand cid
+  let (ready, attack) ← cPlace withAura opponent .hand ⟨"WTR_203_R"⟩
+  let (faceDown, _) ← cPlace ready player .permanent cid true
+  let play : Action := ⟨.player player, .playCard aura⟩
+  let paid ← cSteps ready [play]
+  let placed ← cSteps paid passBoth
+  let source ← (placed.zone arena).head?
+  let (twoAuras, _) ← cPlace placed player .permanent cid
+  let (removedEarly, _) ← moveObj placed source grave .top false
+  let otherTurn ← cSteps placed passBoth
+  let defending ← cSteps otherTurn
+    (⟨.player opponent, .playCard attack⟩ :: (passBoth.reverse ++ passBoth.reverse))
+  let blocked ← cSteps defending [⟨.player player, .defendCard chest⟩]
+  let finish : Action := ⟨.player player, .defendDone⟩
+  let closed ← cSteps blocked (finish :: (List.replicate 4 passBoth.reverse).flatten)
+  let prompt ← cSteps closed passBoth.reverse
+  let trigger ← prompt.pendingTriggers.head?
+  let stacked ← cSteps prompt
+    [⟨.player player, .pickTriggerStart player⟩, ⟨.player player, .pickTrigger trigger.id⟩]
+  let resolved ← cSteps stacked passBoth
+  let spent ← (resolved.zone grave).head?
+  pure (card.status == .full && card.front.defense == some 3 && card.front.pitch == some 2 &&
+    objEffectiveDefense faceDown chest == some 1 && objEffectiveDefense paid chest == some 1 &&
+    objEffectiveDefense placed chest == some 2 && objEffectiveDefense placed head == some 2 &&
+    objEffectiveDefense twoAuras chest == some 3 &&
+    objEffectiveDefense placed otherChest == some 1 && objEffectiveDefense removedEarly chest == some 1 &&
+    (placed.poolOf player).actionPoints == 1 && (placed.poolOf player).resources == 0 &&
+    otherTurn.active == some opponent && (blocked.zone .combatChain).contains chest &&
+    objEffectiveDefense blocked chest == some 2 && closed.lifeOf player == 38 &&
+    (closed.obj? chest).map (·.minusDefenseCounters) == some 1 &&
+    prompt.active == some player && trigger.source == source && objEffectiveDefense stacked chest == some 1 &&
+    resolved.zone arena == [] && (resolved.cardDefOf? spent).map (·.id) == some cid &&
+    objEffectiveDefense resolved chest == some 0 && objEffectiveDefense resolved head == some 1)
+
+#guard checkForgedForWar == some true
+
 /-- Remembrance lets its caster choose up to three action cards, then banishes itself. -/
 meta def checkRemembrance : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

@@ -317,6 +317,13 @@ def WTR_045_B : CardDef :=
     [ .triggered (.onDealDamage 4 true) false none none
         { body := .grant (.hero .defendingHero) .cantDrawCards .nextActionPhase } ]
 
+/-- Forged for War. -/
+def WTR_046_Y : CardDef :=
+  { draftCard WTR_046_Y_meta
+      [ .static_ none (.allMatching .controller { types := [.equipment] }) (.addDefense (.const 1))
+      , .triggered .onStartOfActionPhase false none none { body := .prim (.destroy .self_) } ]
+    with status := .full }
+
 /-- Shared 3-color helper for Disable (Crush → defending hero's arsenal to deck bottom). -/
 def disableCard (base : CardDef) : CardDef :=
   draftCard base
@@ -1211,7 +1218,7 @@ def draftedCards : List CardDef :=
   , WTR_017_R, WTR_018_Y, WTR_019_B, WTR_020_R, WTR_021_Y, WTR_022_B
   , WTR_023_R, WTR_024_Y, WTR_025_B, WTR_026_R, WTR_027_Y, WTR_028_B, WTR_029_R, WTR_030_Y, WTR_031_B
   , WTR_032_R, WTR_033_Y, WTR_034_B, WTR_035_R, WTR_036_Y, WTR_037_B
-  , WTR_038, WTR_039, WTR_040, WTR_041, WTR_042, WTR_043_R, WTR_044_R, WTR_045_B
+  , WTR_038, WTR_039, WTR_040, WTR_041, WTR_042, WTR_043_R, WTR_044_R, WTR_045_B, WTR_046_Y
   , WTR_048_R, WTR_049_Y, WTR_050_B, WTR_051_R, WTR_052_Y, WTR_053_B
   , WTR_054_R, WTR_055_Y, WTR_056_B, WTR_057_R, WTR_058_Y, WTR_059_B, WTR_069_R, WTR_070_Y, WTR_071_B, WTR_075
   , WTR_076, WTR_077, WTR_078, WTR_079, WTR_080, WTR_081_B, WTR_082_R, WTR_084_Y, WTR_085_R
