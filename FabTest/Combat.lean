@@ -1727,6 +1727,53 @@ meta def checkGoliathGauntlet : Option Bool := do
 
 #guard checkGoliathGauntlet == some true
 
+/-- Breaking Scales gives +1 power to a Combo card, even without its Combo predecessor. -/
+meta def checkBreakingScales : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_080"⟩
+  let arms := Zone.player attacker .arms
+  let grave := Zone.player attacker .graveyard
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 1 }
+  let card ← funded.cards.find? cid
+  let (equipped, source) ← cPlace funded attacker .arms cid
+  let (withCombo, combo) ← cPlace equipped attacker .hand ⟨"WTR_104_R"⟩
+  let (ready, normal) ← cPlace withCombo attacker .hand ⟨"WTR_203_R"⟩
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let activate id : Action := ⟨.player attacker, .activateAbility source 0 (some id)⟩
+  let link (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let enter (id : ObjId) := cSteps ready (play id :: (passBoth ++ passBoth ++ [done] ++ passBoth))
+  let reacting ← enter combo
+  let target ← (link reacting).bind (·.attack)
+  let wrong ← enter normal
+  let wrongTarget ← (link wrong).bind (·.attack)
+  let (paid, events) ← (step 64 reacting (activate target)).toOption
+  let layer ← (paid.zone .stack).head?
+  let spent ← (paid.zone grave).head?
+  let buffed ← cSteps paid passBoth
+  let before ← link paid
+  let after ← link buffed
+  let hit ← cSteps buffed (passBoth ++ passBoth ++ passBoth)
+  let (wearReady, wearSource) ← cPlace m5Base defender .arms cid
+  let (withAttack, attack) ← cPlace wearReady attacker .hand ⟨"WTR_203_R"⟩
+  let defending ← cSteps withAttack (play attack :: (passBoth ++ passBoth))
+  let closed ← cSteps defending
+    ([⟨.player defender, .defendCard wearSource⟩, done] ++ passBoth ++ passBoth ++ passBoth ++ passBoth)
+  pure (card.status == .full && card.front.defense == some 1 && card.front.keywords.contains .battleworn &&
+    (legalActionsFor attacker reacting).contains (activate target) &&
+    (step 64 wrong (activate wrongTarget)).toOption.isNone &&
+    paid.zone arms == [] && (paid.cardDefOf? spent).map (·.id) == some cid &&
+    events.contains (.moved source spent arms grave) && events.contains (.targetedAttack layer target) &&
+    (paid.poolOf attacker).actionPoints == 0 && (paid.poolOf attacker).resources == 1 &&
+    linkAttackPower paid before == 3 && linkAttackPower buffed after == 4 &&
+    hit.lifeOf defender == 36 && (hit.poolOf attacker).actionPoints == 0 &&
+    closed.lifeOf defender == 37 && closed.zone (.player defender .arms) == [wearSource] &&
+    (closed.obj? wearSource).map (·.minusDefenseCounters) == some 1 &&
+    objEffectiveDefense closed wearSource == some 0)
+
+#guard checkBreakingScales == some true
+
 /-- Snapdragon Scalers grants Go Again to a legal attack action card during the reaction step. -/
 meta def checkSnapdragonScalers : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
