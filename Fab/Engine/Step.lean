@@ -102,6 +102,14 @@ def legalFrameActions (s : GameState) : List Action :=
     puts ++ [⟨.player tp, .arsenalSkip⟩]
   | .choosePitchOrder p :: _ =>
     (s.zone (.player p .pitch)).map fun id => ⟨.player p, .pitchReturnPick id⟩
+  | .chooseTriggerStart tp :: _ =>
+    s.turnOrder.map fun start => ⟨.player tp, .pickTriggerStart start⟩
+  | .chooseTriggerOrder p _ :: _ =>
+    (s.pendingTriggers.filter fun t => t.controller == p).map fun t =>
+      ⟨.player p, .pickTrigger t.id⟩
+  | .chooseReplacement aff _ cands canDecl :: _ =>
+    (cands.map fun cid => ⟨.player aff, .pickReplacement (some cid)⟩) ++
+      (if canDecl then [⟨.player aff, .pickReplacement none⟩] else [])
   | _ => []
 
 /-- Constructively enumerate legal concessions in a 1v1 game (CR 4.5). -/

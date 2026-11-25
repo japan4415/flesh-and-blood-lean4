@@ -707,15 +707,18 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
         else
           match s1.obj? layerId with
           | some o =>
-            let isPerm :=
-              match s1.cardDefOf? layerId with
-              | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
-              | none => false
-            let dst := if isPerm then Zone.player info.controller .permanent
-                       else Zone.player o.owner .graveyard
-            match moveObj s1 layerId dst .top false with
-            | some (sMoved, id') => (sMoved, [Event.moved layerId id' .stack dst])
-            | none => (s1, [])
+            match o.kind with
+            | .layer _ _ _ _ => (removeNonPhysObj s1 layerId, [])
+            | _ =>
+              let isPerm :=
+                match s1.cardDefOf? layerId with
+                | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
+                | none => false
+              let dst := if isPerm then Zone.player info.controller .permanent
+                         else Zone.player o.owner .graveyard
+              match moveObj s1 layerId dst .top false with
+              | some (sMoved, id') => (sMoved, [Event.moved layerId id' .stack dst])
+              | none => (s1, [])
           | none => (s1, [])
       else (s1, [])
     have h2 : p2.1.turn = s1.turn ∧ p2.1.tournament = s1.tournament ∧ p2.1.result = s1.result := by
@@ -729,11 +732,15 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
             exact ⟨hm'.1, hm'.2.1, hm'.2.2⟩
         · cases s1.obj? layerId with
           | none => exact ⟨rfl, rfl, rfl⟩
-          | some _ =>
+          | some o =>
             dsimp only
-            cases hm : moveObj s1 layerId _ .top false with
-            | none => exact ⟨rfl, rfl, rfl⟩
-            | some _ => exact moveObj_turn_tournament_result hm
+            cases o.kind with
+            | layer _ _ _ _ => exact removeNonPhysObj_turn_tournament_result s1 layerId
+            | card _ _ | token _ | attackProxy _ _ =>
+              dsimp only
+              cases hm : moveObj s1 layerId _ .top false with
+              | none => exact ⟨rfl, rfl, rfl⟩
+              | some _ => exact moveObj_turn_tournament_result hm
       · exact ⟨rfl, rfl, rfl⟩
     have hg := gspRun_turn_tournament { p2.1 with layerMeta := p2.1.layerMeta.erase layerId.n }
     exact timeLimitBounded_of_eq hb (hg.1.trans (h2.1.trans h1.1)) (hg.2.trans (h2.2.1.trans h1.2.1))
@@ -828,8 +835,14 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       exact timeLimitBounded_of_eq hb rfl rfl id
   · -- endPhaseStart
-    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-    exact timeLimitBounded_of_eq hb rfl rfl id
+    rename_i tp rest _
+    have hbd := applyBloodDebt_ttr s tp
+    cases hba : applyBloodDebt s tp with
+    | mk sBd esBd =>
+      rw [hba] at h hbd
+      dsimp only at h hbd
+      simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      split <;> exact timeLimitBounded_of_eq hb hbd.1 hbd.2.1 hbd.2.2
   · -- returnPitch
     split at h <;>
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
@@ -837,6 +850,10 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
   · -- endTurnCleanup
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
     exact timeLimitBounded_of_eq hb rfl rfl id
+  · -- flushTriggers
+    split at h <;>
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact timeLimitBounded_of_eq hb rfl rfl id
   · cases h
 
 /-- **I14** (`advance` preservation): `advance` preserves `TimeLimitBounded deadline`. -/
@@ -1024,6 +1041,29 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
         have hm' := moveObj_turn_tournament_result hm
         exact ⟨hm'.1, hm'.2.1, hm'.2.2⟩
     · cases h
+  · -- chooseTriggerStart
+    split at h
+    · dsimp only at h
+      simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact ⟨rfl, rfl, rfl⟩
+    · cases h
+  · -- chooseTriggerOrder
+    split at h
+    · split at h
+      · cases h
+      · dsimp only at h
+        split at h
+        · cases h
+        · rename_i _ _ ha
+          simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          have ha' := addObject_turn_tournament_result ha
+          exact ⟨ha'.1, ha'.2.1, ha'.2.2⟩
+    · cases h
+  · -- chooseReplacement
+    dsimp only at h
+    split at h <;>
+    · split at h
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact ⟨rfl, rfl, rfl⟩
+      · cases h
   · cases h
 
 /-- Helper: none of the tournament `ActionKind`s ever satisfies `LegalFrame`. -/

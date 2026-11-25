@@ -270,6 +270,14 @@ FaB ルールの中核マイルストーン。
 - テスト: `FabTest/Continuous.lean`（6 シナリオ: 全 8 ステージ＋カウンタ、Stage 1 Copy、依存優先、循環 Timestamp フォールバック、資産コスト Set→Add→Sub、*Awakening Bellow* 実カード効果の `characteristics` 反映と End Phase 失効）。
 - 検証: `./scripts/verify.sh` 全 5 項目通過（145 jobs、警告 0、`sorry` 0、標準 3 公理のみ、`gen_lean --check` OK、`cr_citations.py` 53 files / 863 citations / 193 distinct rules / malformed: 0）。
 
+**M6b 実装の記録（2026-11-25）: 完了**
+- 4 段階置換効果・秘術防御（CR 6.4-6.5, 8.3）: `Fab/Rules/Replacement.lean`（`ProposedEvent`, `ReplacementAction`（Ward 強制破壊 / Arcane Barrier 任意秘術支払 / Spellvoid 任意秘術破壊 / Quell 任意支払＋破壊マーク / Shielding Prevention / ゾーン置換 / ドロー置換 / Outcome 置換）, `ReplacementEffect`, `ReplacementState`, `pickNextReplacement`, `applyReplacementPipeline`；CR 6.4.5 高々 1 回適用 `applyReplacementPipeline_nodup`；**L5** `ReplacementStageSpec` + `applyReplacementPipeline_matches_spec` + `ReplacementStageSpec.unique`；Release Notes 定理 `ward_mandatory_prevents_damage`, `arcaneBarrier_ignores_physical`, `arcaneBarrier_optional_can_decline`）。
+- 同時誘発と遅延誘発（CR 6.6）: `Fab/Rules/Triggers.lean`（`PendingTrigger`, `DelayedTrigger`, `rotateTurnOrderFrom`, `stackTriggersClockwise`；**I19** `rotateTurnOrderFrom_head`, `rotateTurnOrderFrom_perm`, `rotateTurnOrderFrom_1v1`, `stackTriggersClockwise_1v1_lifo`）。
+- 戦闘・エンドフェイズキーワード（CR 8.3）: `Fab/Rules/CombatKeywords.lean`（Combo + LKI、Crush、Reprise、Stealth、Phantasm 強制クローズ、Spectra 強制クローズ、Boost + Mechanologist Go Again、Blood Debt 表向き限定ライフ損失、および各保存定理）。
+- エンジン・フレーム・不変条件統合: `Fab/State/Decision.lean`（`pickTriggerStart`, `pickTrigger`, `pickReplacement`, `flushTriggers`, `chooseTriggerStart`, `chooseTriggerOrder`, `chooseReplacement`）、`Fab/State/GameState.lean`（`pendingTriggers`, `delayedTriggers`, `chosenReplacements`, `LayerInfo.triggerEffect`、`BoardSnapshot` 巻き戻し統合）、`Fab/Rules/Frames.lean`（`nextTriggerFrame`、誘発レイヤー解決、End Phase の Blood Debt＆遅延誘発発火）、`Fab/Spec/Legal.lean`、`Fab/Engine/Step.lean`、`Fab/Invariant/Step.lean`（**I1/I3/I4/I6** 維持）、`Fab/Invariant/Tournament.lean`（**I14** 維持）、`Fab/Invariant/Effects.lean`（**I19**, **I5** `progress_m6b_decisions`, キーワード定理群）。
+- テスト: `FabTest/Effects.lean`（4 段階置換・Ward 強制 vs AB 任意・Spellvoid/Quell・1v1 同時誘発 LIFO 制御・Combo LKI / Crush / Reprise / Phantasm / Spectra / Boost / Blood Debt 表裏判定）。
+- 検証: `./scripts/verify.sh` 全 5 項目通過（155 jobs、警告 0、`sorry` 0、標準 3 公理のみ、`gen_lean --check` OK、`cr_citations.py` 57 files / 973 citations / 200 distinct rules / malformed: 0）。
+
 ---
 
 ### M7: 初期セット完全実装と段階的カード展開

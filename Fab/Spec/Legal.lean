@@ -65,6 +65,15 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     q = tp
   | .choosePitchOrder p :: _, .player q, .pitchReturnPick id =>
     q = p ∧ id ∈ s.zone (.player p .pitch)
+  | .chooseTriggerStart tp :: _, .player q, .pickTriggerStart start =>
+    q = tp ∧ start ∈ s.turnOrder
+  | .chooseTriggerOrder p _ :: _, .player q, .pickTrigger tid =>
+    q = p ∧ (s.pendingTriggers.any fun t => t.id == tid && t.controller == p) = true
+  | .chooseReplacement aff _ cands canDecl :: _, .player q, .pickReplacement choice =>
+    q = aff ∧
+    match choice with
+    | some cid => cid ∈ cands
+    | none => canDecl = true
   | _, _, _ => False
 
 instance decidableLegalFrame (s : GameState) (a : Action) : Decidable (LegalFrame s a) := by
@@ -73,7 +82,10 @@ instance decidableLegalFrame (s : GameState) (a : Action) : Decidable (LegalFram
   | nil => exact isFalse id
   | cons f rest =>
     cases f <;> cases a.actor <;> cases a.kind <;>
-      first | infer_instance | (dsimp only; cases s.combat.bind CombatChain.activeLink? <;> infer_instance)
+      first
+      | infer_instance
+      | (dsimp only; cases s.combat.bind CombatChain.activeLink? <;> infer_instance)
+      | (rename_i choice; dsimp only; cases choice <;> infer_instance)
 
 /-- Legality of conceding: in a 1v1 game, any seated player may concede at any time while the
 game is ongoing (CR 4.5). -/

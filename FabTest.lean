@@ -15,6 +15,7 @@ public import FabTest.Stack
 public import FabTest.Combat
 public import FabTest.Tournament
 public import FabTest.Continuous
+public import FabTest.Effects
 
 /-!
 # FabTest

@@ -28,6 +28,8 @@ public import Fab.State.Phase
 public import Fab.State.Combat
 public import Fab.State.Decision
 public import Fab.Rules.Continuous
+public import Fab.Rules.Replacement
+public import Fab.Rules.Triggers
 public import Fab.State.GameState
 public import Fab.Rules.Move
 public import Fab.Rules.Add
@@ -36,6 +38,7 @@ public import Fab.Rules.Objects
 public import Fab.Rules.Gsp
 public import Fab.Rules.Interp
 public import Fab.Rules.Combat
+public import Fab.Rules.CombatKeywords
 public import Fab.Rules.Setup
 public import Fab.Rules.Frames
 public import Fab.Rules.Actions.Draw
@@ -50,6 +53,7 @@ public import Fab.Invariant.Stack
 public import Fab.Invariant.Combat
 public import Fab.Invariant.Tournament
 public import Fab.Invariant.Continuous
+public import Fab.Invariant.Effects
 
 /-!
 # Fab

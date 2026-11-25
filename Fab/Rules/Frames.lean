@@ -5,6 +5,7 @@ public import Fab.Rules.Reorder
 public import Fab.Rules.Objects
 public import Fab.Rules.Interp
 public import Fab.Rules.Combat
+public import Fab.Rules.CombatKeywords
 public import Fab.Rules.Actions.Draw
 public import Fab.Rules.Actions.Pitch
 public import Fab.Tournament.Loop
@@ -376,6 +377,16 @@ def spendAssetCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Option Ga
   | some pool' => some (s.setPool p pool')
   | none => none
 
+/-- Advance to the next player in `order` who still controls at least one pending triggered ability,
+returning `[.chooseTriggerOrder q rem]` or `[]` when all pending triggers are stacked (CR 6.6.6b). -/
+def nextTriggerFrame (s : GameState) : List PlayerId → List Frame
+  | [] => []
+  | q :: rem =>
+    if s.pendingTriggers.any (fun t => t.controller == q) then
+      [.chooseTriggerOrder q rem]
+    else
+      nextTriggerFrame s rem
+
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
   match s.pending, a.actor, a.kind with
@@ -591,6 +602,50 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
               [.moved id id' (.player p .pitch) (.player p .deck)])
     else
       none
+  | .chooseTriggerStart tp :: rest, .player q, .pickTriggerStart start =>
+    if tp = q ∧ start ∈ s.turnOrder then
+      let order := rotateTurnOrderFrom s.turnOrder start
+      some ({ s with pending := nextTriggerFrame s order ++ rest }, [])
+    else
+      none
+  | .chooseTriggerOrder p rem :: rest, .player q, .pickTrigger tid =>
+    if p = q then
+      match s.pendingTriggers.find? (fun t => t.id == tid && t.controller == p) with
+      | none => none
+      | some trig =>
+        let layerObj : Object :=
+          { kind := .layer trig.source (some trig.sourceLki) trig.abilityIdx true
+            owner := p
+            controller := p
+            timestamp := ⟨s.nextTimestamp⟩ }
+        match addObject s .stack layerObj .top with
+        | none => none
+        | some (s1, lid) =>
+          let remTrigs := s1.pendingTriggers.filter (fun t => t.id != tid)
+          let info : LayerInfo :=
+            { controller := p
+              fromArsenal := false
+              modeIdx := none
+              goAgain := false
+              triggerEffect := some trig.effect }
+          let s2 := { s1 with
+            pendingTriggers := remTrigs
+            layerMeta := s1.layerMeta.insert lid.n info }
+          let nextF := nextTriggerFrame s2 (p :: rem)
+          some ({ s2 with pending := nextF ++ rest }, [])
+    else
+      none
+  | .chooseReplacement aff _ cands canDecl :: rest, .player q, .pickReplacement choice =>
+    let validChoice : Bool :=
+      match choice with
+      | some cid => cands.contains cid
+      | none => canDecl
+    if aff = q ∧ validChoice = true then
+      some ({ s with
+                chosenReplacements := s.chosenReplacements ++ [choice]
+                pending := rest }, [])
+    else
+      none
   | _, _, _ => none
 
 /-- Apply any legal `Action` (concession in 1v1, tournament action, or an answer to the top
@@ -681,9 +736,12 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         let info := s.layerMeta.getD topId.n
           { controller := s.active.getD ⟨0⟩ }
         let eff :=
-          match s.cardDefOf? topId with
-          | some c => cardResolveEffect c info.modeIdx
-          | none => .nop
+          match info.triggerEffect with
+          | some teff => teff
+          | none =>
+            match s.cardDefOf? topId with
+            | some c => cardResolveEffect c info.modeIdx
+            | none => .nop
         some ({ s with
                   pending := .run info.controller topId info.fromArsenal [] [eff] ::
                     .finishResolve topId :: rest },
@@ -716,15 +774,18 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         else
           match s1.obj? layerId with
           | some o =>
-            let isPerm :=
-              match s1.cardDefOf? layerId with
-              | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
-              | none => false
-            let dst := if isPerm then Zone.player info.controller .permanent
-                       else Zone.player o.owner .graveyard
-            match moveObj s1 layerId dst .top false with
-            | some (sMoved, id') => (sMoved, [.moved layerId id' .stack dst])
-            | none => (s1, [])
+            match o.kind with
+            | .layer _ _ _ _ => (removeNonPhysObj s1 layerId, [])
+            | _ =>
+              let isPerm :=
+                match s1.cardDefOf? layerId with
+                | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
+                | none => false
+              let dst := if isPerm then Zone.player info.controller .permanent
+                         else Zone.player o.owner .graveyard
+              match moveObj s1 layerId dst .top false with
+              | some (sMoved, id') => (sMoved, [.moved layerId id' .stack dst])
+              | none => (s1, [])
           | none => (s1, [])
       else
         (s1, [])
@@ -834,16 +895,31 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     | [] =>
       some ({ s with pending := rest }, [])
   | .endPhaseStart tp :: rest =>
-    let pitchReturns := s.turnOrder.map Frame.returnPitch
+    let (sBd, esBd) := applyBloodDebt s tp
+    let (fired, kept) := sBd.delayedTriggers.partition fun dt => dt.watchPhase == .endPhase
+    let newTrigs := fired.map fun dt =>
+      { id := dt.id
+        source := dt.source
+        sourceLki := captureLki sBd dt.source dt.controller
+        controller := dt.controller
+        abilityIdx := 0
+        effect := dt.effect : PendingTrigger }
+    let s1 :=
+      if fired.isEmpty then sBd
+      else { sBd with
+        delayedTriggers := kept
+        pendingTriggers := sBd.pendingTriggers ++ newTrigs }
+    let trigFrames := if fired.isEmpty then [] else [.flushTriggers]
+    let pitchReturns := s1.turnOrder.map Frame.returnPitch
     let arsenalFrames :=
-      if (s.zone (.player tp .arsenal)).isEmpty && !(s.zone (.player tp .hand)).isEmpty then
+      if (s1.zone (.player tp .arsenal)).isEmpty && !(s1.zone (.player tp .hand)).isEmpty then
         [.chooseArsenal tp]
       else
         []
-    some ({ s with
+    some ({ s1 with
               phase := .endPhase
-              pending := arsenalFrames ++ pitchReturns ++ [.endTurnCleanup tp] ++ rest },
-          [])
+              pending := trigFrames ++ arsenalFrames ++ pitchReturns ++ [.endTurnCleanup tp] ++ rest },
+          esBd)
   | .returnPitch p :: rest =>
     if (s.zone (.player p .pitch)).isEmpty then
       some ({ s with pending := rest }, [])
@@ -854,6 +930,12 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let s2 := ({ s1 with pools := ∅ }).expireEffects .thisTurn
     let draws := endPhaseDrawFrames s2 tp
     some ({ s2 with pending := draws ++ rest }, [])
+  | .flushTriggers :: rest =>
+    if s.pendingTriggers.isEmpty then
+      some ({ s with pending := rest }, [])
+    else
+      let tp := s.active.getD ⟨0⟩
+      some ({ s with pending := .chooseTriggerStart tp :: rest }, [])
   | _ => none
 
 end Fab
