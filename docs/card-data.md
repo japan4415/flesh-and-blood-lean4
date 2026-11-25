@@ -6,7 +6,7 @@ Flesh and Blood のカードをどこから取り込み、どのように Lean �
 
 ## 1. FaB カードプールの構造と特徴
 
-Flesh and Blood は 2019 年の **Welcome to Rathe（WTR）** から始まり、現在までに 15 以上のブースターセット・補助セットが存在する。カードデータの取り扱いには次の FaB 固有の事情がある。
+Flesh and Blood の最初のブースターは、2019 年発売の **Welcome to Rathe（WTR）**。現在までに 15 以上のブースターセット・補助セットが存在する。カードデータの取り扱いには次の FaB 固有の事情がある。
 
 1. **Name + Pitch（赤・黄・青）による 3 色展開**:
    - 多くのアクション・リアクション・インスタントカードは同一カード名で **Red（Pitch 1 / 高威力）**・**Yellow（Pitch 2 / 中威力）**・**Blue（Pitch 3 / 低威力）** の 3 バージョンが存在する。
@@ -135,6 +135,19 @@ def WTR_217_B : CardDef := { WTR_217_B.meta with front := { WTR_217_B.meta.front
 
 - `ImplStatus`（`todo` / `drafted` / `partial` / `full`）と完了条件は [roadmap.md](roadmap.md) 末尾に従う。
 - `scripts/coverage.py` がセットごとの件数・IR 転記率・`full` 率・`custom` 使用数・テスト有無を `docs/coverage.md` に出力する。
+
+### 初出順と WTR 発売前の収録範囲
+
+公式カードデータベースと製品・配布記録を参照し、初回発売・配布日が古い製品から実装する。WTR 発売前の範囲は2019年10月11日より前とする。同じ製品ではカード番号順に進める。別印刷は既存の論理カード ID に紐付ける。配布日が不明な場合は、確認できた印刷日と配布記録を別々に記録する。 [公式 Card Vault](https://cardvault.fabtcg.com/) · [進捗チェックシート #246](https://github.com/japan4415/flesh-and-blood-lean4/issues/246)
+
+| 製品・配布物 | 初出の根拠 | 実装 |
+|---|---|---|
+| Slingshot Underground | 2018年12月の発売前配布 | `OXO001-P`〜`OXO004-P` を対応する WTR の Ironrot 装備に紐付ける。`OXO002-P` の旧名称と `OXO002-P`〜`OXO004-P` の参照先誤記は、公式の印刷記録を参照。 [公式記録](https://legacy.fabtcg.com/en/collectors-centre/promos-and-extras/) |
+| Ira Welcome Deck | 2019年8月31日発売 | 12種すべてに対応。新規の論理カードは10種で、Head Jab と Scar for a Scar は WTR の既存カードを参照する。 [公式製品ページ](https://legacy.fabtcg.com/en/products/welcome-deck-2019/) · [公式収録表](https://legacy.fabtcg.com/en/collectors-centre/ira-welcome-deck/) |
+| Local Game Store 初期プロモ | 2019年8月印刷、カード個別の初回配布日は未確認 | `LGS001-P`〜`LGS008-P` の8種を対応する WTR カードに紐付ける。 [公式プロモ一覧](https://legacy.fabtcg.com/en/collectors-centre/promos-and-extras/) |
+| Special Use Promos | `LSS001-P` と `LSS002-P` は2019年8月印刷。確認できた配布は WTR 発売後 | `LSS001-P` は2021年の Alpha Investments 配布、`LSS002-P` は2019年10月25〜28日の Mighty Ape 配布。 [公式プロモ一覧](https://legacy.fabtcg.com/en/collectors-centre/promos-and-extras/) · [2021年当時の配布記録](https://www.rathetimes.com/articles/state-of-the-market-end-of-november-2021) · [Mighty Ape 配布記録](https://legacy.fabtcg.com/en/articles/my-first-fabled/) · [イベント日程](https://www.armageddonexpo.co.nz/armageddon-updates/auckgeddon-2019-is-here/) |
+
+`throughWtrDB` は WTR の226種と IRA 初出の10種、合計236論理カードを提供する。印刷番号は `earlyPrintingCardId?` で解決する。 [登録の回帰テスト](../FabTest/EarlyCards.lean)
 
 ---
 
