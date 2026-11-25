@@ -395,13 +395,14 @@ def WTR_070_Y : CardDef := { emergingPower WTR_070_Y_meta 2 with status := .full
 /-- Emerging Power Blue. -/
 def WTR_071_B : CardDef := { emergingPower WTR_071_B_meta 1 with status := .full }
 
-/-- Seismic Surge Token (drafted IR). -/
+/-- Seismic Surge reduces the cost of the next Guardian attack action. -/
 def WTR_075 : CardDef :=
-  draftCard WTR_075_meta
-    [ .triggered .onStartOfActionPhase false none none
-        { body := .seqL
-            [ .prim (.destroy .self_)
-            , .grant (.nextCardPlayed guardianAttackAction) (.modifyCost (-1)) .thisTurn ] } ]
+  { draftCard WTR_075_meta
+      [ .triggered .onStartOfActionPhase false none none
+          { body := .seqL
+              [ .prim (.destroy .self_)
+              , .grant (.nextCardPlayed guardianAttackAction) (.modifyCost (-1)) .thisTurn ] } ]
+    with status := .full }
 
 /-! ## Ninja (WTR076-WTR112) -/
 

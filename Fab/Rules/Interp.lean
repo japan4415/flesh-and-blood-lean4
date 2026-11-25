@@ -1894,7 +1894,9 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
     match op? with
     | some op =>
       let target : EffectTarget := match scope, op with
-        | .nextCardPlayed filter, .addPower _ => .nextAttackCard filter
+        | .nextCardPlayed filter, .addPower _
+        | .nextCardPlayed filter, .addCostRes _
+        | .nextCardPlayed filter, .subCostRes _ => .nextAttackCard filter
         | .nextAttack filter, .addPower _
         | .nextAttack filter, .grantKeyword _
         | .nextAttack filter, .grantAttackAbility _

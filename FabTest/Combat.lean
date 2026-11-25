@@ -1101,6 +1101,48 @@ meta def checkBlessingOfDeliverance (cid : CardId) (pitch count gain : Nat) : Op
 
 #guard checkBlessingOfDeliverance ⟨"WTR_056_B"⟩ 3 1 1 == some true
 
+/-- Seismic Surge reduces the next Guardian attack action cost once per token. -/
+meta def checkSeismicSurge : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let cid : CardId := ⟨"WTR_075"⟩
+  let card ← m5Base.cards.find? cid
+  let arena := Zone.player player .permanent
+  let base := m5Base.setPool player { resources := 3 }
+  let (withGeneric, genericAttack) ← cPlace base player .hand ⟨"WTR_203_R"⟩
+  let (withGuardian, guardianAttack) ← cPlace withGeneric player .hand ⟨"WTR_048_R"⟩
+  let (ready, hammer) ← cPlace withGuardian player .weapon ⟨"WTR_040"⟩
+  let createTokens := Frame.run player ⟨0⟩ false [] [.prim (.createToken .controller cid 2)]
+  let phaseStart := { ready with phase := .startPhase, pending := [createTokens, .actionPhaseStart player] }
+  let (prompt, _) ← (advance 64 phaseStart []).toOption
+  let first ← prompt.pendingTriggers[0]?
+  let second ← prompt.pendingTriggers[1]?
+  let pick tid : Action := ⟨.player player, .pickTrigger tid⟩
+  let ordered ← cSteps prompt
+    [⟨.player player, .pickTriggerStart player⟩, pick first.id, pick second.id]
+  let resolved ← cSteps ordered (passBoth ++ passBoth)
+  let play id : Action := ⟨.player player, .playCard id⟩
+  let generic ← cSteps resolved [play genericAttack]
+  let weapon ← cSteps resolved [⟨.player player, .attackWeapon hammer⟩]
+  let reduced ← cSteps resolved [play guardianAttack]
+  let lowResources := resolved.setPool player { actionPoints := 1, resources := 2 }
+  let choosing ← cSteps lowResources [play guardianAttack]
+  let cancelled ← cSteps choosing [⟨.player player, .cancelPlay⟩]
+  let (expired, _) ← microStep { resolved with pending := [.endTurnCleanup player] }
+  pure (card.status == .full && (prompt.zone arena).length == 2 &&
+    prompt.pendingTriggers.length == 2 && first.id != second.id && first.source != second.source &&
+    resolved.zone arena == [] && resolved.activeEffects.length == 2 &&
+    (resolved.poolOf player).actionPoints == 1 &&
+    (generic.poolOf player).resources == 3 && generic.activeEffects == resolved.activeEffects &&
+    (weapon.poolOf player).resources == 0 && weapon.activeEffects == resolved.activeEffects &&
+    (reduced.poolOf player).resources == 0 && (reduced.poolOf player).actionPoints == 0 &&
+    reduced.activeEffects.isEmpty &&
+    (match choosing.pending.head? with
+      | some (.choosePitch _ _ _ _ cost) => cost.resources == 3
+      | _ => false) &&
+    decide (cancelled = lowResources) && expired.activeEffects.isEmpty)
+
+#guard checkSeismicSurge == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do

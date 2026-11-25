@@ -370,6 +370,23 @@ def cardPlayCost (c : CardDef) : AssetCost :=
   let ap := if c.front.hasType .action then max base.actionPoints 1 else base.actionPoints
   { base with actionPoints := ap }
 
+/-- Apply the announcing player's next-attack card cost modifiers (CR 5.1.2a, 5.1.7). -/
+def modifiedCardPlayCost (s : GameState) (p : PlayerId) (card : CardDef) : AssetCost :=
+  let base := cardPlayCost card
+  if card.front.hasType .action && card.front.hasSubtype .attack then
+    let delta := s.activeEffects.foldl (fun total effect =>
+      match effect.target with
+      | .nextAttackCard filter =>
+        if effect.controller == p && !filter.isWeaponAttack && cardFaceMatches filter card.front then
+          match effect.op with
+          | .addCostRes n => total + Int.ofNat n
+          | .subCostRes n => total - Int.ofNat n
+          | _ => total
+        else total
+      | _ => total) (0 : Int)
+    { base with resources := clampNonNeg (Int.ofNat base.resources + delta) }
+  else base
+
 /-- Number of play-time modes (`ModeSpec`s) declared on `c`'s `playEffect` (CR 5.1.2a). -/
 def cardModeCount (c : CardDef) : Nat :=
   match c.front.playEffect with
@@ -586,6 +603,10 @@ def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo
           ({ layer with attackKeywords := insertUnique keyword layer.attackKeywords }, rest)
         | .grantAttackAbility ability =>
           ({ layer with attackAbilities := ability :: layer.attackAbilities }, rest)
+        | .addCostRes _ | .subCostRes _ =>
+          match effect.target with
+          | .nextAttackCard _ => (layer, rest)
+          | _ => (layer, effect :: rest)
         | _ => (layer, effect :: rest)
       else (layer, effect :: rest)) (info, [])
 
@@ -771,7 +792,7 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       let fromArsenal := id ∈ s.zone (.player p .arsenal)
       let srcZone := if fromArsenal then Zone.player p .arsenal else Zone.player p .hand
       let snap := s.snapshot
-      let cost := match s.cardDefOf? id with | some c => cardPlayCost c | none => {}
+      let cost := match s.cardDefOf? id with | some c => modifiedCardPlayCost s p c | none => {}
       let modes := match s.cardDefOf? id with | some c => cardModeCount c | none => 0
       let isAtkCard := match s.cardDefOf? id with
         | some c => c.front.hasType .action && c.front.hasSubtype .attack
