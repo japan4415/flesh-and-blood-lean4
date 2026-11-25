@@ -511,22 +511,36 @@ def attackingCardTriggers (s : GameState) (source : ObjId) (controller : PlayerI
     collectCardTriggers s source controller fromArsenal face.abilities fun trigger cond =>
       trigger == .onAttack && (cond.map (evalCondition s controller source fromArsenal)).getD true
 
-/-- Claim the controller's matching next-attack bonuses after a card's costs are paid.
-Cost filters read the unmodified cost of the card (CR 2.2.4b, 5.1.6). -/
-def consumeNextAttackPower (s : GameState) (p : PlayerId) (layerId : ObjId) :
-    Int × List ContinuousEffect :=
-  match s.objectFace? layerId with
-  | some face =>
-    if face.hasType .action && face.hasSubtype .attack then
-      s.activeEffects.foldr (fun effect (power, rest) =>
-        match effect.target, effect.op with
-        | .nextAttackCard filter, .addPower bonus =>
-          if effect.controller == p && cardFaceMatches filter face then
-            (power + bonus, rest)
-          else (power, effect :: rest)
-        | _, _ => (power, effect :: rest)) (0, [])
-    else (0, s.activeEffects)
-  | none => (0, s.activeEffects)
+/-- Read the face used to match a pending attack and whether the attack is a proxy (CR 1.4.3a). -/
+def attackLayerFace? (s : GameState) (layerId : ObjId) : Option (CardFace × Bool) :=
+  match (s.obj? layerId).map Object.kind with
+  | some (.attackProxy source _) => (s.objectFace? source).map fun face => (face, true)
+  | some (.card _ _) => do
+    let face ← s.objectFace? layerId
+    if face.hasType .action && face.hasSubtype .attack then some (face, false) else none
+  | _ => none
+
+/-- Claim matching next-attack modifiers after successful payment. Card-cost filters read
+the unmodified cost (CR 2.2.4b, 5.1.7, 5.2.2a). -/
+def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo) :
+    LayerInfo × List ContinuousEffect :=
+  match attackLayerFace? s layerId with
+  | none => (info, s.activeEffects)
+  | some (face, isProxy) =>
+    let isWeapon := isProxy && face.hasType .weapon
+    s.activeEffects.foldr (fun effect (layer, rest) =>
+      let eligible := match effect.target with
+        | .nextAttackCard filter =>
+          !isProxy && !filter.isWeaponAttack && cardFaceMatches filter face
+        | .nextAttack filter => (!filter.isWeaponAttack || isWeapon) && cardFaceMatches filter face
+        | _ => false
+      if effect.controller == info.controller && eligible then
+        match effect.op with
+        | .addPower bonus => ({ layer with attackPowerBonus := layer.attackPowerBonus + bonus }, rest)
+        | .grantKeyword keyword =>
+          ({ layer with attackKeywords := insertUnique keyword layer.attackKeywords }, rest)
+        | _ => (layer, effect :: rest)
+      else (layer, effect :: rest)) (info, [])
 
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
@@ -863,7 +877,6 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .playPayCost p layerId fromArsenal modeIdx cost :: rest =>
     match spendAssetCost s p cost with
     | some s1 =>
-      let nextAttack := consumeNextAttackPower s1 p layerId
       let hasGoAgain :=
         match s1.cardDefOf? layerId with
         | some c => c.front.keywords.contains .goAgain && !c.front.hasSubtype .attack
@@ -873,13 +886,13 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
           fromArsenal := fromArsenal
           modeIdx := modeIdx
           heroTarget := (s1.layerMeta.get? layerId.n).bind (·.heroTarget)
-          goAgain := hasGoAgain
-          attackPowerBonus := nextAttack.1 }
+          goAgain := hasGoAgain }
+      let (updatedInfo, remainingEffects) := consumeNextAttackEffects s1 layerId info
       let triggers := playedCardTriggers s1 layerId p fromArsenal
       let flush := if triggers.isEmpty then [] else [.flushTriggers]
       some ({ s1 with
-                layerMeta := s1.layerMeta.insert layerId.n info
-                activeEffects := nextAttack.2
+                layerMeta := s1.layerMeta.insert layerId.n updatedInfo
+                activeEffects := remainingEffects
                 playRollback := none
                 pendingTriggers := s1.pendingTriggers ++ triggers
                 nextTimestamp := s1.nextTimestamp + triggers.length

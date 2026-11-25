@@ -615,6 +615,83 @@ meta def checkSloggismWithNimblism : Option Bool := do
 
 #guard checkSloggismWithNimblism == some true
 
+/-- A next-weapon effect survives other plays and reaches only the first paid weapon attack. -/
+meta def checkNextWeaponBuff (cid : CardId) (pitch cost bonus : Nat) (givesGoAgain : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 3, resources := 2 * cost + 2 }
+  let card ← funded.cards.find? cid
+  let (withBuff, buff) ← cPlace funded attacker .hand cid
+  let (withAttack, attack) ← cPlace withBuff attacker .hand ⟨"WTR_203_R"⟩
+  let (withReserve, _) ← cPlace withAttack attacker .hand ⟨"WTR_205_B"⟩
+  let (withWeapon, firstWeapon) ← cPlace withReserve attacker .weapon ⟨"WTR_078"⟩
+  let (ready, secondWeapon) ← cPlace withWeapon attacker .weapon ⟨"WTR_078"⟩
+  let play := fun id => [⟨.player attacker, .playCard id⟩]
+  let swing := fun id => [⟨.player attacker, .attackWeapon id⟩]
+  let fight := passBoth ++ passBoth ++ [⟨.player defender, .defendDone⟩] ++
+    passBoth ++ passBoth ++ passBoth
+  let buffed ← cSteps ready (play buff ++ passBoth)
+  let afterCard ← cSteps buffed (play attack ++ fight ++ passBoth)
+  let broke := afterCard.setPool attacker { actionPoints := 2 }
+  let unpaid ← cSteps broke (swing firstWeapon)
+  let cancelled ← cSteps unpaid [⟨.player attacker, .cancelPlay⟩]
+  let paid ← cSteps afterCard (swing firstWeapon)
+  let layer ← (paid.zone .stack).head?
+  let info ← paid.layerMeta.get? layer.n
+  let enhanced ← cSteps paid fight
+  let enhancedLink ← enhanced.combat.bind CombatChain.activeLink?
+  let firstClosed ← cSteps enhanced passBoth
+  let normal ← cSteps firstClosed (swing secondWeapon ++ fight)
+  let normalLink ← normal.combat.bind CombatChain.activeLink?
+  let ended ← cSteps buffed (passBoth ++ [⟨.player attacker, .arsenalSkip⟩])
+  let (withSecondBuff, secondBuff) ← cPlace buffed attacker .hand cid
+  let doubleBuffed ← cSteps withSecondBuff (play secondBuff ++ passBoth)
+  let doubleAttack ← cSteps doubleBuffed (swing firstWeapon ++ fight)
+  let doubleLink ← doubleAttack.combat.bind CombatChain.activeLink?
+  let paidAp := if givesGoAgain then 2 else 1
+  let effectCount := if givesGoAgain then 2 else 1
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    (buffed.poolOf attacker).actionPoints == 3 && (buffed.poolOf attacker).resources == cost + 2 &&
+    objEffectivePower buffed firstWeapon == some 1 &&
+    buffed.activeEffects.length == effectCount &&
+    buffed.activeEffects.all (fun effect => effect.target == .nextAttack CardFilter.weaponAttack) &&
+    afterCard.lifeOf defender == 36 && afterCard.activeEffects == buffed.activeEffects &&
+    unpaid.activeEffects == broke.activeEffects && decide (cancelled = broke) &&
+    paid.activeEffects.isEmpty && info.attackPowerBonus == Int.ofNat bonus &&
+    info.attackKeywords.contains .goAgain == givesGoAgain &&
+    enhancedLink.attackSource == some firstWeapon && enhancedLink.damageDealt == 1 + bonus &&
+    (enhanced.poolOf attacker).actionPoints == paidAp &&
+    normalLink.attackSource == some secondWeapon && normalLink.damageDealt == 1 &&
+    (normal.poolOf attacker).actionPoints == paidAp - 1 &&
+    ended.activeEffects.isEmpty && doubleAttack.activeEffects.isEmpty &&
+    doubleLink.damageDealt == 1 + 2 * bonus &&
+    (doubleAttack.poolOf attacker).actionPoints == (if givesGoAgain then 3 else 2))
+
+#guard checkNextWeaponBuff ⟨"WTR_141_R"⟩ 1 0 3 false == some true
+
+-- A queued Go Again belongs to the weapon attack.
+#guard (do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 1 }
+  let (equipped, weapon) ← cPlace funded attacker .weapon ⟨"WTR_078"⟩
+  let flagged := applyChainLinkMod equipped attacker weapon []
+    (.nextAttack CardFilter.weaponAttack) (.grantKeyword .goAgain) .thisTurn
+  let (withSource, source) ← cPlace flagged attacker .permanent ⟨"WTR_203_R"⟩
+  let (withProxy, proxy) ← addObject withSource .stack
+    { kind := .attackProxy source none, owner := attacker, controller := attacker, timestamp := ⟨0⟩ }
+    .top
+  let (otherInfo, remaining) := consumeNextAttackEffects withProxy proxy { controller := attacker }
+  let resolved ← cSteps flagged ([⟨.player attacker, .attackWeapon weapon⟩] ++ passBoth ++ passBoth ++
+    [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth)
+  let link ← resolved.combat.bind CombatChain.activeLink?
+  let weaponFace ← resolved.objectFace? weapon
+  pure (otherInfo.attackKeywords.isEmpty && remaining == flagged.activeEffects &&
+    link.attackSource == some weapon && linkHasKeyword resolved link .goAgain &&
+    !weaponFace.keywords.contains .goAgain && resolved.activeEffects.isEmpty &&
+    (resolved.poolOf attacker).actionPoints == 1) : Option Bool) == some true
+
 /-- Check Awakening Bellow's hidden random card, return, and next Brute attack bonus. -/
 meta def checkAwakeningBellow (cid : CardId) (bonus : Int) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

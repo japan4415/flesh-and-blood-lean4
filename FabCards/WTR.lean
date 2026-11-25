@@ -601,8 +601,8 @@ def sharpenSteel (base : CardDef) (bonus : Int) : CardDef :=
     (some
       { body := .grant (.nextAttack CardFilter.weaponAttack) (.addPower (.const bonus)) .thisTurn })
 
-/-- Sharpen Steel Red (drafted IR). -/
-def WTR_141_R : CardDef := sharpenSteel WTR_141_R_meta 3
+/-- Sharpen Steel Red. -/
+def WTR_141_R : CardDef := { sharpenSteel WTR_141_R_meta 3 with status := .full }
 /-- Sharpen Steel Yellow (drafted IR). -/
 def WTR_142_Y : CardDef := sharpenSteel WTR_142_Y_meta 2
 /-- Sharpen Steel Blue (drafted IR). -/

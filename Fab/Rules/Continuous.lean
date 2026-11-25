@@ -285,13 +285,15 @@ inductive EffectTarget where
       (reqName : Option String := none)
   /-- Waits for the controller to play an attack action card matching the filter. -/
   | nextAttackCard (filter : CardFilter)
+  /-- Waits for the controller to pay for an attack matching the filter, including an attack-proxy. -/
+  | nextAttack (filter : CardFilter)
 deriving DecidableEq, Repr
 
 /-- Whether `target` currently matches object `id` with derived characteristics `c`. -/
 def EffectTarget.matches (t : EffectTarget) (c : DerivedChars) (id : ObjId) : Bool :=
   match t with
   | .obj tid => tid == id
-  | .nextAttackCard _ => false
+  | .nextAttackCard _ | .nextAttack _ => false
   | .matching ctrl reqT reqSub reqSup reqMinP reqName =>
     (match ctrl with | some p => c.controller == p | none => true) &&
     (match reqT with | some ty => c.types.contains ty | none => true) &&
