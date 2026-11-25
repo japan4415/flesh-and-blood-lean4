@@ -1058,6 +1058,9 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
            GameState.OwnerOk.congr (untapPlayer_ownerOk hok0 tp) rfl rfl,
            GameState.RollbackOk.preserve hrb rfl rfl hperm,
            hperm, rfl⟩
+  · -- endTurnFinish
+    cases h
+    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
   · -- flushTriggers
     split at h <;>
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
@@ -1607,7 +1610,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
     | resolveStack
     | finishResolve _ | combatStep _ _ | gameStateProcess | run _ _ _ _ _
     | chanceDie6 _ _ _ _ _ _ _ | optStep _ _ | endPhaseStart _ | endPhaseArsenal _ | returnPitch _
-    | endTurnCleanup _ | flushTriggers =>
+    | endTurnCleanup _ | endTurnFinish | flushTriggers =>
       cases actor with
       | player _ => cases kind <;> simp only [List.not_mem_nil, false_and]
       | chance | clock | judge =>
@@ -2160,7 +2163,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
     | actionPhaseStart _ | playPayCost _ _ _ _ _ | payRandomDiscard _ _ _ _ _
     | resolveStack | finishResolve _
     | combatStep _ _ | gameStateProcess | run _ _ _ _ _ | optStep _ _
-    | endPhaseStart _ | endPhaseArsenal _ | returnPitch _ | endTurnCleanup _ | flushTriggers =>
+    | endPhaseStart _ | endPhaseArsenal _ | returnPitch _ | endTurnCleanup _ | endTurnFinish | flushTriggers =>
       cases actor <;> cases kind <;> exact False.elim hlf
 
 /-- Under `WF` and `OwnerOk`, every legal action applies without failing. -/
@@ -2253,6 +2256,7 @@ theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
   | endPhaseArsenal _ => rfl
   | returnPitch _ => dsimp only; split <;> rfl
   | endTurnCleanup _ => rfl
+  | endTurnFinish => rfl
   | flushTriggers => dsimp only; split <;> rfl
   | _ => simp [Frame.isWork] at hw
 

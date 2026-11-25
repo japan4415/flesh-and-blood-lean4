@@ -1908,6 +1908,8 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .self_, .addPower _ | .obj .self_, .addPower _ => .obj src
         | .obj .currentAttack, .allowWeaponAttack =>
           (((s.combat.bind CombatChain.activeLink?).bind (·.attackSource)).map EffectTarget.obj).getD (.objects [])
+        | .hero player, .addIntellect _ =>
+          .objects (s.zone (.player (evalPlayerRef s ctrl player) .hero))
         | .paidAttack id, _ => .obj id
         | .arenaObjectsOfType player kind, _ =>
           let affected := evalPlayerRef s ctrl player

@@ -1027,7 +1027,7 @@ meta def checkEmergingPower (cid : CardId) (pitch bonus : Nat) : Option Bool := 
   let weapon ← beginAttack (resolved.setPool attacker { actionPoints := 1, resources := 8 })
     (attackWith guardianWeapon)
   let guardian ← beginAttack resolved (play guardianAttack)
-  let (expired, _) ← microStep { resolved with pending := [.endTurnCleanup attacker] }
+  let (expired, _) ← (advance 64 { resolved with pending := [.endTurnCleanup attacker] } []).toOption
   pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
     permanent != aura && (played.poolOf attacker).actionPoints == 1 &&
     (played.poolOf attacker).resources == 5 && played.pendingTriggers.isEmpty &&
@@ -1127,7 +1127,7 @@ meta def checkSeismicSurge : Option Bool := do
   let lowResources := resolved.setPool player { actionPoints := 1, resources := 2 }
   let choosing ← cSteps lowResources [play guardianAttack]
   let cancelled ← cSteps choosing [⟨.player player, .cancelPlay⟩]
-  let (expired, _) ← microStep { resolved with pending := [.endTurnCleanup player] }
+  let (expired, _) ← (advance 64 { resolved with pending := [.endTurnCleanup player] } []).toOption
   pure (card.status == .full && (prompt.zone arena).length == 2 &&
     prompt.pendingTriggers.length == 2 && first.id != second.id && first.source != second.source &&
     resolved.zone arena == [] && resolved.activeEffects.length == 2 &&
@@ -1142,6 +1142,58 @@ meta def checkSeismicSurge : Option Bool := do
     decide (cancelled = lowResources) && expired.activeEffects.isEmpty)
 
 #guard checkSeismicSurge == some true
+
+/-- Helm of Isen's Peak raises only its hero's intellect for that turn's refill. -/
+meta def checkHelmOfIsensPeak : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_042"⟩
+  let slot := Zone.player player .head
+  let grave := Zone.player player .graveyard
+  let pitch := Zone.player player .pitch
+  let hand := Zone.player player .hand
+  let base : GameState := { m5Base with pending := m5Base.pending ++ [.beginTurn] }
+  let card ← base.cards.find? cid
+  let (withHero, hero) ← cPlace base player .hero ⟨"WTR_038"⟩
+  let (withOpponent, _) ← cPlace withHero opponent .hero ⟨"WTR_039"⟩
+  let fill (p : PlayerId) (s : GameState) :=
+    (List.replicate 6 ()).foldlM (fun state _ => (cPlace state p .deck ⟨"WTR_205_B"⟩).map Prod.fst) s
+  let withDeck ← fill player withOpponent
+  let fullDecks ← fill opponent withDeck
+  let (equipped, source) ← cPlace fullDecks player .head cid
+  let (ready, reserve) ← cPlace equipped player .hand ⟨"WTR_203_R"⟩
+  let activate : Action := ⟨.player player, .activateAbility source 0⟩
+  let choosing ← cSteps ready [activate]
+  let canceled ← cSteps choosing [⟨.player player, .cancelPlay⟩]
+  let (paid, events) ← (step 64 choosing ⟨.player player, .pitchCard reserve⟩).toOption
+  let spent ← (paid.zone grave).head?
+  let pitched ← (paid.zone pitch).head?
+  let resolved ← cSteps paid passBoth
+  let (drawing, _) ← microStep { resolved with pending := [.endTurnCleanup player] }
+  let returning ← cSteps resolved passBoth
+  let ended ← cSteps returning [⟨.player player, .pitchReturnPick pitched⟩]
+  let normal ← cSteps equipped passBoth
+  let (wearReady, wearSource) ← cPlace m5Base opponent .head cid
+  let (withAttack, attack) ← cPlace wearReady player .hand ⟨"WTR_203_R"⟩
+  let defending ← cSteps withAttack (⟨.player player, .playCard attack⟩ :: (passBoth ++ passBoth))
+  let closed ← cSteps defending ([⟨.player opponent, .defendCard wearSource⟩,
+    ⟨.player opponent, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth ++ passBoth)
+  pure (card.status == .full && card.front.defense == some 1 && card.front.keywords.contains .battleworn &&
+    choosing.zone slot == [source] && decide (canceled = ready) &&
+    paid.zone slot == [] && (paid.cardDefOf? spent).map (·.id) == some cid &&
+    events.contains (.moved source spent slot grave) &&
+    (paid.poolOf player).actionPoints == 0 && (paid.poolOf player).resources == 0 &&
+    paid.intellectOf player == 4 && resolved.intellectOf player == 5 && resolved.intellectOf opponent == 4 &&
+    resolved.activeEffects.any (fun e => e.target == .objects [hero] && e.op == .addIntellect 1) &&
+    (resolved.poolOf player).actionPoints == 0 &&
+    drawing.intellectOf player == 5 && drawing.pending.head? == some (.draw player 5) &&
+    (ended.zone hand).length == 5 && (normal.zone hand).length == 4 &&
+    (ended.zone (.player opponent .hand)).length == 4 && ended.active == some opponent &&
+    ended.intellectOf player == 4 && ended.activeEffects.isEmpty &&
+    closed.lifeOf opponent == 37 && closed.zone (.player opponent .head) == [wearSource] &&
+    (closed.obj? wearSource).map (·.minusDefenseCounters) == some 1)
+
+#guard checkHelmOfIsensPeak == some true
 
 /-- Tectonic Plating supports pitching and cancellation, with a token and Go Again on resolution. -/
 meta def checkTectonicPlating : Option Bool := do
@@ -1316,7 +1368,7 @@ meta def checkFlicFlak (cid : CardId) (pitch defense : Nat) : Option Bool := do
   let comboFirst ← cSteps secondDefense [block combo, block genericBlock]
   let comboSecond ← cSteps secondDefense [block genericBlock, block combo]
   let reply ← cSteps secondDefense (done :: (passBoth ++ [firstPass, react reaction, secondPass, firstPass]))
-  let (expired, _) ← microStep { firstClosed with pending := [.endTurnCleanup attacker] }
+  let (expired, _) ← (advance 64 { firstClosed with pending := [.endTurnCleanup attacker] } []).toOption
   pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some defense &&
     values added == some [Int.ofNat defense] && added.activeEffects.length == 1 &&
     firstClosed.combat.isNone && firstClosed.activeEffects == added.activeEffects &&
@@ -1359,7 +1411,7 @@ meta def checkRompingClub : Option Bool := do
   let beforeClub ← cSteps secondCardHit passBoth
   let clubHit ← cSteps beforeClub (attack :: resolve)
   let hitPower (s : GameState) := (s.combat.bind CombatChain.activeLink?).map (·.damageDealt)
-  let (expired, _) ← microStep { beforeClub with pending := [.endTurnCleanup attacker] }
+  let (expired, _) ← (advance 64 { beforeClub with pending := [.endTurnCleanup attacker] } []).toOption
   pure (card.status == .full && card.front.power == some 4 &&
     unqualified.pendingTriggers.isEmpty && unqualified.triggeredThisTurn.isEmpty &&
     objEffectivePower paid club == some 4 && trigger.source == club &&
@@ -1616,7 +1668,7 @@ meta def checkDorinthea (cid : CardId) (life : Nat) : Option Bool := do
     ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
   let permitted ← cSteps choice (accept true :: passBoth)
   let declined ← cSteps choice (accept false :: passBoth)
-  let (expired, _) ← microStep { permitted with pending := [.endTurnCleanup attacker] }
+  let (expired, _) ← (advance 64 { permitted with pending := [.endTurnCleanup attacker] } []).toOption
   let broke := permitted.setPool attacker { actionPoints := 1 }
   let paying ← cSteps broke [swing]
   let cancelled ← cSteps paying [⟨.player attacker, .cancelPlay⟩]

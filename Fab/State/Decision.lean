@@ -224,6 +224,8 @@ inductive Frame where
   | choosePitchOrder (p : PlayerId)
   /-- Work frame: untap permanents, clear all asset pools, and draw up to Intellect (CR 4.4.3d, 4.4.3e, 4.4.3f). -/
   | endTurnCleanup (tp : PlayerId)
+  /-- Work frame: expire turn effects after all end-phase draws (CR 4.4.4). -/
+  | endTurnFinish
   /-- Work frame: flush pending triggered abilities onto the stack via turn-player start choice (CR 6.6.6b). -/
   | flushTriggers
   /-- Player decision: turn-player picks which player begins stacking simultaneous triggers (CR 6.6.6b). -/
@@ -257,6 +259,7 @@ def Frame.isWork : Frame → Bool
   | .endPhaseArsenal _ => true
   | .returnPitch _ => true
   | .endTurnCleanup _ => true
+  | .endTurnFinish => true
   | .flushTriggers => true
   | _ => false
 

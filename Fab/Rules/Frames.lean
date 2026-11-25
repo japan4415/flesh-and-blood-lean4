@@ -94,14 +94,10 @@ configured format (CR 4.1.4). -/
 def loadoutCanFinish (s : GameState) (p : PlayerId) : Bool :=
   decide (s.config.format.spec.deckSize.Satisfied (s.zone (.player p .deck)).length)
 
-/-- Hero intellect of player `p`, defaulting to 4 if absent (CR 2.4, 4.1.6). -/
+/-- Effective hero intellect of player `p`, defaulting to 4 if absent (CR 2.4, 4.1.6). -/
 def GameState.intellectOf (s : GameState) (p : PlayerId) : Nat :=
-  match s.zone (.player p .hero) with
-  | hid :: _ =>
-    match s.cardDefOf? hid with
-    | some c => c.front.intellect.getD 4
-    | none => 4
-  | [] => 4
+  let hero := (s.zone (.player p .hero)).head?.bind s.characteristics
+  clampNonNeg ((hero.bind (·.intellect)).getD 4)
 
 /-- How many cards player `p` needs to draw to refill up to their hero's Intellect
 (0 if already at or above Intellect) (CR 4.4.3f). -/
@@ -1638,16 +1634,18 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .endTurnCleanup tp :: rest =>
     let s0 := resetAlliesLife s
     let s1 := untapPlayer s0 tp
-    let s2 := ({ s1 with
+    let s2 := { s1 with
       pools := ∅
       activeReplacements := []
       chargedThisTurn := []
       banishedSixPowerThisTurn := []
       activatedThisTurn := []
       weaponHitsThisTurn := []
-      triggeredThisTurn := [] }).expireEffects .thisTurn
+      triggeredThisTurn := [] }
     let draws := endPhaseDrawFrames s2 tp
-    some ({ s2 with pending := draws ++ rest }, [])
+    some ({ s2 with pending := draws ++ [.endTurnFinish] ++ rest }, [])
+  | .endTurnFinish :: rest =>
+    some ({ s.expireEffects .thisTurn with pending := rest }, [])
   | .flushTriggers :: rest =>
     if s.pendingTriggers.isEmpty then
       some ({ s with pending := rest }, [])

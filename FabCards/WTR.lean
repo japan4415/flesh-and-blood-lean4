@@ -293,11 +293,11 @@ def WTR_041 : CardDef :=
       [ .activated .action true { actionPoints := 1, resources := 1 } [] none true
           { body := .prim (.createToken .controller ⟨"WTR_075"⟩ 1) } ] with status := .full }
 
-/-- Helm of Isen's Peak (drafted IR). -/
+/-- Helm of Isen's Peak. -/
 def WTR_042 : CardDef :=
-  draftCard WTR_042_meta
-    [ .activated .action false { actionPoints := 1, resources := 1 } [{ cost := .destroySelf }] none false
-        { body := .grant (.hero .controller) (.addIntellect 1) .thisTurn } ]
+  { draftCard WTR_042_meta
+      [ .activated .action false { actionPoints := 1, resources := 1 } [{ cost := .destroySelf }] none false
+          { body := .grant (.hero .controller) (.addIntellect 1) .thisTurn } ] with status := .full }
 
 /-- Crippling Crush. -/
 def WTR_043_R : CardDef :=
