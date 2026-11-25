@@ -75,6 +75,8 @@ structure CardFace where
   keywords   : List KeywordInst   -- 印刷キーワード（CR 8）
   abilities  : List Ability       -- Passive / Replacement / Activated / Triggered
   playEffect : Option EffectDef   -- 解決時の離散効果（非パーマネント・攻撃等）
+  playRestriction : PlayRestriction        -- 印刷されたプレイ制限
+  playFromBanished : Option PlayRestriction -- 追放領域からプレイできる印刷能力とその条件
 
 /-- 論理カード 1 種（Name + Pitch 単位）の定義。 -/
 structure CardDef where

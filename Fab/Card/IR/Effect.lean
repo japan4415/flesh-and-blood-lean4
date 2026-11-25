@@ -91,8 +91,22 @@ inductive ExtraCost where
   | removeCounters (k : CounterKind) (n : Nat)
   /-- Pay `n` additional generic resources `{r}` (Staunch Response). -/
   | payResources (n : Nat)
-  /-- Pay `{x}` generic resources, binding `NumExpr.xValue` (Lord of Wind). -/
+  /-- Pay `{x}` generic resources, binding `NumExpr.xValue` (Lord of Wind, Sonata Arcanix). -/
   | payX
+  /-- Put a card from hand on top of deck (Seek Horizon, Rise Above). -/
+  | putHandCardOnDeckTop
+  /-- Banish `n` cards from controller's hero's soul (Prism, Boltyn, Celestial Cataclysm). -/
+  | banishFromSoul (n : Nat)
+  /-- Banish `X` cards from controller's hero's soul, binding `NumExpr.xValue` (Beacon of Victory). -/
+  | banishXFromSoul
+  /-- Banish `n` cards matching `f` from controller's hand (Shadow of Ursur, Consuming Aftermath, Soul Reaping). -/
+  | banishFromHand (f : CardFilter) (n : Nat)
+  /-- Banish `n` random cards from controller's graveyard (Shadow Brute Blood Debt attacks). -/
+  | banishRandomFromGraveyard (n : Nat)
+  /-- Charge controller's hero's soul `n` times (Light Warrior attacks, V of the Vanguard). -/
+  | chargeSoul (n : Nat)
+  /-- Create `n` copies of token `tokenId` as an activation cost (Chane: Soul Shackle). -/
+  | createTokenCost (tokenId : CardId) (n : Nat)
 deriving DecidableEq, Repr
 
 /-- Specification of an additional cost on a card or activated ability (CR 5.1.5). -/
@@ -275,6 +289,18 @@ inductive ContinuousMod where
   | doubleDamageToHero
   /-- Affected card may be played from its owner's banished zone during duration (MON: Shadow). -/
   | playableFromBanished
+  /-- Affected objects lose and cannot gain keyword `kw` (Dream Weavers: Phantasm; Levia: Blood Debt). -/
+  | loseKeyword (kw : KeywordInst)
+  /-- Affected hero cannot play cards from their banished zone (Herald of Judgment). -/
+  | cantPlayFromBanished
+  /-- Affected hero cannot gain life `{h}` (Dread Scythe). -/
+  | cantGainLife
+  /-- Defending hero cannot play or activate instants and defense reactions (Exude Confidence). -/
+  | cantPlayInstantsOrDefReactions
+  /-- Affected Illusionist auras become weapons with `basePower` and attack activation (Luminaris, Iris of Reality). -/
+  | auraIsWeapon (basePower : Int) (resCost : Nat) (grantsGoAgain : Bool)
+  /-- Opponents must choose this aura as the attack target if able (Arc Light Sentinel). -/
+  | mustBeAttackTarget
 deriving DecidableEq, Repr
 
 end

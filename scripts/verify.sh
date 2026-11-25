@@ -19,10 +19,12 @@ step "3/5 axiom audit (lake check)"
 # 対象は defaultTargets（検証コア Fab だけ）。
 lake check --inadvisably-no-sandbox
 
-step "4/5 generated cards check"
-python3 scripts/gen_lean.py --check
+step "4/5 generated cards and coverage check"
+uv run --no-project scripts/gen_lean.py --check
+uv run --no-project scripts/gen_lean.py --in data/normalized/mon_cards.json --out FabCards/MON/Meta.lean --check
+uv run --no-project scripts/coverage.py --check
 
 step "5/5 rule citations"
-python3 scripts/cr_citations.py
+uv run --no-project scripts/cr_citations.py
 
 printf '\nverify: OK\n'

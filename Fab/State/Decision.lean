@@ -65,7 +65,7 @@ inductive ActionKind where
   | shuffleOrder (order : List ObjId)
   /-- Pass priority (CR 1.11, 4.3.3). -/
   | pass
-  /-- Announce playing card `id` from hand or arsenal while holding priority (CR 5.1.1). -/
+  /-- Announce playing card `id` from a permitted zone while holding priority (CR 5.1.1). -/
   | playCard (id : ObjId)
   /-- Activate a weapon attack using weapon `weaponId` in the player's weapon zone (CR 1.4.3, 7.1). -/
   | attackWeapon (weaponId : ObjId)

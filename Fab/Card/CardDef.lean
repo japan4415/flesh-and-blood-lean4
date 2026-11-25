@@ -34,6 +34,20 @@ inductive ImplStatus where
   | full
 deriving DecidableEq, Repr, Hashable
 
+/-- Public turn and zone conditions that can restrict announcing a card (CR 5.1.1). -/
+inductive PlayRestriction where
+  /-- No additional restriction. -/
+  | always
+  /-- A card with at least 6 power was put into this player's banished zone this turn. -/
+  | banishedSixPowerThisTurn
+  /-- At least `n` face-up cards in this player's banished zone have Blood Debt. -/
+  | banishedBloodDebtAtLeast (n : Nat)
+  /-- This player has played at least `n` cards with Blood Debt this turn. -/
+  | playedBloodDebtAtLeast (n : Nat)
+  /-- This player has played a non-attack action card this turn. -/
+  | playedNonAttackActionThisTurn
+deriving DecidableEq, Repr
+
 /-- One face of a card (front face, back face of a double-faced card, or right half of a split
 card) (CR 2.0-2.16). -/
 structure CardFace where
@@ -65,6 +79,10 @@ structure CardFace where
   abilities : List Ability := []
   /-- Optional resolution effect executed when this card is played and resolves (CR 5.3). -/
   playEffect : Option EffectDef := none
+  /-- Additional condition for playing this card from any zone. -/
+  playRestriction : PlayRestriction := .always
+  /-- Printed permission and its condition for playing this card from its owner's banished zone. -/
+  playFromBanished : Option PlayRestriction := none
 deriving DecidableEq, Repr
 
 /-- Logical card definition uniquely identified by `CardId` (representing a `(name, pitch)` card)

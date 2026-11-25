@@ -270,9 +270,9 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
   | .chargedThisTurn => s.chargedThisTurn.contains ctrl
   | .banishedSixPowerThisTurn => s.banishedSixPowerThisTurn.contains ctrl
   | .playedFromBanished =>
-    match s.locate src with
-    | some (.player _ .banished) => true
-    | _ => false
+    (s.layerMeta.getD src.n { controller := ctrl }).fromBanished ||
+      (s.combat.any fun chain => chain.links.any fun link =>
+        link.attack == some src && link.attackFromBanished)
 
 /-- Resolve an `ObjRef` to a concrete `ObjId` if available. -/
 def evalObjRef (src : ObjId) : ObjRef → Option ObjId
@@ -288,7 +288,7 @@ def createTokens (s : GameState) (p : PlayerId) (tokId : CardId) : Nat → GameS
         owner := p
         controller := p
         timestamp := ⟨s.nextTimestamp⟩ }
-    match addObject s (.player p .permanent) tok .top with
+    match addObject s (.player p .permanent) (resetAllyLife s.cards tok) .top with
     | some (s1, _) => createTokens s1 p tokId n
     | none => s
 
@@ -325,7 +325,8 @@ theorem createTokens_physIds (p : PlayerId) (tokId : CardId) :
     dsimp only
     split
     · rename_i s1 id hm
-      have hp1 : s1.physIds.Perm s.physIds := addObject_physIds hwf rfl hm
+      have hp1 : s1.physIds.Perm s.physIds :=
+        addObject_physIds hwf (by rw [resetAllyLife_kind]; rfl) hm
       have hp2 := createTokens_physIds p tokId n (addObject_wf hwf hm)
       exact hp2.trans hp1
     · exact List.Perm.refl _
@@ -651,7 +652,7 @@ def banishManyObjs (s : GameState) (p : PlayerId) (fd : Bool) :
       match banishOne s id fd with
       | some (sb, _, es) =>
         let sb' :=
-          if isSix && !(sb.banishedSixPowerThisTurn.contains p) then
+          if !fd && isSix && !(sb.banishedSixPowerThisTurn.contains p) then
             { sb with banishedSixPowerThisTurn := p :: sb.banishedSixPowerThisTurn }
           else
             sb
@@ -679,7 +680,7 @@ theorem banishManyObjs_inv (p : PlayerId) (fd : Bool) :
     have h1 : let p1 := match banishOne s id fd with
         | some (sb, _, es) =>
           let sb' :=
-            if isSix && !(sb.banishedSixPowerThisTurn.contains p) then
+            if !fd && isSix && !(sb.banishedSixPowerThisTurn.contains p) then
               { sb with banishedSixPowerThisTurn := p :: sb.banishedSixPowerThisTurn }
             else sb
           (sb', es)
@@ -707,7 +708,7 @@ theorem banishManyObjs_inv (p : PlayerId) (fd : Bool) :
         have hwf1 := banishOne_wf hwf hb
         have hok1 := banishOne_ownerOk hwf hok hb
         have hp1 := banishOne_physIds hwf hb
-        cases (isSix && !sb.banishedSixPowerThisTurn.contains p) with
+        cases (!fd && isSix && !sb.banishedSixPowerThisTurn.contains p) with
         | true =>
           exact ⟨GameState.WF.congr hwf1 rfl rfl rfl rfl,
                  GameState.OwnerOk.congr hok1 rfl rfl,
@@ -734,7 +735,7 @@ theorem banishManyObjs_ttr (p : PlayerId) (fd : Bool) :
     let p1 := match banishOne s id fd with
       | some (sb, _, es) =>
         let sb' :=
-          if isSix && !(sb.banishedSixPowerThisTurn.contains p) then
+          if !fd && isSix && !(sb.banishedSixPowerThisTurn.contains p) then
             { sb with banishedSixPowerThisTurn := p :: sb.banishedSixPowerThisTurn }
           else sb
         (sb', es)
@@ -759,7 +760,7 @@ theorem banishManyObjs_ttr (p : PlayerId) (fd : Bool) :
               obtain ⟨rfl, rfl, rfl⟩ := hb
               exact moveObj_ttr_core hm
           · cases hb
-        cases (isSix && !sb.banishedSixPowerThisTurn.contains p) <;> exact httr
+        cases (!fd && isSix && !sb.banishedSixPowerThisTurn.contains p) <;> exact httr
     have h2 := banishManyObjs_ttr p fd rest p1.1
     exact ⟨h2.1.trans h1.1, h2.2.1.trans h1.2.1, h2.2.2.trans h1.2.2⟩
 
@@ -1495,8 +1496,9 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
         intro st
         unfold createTokens; dsimp only
         cases ha : addObject st (.player (evalPlayerRef s ctrl pref) .permanent)
-            { kind := .token tokId, owner := evalPlayerRef s ctrl pref,
-              controller := evalPlayerRef s ctrl pref, timestamp := ⟨st.nextTimestamp⟩ } .top with
+            (resetAllyLife st.cards
+              { kind := .token tokId, owner := evalPlayerRef s ctrl pref,
+                controller := evalPlayerRef s ctrl pref, timestamp := ⟨st.nextTimestamp⟩ }) .top with
         | none => exact ⟨rfl, rfl, rfl⟩
         | some res =>
           have h1 : res.1.turn = st.turn ∧ res.1.tournament = st.tournament ∧ res.1.result = st.result := by

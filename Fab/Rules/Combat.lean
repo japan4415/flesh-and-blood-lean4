@@ -697,7 +697,8 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
       defender := defender
       attack := some atkId
       attackSource := srcWeapon?
-      attackLki := lki }
+      attackLki := lki
+      attackFromBanished := (s.layerMeta.getD layerId.n { controller := attacker }).fromBanished }
   let s3 := { s2 with
     combat := some { step := .attack, links := newLink :: prevLinks }
     layerMeta := s2.layerMeta.erase layerId.n }

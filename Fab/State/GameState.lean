@@ -41,6 +41,8 @@ structure LayerInfo where
   goAgain : Bool := false
   /-- Optional explicit effect body for triggered/activated ability layers (CR 6.6). -/
   triggerEffect : Option Effect := none
+  /-- Whether this card-layer was played from the player's banished zone. -/
+  fromBanished : Bool := false
 deriving DecidableEq, Repr
 
 /-- Snapshot of mutable board state saved at the start of playing a card so illegal or unpayable
@@ -80,6 +82,10 @@ structure BoardSnapshot where
   chargedThisTurn : List PlayerId := []
   /-- Saved players who banished a 6+ power card this turn. -/
   banishedSixPowerThisTurn : List PlayerId := []
+  /-- Saved count of cards with Blood Debt played by each player this turn. -/
+  playedBloodDebtThisTurn : Std.ExtTreeMap Nat Nat := ∅
+  /-- Saved players who have played a non-attack action card this turn. -/
+  playedNonAttackActionThisTurn : List PlayerId := []
   /-- Saved once-per-turn activated ability usages `(objId, abilityIdx)`. -/
   activatedThisTurn : List (ObjId × Nat) := []
 deriving DecidableEq, Repr
@@ -138,6 +144,10 @@ structure GameState where
   chargedThisTurn : List PlayerId := []
   /-- Players who have banished a card with `≥ 6{p}` this turn (MON: Levia / Shadow Brute). -/
   banishedSixPowerThisTurn : List PlayerId := []
+  /-- Count of cards with Blood Debt played by each player this turn. -/
+  playedBloodDebtThisTurn : Std.ExtTreeMap Nat Nat := ∅
+  /-- Players who have played a non-attack action card this turn. -/
+  playedNonAttackActionThisTurn : List PlayerId := []
   /-- Once-per-turn activated abilities already used this turn (CR 5.2). -/
   activatedThisTurn : List (ObjId × Nat) := []
 deriving DecidableEq, Repr
@@ -391,6 +401,8 @@ def snapshot (s : GameState) : BoardSnapshot :=
     activeReplacements := s.activeReplacements
     chargedThisTurn := s.chargedThisTurn
     banishedSixPowerThisTurn := s.banishedSixPowerThisTurn
+    playedBloodDebtThisTurn := s.playedBloodDebtThisTurn
+    playedNonAttackActionThisTurn := s.playedNonAttackActionThisTurn
     activatedThisTurn := s.activatedThisTurn }
 
 /-- Restore a saved `BoardSnapshot` and clear `playRollback` (CR 5.1.1). -/
@@ -413,6 +425,8 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     activeReplacements := snap.activeReplacements
     chargedThisTurn := snap.chargedThisTurn
     banishedSixPowerThisTurn := snap.banishedSixPowerThisTurn
+    playedBloodDebtThisTurn := snap.playedBloodDebtThisTurn
+    playedNonAttackActionThisTurn := snap.playedNonAttackActionThisTurn
     activatedThisTurn := snap.activatedThisTurn
     playRollback := none }
 
