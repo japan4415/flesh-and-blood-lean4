@@ -725,6 +725,25 @@ def WTR_136_Y : CardDef := { bitingBlade WTR_136_Y_meta 2 with status := .full }
 /-- Biting Blade Blue. -/
 def WTR_137_B : CardDef := { bitingBlade WTR_137_B_meta 1 with status := .full }
 
+/-- Reprise draws before its controller chooses a card and a deck position. -/
+def strokeOfForesight (base : CardDef) (bonus : Int) : CardDef :=
+  let handToDeck := Effect.chooseOne (EffectList.ofList
+    [ .prim (.putHandOnDeck .controller .top)
+    , .prim (.putHandOnDeck .controller .bottom) ])
+  draftCard base []
+    (some
+      { targets := [targetWeaponAttack]
+        body := .seqL
+          [ .grant (.obj (.slot 0)) (.addPower (.const bonus)) .thisChainLink
+          , .ifThen .defendedFromHandThisLink
+              (.seqL
+                [ .prim (.draw .controller (.const 1))
+                , .ifThen (.zoneEmpty .controller .hand) .nop handToDeck ])
+              .nop ] })
+
+/-- Stroke of Foresight Red. -/
+def WTR_138_R : CardDef := { strokeOfForesight WTR_138_R_meta 3 with status := .full }
+
 /-- Shared 3-color helper for Sharpen Steel (next weapon attack +3/+2/+1). -/
 def sharpenSteel (base : CardDef) (bonus : Int) : CardDef :=
   draftCard base []
@@ -1093,7 +1112,7 @@ def draftedCards : List CardDef :=
   , WTR_104_R, WTR_105_Y, WTR_106_B
   , WTR_107_R, WTR_108_Y, WTR_109_B, WTR_110_R, WTR_111_Y, WTR_112_B
   , WTR_113, WTR_114, WTR_115, WTR_116, WTR_117, WTR_118_B, WTR_119_R, WTR_120_R
-  , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_126_R, WTR_127_Y, WTR_128_B, WTR_129_R, WTR_130_Y, WTR_131_B, WTR_132_R, WTR_133_Y, WTR_134_B, WTR_135_R, WTR_136_Y, WTR_137_B
+  , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_126_R, WTR_127_Y, WTR_128_B, WTR_129_R, WTR_130_Y, WTR_131_B, WTR_132_R, WTR_133_Y, WTR_134_B, WTR_135_R, WTR_136_Y, WTR_137_B, WTR_138_R
   , WTR_141_R, WTR_142_Y, WTR_143_B, WTR_144_R, WTR_145_Y, WTR_146_B, WTR_147_R, WTR_148_Y, WTR_149_B
   , WTR_150, WTR_151, WTR_154, WTR_155, WTR_156, WTR_157, WTR_158
   , WTR_159_R, WTR_160_Y, WTR_161_B, WTR_162_B, WTR_163_Y
