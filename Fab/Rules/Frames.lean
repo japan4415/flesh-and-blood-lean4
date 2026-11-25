@@ -555,12 +555,6 @@ def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
     fun (trigger, once) => if once then none else some trigger
   triggers.zipIdx.map fun (trigger, idx) => { trigger with id := s.nextTimestamp + idx }
 
-/-- Zones holding installed arena objects, excluding cards underneath a hero (CR 3.0.14b). -/
-def installedArenaZones (s : GameState) : List Zone :=
-  (allZones s.playerCount).filter fun
-    | .player _ kind => kind.isArena && kind != .soul
-    | _ => false
-
 /-- Collect relevant abilities on installed arena objects under the player's control (CR 1.7.4, 3.0.14b). -/
 def installedCardTriggers (s : GameState) (p : PlayerId) (matchesEvent : Trigger → Bool) :
     List (PendingTrigger × Bool) :=
@@ -859,10 +853,6 @@ structure ActivationPlan where
   body : Effect
   /-- Required target and its resolution-time eligibility filter. -/
   target : Option (TargetSpec × ObjId)
-
-/-- Arena zones where public activated abilities are functional (CR 1.7.4). -/
-def activationArenaZones (s : GameState) : List Zone :=
-  .combatChain :: installedArenaZones s
 
 /-- Public zones that can contain an attack action card targeted by an activation (CR 1.8.5a). -/
 def activationTargetZones (s : GameState) : List Zone :=

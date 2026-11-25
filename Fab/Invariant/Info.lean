@@ -213,12 +213,47 @@ theorem HiddenEquiv.canPickCardMode_eq {p : PlayerId} {s1 s2 : GameState}
     canPickCardMode s1 layerId idx = canPickCardMode s2 layerId idx := by
   simp only [canPickCardMode, (h.cardDef_face layerId).1, h.hasRequiredAttackTarget_eq]
 
+private theorem activationArenaZone_visible {s : GameState} {p : PlayerId} {z : Zone}
+    (hz : z ∈ activationArenaZones s) : z.isSecretTo p = false := by
+  rcases List.mem_cons.mp hz with rfl | hinstalled
+  · rfl
+  · have ha := (List.mem_filter.mp hinstalled).2
+    cases z with
+    | player q kind => cases kind <;> simp_all [Zone.isSecretTo, ZoneKind.isArena]
+    | combatChain | stack => rfl
+
+private theorem HiddenEquiv.arenaZones_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) : activationArenaZones s1 = activationArenaZones s2 := by
+  unfold activationArenaZones installedArenaZones
+  rw [h.playerCount]
+
+private theorem HiddenEquiv.arenaContents_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) :
+    (activationArenaZones s1).flatMap s1.zone = (activationArenaZones s2).flatMap s2.zone := by
+  rw [h.arenaZones_eq]
+  have hvisible (z : Zone) (hm : z ∈ activationArenaZones s2) : s1.zone z = s2.zone z :=
+    h.visibleZones z (activationArenaZone_visible hm)
+  generalize heq : activationArenaZones s2 = zones at *
+  clear heq
+  induction zones with
+  | nil => rfl
+  | cons z zs ih =>
+    simp only [List.flatMap_cons, hvisible z (by simp), ih (fun a ha => hvisible a (by simp [ha]))]
+
 private theorem HiddenEquiv.characteristics_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) (id : ObjId) :
     s1.characteristics id = s2.characteristics id := by
   have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
+  have hsource : s1.arenaDefenseSourceEffects = s2.arenaDefenseSourceEffects := by
+    funext source
+    have hobj : s1.obj? source = s2.obj? source := by simp [GameState.obj?, h.objects]
+    unfold GameState.arenaDefenseSourceEffects
+    rw [hobj, (h.cardDef_face source).1, h.activeEffects]
+  have hstatic : s1.arenaDefenseEffects id = s2.arenaDefenseEffects id := by
+    unfold GameState.arenaDefenseEffects
+    rw [h.arenaContents_eq, hsource, h.activeEffects]
   unfold GameState.characteristics
-  rw [ho, (h.cardDef_face id).1, h.activeEffects]
+  rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic]
 
 /-- The attack keywords used to check defense legality agree under `HiddenEquiv`. -/
 theorem HiddenEquiv.linkHasKeyword_eq_of_ne_goAgain {p : PlayerId} {s1 s2 : GameState}
@@ -262,15 +297,6 @@ theorem HiddenEquiv.canAttackWithWeapon_eq {p : PlayerId} {s1 s2 : GameState}
   rw [h.combat, h.phase, h.active, hs, hp, h.weaponAttackCandidateIds_eq,
       (h.cardDef_face wid).1, h.activatedThisTurn, h.activeEffects]
 
-private theorem activationArenaZone_visible {s : GameState} {p : PlayerId} {z : Zone}
-    (hz : z ∈ activationArenaZones s) : z.isSecretTo p = false := by
-  rcases List.mem_cons.mp hz with rfl | hinstalled
-  · rfl
-  · have ha := (List.mem_filter.mp hinstalled).2
-    cases z with
-    | player q kind => cases kind <;> simp_all [Zone.isSecretTo, ZoneKind.isArena]
-    | combatChain | stack => rfl
-
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canPitchCard s p id`. -/
 theorem HiddenEquiv.canPitchCard_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) (id : ObjId) :
@@ -288,9 +314,7 @@ theorem HiddenEquiv.canPitchCard_eq {p : PlayerId} {s1 s2 : GameState}
 
 private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) : availableActivations s1 p = availableActivations s2 p := by
-  have hz : activationArenaZones s1 = activationArenaZones s2 := by
-    unfold activationArenaZones installedArenaZones
-    rw [h.playerCount]
+  have hz := h.arenaZones_eq
   have hvisible (z : Zone) (hm : z ∈ activationArenaZones s2) : s1.zone z = s2.zone z :=
     h.visibleZones z (activationArenaZone_visible hm)
   have hfind (id : ObjId) :
@@ -303,12 +327,7 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
     | cons z zs ih =>
       simp only [List.find?_cons, hvisible z (by simp), ih (fun a ha => hvisible a (by simp [ha]))]
   have hsources : (activationArenaZones s2).flatMap s1.zone = (activationArenaZones s2).flatMap s2.zone := by
-    generalize heq : activationArenaZones s2 = zones at *
-    clear heq hz hfind
-    induction zones with
-    | nil => rfl
-    | cons z zs ih =>
-      simp only [List.flatMap_cons, hvisible z (by simp), ih (fun a ha => hvisible a (by simp [ha]))]
+    simpa only [hz] using h.arenaContents_eq
   have htargets : (activationTargetZones s1).flatMap s1.zone = (activationTargetZones s2).flatMap s2.zone := by
     simp only [activationTargetZones, List.flatMap_cons, hz, hsources, h.visibleZones .stack rfl]
   have hmatching (spec : TargetSpec) (id : ObjId) :
