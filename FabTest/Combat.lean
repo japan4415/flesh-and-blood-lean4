@@ -1024,6 +1024,8 @@ meta def checkPrimevalBellow (cid : CardId) (pitch bonus : Nat) (fromArsenal : B
 
 #guard checkPrimevalBellow ⟨"WTR_035_R"⟩ 1 5 false == some true
 #guard checkPrimevalBellow ⟨"WTR_035_R"⟩ 1 5 true == some true
+#guard checkPrimevalBellow ⟨"WTR_036_Y"⟩ 2 4 false == some true
+#guard checkPrimevalBellow ⟨"WTR_036_Y"⟩ 2 4 true == some true
 
 /-- Play an attack with Intimidate and use the remaining hand card to defend. -/
 meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) (discardCost : Bool := false)
