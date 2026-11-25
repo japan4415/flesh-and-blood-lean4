@@ -408,8 +408,8 @@ def flusterFist (base : CardDef) : CardDef :=
 def WTR_086_R : CardDef := { flusterFist WTR_086_R_meta with status := .full }
 /-- Fluster Fist Yellow. -/
 def WTR_087_Y : CardDef := { flusterFist WTR_087_Y_meta with status := .full }
-/-- Fluster Fist Blue (drafted IR). -/
-def WTR_088_B : CardDef := flusterFist WTR_088_B_meta
+/-- Fluster Fist Blue. -/
+def WTR_088_B : CardDef := { flusterFist WTR_088_B_meta with status := .full }
 
 /-- Run an attack's combo effect when the preceding link has the required attack name. -/
 def comboAttack (base : CardDef) (preceding : String) (effect : Effect) : CardDef :=
