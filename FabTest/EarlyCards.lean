@@ -430,6 +430,97 @@ meta def foundryHeartScenario (deckCards : List String) (matchCount : Nat) (mech
 #guard foundryHeartScenario ["ARC_007_B", "ARC_007_B", "ARC_007_B"] 2 true == some true
 #guard foundryHeartScenario ["WTR_191_R"] 0 false == some true
 
+#guard ((earlyPrintingCardId? "ARC005").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Achilles Accelerator" && card.status == .full &&
+    card.front.keywords.contains (.arcaneBarrier 1))
+
+meta def achillesAcceleratorScenario : Option Bool := do
+  let p := earlyAttacker
+  let base := { earlyBase.setPool p {} with cards := throughArcDB }
+  let (ready, accelerator) ← earlyPlace base p (.player p .legs) "ARC_005"
+  let use : Action := ⟨.player p, .activateAbility accelerator 0 none⟩
+  let (announced, events) ← (step 64 { ready with boostsThisTurn := [p] } use).toOption
+  let resolved ← earlySteps announced earlyPass
+  let spent ← (announced.zone (.player p .graveyard)).head?
+  pure ((earlySteps ready [use]).isNone &&
+    events.contains (.moved accelerator spent (.player p .legs) (.player p .graveyard)) &&
+    announced.zone (.player p .legs) == [] && (announced.poolOf p).actionPoints == 0 &&
+    (resolved.cardDefOf? spent).any (fun card => card.id == ⟨"ARC_005"⟩) &&
+    (resolved.poolOf p).actionPoints == 1 && (resolved.poolOf p).resources == 0)
+
+#guard achillesAcceleratorScenario == some true
+
+meta def acceleratorDamageBoard (kind : DamageKind) (resources : Nat) :
+    Option (GameState × ObjId × ObjId) := do
+  let p := earlyDefender
+  let testDamage : CardDef :=
+    { id := ⟨"Arcane Barrier damage fixture"⟩
+      front :=
+        { name := "Damage fixture"
+          types := [.action]
+          cost := some { actionPoints := 1 }
+          playEffect := some { body := .prim (.dealDamage kind .opposingHero (.const 2)) } } }
+  let cards : CardDB := ⟨testDamage :: throughArcDB.cards⟩
+  let base := { earlyBase.setPool p { resources } with cards }
+  let (equipped, accelerator) ← earlyPlace base p (.player p .legs) "ARC_005"
+  let (ready, damage) ← earlyPlace equipped earlyAttacker (.player earlyAttacker .hand) testDamage.id.val
+  return (ready, accelerator, damage)
+
+meta def acceleratorBarrierScenario : Option Bool := do
+  let p := earlyDefender
+  let select (id : Option Nat) : Action := ⟨.player p, .pickReplacement id⟩
+  let (ready, accelerator, damage) ← acceleratorDamageBoard .arcane 1
+  let play (id : ObjId) := ⟨Actor.player earlyAttacker, ActionKind.playCard id⟩ :: earlyPass
+  let prompt ← earlySteps ready (play damage)
+  let .chooseReplacement _ .prevention [barrier] true :: _ := prompt.pending | none
+  let prevented ← earlySteps prompt [select (some barrier)]
+  let declined ← earlySteps prompt [select none]
+  let lethal ← earlySteps (prompt.setLife p 1) [select (some barrier)]
+  let (physical, _, physicalDamage) ← acceleratorDamageBoard .physical 1
+  let physicalHit ← earlySteps physical (play physicalDamage)
+  let (withoutResources, _, pitchDamage) ← acceleratorDamageBoard .arcane 0
+  let noPayment ← earlySteps withoutResources (play pitchDamage)
+  let (withCard, pitchCard) ← earlyPlace withoutResources p (.player p .hand) "WTR_100_B"
+  let pitchOffer ← earlySteps withCard (play pitchDamage)
+  let .chooseReplacement _ .prevention [pitchBarrier] true :: _ := pitchOffer.pending | none
+  let paying ← earlySteps pitchOffer [select (some pitchBarrier)]
+  let paid ← earlySteps paying [⟨.player p, .pitchCard pitchCard⟩]
+  pure (prompt.lifeOf p == 40 &&
+    (view earlyAttacker pitchOffer).pending.head? == (view earlyAttacker noPayment).pending.head? &&
+    (legalActionsFor p noPayment).contains (select none) &&
+    !(legalActionsFor p noPayment).contains (select (some barrier)) &&
+    !(legalActionsFor earlyAttacker pitchOffer).contains (select (some pitchBarrier)) &&
+    prevented.lifeOf p == 39 && (prevented.poolOf p).resources == 0 &&
+    prevented.zone (.player p .legs) == [accelerator] &&
+    declined.lifeOf p == 38 && (declined.poolOf p).resources == 1 &&
+    lethal.result == some (.won [earlyAttacker]) && lethal.pending.isEmpty &&
+    physicalHit.lifeOf p == 38 && (physicalHit.poolOf p).resources == 1 &&
+    paying.lifeOf p == 40 && (legalActionsFor p paying).contains ⟨.player p, .pitchCard pitchCard⟩ &&
+    !(legalActionsFor p paying).contains ⟨.player p, .cancelPlay⟩ &&
+    paid.lifeOf p == 39 && (paid.poolOf p).resources == 2 && (paid.poolOf p).actionPoints == 0 &&
+    (paid.zone (.player p .pitch)).length == 1)
+
+#guard acceleratorBarrierScenario == some true
+
+meta def acceleratorShieldOrderScenario : Option Bool := do
+  let p := earlyDefender
+  let (ready, accelerator, damage) ← acceleratorDamageBoard .arcane 1
+  let shield : ReplacementEffect :=
+    { id := 0, source := accelerator, controller := p, stage := .prevention, action := .shieldPrevent 2 }
+  let board := { ready with activeReplacements := [shield] }
+  let prompt ← earlySteps board (⟨.player earlyAttacker, .playCard damage⟩ :: earlyPass)
+  let .chooseReplacement _ .prevention [shieldId, barrier] false :: _ := prompt.pending | none
+  let shieldFirst ← earlySteps prompt [⟨.player p, .pickReplacement (some shieldId)⟩]
+  let barrierThenShield ← earlySteps prompt [⟨.player p, .pickReplacement (some barrier)⟩]
+  pure (shieldId == shield.id &&
+    (earlySteps prompt [⟨.player p, .pickReplacement none⟩]).isNone &&
+    shieldFirst.lifeOf p == 40 && (shieldFirst.poolOf p).resources == 1 &&
+    shieldFirst.activeReplacements.isEmpty &&
+    barrierThenShield.lifeOf p == 40 && (barrierThenShield.poolOf p).resources == 0 &&
+    barrierThenShield.activeReplacements == [{ shield with action := .shieldPrevent 1 }])
+
+#guard acceleratorShieldOrderScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

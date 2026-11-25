@@ -600,6 +600,36 @@ private theorem finishPaidActivation_ttr {s s' : GameState} {p : PlayerId} {laye
   obtain ⟨ht, htn, hr⟩ := payActivationSource_turn_tournament_result hpay
   split at h <;> subst s' <;> exact ⟨ht, htn, hr⟩
 
+private theorem advanceArcaneDamage_ttr (s : GameState) (p : PlayerId)
+    (effects : List ReplacementEffect) (damage : ReplacementState) (stage : ArcaneDamageStep)
+    (rest : List Frame) :
+    (advanceArcaneDamage s p effects damage stage rest).1.turn = s.turn ∧
+    (advanceArcaneDamage s p effects damage stage rest).1.tournament = s.tournament ∧
+    ((advanceArcaneDamage s p effects damage stage rest).1.result = none → s.result = none) := by
+  have hfinish := settleDamage_ttr s p .arcane (applyReplacementStage .outcome [] effects damage)
+  cases stage with
+  | offer =>
+    unfold advanceArcaneDamage
+    dsimp only
+    split
+    · exact hfinish
+    · split <;> exact ⟨rfl, rfl, id⟩
+    · exact ⟨rfl, rfl, id⟩
+  | readChoice =>
+    unfold advanceArcaneDamage
+    dsimp only
+    split
+    · exact hfinish
+    · exact ⟨rfl, rfl, id⟩
+  | pay effect =>
+    unfold advanceArcaneDamage
+    dsimp only
+    split
+    · rename_i board hpay
+      obtain ⟨ht, htn, hr⟩ := spendAssetCost_ttr hpay
+      exact ⟨ht, htn, fun hn => hr ▸ hn⟩
+    · split <;> exact ⟨rfl, rfl, id⟩
+
 set_option maxHeartbeats 300000 in
 /-- **I14** (microStep preservation): every `microStep` preserves `TimeLimitBounded deadline`.
 In particular, `beginTurn` either terminates in `.draw .timeLimit` (when `k = 0`) or increments
@@ -711,6 +741,11 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         unfold rollbackPlay
         cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
+  · -- arcaneDamage
+    have heq : _ = s' := congrArg Prod.fst (Option.some.inj h)
+    rw [← heq]
+    obtain ⟨ht, htn, hr⟩ := advanceArcaneDamage_ttr _ _ _ _ _ _
+    exact timeLimitBounded_of_eq hb ht htn hr
   · -- payRandomDiscard
     rename_i p _ _ _ count _ _
     let ids := (s.zone (.player p .hand)).take count
@@ -1275,6 +1310,15 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
       · cases h
         exact ⟨rfl, rfl, rfl⟩
       · exact stackPendingTrigger_turn_tournament_result h
+    · cases h
+  · -- choosePreventionPitch
+    split at h
+    · split at h
+      · cases h
+      · rename_i _ _ _ hpitch
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        have ht := pitchOne_ttr hpitch
+        exact ⟨ht.1, ht.2.1, ht.2.2⟩
     · cases h
   · -- chooseReplacement
     dsimp only at h

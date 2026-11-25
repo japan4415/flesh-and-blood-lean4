@@ -591,6 +591,64 @@ def spendAssetCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Option Ga
   | some pool' => some (s.setPool p pool')
   | none => none
 
+/-- Resource-equivalent assets available from pitching are private to the payer (CR 1.14.3). -/
+def preventionEnergy (s : GameState) (p : PlayerId) : Nat :=
+  (pitchableCards s p).foldl (fun amount id => amount + ((s.objectFace? id).bind (·.pitch)).getD 0)
+    (s.poolOf p).totalEnergy
+
+/-- Resource cost of a paid prevention effect (CR 8.3.8). -/
+def preventionResourceCost (effect : ReplacementEffect) : Nat :=
+  match effect.action with
+  | .arcaneBarrierPrevent n | .quellPrevent n => n
+  | _ => 0
+
+/-- Finish an arcane event's outcome stage and commit the resulting damage (CR 6.4.10). -/
+def finishArcaneDamage (s : GameState) (p : PlayerId) (effects : List ReplacementEffect)
+    (damage : ReplacementState) (rest : List Frame) : GameState × List Event :=
+  let result := applyReplacementStage .outcome [] effects damage
+  let (settled, events) := settleDamage s p .arcane result
+  let next := if settled.result.isSome then [] else rest
+  ({ settled with pending := next }, events)
+
+/-- Apply one prevention choice at a time so the affected player can choose its order and pitch
+to pay a barrier without gaining priority during resolution (CR 1.14.3, 6.5.1, 8.3.8). -/
+def advanceArcaneDamage (s : GameState) (p : PlayerId) (effects : List ReplacementEffect)
+    (damage : ReplacementState) (stage : ArcaneDamageStep) (rest : List Frame) :
+    GameState × List Event :=
+  match stage with
+  | .offer =>
+    let publicChoices := effects.filter fun effect =>
+      let energy := max (preventionResourceCost effect) (s.poolOf p).totalEnergy
+      effect.eligible .prevention { damage with availResources := energy }
+    let energy := preventionEnergy s p
+    let available := publicChoices.filter fun e => decide (preventionResourceCost e ≤ energy)
+    let prompt := Frame.chooseReplacement p .prevention (available.map (·.id)) (!available.any (·.isMandatory))
+    let waiting := { s with pending := prompt :: .arcaneDamage p effects damage .readChoice :: rest }
+    match publicChoices with
+    | [] => finishArcaneDamage s p effects damage rest
+    | [e] =>
+      if e.isMandatory && preventionResourceCost e == 0 then
+        ({ s with pending := .arcaneDamage p effects (applyOneReplacement damage e) .offer :: rest }, [])
+      else (waiting, [])
+    | _ => (waiting, [])
+  | .readChoice =>
+    match (s.chosenReplacements.getLast?.join).bind (fun id => effects.find? (·.id == id)) with
+    | none => finishArcaneDamage s p effects damage rest
+    | some choice =>
+      ({ s with pending := .arcaneDamage p effects damage (.pay choice) :: rest }, [])
+  | .pay effect =>
+    let cost := { resources := preventionResourceCost effect : AssetCost }
+    let resume := Frame.arcaneDamage p effects damage (.pay effect)
+    match spendAssetCost s p cost with
+    | some board =>
+      let result := applyOneReplacement { damage with availResources := (s.poolOf p).totalEnergy } effect
+      ({ board with pending := .arcaneDamage p effects result .offer :: rest }, [])
+    | none =>
+      if canPitchForCost s p cost then
+        ({ s with pending := .choosePreventionPitch p :: resume :: rest }, [])
+      else
+        ({ s with pending := .arcaneDamage p (effects.eraseP (·.id == effect.id)) damage .offer :: rest }, [])
+
 /-- Equipment characteristics checked for a requirement tied to a player (CR 1.8.5). -/
 def equipmentControlledBy (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
   (s.obj? id).any (fun o => !o.faceDown) &&
@@ -716,6 +774,15 @@ def queueCardTriggers (s : GameState) (candidates : List (PendingTrigger × Bool
   { s with
     triggeredThisTurn := collected.1
     pendingTriggers := if triggers.isEmpty then s.pendingTriggers else s.pendingTriggers ++ triggers
+    nextTimestamp := s.nextTimestamp + triggers.length }
+
+/-- Queue pitch triggers without interrupting the payment that caused them (CR 6.6.6). -/
+def queuePitchTriggers (s : GameState) (p : PlayerId) (pitched : ObjId) : GameState :=
+  let abilities := ((s.objectFace? pitched).map (·.abilities)).getD []
+  let triggers := collectCardTriggers s pitched p false abilities fun trigger cond =>
+    trigger == .onPitch && (cond.map (evalCondition s p pitched false)).getD true
+  { s with
+    pendingTriggers := s.pendingTriggers ++ triggers
     nextTimestamp := s.nextTimestamp + triggers.length }
 
 /-- Queue discard abilities in event order (CR 6.6). -/
@@ -1463,13 +1530,7 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       match pitchOne s p id with
       | none => none
       | some (s1, pitched, es) =>
-        let abilities := ((s1.objectFace? pitched).map (·.abilities)).getD []
-        let triggers := collectCardTriggers s1 pitched p false abilities fun trigger cond =>
-          trigger == .onPitch && (cond.map (evalCondition s1 p pitched false)).getD true
-        some ({ s1 with
-                  pendingTriggers := s1.pendingTriggers ++ triggers
-                  nextTimestamp := s1.nextTimestamp + triggers.length
-                  pending := .playPayCost p layerId fromArsenal modeIdx cost :: rest }, es)
+        some ({ queuePitchTriggers s1 p pitched with pending := .playPayCost p layerId fromArsenal modeIdx cost :: rest }, es)
     else
       none
   | .choosePitch p _ _ _ _ :: rest, .player q, .cancelPlay =>
@@ -1657,6 +1718,13 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       else
         stackPendingTrigger s p trig none none (id :: selected).reverse rem rest
     else none
+  | .choosePreventionPitch p :: rest, .player q, .pitchCard id =>
+    if p = q ∧ canPitchCard s p id = true then
+      match pitchOne s p id with
+      | none => none
+      | some (s1, pitched, es) =>
+        some ({ queuePitchTriggers s1 p pitched with pending := rest }, es)
+    else none
   | .chooseReplacement aff _ cands canDecl :: rest, .player q, .pickReplacement choice =>
     let validChoice : Bool :=
       match choice with
@@ -1804,6 +1872,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         some ({ s with pending := .choosePitch p layerId fromArsenal modeIdx cost :: rest }, [])
       else
         some (rollbackPlay s rest, [])
+  | .arcaneDamage p effects proposed stage :: rest =>
+    some (advanceArcaneDamage s p effects proposed stage rest)
   | .payRandomDiscard p layerId fromArsenal modeIdx count :: rest =>
     let (paid, events) := discardManyObjs s p ((s.zone (.player p .hand)).take count)
     let discarded := events.reverse.findSome? fun

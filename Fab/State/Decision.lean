@@ -6,6 +6,7 @@ public import Fab.Core.Cost
 public import Fab.Core.Property
 public import Fab.Card.IR.Effect
 public import Fab.Rules.Triggers
+public import Fab.Rules.Replacement
 
 /-!
 # Actors, actions, and continuation frames
@@ -166,6 +167,16 @@ deriving DecidableEq, Repr
 def shuffleSelectionCanConfirm (selected : List ObjId) (search : Option DeckSearchChoice) : Bool :=
   search.all (fun choice => choice.mayFail || !selected.isEmpty)
 
+/-- The continuation of the prevention stage of an arcane damage event (CR 6.5.1, 8.3.8). -/
+inductive ArcaneDamageStep where
+  /-- Determine which prevention effects can still apply. -/
+  | offer
+  /-- Read the affected player's answer to the prevention prompt. -/
+  | readChoice
+  /-- Pay the selected effect's cost before applying it. -/
+  | pay (effect : ReplacementEffect)
+deriving DecidableEq, Repr
+
 /-- Optional additional payment offered when declaring a card (CR 5.1.3, 8.3.9). -/
 inductive OptionalPlayCost where
   /-- Add this number of resources to the announced asset cost. -/
@@ -295,6 +306,11 @@ inductive Frame where
   at `stage` (CR 6.5.1). -/
   | chooseReplacement (affected : PlayerId) (stage : ReplacementStage) (candidates : List Nat)
       (canDecline : Bool)
+  /-- Work: offer arcane prevention, apply a choice, or settle its payment. -/
+  | arcaneDamage (target : PlayerId) (effects : List ReplacementEffect) (damage : ReplacementState)
+      (step : ArcaneDamageStep)
+  /-- Decision: pitch a card to pay for the chosen prevention effect (CR 1.14.3). -/
+  | choosePreventionPitch (p : PlayerId)
 deriving DecidableEq, Repr
 
 /-- Whether a frame is an automatic work frame processed by `microStep`. -/
@@ -319,6 +335,7 @@ def Frame.isWork : Frame → Bool
   | .endTurnCleanup _ => true
   | .endTurnFinish => true
   | .flushTriggers => true
+  | .arcaneDamage _ _ _ _ => true
   | _ => false
 
 end Fab
