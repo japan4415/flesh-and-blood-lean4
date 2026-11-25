@@ -46,6 +46,13 @@ def GameState.hasTwoHandedEquipped (s : GameState) (p : PlayerId) : Bool :=
     | some c => c.isTwoHanded
     | none => false
 
+/-- Whether the hero permits a deck card to start in the arena (CR 4.1.5b). -/
+def setupPermanentAllowed (s : GameState) (p : PlayerId) (card : CardDef) : Bool :=
+  card.isDeckCard && ((s.zone (.player p .hero)).head?.bind s.objectFace?).any (fun hero =>
+    hero.abilities.any fun
+      | .setupPermanent filter => cardFaceMatches filter card.front
+      | _ => false)
+
 /-- Determine the target arena zone when player `p` equips card `id` from inventory during
 Start-of-Game loadout, or `none` if `id` cannot be legally equipped right now (CR 4.1.4). -/
 def loadoutEquipDest? (s : GameState) (p : PlayerId) (id : ObjId) : Option Zone :=
@@ -74,6 +81,8 @@ def loadoutEquipDest? (s : GameState) (p : PlayerId) (id : ObjId) : Option Zone 
           else if (s.zone (.player p .arms)).isEmpty then some (.player p .arms)
           else if (s.zone (.player p .legs)).isEmpty then some (.player p .legs)
           else none
+        else if (s.zone (.player p .permanent)).isEmpty && setupPermanentAllowed s p c then
+          some (.player p .permanent)
         else
           none
   else
@@ -92,7 +101,8 @@ def loadoutCanAddDeck (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
 /-- Whether player `p` has enough cards in their starting deck to finish loadout for the
 configured format (CR 4.1.4). -/
 def loadoutCanFinish (s : GameState) (p : PlayerId) : Bool :=
-  decide (s.config.format.spec.deckSize.Satisfied (s.zone (.player p .deck)).length)
+  let deckSize := (s.zone (.player p .deck)).length + (s.zone (.player p .permanent)).length
+  decide (s.config.format.spec.deckSize.Satisfied deckSize)
 
 /-- Effective hero intellect of player `p`, defaulting to 4 if absent (CR 2.4, 4.1.6). -/
 def GameState.intellectOf (s : GameState) (p : PlayerId) : Nat :=
@@ -129,15 +139,14 @@ theorem revealObject_owner (db : CardDB) (o : Object) :
   dsimp only
   split <;> (try split) <;> (try split) <;> rfl
 
-/-- All equipped armor and weapon object identifiers across all players. -/
+/-- All equipped objects and selected starting permanents across all players. -/
 def loadoutArenaIds (s : GameState) : List ObjId :=
   (allPlayers s.playerCount).flatMap fun p =>
     s.zone (.player p .head) ++ s.zone (.player p .chest) ++
     s.zone (.player p .arms) ++ s.zone (.player p .legs) ++
-    s.zone (.player p .weapon)
+    s.zone (.player p .weapon) ++ s.zone (.player p .permanent)
 
-/-- Simultaneously reveal all non-Cloaked equipped armor and weapon cards across all players
-(CR 4.1.4). -/
+/-- Simultaneously reveal the loadout across all players (CR 4.1.4, 4.1.6). -/
 def revealAllLoadouts (s : GameState) : GameState :=
   let objs' := (loadoutArenaIds s).foldl (fun m id =>
     match m[id.n]? with
@@ -1270,8 +1279,10 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
         match moveObj s id dst .top true with
         | none => none
         | some (s1, id') =>
+          let events := if dst == .player p .permanent then []
+            else [Event.moved id id' (.player p .inventory) dst]
           some ({ s1 with pending := .chooseLoadout p :: rest },
-                [.moved id id' (.player p .inventory) dst])
+                events)
     else
       none
   | .chooseLoadout p :: rest, .player q, .loadoutToDeck id =>

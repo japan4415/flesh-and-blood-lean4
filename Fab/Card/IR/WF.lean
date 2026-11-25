@@ -216,6 +216,7 @@ def Ability.wfBool : Ability → Bool
     mod.wfBool 0 [] false
   | .replacement _ _ effect =>
     effect.wfBool false
+  | .setupPermanent _ => true
 
 /-- Static well-formedness check for a `CardFace`. -/
 def CardFace.wfBool (f : CardFace) : Bool :=

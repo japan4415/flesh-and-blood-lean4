@@ -291,6 +291,42 @@ meta def eyeOfOphidiaScenario : Option Bool := do
 
 #guard eyeOfOphidiaScenario == some true
 
+meta def adultDashSetupScenario : Option Bool := do
+  let player := earlyAttacker
+  let opponent := earlyDefender
+  let permanent := Zone.player player .permanent
+  let deck := Zone.player player .deck
+  let inventory := Zone.player player .inventory
+  let item : CardDef :=
+    { id := ⟨"Dash-test-item"⟩
+      front := { name := "Setup item", supertypes := [.class_ .mechanologist],
+                 types := [.action], subtypes := [.item], cost := some { actionPoints := 1, resources := 2 } } }
+  let expensive :=
+    { item with
+      id := ⟨"Dash-test-expensive"⟩
+      front := { item.front with name := "Costlier item", cost := some { actionPoints := 1, resources := 3 } } }
+  let cards : CardDB := ⟨item :: expensive :: throughArcDB.cards⟩
+  let setup :=
+    { earlyBase with
+      cards
+      phase := .setup
+      pending := [.chooseLoadout player, .revealLoadouts] }
+  let (hero, _) ← earlyPlace setup player (.player player .hero) "ARC_001"
+  let loaded ← (List.range 59).foldlM
+    (fun s _ => (earlyPlace s player deck "WTR_203_R").map Prod.fst) hero
+  let (withExpensive, wrong) ← earlyPlace loaded player inventory "Dash-test-expensive"
+  let (ready, allowed) ← earlyPlace withExpensive player inventory "Dash-test-item"
+  let selected ← earlySteps ready [⟨.player player, .loadoutEquip allowed⟩]
+  let id ← (selected.zone permanent).head?
+  let revealed ← earlySteps selected [⟨.player player, .loadoutDone⟩]
+  pure (!loadoutCanFinish ready player && loadoutCanFinish selected player &&
+    loadoutEquipDest? ready player wrong == none && (selected.obj? id).any (·.faceDown) &&
+    viewZone opponent selected permanent == .countOnly 0 &&
+    viewZone opponent selected deck == .countOnly 60 &&
+    (revealed.obj? id).any (fun obj => !obj.faceDown) && (revealed.zone deck).length == 59)
+
+#guard adultDashSetupScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

@@ -122,7 +122,9 @@ theorem loadoutEquipDest?_spec {s : GameState} {p : PlayerId} {id : ObjId} {dst 
                   · split at h
                     · simp only [Option.some.injEq] at h; subst h; exact ⟨.legs, rfl, rfl⟩
                     · cases h
-            · cases h
+            · split at h
+              · simp only [Option.some.injEq] at h; subst h; exact ⟨.permanent, rfl, rfl⟩
+              · cases h
   · cases h
 
 /-- Helper: `loadoutCanAddDeck` implies `id` is in `p`'s inventory. -/

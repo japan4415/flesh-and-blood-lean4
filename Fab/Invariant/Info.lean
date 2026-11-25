@@ -55,7 +55,15 @@ def deckSearchVisible (p : PlayerId) (s : GameState) (z : Zone) : Bool :=
 /-- Project one zone `z` into observer `p`'s `VisibleZone` (CR 3.0). -/
 def viewZone (p : PlayerId) (s : GameState) (z : Zone) : VisibleZone :=
   let ids := s.zone z
-  if z.isCountOnlyFor p && !deckSearchVisible p s z then
+  let beforeReveal := s.phase == .setup && s.pending.contains .revealLoadouts
+  let hiddenLoadoutCount := match z with
+    | .player q .permanent => if beforeReveal && q != p then some 0 else none
+    | .player q .deck =>
+      if beforeReveal && q != p then some (ids.length + (s.zone (.player q .permanent)).length) else none
+    | _ => none
+  if let some count := hiddenLoadoutCount then
+    .countOnly count
+  else if z.isCountOnlyFor p && !deckSearchVisible p s z then
     .countOnly ids.length
   else
     .entries (ids.map fun id =>
@@ -216,13 +224,21 @@ theorem HiddenEquiv.loadoutEquipDest {p : PlayerId} {s1 s2 : GameState} (h : Hid
   have har : s1.zone (.player p .arms) = s2.zone (.player p .arms) := h.visibleZones _ rfl
   have hle : s1.zone (.player p .legs) = s2.zone (.player p .legs) := h.visibleZones _ rfl
   have hwe : s1.zone (.player p .weapon) = s2.zone (.player p .weapon) := h.visibleZones _ rfl
+  have hp : s1.zone (.player p .permanent) = s2.zone (.player p .permanent) := h.visibleZones _ rfl
+  have hstart (card : CardDef) : setupPermanentAllowed s1 p card = setupPermanentAllowed s2 p card := by
+    unfold setupPermanentAllowed
+    rw [h.visibleZones (.player p .hero) rfl]
+    cases (s2.zone (.player p .hero)).head? with
+    | none => rfl
+    | some hero => simp [(h.cardDef_face hero).2]
   have h2h : s1.hasTwoHandedEquipped p = s2.hasTwoHandedEquipped p := by
     unfold GameState.hasTwoHandedEquipped
     rw [hwe]
     congr 1; funext wid
     rw [(h.cardDef_face wid).1]
   unfold loadoutEquipDest?
-  rw [hinv, (h.cardDef_face id).1, hhe, hch, har, hle, hwe, h2h]
+  rw [hinv, (h.cardDef_face id).1, hhe, hch, har, hle, hwe, h2h, hp]
+  simp only [hstart]
 
 /-- The cards and active combat link determine whether an attack target can be declared. -/
 theorem HiddenEquiv.hasRequiredAttackTarget_eq {p : PlayerId} {s1 s2 : GameState}
@@ -473,7 +489,8 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
               have hadd : ∀ id, loadoutCanAddDeck s1 q id = loadoutCanAddDeck s2 q id := by
                 intro id; unfold loadoutCanAddDeck; rw [hinv, (h.cardDef_face id).1]
               have hfin : loadoutCanFinish s1 q = loadoutCanFinish s2 q := by
-                unfold loadoutCanFinish; rw [h.config, h.ownDeckLen]
+                unfold loadoutCanFinish
+                rw [h.config, h.ownDeckLen, h.visibleZones (.player q .permanent) rfl]
               have hdest : ∀ id, (loadoutEquipDest? s1 q id).isSome = (loadoutEquipDest? s2 q id).isSome :=
                 fun id => by rw [h.loadoutEquipDest id]
               rw [hinv, hfin]
@@ -676,12 +693,19 @@ theorem reorder_deck_noninterference {s : GameState} (p q : PlayerId) {l : List 
     intro z _
     congr 1
     unfold viewZone
+    have hpermanent (owner : PlayerId) :
+        (s.setZone (.player q .deck) l).zone (.player owner .permanent) =
+          s.zone (.player owner .permanent) :=
+      GameState.zone_setZone_ne s (by intro he; cases he) l
+    have hphase : (s.setZone (.player q .deck) l).phase = s.phase := rfl
+    have hpending : (s.setZone (.player q .deck) l).pending = s.pending := rfl
     by_cases hzd : z = .player q .deck
     · subst hzd
       have hsearch : deckSearchVisible p (s.setZone (.player q .deck) l) (.player q .deck) =
           deckSearchVisible p s (.player q .deck) := rfl
-      simp [Zone.isCountOnlyFor, hsearch, hhidden, GameState.reorder, GameState.zone_setZone_self, hlen]
-    · simp only [GameState.reorder, GameState.zone_setZone_ne s hzd l]
+      simp [Zone.isCountOnlyFor, hsearch, hhidden, GameState.reorder, GameState.zone_setZone_self,
+        hlen, hpermanent, hphase, hpending]
+    · simp only [GameState.reorder, GameState.zone_setZone_ne s hzd l, hpermanent, hphase, hpending]
       rfl
   · exact hiddenEquiv_legalActionsFor_eq heq
 
