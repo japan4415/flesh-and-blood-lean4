@@ -1585,6 +1585,8 @@ meta def checkDorinthea (cid : CardId) (life : Nat) : Option Bool := do
 
 #guard checkDorinthea ⟨"WTR_113"⟩ 40 == some true
 
+#guard checkDorinthea ⟨"WTR_114"⟩ 20 == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
