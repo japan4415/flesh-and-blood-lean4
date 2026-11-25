@@ -1006,6 +1006,20 @@ private theorem startActivation_turn_tournament_result {s s' : GameState} {p : P
   obtain ⟨ht, htn, hr⟩ := addObject_turn_tournament_result hadd
   exact ⟨ht, htn, hr⟩
 
+private theorem applySelectionEntryCounter_ttr (s : GameState) (events : List Event)
+    (search : Option DeckSearchChoice) :
+    let counted := applySelectionEntryCounter s events search
+    counted.turn = s.turn ∧ counted.tournament = s.tournament ∧ counted.result = s.result := by
+  unfold applySelectionEntryCounter
+  split
+  · exact ⟨rfl, rfl, rfl⟩
+  · rename_i kind _
+    dsimp only
+    split
+    · exact ⟨rfl, rfl, rfl⟩
+    · rename_i id _
+      exact updateSingleObject_turn_tournament_result s id (fun obj => obj.addCounterVal kind 1)
+
 private theorem confirmShuffleCards_ttr (s : GameState) (p : PlayerId) (selected : List ObjId)
     (drawSame : Bool) (search : Option DeckSearchChoice) (rest : List Frame) :
     let moved := (confirmShuffleCards s p selected drawSame search rest).1
@@ -1014,7 +1028,10 @@ private theorem confirmShuffleCards_ttr (s : GameState) (p : PlayerId) (selected
   obtain ⟨ht, htour, hr⟩ := moveManyObjs_ttr
     ((search.map (·.destination)).getD (.player p .deck))
     (if search.isSome then .top else .bottom) false selected.reverse s
-  exact ⟨ht, htour, hr⟩
+  let moved := moveManyObjs s selected.reverse ((search.map (·.destination)).getD (.player p .deck))
+    (if search.isSome then .top else .bottom) false
+  obtain ⟨ht', htour', hr'⟩ := applySelectionEntryCounter_ttr moved.1 moved.2 search
+  exact ⟨ht'.trans ht, htour'.trans htour, hr'.trans hr⟩
 
 private theorem stackPendingTrigger_turn_tournament_result
     {s s' : GameState} {p : PlayerId} {trig : PendingTrigger} {hero : Option PlayerId}

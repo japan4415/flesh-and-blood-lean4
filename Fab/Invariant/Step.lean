@@ -346,6 +346,26 @@ private theorem startActivation_preserves {s s' : GameState} {p : PlayerId}
   rw [restore_snapshot_physIds s stacked hcfg]
   exact hperm.symm
 
+private theorem applySelectionEntryCounter_preserves {s : GameState}
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (events : List Event) (search : Option DeckSearchChoice) :
+    StepPreserves s (applySelectionEntryCounter s events search) := by
+  unfold applySelectionEntryCounter
+  split
+  · exact StepPreserves.refl hwf hok hrb
+  · rename_i kind _
+    dsimp only
+    split
+    · exact StepPreserves.refl hwf hok hrb
+    · rename_i id _
+      let add := fun obj : Object => obj.addCounterVal kind 1
+      have hm := updateSingleObject_meta s id add
+      have hp := updateSingleObject_physIds s id (fun obj => Object.addCounterVal_kind obj kind 1)
+      have hperm : (updateSingleObject s id add).physIds.Perm s.physIds := by rw [hp]
+      exact ⟨updateSingleObject_wf hwf id add,
+        updateSingleObject_ownerOk hok id (fun obj => Object.addCounterVal_owner obj kind 1),
+        GameState.RollbackOk.preserve hrb hm.1 hm.2 hperm, hperm, hm.1⟩
+
 private theorem confirmShuffleCards_preserves {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
     (hrb : s.RollbackOk) (p : PlayerId) (selected : List ObjId) (drawSame : Bool)
     (search : Option DeckSearchChoice) (rest : List Frame) :
@@ -353,9 +373,13 @@ private theorem confirmShuffleCards_preserves {s : GameState} (hwf : s.WF) (hok 
   obtain ⟨hw, ho, hp, hc, hr⟩ := moveManyObjs_inv
     ((search.map (·.destination)).getD (.player p .deck))
     (if search.isSome then .top else .bottom) false selected.reverse hwf hok
+  have hm := applySelectionEntryCounter_preserves hw ho (GameState.RollbackOk.preserve hrb hc hr hp)
+    (moveManyObjs s selected.reverse ((search.map (·.destination)).getD (.player p .deck))
+      (if search.isSome then .top else .bottom) false).2 search
   unfold confirmShuffleCards
-  exact ⟨GameState.WF.congr hw rfl rfl rfl rfl, GameState.OwnerOk.congr ho rfl rfl,
-    GameState.RollbackOk.preserve hrb hc hr hp, hp, hc⟩
+  exact ⟨GameState.WF.congr hm.wf rfl rfl rfl rfl, GameState.OwnerOk.congr hm.ownerOk rfl rfl,
+    GameState.RollbackOk.preserve hm.rollbackOk rfl rfl (List.Perm.refl _),
+    hm.physIds.trans hp, hm.config.trans hc⟩
 
 private theorem stackPendingTrigger_preserves {s s' : GameState} {p : PlayerId}
     {trig : PendingTrigger} {hero : Option PlayerId} {equipment : Option ObjId}

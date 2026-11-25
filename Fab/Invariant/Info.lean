@@ -49,7 +49,8 @@ def Zone.isCountOnlyFor (p : PlayerId) : Zone → Bool
 /-- The search decision gives only its player temporary access to the deck (CR 8.5.19). -/
 def deckSearchVisible (p : PlayerId) (s : GameState) (z : Zone) : Bool :=
   match s.pending with
-  | .chooseShuffleCards q _ _ _ _ (some _) :: _ => p == q && z == .player q .deck
+  | .chooseShuffleCards q _ _ _ _ (some choice) :: _ =>
+    choice.searchesDeck && p == q && z == .player q .deck
   | _ => false
 
 /-- Project one zone `z` into observer `p`'s `VisibleZone` (CR 3.0). -/
