@@ -71,10 +71,10 @@ def WTR_000_B : CardDef :=
 /-- Shared Rhinar triggered ability: discard ≥6{p} during action phase → intimidate. -/
 def rhinarAbility : List Ability :=
   [ .triggered (.onDiscard power6Filter true) false none none
-      { body := .prim (.intimidate .opposingHero) } ]
+      { targets := [{ kind := .hero }], body := .prim (.intimidate (.ownerOfSlot 0)) } ]
 
-/-- Rhinar, Reckless Rampage (drafted IR). -/
-def WTR_001 : CardDef := draftCard WTR_001_meta rhinarAbility
+/-- Rhinar, Reckless Rampage. -/
+def WTR_001 : CardDef := { draftCard WTR_001_meta rhinarAbility with status := .full }
 
 /-- Rhinar (Young, drafted IR). -/
 def WTR_002 : CardDef := draftCard WTR_002_meta rhinarAbility

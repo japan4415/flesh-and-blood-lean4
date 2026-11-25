@@ -1342,6 +1342,72 @@ meta def checkRompingClubEffectDiscard : Option Bool := do
 #guard checkRompingClub == some true
 #guard checkRompingClubEffectDiscard == some true
 
+/-- Rhinar intimidates a declared hero for each qualifying discard during his action phase. -/
+meta def checkRhinar (cid : CardId) (life : Nat) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool player { actionPoints := 2, resources := 2 }
+  let card ← funded.cards.find? cid
+  let (withHero, hero) ← cPlace (funded.setLife player (Int.ofNat life)) player .hero cid
+  let (withFirst, first) ← cPlace withHero player .hand ⟨"WTR_020_R"⟩
+  let (withGuard, guard) ← cPlace withFirst opponent .hand ⟨"WTR_203_R"⟩
+  let (withOtherGuard, otherGuard) ← cPlace withGuard opponent .hand ⟨"WTR_204_Y"⟩
+  let (ready, _) ← cPlace withOtherGuard player .hand ⟨"WTR_189_Y"⟩
+  let (lowPower, _) ← cPlace withOtherGuard player .hand ⟨"WTR_190_B"⟩
+  let play id : Action := ⟨.player player, .playCard id⟩
+  let order : Action := ⟨.player player, .pickTriggerStart player⟩
+  let target tid p : Action := ⟨.player player, .pickTrigger tid (some p)⟩
+  let finishCombat := passBoth ++ passBoth ++ [⟨.player opponent, .defendDone⟩] ++
+    passBoth ++ passBoth ++ passBoth ++ passBoth
+  let hand := Zone.player opponent .hand
+  let banished := Zone.player opponent .banished
+  let rejected ← cSteps lowPower [play first]
+  let paid ← cSteps ready [play first]
+  let firstTrigger ← paid.pendingTriggers.head?
+  let choosing ← cSteps paid [order]
+  let (stacked, targetEvents) ← (step 64 choosing (target firstTrigger.id opponent)).toOption
+  let triggerLayer ← (stacked.zone .stack).head?
+  let chance ← cSteps stacked passBoth
+  let (intimidated, banishEvents) ← (step 64 chance ⟨.chance, .shuffleOrder [guard, otherGuard]⟩).toOption
+  let hidden ← (intimidated.zone banished).head?
+  let closed ← cSteps intimidated finishCombat
+  let (withSecond, second) ← cPlace closed player .hand ⟨"WTR_020_R"⟩
+  let (withSecondCost, _) ← cPlace withSecond player .hand ⟨"WTR_189_Y"⟩
+  let paidAgain ← cSteps withSecondCost [play second]
+  let secondTrigger ← paidAgain.pendingTriggers.head?
+  let intimidatedAgain ← cSteps paidAgain ([order, target secondTrigger.id opponent] ++ passBoth)
+  let atEnd ← cSteps intimidatedAgain (finishCombat ++ passBoth)
+  let firstReturn ← atEnd.pendingTriggers[0]?
+  let secondReturn ← atEnd.pendingTriggers[1]?
+  let returned ← cSteps atEnd [order, ⟨.player player, .pickTrigger firstReturn.id⟩,
+    ⟨.player player, .pickTrigger secondReturn.id⟩]
+  let (offTurnHero, _) ← cPlace (m5Base.setPool player { actionPoints := 1, resources := 7 })
+    opponent .hero cid
+  let (withCrush, crush) ← cPlace offTurnHero player .hand ⟨"WTR_043_R"⟩
+  let (offTurn, _) ← cPlace withCrush opponent .hand ⟨"WTR_189_Y"⟩
+  let crushed ← cSteps offTurn ([play crush] ++ passBoth ++ passBoth ++
+    [⟨.player opponent, .defendDone⟩] ++ passBoth ++ passBoth)
+  let discard ← crushed.pendingTriggers.head?
+  let discarded ← cSteps crushed ([order, ⟨.player player, .pickTrigger discard.id⟩] ++ passBoth)
+  let cards (s : GameState) (z : Zone) := (s.zone z).filterMap fun id => (s.cardDefOf? id).map (·.id)
+  pure (card.status == .full && card.front.life == some life && card.front.intellect == some 4 &&
+    rejected.pendingTriggers.isEmpty && paid.pendingTriggers.length == 1 && firstTrigger.source == hero &&
+    paid.combat.isNone && !(legalActionsFor player choosing).contains ⟨.player player, .pickTrigger firstTrigger.id⟩ &&
+    (legalActionsFor player choosing).contains (target firstTrigger.id player) &&
+    (legalActionsFor player choosing).contains (target firstTrigger.id opponent) &&
+    (step 64 choosing (target firstTrigger.id ⟨2⟩)).toOption.isNone &&
+    targetEvents == [.targetedHero triggerLayer opponent] && chance.pending.head? == some (.chanceShuffle hand) &&
+    intimidated.zone hand == [otherGuard] && (intimidated.obj? hidden).any (·.faceDown) &&
+    banishEvents.contains (.banished opponent hidden true) && intimidated.delayedTriggers.length == 1 &&
+    paidAgain.pendingTriggers.length == 1 && secondTrigger.source == hero && secondTrigger.id != firstTrigger.id &&
+    intimidatedAgain.zone hand == [] && (intimidatedAgain.zone banished).length == 2 &&
+    atEnd.pendingTriggers.length == 2 && returned.zone banished == [] &&
+    (cards returned hand).length == 2 &&
+    (cards returned hand).contains ⟨"WTR_203_R"⟩ && (cards returned hand).contains ⟨"WTR_204_Y"⟩ &&
+    (discarded.zone (.player opponent .graveyard)).length == 1 && discarded.pendingTriggers.isEmpty)
+
+#guard checkRhinar ⟨"WTR_001"⟩ 40 == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
