@@ -348,7 +348,9 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
     match s.cardDefOf? id with
     | none => false
     | some c =>
-      if !c.isDeckCard then
+      let meetsRequirement := c.front.playRequirement.all fun
+        | .boostedAtLeast count => decide (count ≤ s.boostsThisTurn.count p)
+      if !c.isDeckCard || !meetsRequirement then
         false
       else if c.front.hasType .instant then
         true

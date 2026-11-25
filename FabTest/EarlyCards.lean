@@ -619,6 +619,53 @@ meta def tekloCoreScenario : Option Bool := do
 
 #guard tekloCoreScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC008").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Maximum Velocity" && card.status == .full)
+
+meta def maximumVelocityScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let fixture : CardDef :=
+    { id := ⟨"Maximum Velocity boost fixture"⟩
+      front :=
+        { name := "Maximum Velocity boost fixture"
+          supertypes := [.class_ .mechanologist]
+          types := [.action]
+          subtypes := [.attack]
+          cost := some { actionPoints := 1 }
+          power := some 1
+          keywords := [.boost] } }
+  let cards : CardDB := ⟨fixture :: throughArcDB.cards⟩
+  let stocked ← (List.range 3).foldlM
+    (fun s _ => (earlyPlace s p deck "WTR_191_R").map Prod.fst) { earlyBase with cards }
+  let (withFirst, first) ← earlyPlace stocked p hand fixture.id.val
+  let (withSecond, second) ← earlyPlace withFirst p hand fixture.id.val
+  let (withThird, third) ← earlyPlace withSecond p hand fixture.id.val
+  let (withVelocity, velocity) ← earlyPlace withThird p hand "ARC_008_R"
+  let (ready, defendingCard) ← earlyPlace withVelocity q (.player q .hand) "ARC_008_R"
+  let playBoost (s : GameState) (id : ObjId) :=
+    earlySteps s ([⟨.player p, .playCard id⟩, ⟨.player p, .pickMay true⟩] ++ earlyPass ++ earlyPass)
+  let finish (s : GameState) := (earlyDamage s).bind (earlySteps · (earlyPass ++ earlyPass))
+  let firstBoost ← playBoost ready first
+  let firstLink ← firstBoost.combat.bind CombatChain.activeLink?
+  let one ← finish firstBoost
+  let two ← (playBoost one second).bind finish
+  let three ← (playBoost two third).bind finish
+  let announced : Action := ⟨.player p, .playCard velocity⟩
+  let attack ← earlyAttack three (.playCard velocity)
+  let velocityLink ← attack.combat.bind CombatChain.activeLink?
+  pure ((earlySteps two [announced]).isNone &&
+    !(legalActionsFor p { two with boostsThisTurn := q :: two.boostsThisTurn }).contains announced &&
+    (legalActionsFor p three).contains announced &&
+    canPlayCard { three with boostsThisTurn := p :: three.boostsThisTurn } p velocity &&
+    canPitchCard ready p velocity && canDefendWith firstBoost firstLink q defendingCard &&
+    !linkHasKeyword firstBoost firstLink .goAgain && three.boostsThisTurn == [p, p, p] &&
+    linkAttackPower attack velocityLink == 10 && (attack.poolOf p).resources == 6)
+
+#guard maximumVelocityScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

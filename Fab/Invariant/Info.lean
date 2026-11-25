@@ -360,7 +360,7 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     unfold cardWeaponTargetChoices
     simp only [href, h.arenaContents_eq, hobj, hface, h.characteristics_eq]
   unfold canPlayCard
-  rw [hh, ha, hbanished, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat]
+  rw [hh, ha, hbanished, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat, h.boostsThisTurn]
   simp only [canLinkTakeDefenseReaction, hdom, attackReactionCanTarget, h.hasRequiredAttackTarget_eq, hweapon]
 
 /-- The current weapon attack candidates depend on the visible weapon zone and combat chain. -/
