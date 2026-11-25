@@ -165,6 +165,13 @@ def WTR_018_Y : CardDef := barragingBeatdown WTR_018_Y_meta 3
 /-- Barraging Beatdown Blue (drafted IR). -/
 def WTR_019_B : CardDef := barragingBeatdown WTR_019_B_meta 2
 
+/-- Attack with a mandatory random discard in addition to its asset cost. -/
+def randomDiscardAttack (base : CardDef) : CardDef :=
+  draftCard base [] (some { extraCosts := [{ cost := .discardRandom 1 }] })
+
+/-- Savage Swing Red. -/
+def WTR_020_R : CardDef := { randomDiscardAttack WTR_020_R_meta with status := .full }
+
 /-- Give an attack a triggered Intimidate when it attacks. -/
 def intimidateAttack (base : CardDef) : CardDef :=
   draftCard base
@@ -187,18 +194,14 @@ def WTR_027_Y : CardDef := { intimidateAttack WTR_027_Y_meta with status := .ful
 /-- Smash Instinct Blue. -/
 def WTR_028_B : CardDef := { intimidateAttack WTR_028_B_meta with status := .full }
 
-/-- Attack with a mandatory random discard in addition to its asset cost. -/
-def wreckerRomp (base : CardDef) : CardDef :=
-  draftCard base [] (some { extraCosts := [{ cost := .discardRandom 1 }] })
-
 /-- Wrecker Romp Red. -/
-def WTR_029_R : CardDef := { wreckerRomp WTR_029_R_meta with status := .full }
+def WTR_029_R : CardDef := { randomDiscardAttack WTR_029_R_meta with status := .full }
 
 /-- Wrecker Romp Yellow. -/
-def WTR_030_Y : CardDef := { wreckerRomp WTR_030_Y_meta with status := .full }
+def WTR_030_Y : CardDef := { randomDiscardAttack WTR_030_Y_meta with status := .full }
 
 /-- Wrecker Romp Blue. -/
-def WTR_031_B : CardDef := { wreckerRomp WTR_031_B_meta with status := .full }
+def WTR_031_B : CardDef := { randomDiscardAttack WTR_031_B_meta with status := .full }
 
 /-- Shared 3-color helper for Awakening Bellow (intimidate + next Brute attack +3/+2/+1). -/
 def awakeningBellow (base : CardDef) (bonus : Int) : CardDef :=
@@ -942,7 +945,7 @@ def WTR_225 : CardDef :=
 def draftedCards : List CardDef :=
   [ WTR_000_B
   , WTR_001, WTR_002, WTR_003, WTR_004, WTR_005, WTR_006_R, WTR_007_Y, WTR_008_B, WTR_010_Y
-  , WTR_011_R, WTR_012_Y, WTR_013_B, WTR_017_R, WTR_018_Y, WTR_019_B
+  , WTR_011_R, WTR_012_Y, WTR_013_B, WTR_017_R, WTR_018_Y, WTR_019_B, WTR_020_R
   , WTR_023_R, WTR_024_Y, WTR_025_B, WTR_026_R, WTR_027_Y, WTR_028_B, WTR_029_R, WTR_030_Y, WTR_031_B
   , WTR_032_R, WTR_033_Y, WTR_034_B
   , WTR_038, WTR_039, WTR_040, WTR_041, WTR_042, WTR_043_R, WTR_044_R, WTR_045_B
