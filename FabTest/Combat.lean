@@ -1097,6 +1097,8 @@ meta def checkBlessingOfDeliverance (cid : CardId) (pitch count gain : Nat) : Op
 
 #guard checkBlessingOfDeliverance ⟨"WTR_054_R"⟩ 1 3 2 == some true
 
+#guard checkBlessingOfDeliverance ⟨"WTR_055_Y"⟩ 2 2 1 == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
