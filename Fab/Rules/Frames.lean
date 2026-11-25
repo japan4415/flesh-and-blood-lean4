@@ -853,16 +853,10 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
 
 /-- The declarations and payment for a supported activated ability (CR 5.2.2). -/
 structure ActivationPlan where
-  /-- Public zone of the source at announcement. -/
-  origin : Zone
-  /-- Owner of the source, whose graveyard takes a destroyed card. -/
-  owner : PlayerId
-  /-- The player's pool after paying the asset cost. -/
-  pool : AssetPool
-  /-- Whether destruction of the source is a required cost. -/
-  destroySource : Bool
-  /-- Whether this indexed ability has a once-per-turn limit. -/
-  oncePerTurn : Bool
+  /-- Source and additional costs fixed at declaration. -/
+  payment : ActivationPayment
+  /-- Assets the controller must pay before activating. -/
+  cost : AssetCost
   /-- Whether its layer grants Go Again on resolution. -/
   goAgain : Bool
   /-- Resolution effect stored on the activated layer. -/
@@ -934,8 +928,9 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
   let (speed, once, cost, destroy, goAgain, body, declared) := terms
   let cost := if speed == .action then { cost with actionPoints := max cost.actionPoints 1 } else cost
   let pool := s.poolOf p
-  let paid ← pool.spend cost (cost.resources - pool.resources)
-  some ⟨origin, obj.owner, paid, destroy, once, goAgain, body, declared⟩
+  if cost.actionPoints ≤ pool.actionPoints && (pool.canPay cost || canPitchForCost s p cost) then
+    some ⟨⟨source, index, origin, obj.owner, destroy, once⟩, cost, goAgain, body, declared⟩
+  else none
 
 /-- The indexed abilities currently available to a player holding priority. -/
 def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat × Option ObjId) :=
@@ -951,31 +946,44 @@ def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat × 
   candidates.filter fun (source, index, target) => (activationPlan? s p source index target).isSome
 
 /-- Pay a permanent's destruction cost before priority returns (CR 5.2.2b). -/
-def payActivationSource (s : GameState) (source : ObjId) (plan : ActivationPlan) :
+def payActivationSource (s : GameState) (payment : ActivationPayment) :
     Option (GameState × List Event) := do
-  if !plan.destroySource then some (s, []) else
-    let graveyard := Zone.player plan.owner .graveyard
-    let (paid, spent) ← moveObj s source graveyard .top false
-    some (paid, [.moved source spent plan.origin graveyard])
+  if !payment.destroySource then some (s, []) else
+    let graveyard := Zone.player payment.owner .graveyard
+    let (paid, spent) ← moveObj s payment.source graveyard .top false
+    some (paid, [.moved payment.source spent payment.origin graveyard])
 
-/-- Commit a paid activated layer with the source's last known information (CR 5.2.2). -/
+/-- Finish an activation after paying its assets and effect-costs (CR 5.2.2b). -/
+def finishPaidActivation (s : GameState) (p : PlayerId) (layerId : ObjId)
+    (payment : ActivationPayment) (rest : List Frame) : Option (GameState × List Event) := do
+  let (paid, events) ← payActivationSource s payment
+  let info := paid.layerMeta.getD layerId.n { controller := p }
+  let uses := if payment.oncePerTurn then (payment.source, payment.index) :: paid.activatedThisTurn
+    else paid.activatedThisTurn
+  let flush := if paid.pendingTriggers.isEmpty then [] else [.flushTriggers]
+  some ({ paid with
+    activatedThisTurn := uses
+    layerMeta := paid.layerMeta.insert layerId.n { info with activationPayment := none }
+    playRollback := none
+    pending := flush ++ (.priority p 0 :: rest) }, events)
+
+/-- Announce an activation and enter the normal asset payment procedure (CR 5.2.2). -/
 def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat)
     (target : Option ObjId) (rest : List Frame) :
     Option (GameState × List Event) := do
   let plan ← activationPlan? s p source index target
-  let (paid, events) ← payActivationSource (s.setPool p plan.pool) source plan
   let layer : Object :=
     { kind := .layer source (some (captureLki s source p)) index false
-      owner := p, controller := p, timestamp := ⟨paid.nextTimestamp⟩ }
-  let (stacked, layerId) ← addObject paid .stack layer .top
+      owner := p, controller := p, timestamp := ⟨s.nextTimestamp⟩ }
+  let (stacked, layerId) ← addObject s .stack layer .top
   let info : LayerInfo := {
-    controller := p, goAgain := plan.goAgain, triggerEffect := some plan.body, activationTarget := plan.target }
-  let uses := if plan.oncePerTurn then (source, index) :: stacked.activatedThisTurn else stacked.activatedThisTurn
+    controller := p, goAgain := plan.goAgain, triggerEffect := some plan.body,
+    activationTarget := plan.target, activationPayment := some plan.payment }
   some ({ stacked with
-    activatedThisTurn := uses
     layerMeta := stacked.layerMeta.insert layerId.n info
-    pending := .priority p 0 :: rest }, events ++
-      plan.target.toList.map (fun declared => .targetedAttack layerId declared.2))
+    playRollback := some s.snapshot
+    pending := .playPayCost p layerId false none plan.cost :: rest },
+    plan.target.toList.map (fun declared => .targetedAttack layerId declared.2))
 
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
@@ -1391,6 +1399,11 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .playPayCost p layerId fromArsenal modeIdx cost :: rest =>
     match spendAssetCost s p cost with
     | some s1 =>
+      if let some payment := (s.layerMeta.get? layerId.n).bind (·.activationPayment) then
+        match finishPaidActivation s1 p layerId payment rest with
+        | some finished => some finished
+        | none => some (rollbackPlay s rest, [])
+      else
       match cardPlayHandCost? s layerId with
       | some handCost =>
         if (s1.zone (.player p .hand)).any (canPickHandCostCard s1 p handCost) then

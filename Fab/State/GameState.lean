@@ -29,6 +29,22 @@ primitive can state and prove its preservation independently.
 
 namespace Fab
 
+/-- Source and effect-cost declared for an activation before asset payment (CR 5.2.2b). -/
+structure ActivationPayment where
+  /-- Object activating the ability. -/
+  source : ObjId
+  /-- Index of the printed ability on its source. -/
+  index : Nat
+  /-- Arena zone of the source at declaration. -/
+  origin : Zone
+  /-- Owner whose graveyard takes the source if destroyed. -/
+  owner : PlayerId
+  /-- Whether paying for the ability requires destroying its source. -/
+  destroySource : Bool
+  /-- Whether a successful payment counts toward a once-per-turn limit. -/
+  oncePerTurn : Bool
+deriving DecidableEq, Repr
+
 /-- Per-layer metadata tracked while a card or ability layer sits on the stack (CR 5.1, 5.3). -/
 structure LayerInfo where
   /-- Player who played or activated this layer. -/
@@ -43,6 +59,8 @@ structure LayerInfo where
   attackTarget : Option ObjId := none
   /-- Target and its filter saved before paying for an activated layer (CR 5.2.2b). -/
   activationTarget : Option (TargetSpec × ObjId) := none
+  /-- Activation awaiting the payment of assets and effect-costs (CR 5.2.2b). -/
+  activationPayment : Option ActivationPayment := none
   /-- Whether to include the optional resources when paying for this layer (CR 5.1.5). -/
   payAdditionalResources : Bool := false
   /-- Whether the optional additional cost has actually been paid (CR 5.1.9). -/

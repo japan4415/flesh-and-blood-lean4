@@ -271,6 +271,21 @@ private theorem activationArenaZone_visible {s : GameState} {p : PlayerId} {z : 
     | player q kind => cases kind <;> simp_all [Zone.isSecretTo, ZoneKind.isArena]
     | combatChain | stack => rfl
 
+/-- Helper: `HiddenEquiv p s1 s2` preserves `canPitchCard s p id`. -/
+theorem HiddenEquiv.canPitchCard_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) (id : ObjId) :
+    canPitchCard s1 p id = canPitchCard s2 p id := by
+  have hh : s1.zone (.player p .hand) = s2.zone (.player p .hand) :=
+    h.visibleZones _ (by simp [Zone.isSecretTo])
+  have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
+  have haf : ∀ o, s1.activeFace? o = s2.activeFace? o := by
+    intro o; unfold GameState.activeFace?; rw [h.cards]
+  unfold canPitchCard
+  rw [hh, ho]
+  cases s2.obj? id with
+  | none => rfl
+  | some o => simp [haf]
+
 private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) : availableActivations s1 p = availableActivations s2 p := by
   have hz : activationArenaZones s1 = activationArenaZones s2 := by
@@ -304,6 +319,10 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
       activationResolution? s1 effect target = activationResolution? s2 effect target := by
     unfold activationResolution?
     split <;> simp only [hmatching]
+  have hcanPitch (cost : AssetCost) : canPitchForCost s1 p cost = canPitchForCost s2 p cost := by
+    unfold canPitchForCost pitchableCards
+    rw [h.visibleZones _ (by simp [Zone.isSecretTo]), funext h.canPitchCard_eq]
+    simp [GameState.poolOf, h.pools] <;> rfl
   have hplan (id : ObjId) (index : Nat) (target : Option ObjId) :
       activationPlan? s1 p id index target = activationPlan? s2 p id index target := by
     have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
@@ -311,7 +330,7 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
     unfold activationPlan?
     rw [hz, hfind, ho, h.characteristics_eq, (h.cardDef_face id).2, hp, h.playerCount,
       h.phase, h.active, h.combat, h.visibleZones .stack rfl, h.activatedThisTurn]
-    simp only [hresolution]
+    simp only [hresolution, hcanPitch]
   have hface (id : ObjId) := (h.cardDef_face id).2
   unfold availableActivations
   simp only [hz, hsources, hface, hplan, htargets]
@@ -329,21 +348,6 @@ theorem HiddenEquiv.canDefendWith_eq {p : PlayerId} {s1 s2 : GameState}
   rw [hh, heq, (h.cardDef_face id).2]
   rw [h.linkHasKeyword_eq_of_ne_goAgain link .dominate (by decide),
       h.linkHasKeyword_eq_of_ne_goAgain link .overpower (by decide)]
-
-/-- Helper: `HiddenEquiv p s1 s2` preserves `canPitchCard s p id`. -/
-theorem HiddenEquiv.canPitchCard_eq {p : PlayerId} {s1 s2 : GameState}
-    (h : HiddenEquiv p s1 s2) (id : ObjId) :
-    canPitchCard s1 p id = canPitchCard s2 p id := by
-  have hh : s1.zone (.player p .hand) = s2.zone (.player p .hand) :=
-    h.visibleZones _ (by simp [Zone.isSecretTo])
-  have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
-  have haf : ∀ o, s1.activeFace? o = s2.activeFace? o := by
-    intro o; unfold GameState.activeFace?; rw [h.cards]
-  unfold canPitchCard
-  rw [hh, ho]
-  cases s2.obj? id with
-  | none => rfl
-  | some o => simp [haf]
 
 /-- **I10 (Hidden Information Non-Interference — Core Theorem)**:
 If two game states `s1` and `s2` satisfy `HiddenEquiv p s1 s2` (differing arbitrarily in ANY

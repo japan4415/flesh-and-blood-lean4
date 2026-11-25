@@ -259,9 +259,9 @@ theorem sameBoard_preserves {s s' : GameState} (hwf : s.WF) (hok : s.OwnerOk) (h
          GameState.RollbackOk.preserve hrb hc hr hperm,
          hperm, hc⟩
 
-private theorem payActivationSource_preserves {s paid : GameState} {source : ObjId}
-    {plan : ActivationPlan} {events : List Event} (hwf : s.WF) (hok : s.OwnerOk)
-    (hrb : s.RollbackOk) (h : payActivationSource s source plan = some (paid, events)) :
+private theorem payActivationSource_preserves {s paid : GameState}
+    {payment : ActivationPayment} {events : List Event} (hwf : s.WF) (hok : s.OwnerOk)
+    (hrb : s.RollbackOk) (h : payActivationSource s payment = some (paid, events)) :
     StepPreserves s paid := by
   unfold payActivationSource at h
   split at h
@@ -271,31 +271,45 @@ private theorem payActivationSource_preserves {s paid : GameState} {source : Obj
     cases h
     exact moveObj_preserves hwf hok hrb hm
 
+private theorem finishPaidActivation_preserves {s s' : GameState} {p : PlayerId}
+    {layerId : ObjId} {payment : ActivationPayment} {rest : List Frame} {es : List Event}
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (h : finishPaidActivation s p layerId payment rest = some (s', es)) : StepPreserves s s' := by
+  unfold finishPaidActivation at h
+  obtain ⟨⟨paid, events⟩, hpay, h⟩ := Option.bind_eq_some_iff.mp h
+  cases h
+  have hp := payActivationSource_preserves hwf hok hrb hpay
+  exact ⟨GameState.WF.congr hp.wf rfl rfl rfl rfl,
+    GameState.OwnerOk.congr hp.ownerOk rfl rfl, GameState.RollbackOk.of_none rfl, hp.physIds, hp.config⟩
+
 private theorem startActivation_preserves {s s' : GameState} {p : PlayerId}
     {source : ObjId} {index : Nat} {target : Option ObjId} {rest : List Frame} {es : List Event}
-    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (hwf : s.WF) (hok : s.OwnerOk)
     (h : startActivation s p source index target rest = some (s', es)) : StepPreserves s s' := by
   unfold startActivation at h
   obtain ⟨plan, _, h⟩ := Option.bind_eq_some_iff.mp h
-  obtain ⟨⟨paid, events⟩, hpay, h⟩ := Option.bind_eq_some_iff.mp h
   obtain ⟨⟨stacked, layerId⟩, hadd, h⟩ := Option.bind_eq_some_iff.mp h
   cases h
-  have hpool : StepPreserves s (s.setPool p plan.pool) :=
-    sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
-  have hp := payActivationSource_preserves hpool.wf hpool.ownerOk hpool.rollbackOk hpay
-  have hmeta : stacked.config = paid.config ∧ stacked.playRollback = paid.playRollback := by
+  have hcfg : stacked.config = s.config := by
     unfold addObject at hadd
     split at hadd
     · dsimp only at hadd
       cases hadd
-      exact ⟨rfl, rfl⟩
+      rfl
     · cases hadd
-  have hperm : stacked.physIds.Perm paid.physIds := addObject_physIds hp.wf rfl hadd
-  have ha : StepPreserves paid stacked :=
-    ⟨addObject_wf hp.wf hadd, addObject_ownerOk hp.wf hp.ownerOk hadd,
-      GameState.RollbackOk.preserve hp.rollbackOk hmeta.1 hmeta.2 hperm, hperm, hmeta.1⟩
-  exact hpool.trans (hp.trans (ha.trans
-    (sameBoard_preserves ha.wf ha.ownerOk ha.rollbackOk rfl rfl rfl rfl rfl)))
+  have hwf' := addObject_wf hwf hadd
+  have hok' := addObject_ownerOk hwf hok hadd
+  have hperm := addObject_physIds hwf rfl hadd
+  refine ⟨GameState.WF.congr hwf' rfl rfl rfl rfl,
+    GameState.OwnerOk.congr hok' rfl rfl, ?_, hperm, hcfg⟩
+  intro snap hs
+  simp only [Option.some.injEq] at hs
+  subst snap
+  refine ⟨GameState.WF.congr hwf hcfg rfl rfl rfl,
+    GameState.OwnerOk.congr hok rfl rfl, ?_⟩
+  change (stacked.restore s.snapshot).physIds.Perm stacked.physIds
+  rw [restore_snapshot_physIds s stacked hcfg]
+  exact hperm.symm
 
 /-- Applying a legal frame answer preserves `WF`, `OwnerOk`, `RollbackOk`, `physIds`, and `config`. -/
 theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
@@ -410,7 +424,7 @@ theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
     · cases h
   · -- priority activateAbility
     split at h
-    · exact startActivation_preserves hwf hok hrb h
+    · exact startActivation_preserves hwf hok h
     · cases h
   · -- defendPick defendCard
     split at h
@@ -750,21 +764,28 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
       dsimp only at h
       split at h
       · split at h
-        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-          exact hp1.trans (sameBoard_preserves hp1.wf hp1.ownerOk hp1.rollbackOk rfl rfl rfl rfl rfl)
-        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        · rename_i _ hfinish
+          cases h
+          exact hp1.trans (finishPaidActivation_preserves hp1.wf hp1.ownerOk hp1.rollbackOk hfinish)
+        · cases h
           exact rollbackPlay_preserves hwf hok hrb _
       · split at h
-        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-          exact ⟨GameState.WF.congr hp1.wf rfl rfl rfl rfl,
-                 GameState.OwnerOk.congr hp1.ownerOk rfl rfl,
-                 GameState.RollbackOk.of_none rfl,
-                 hp1.physIds, hp1.config⟩
         · split at h
           · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
             exact hp1.trans (sameBoard_preserves hp1.wf hp1.ownerOk hp1.rollbackOk rfl rfl rfl rfl rfl)
           · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
             exact rollbackPlay_preserves hwf hok hrb _
+        · split at h
+          · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+            exact ⟨GameState.WF.congr hp1.wf rfl rfl rfl rfl,
+                   GameState.OwnerOk.congr hp1.ownerOk rfl rfl,
+                   GameState.RollbackOk.of_none rfl,
+                   hp1.physIds, hp1.config⟩
+          · split at h
+            · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+              exact hp1.trans (sameBoard_preserves hp1.wf hp1.ownerOk hp1.rollbackOk rfl rfl rfl rfl rfl)
+            · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+              exact rollbackPlay_preserves hwf hok hrb _
     · split at h
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
@@ -1659,64 +1680,15 @@ theorem moveObj_isSome {s : GameState} (hwf : s.WF) {id : ObjId} {src dst : Zone
   simp only [hne, false_or, hval, not_true_eq_false, ↓reduceIte]
   split <;> rfl
 
-private theorem activationPlan_source {s : GameState} {p : PlayerId} {source : ObjId}
-    {index : Nat} {target : Option ObjId} {plan : ActivationPlan} (h : activationPlan? s p source index target = some plan) :
-    plan.origin ∈ activationArenaZones s ∧ source ∈ s.zone plan.origin ∧
-      ∃ obj, s.obj? source = some obj ∧ obj.owner = plan.owner ∧ obj.owner.n < s.playerCount := by
-  unfold activationPlan? at h
-  obtain ⟨origin, hfind, h⟩ := Option.bind_eq_some_iff.mp h
-  obtain ⟨obj, hobj, h⟩ := Option.bind_eq_some_iff.mp h
-  split at h
-  · cases h
-  · rename_i howner
-    obtain ⟨terms, _, h⟩ := Option.bind_eq_some_iff.mp h
-    obtain ⟨_, _, _, _, _, _, _⟩ := terms
-    obtain ⟨_, _, h⟩ := Option.bind_eq_some_iff.mp h
-    cases h
-    have hlt : obj.owner.n < s.playerCount := by
-      simp only [Bool.or_eq_true, decide_eq_true_eq, not_or] at howner
-      omega
-    have hcontains := List.find?_some hfind
-    exact ⟨List.mem_of_find?_eq_some hfind, List.contains_iff_mem.mp hcontains,
-      obj, hobj, rfl, hlt⟩
-
 private theorem startActivation_isSome {s : GameState} {p : PlayerId} {source : ObjId}
-    {index : Nat} {target : Option ObjId} {rest : List Frame} (hwf : s.WF)
+    {index : Nat} {target : Option ObjId} {rest : List Frame}
     (h : (source, index, target) ∈ availableActivations s p) :
     (startActivation s p source index target rest).isSome = true := by
   have hhas : (activationPlan? s p source index target).isSome = true := (List.mem_filter.mp h).2
   obtain ⟨plan, hplan⟩ := Option.isSome_iff_exists.mp hhas
-  obtain ⟨hzone, hmem, obj, hobj, howner, hlt⟩ := activationPlan_source hplan
-  have horigin : plan.origin.Valid s.playerCount := by
-    rcases List.mem_cons.mp hzone with heq | hinstalled
-    · rw [heq]; exact Zone.valid_combatChain s.playerCount
-    · exact (List.mem_filter.mp hinstalled).1
-  have hpay : (payActivationSource (s.setPool p plan.pool) source plan).isSome = true := by
-    unfold payActivationSource
-    split
-    · rfl
-    · have hmove : (moveObj (s.setPool p plan.pool) source
-          (.player plan.owner .graveyard) .top false).isSome = true := by
-        have hwfp : (s.setPool p plan.pool).WF := GameState.WF.congr hwf rfl rfl rfl rfl
-        apply moveObj_isSome (s := s.setPool p plan.pool) (id := source) (src := plan.origin)
-          hwfp horigin hmem
-        intro o ho
-        change s.obj? source = some o at ho
-        rw [hobj] at ho
-        cases ho
-        refine ⟨Zone.valid_player hlt .graveyard, ?_⟩
-        intro heq
-        change plan.origin = .player obj.owner .graveyard at heq
-        rw [heq] at hzone
-        simp [activationArenaZones, installedArenaZones, ZoneKind.isArena] at hzone
-      obtain ⟨⟨paid, spent⟩, hm⟩ := Option.isSome_iff_exists.mp hmove
-      exact Option.isSome_iff_exists.mpr ⟨_, Option.bind_eq_some_iff.mpr ⟨_, hm, rfl⟩⟩
-  obtain ⟨⟨paid, events⟩, hp⟩ := Option.isSome_iff_exists.mp hpay
   unfold startActivation
   change ((activationPlan? s p source index target).bind _).isSome = true
   rw [hplan]
-  change ((payActivationSource (s.setPool p plan.pool) source plan).bind _).isSome = true
-  rw [hp]
   simp [bind, addObject, Zone.valid_stack, Zone.allowsOwner]
 
 /-- Under `WF` and `OwnerOk`, every legal frame action applies without failing. -/
@@ -1837,7 +1809,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | activateAbility source index target =>
           obtain ⟨rfl, hmem⟩ := hlf
           change (if q = q then startActivation s q source index target rest else none).isSome = true
-          simpa only [↓reduceIte] using startActivation_isSome (rest := rest) hwf hmem
+          simpa only [↓reduceIte] using startActivation_isSome (rest := rest) hmem
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | defendCard _ | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _
         | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickHandCostCard _ | optPick _ | arsenalPut _
@@ -2240,8 +2212,10 @@ theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
     · split
       · split <;> rfl
       · split
-        · rfl
         · split <;> rfl
+        · split
+          · rfl
+          · split <;> rfl
     · split <;> rfl
   | payRandomDiscard _ _ _ _ _ => rfl
   | resolveStack =>
