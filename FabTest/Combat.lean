@@ -1203,6 +1203,7 @@ meta def checkBravoAbility (cid : CardId) (life : Int) (young : Bool) : Option B
     expired.activeEffects.isEmpty)
 
 #guard checkBravoAbility ⟨"WTR_038"⟩ 40 false == some true
+#guard checkBravoAbility ⟨"WTR_039"⟩ 20 true == some true
 
 /-- Helm of Isen's Peak raises only its hero's intellect for that turn's refill. -/
 meta def checkHelmOfIsensPeak : Option Bool := do
