@@ -643,8 +643,8 @@ def snatchCard (base : CardDef) : CardDef :=
 
 /-- Snatch Red. -/
 def WTR_167_R : CardDef := { snatchCard WTR_167_R_meta with status := .full }
-/-- Snatch Yellow (drafted IR). -/
-def WTR_168_Y : CardDef := snatchCard WTR_168_Y_meta
+/-- Snatch Yellow. -/
+def WTR_168_Y : CardDef := { snatchCard WTR_168_Y_meta with status := .full }
 /-- Snatch Blue (drafted IR). -/
 def WTR_169_B : CardDef := snatchCard WTR_169_B_meta
 
