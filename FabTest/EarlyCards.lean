@@ -155,3 +155,6 @@ meta def kickScenario : Option Bool := do
 
 #guard ((earlyPrintingCardId? "IRA008-P").bind throughWtrDB.find?).any
   (fun c => c.id == ⟨"WTR_100_B"⟩ && c.status == .full)
+
+#guard ((earlyPrintingCardId? "IRA009-P").bind throughWtrDB.find?).any
+  (fun c => c.id == ⟨"WTR_191_R"⟩ && c.status == .full)
