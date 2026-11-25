@@ -42,6 +42,24 @@ structure PendingTrigger where
   effect : Effect := .nop
 deriving DecidableEq, Repr
 
+/-- The hero declarations available when stacking a pending trigger. -/
+def PendingTrigger.heroChoices (t : PendingTrigger) (players : List PlayerId) :
+    List (Option PlayerId) :=
+  match t.effect with
+  | .prim (.intimidate (.ownerOfSlot 0)) => players.map some
+  | _ => [none]
+
+/-- Match a declaration against a pending trigger and its target choices (CR 6.6.6a). -/
+def PendingTrigger.matchesDeclaration (t : PendingTrigger) (id : Nat) (p : PlayerId)
+    (target : Option PlayerId) (players : List PlayerId) : Bool :=
+  t.id == id && t.controller == p && (t.heroChoices players).contains target
+
+/-- Substitute the declared hero into a targeted Intimidate effect. -/
+def PendingTrigger.declaredEffect (t : PendingTrigger) (target : Option PlayerId) : Effect :=
+  match t.effect, target with
+  | .prim (.intimidate (.ownerOfSlot 0)), some p => .prim (.intimidate (.seated p))
+  | effect, _ => effect
+
 /-- A delayed triggered ability waiting for a future phase/event even if its source leaves the
 arena (e.g. Intimidate returning banished cards at End Phase) (CR 6.6.3, 8.5.10). -/
 structure DelayedTrigger where

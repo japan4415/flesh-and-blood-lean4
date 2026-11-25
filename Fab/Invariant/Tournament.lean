@@ -796,6 +796,9 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
       dsimp only at h hbd
       simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       split <;> exact timeLimitBounded_of_eq hb hbd.1 hbd.2.1 hbd.2.2
+  · -- endPhaseArsenal
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact timeLimitBounded_of_eq hb rfl rfl id
   · -- returnPitch
     split at h <;>
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h

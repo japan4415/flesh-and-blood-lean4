@@ -60,6 +60,7 @@ def evalPlayerRef (s : GameState) (ctrl : PlayerId) : PlayerRef → PlayerId
     | none => ctrl
   | .turnPlayer => s.active.getD ctrl
   | .ownerOfSlot _ => ctrl
+  | .seated p => p
 
 /-- Look up a bound integer variable in `env` (defaulting to 0 if unbound). -/
 def lookupVar (env : List (VarId × Int)) (v : VarId) : Int :=
@@ -955,7 +956,7 @@ theorem applyDamageWithPrevention_ttr (s : GameState) (target : PlayerId)
         exact ⟨hc.1.trans hd.1, hc.2.1.trans hd.2.1, fun hr => hd.2.2 ▸ hc.2.2 hr⟩
 
 /-- Banish the first card in a hand and schedule its return at the beginning of the end phase. -/
-def intimidateHandFront (s : GameState) (target : PlayerId) : GameState × List Event × List Frame :=
+def intimidateHandFront (s : GameState) (ctrl target : PlayerId) : GameState × List Event × List Frame :=
   match s.zone (.player target .hand) with
   | [] => (s, [], [])
   | cid :: _ =>
@@ -964,7 +965,7 @@ def intimidateHandFront (s : GameState) (target : PlayerId) : GameState × List 
     | some (s1, banId, es) =>
       let dt : DelayedTrigger :=
         { id := s1.nextTimestamp
-          controller := target
+          controller := ctrl
           source := banId
           watchPhase := .endPhase
           effect := .prim (.moveCard .self_ .hand .top false) }
@@ -973,12 +974,12 @@ def intimidateHandFront (s : GameState) (target : PlayerId) : GameState × List 
           nextTimestamp := s1.nextTimestamp + 1 }, es, [])
 
 /-- Intimidate preserves physical cards, ownership, board well-formedness, and rollback metadata. -/
-theorem intimidateHandFront_inv {s : GameState} (target : PlayerId) (hwf : s.WF) (hok : s.OwnerOk) :
-    (intimidateHandFront s target).1.WF ∧
-    (intimidateHandFront s target).1.OwnerOk ∧
-    (intimidateHandFront s target).1.physIds.Perm s.physIds ∧
-    (intimidateHandFront s target).1.config = s.config ∧
-    (intimidateHandFront s target).1.playRollback = s.playRollback := by
+theorem intimidateHandFront_inv {s : GameState} (ctrl target : PlayerId) (hwf : s.WF) (hok : s.OwnerOk) :
+    (intimidateHandFront s ctrl target).1.WF ∧
+    (intimidateHandFront s ctrl target).1.OwnerOk ∧
+    (intimidateHandFront s ctrl target).1.physIds.Perm s.physIds ∧
+    (intimidateHandFront s ctrl target).1.config = s.config ∧
+    (intimidateHandFront s ctrl target).1.playRollback = s.playRollback := by
   unfold intimidateHandFront
   cases s.zone (.player target .hand) with
   | nil => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
@@ -1008,10 +1009,10 @@ theorem intimidateHandFront_inv {s : GameState} (target : PlayerId) (hwf : s.WF)
              hp, hmeta.1, hmeta.2⟩
 
 /-- Intimidate preserves turn, tournament state, and result. -/
-theorem intimidateHandFront_ttr (s : GameState) (target : PlayerId) :
-    (intimidateHandFront s target).1.turn = s.turn ∧
-    (intimidateHandFront s target).1.tournament = s.tournament ∧
-    ((intimidateHandFront s target).1.result = none → s.result = none) := by
+theorem intimidateHandFront_ttr (s : GameState) (ctrl target : PlayerId) :
+    (intimidateHandFront s ctrl target).1.turn = s.turn ∧
+    (intimidateHandFront s ctrl target).1.tournament = s.tournament ∧
+    ((intimidateHandFront s ctrl target).1.result = none → s.result = none) := by
   unfold intimidateHandFront
   cases s.zone (.player target .hand) with
   | nil => exact ⟨rfl, rfl, id⟩
@@ -1156,9 +1157,9 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     let target := evalPlayerRef s ctrl pref
     let hand := Zone.player target .hand
     if 1 < (s.zone hand).length then
-      (s, [], [.chanceShuffle hand, .run target src false [] [.prim .intimidateHandFront]])
-    else intimidateHandFront s target
-  | .intimidateHandFront => intimidateHandFront s ctrl
+      (s, [], [.chanceShuffle hand, .run ctrl src false [] [.prim (.intimidateHandFront target)]])
+    else intimidateHandFront s ctrl target
+  | .intimidateHandFront target => intimidateHandFront s ctrl target
   | .returnDefendingCardToHand f =>
     match s.combat.bind CombatChain.activeLink? with
     | none => (s, [], [])
@@ -1409,8 +1410,8 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     unfold execPrim; dsimp only
     split
     · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-    · exact intimidateHandFront_inv (evalPlayerRef s ctrl pref) hwf hok
-  | intimidateHandFront => exact intimidateHandFront_inv ctrl hwf hok
+    · exact intimidateHandFront_inv ctrl (evalPlayerRef s ctrl pref) hwf hok
+  | intimidateHandFront target => exact intimidateHandFront_inv ctrl target hwf hok
   | returnDefendingCardToHand f =>
     unfold execPrim; dsimp only
     cases s.combat.bind CombatChain.activeLink? with
@@ -1667,8 +1668,8 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     unfold execPrim; dsimp only
     split
     · exact ⟨rfl, rfl, id⟩
-    · exact intimidateHandFront_ttr s (evalPlayerRef s ctrl pref)
-  | intimidateHandFront => exact intimidateHandFront_ttr s ctrl
+    · exact intimidateHandFront_ttr s ctrl (evalPlayerRef s ctrl pref)
+  | intimidateHandFront target => exact intimidateHandFront_ttr s ctrl target
   | returnDefendingCardToHand f =>
     unfold execPrim; dsimp only
     cases s.combat.bind CombatChain.activeLink? with

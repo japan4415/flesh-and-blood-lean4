@@ -67,8 +67,8 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     q = p ∧ id ∈ s.zone (.player p .pitch)
   | .chooseTriggerStart tp :: _, .player q, .pickTriggerStart start =>
     q = tp ∧ start ∈ s.turnOrder
-  | .chooseTriggerOrder p _ :: _, .player q, .pickTrigger tid =>
-    q = p ∧ (s.pendingTriggers.any fun t => t.id == tid && t.controller == p) = true
+  | .chooseTriggerOrder p _ :: _, .player q, .pickTrigger tid target =>
+    q = p ∧ (s.pendingTriggers.any fun t => t.matchesDeclaration tid p target s.turnOrder) = true
   | .chooseReplacement aff _ cands canDecl :: _, .player q, .pickReplacement choice =>
     q = aff ∧
     match choice with

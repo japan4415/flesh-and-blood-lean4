@@ -406,12 +406,12 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
             rw [h.turnOrder]
           | chooseTriggerOrder _ _ =>
             dsimp only
-            rw [h.pendingTriggers]
+            rw [h.pendingTriggers, h.turnOrder]
           | chooseReplacement _ _ _ _ => rfl
           | chanceFirstPlayer | revealLoadouts | chanceShuffle _ | openingDraws | draw _ _
           | beginTurn | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _
           | resolveStack | finishResolve _ | combatStep _ _ | gameStateProcess | run _ _ _ _ _
-          | chanceDie6 _ _ _ _ _ _ _ | optStep _ _ | endPhaseStart _ | returnPitch _
+          | chanceDie6 _ _ _ _ _ _ _ | optStep _ _ | endPhaseStart _ | endPhaseArsenal _ | returnPitch _
           | endTurnCleanup _ | flushTriggers => rfl
       · -- concedeActions
         unfold concedeActions

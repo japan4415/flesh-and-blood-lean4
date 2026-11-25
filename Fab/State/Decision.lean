@@ -107,8 +107,8 @@ inductive ActionKind where
   | judgeLoopDraw
   /-- Turn-player picks which seated player starts stacking simultaneous triggers (CR 6.6.6b). -/
   | pickTriggerStart (start : PlayerId)
-  /-- Player picks one of their pending triggers by ID to place onto the stack (CR 6.6.6b). -/
-  | pickTrigger (trigId : Nat)
+  /-- Player picks a pending trigger to stack and declares its hero target when required (CR 6.6.6). -/
+  | pickTrigger (trigId : Nat) (hero : Option PlayerId := none)
   /-- Affected player chooses an optional/competing replacement effect ID or declines (CR 6.5.1). -/
   | pickReplacement (choice : Option Nat)
 deriving DecidableEq, Repr
@@ -187,6 +187,8 @@ inductive Frame where
   | chooseOpt (p : PlayerId) (cardId : ObjId)
   /-- Work frame: End Phase start, scheduling Arsenal, Pitch return, and cleanup (CR 4.4). -/
   | endPhaseStart (tp : PlayerId)
+  /-- Work frame: check arsenal eligibility after end-phase triggers have resolved (CR 4.4.3b). -/
+  | endPhaseArsenal (tp : PlayerId)
   /-- Player decision: `tp` may put 1 card from hand face-down into an empty arsenal (CR 4.4.3b). -/
   | chooseArsenal (tp : PlayerId)
   /-- Work frame: check if player `p` has cards in pitch zone to return to deck bottom (CR 4.4.3c). -/
@@ -224,6 +226,7 @@ def Frame.isWork : Frame → Bool
   | .run _ _ _ _ _ => true
   | .optStep _ _ => true
   | .endPhaseStart _ => true
+  | .endPhaseArsenal _ => true
   | .returnPitch _ => true
   | .endTurnCleanup _ => true
   | .flushTriggers => true
