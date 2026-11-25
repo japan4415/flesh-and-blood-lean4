@@ -57,6 +57,8 @@ inductive Trigger where
   | onBanish
   /-- When this is pitched, as on Heart of Fyendal (CR 1.14.3). -/
   | onPitch
+  /-- Whenever the controller pays the additional cost of Boost (CR 8.3.9). -/
+  | onBoost
   /-- Whenever controller discards a card matching `f` (Rhinar, Romping Club). -/
   | onDiscard (f : CardFilter) (duringActionPhase : Bool)
   /-- At the start of controller's turn (Fyendal's Spring Tunic). -/
