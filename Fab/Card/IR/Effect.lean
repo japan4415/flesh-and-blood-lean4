@@ -388,6 +388,8 @@ inductive Ability where
       (stage : ReplacementStage)
       (watch : ReplacementWatch)
       (effect : EffectDef)
+  /-- May place one matching main-deck card into the arena during setup (CR 4.1.5b). -/
+  | setupPermanent (filter : CardFilter)
 deriving DecidableEq, Repr
 
 end Fab
