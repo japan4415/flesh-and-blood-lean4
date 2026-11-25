@@ -1645,6 +1645,49 @@ meta def checkDawnblade : Option Bool := do
 
 #guard checkDawnblade == some true
 
+/-- Heartened Cross Strap pays for up to two resources of the next attack action card. -/
+meta def checkHeartenedCrossStrap : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_152"⟩
+  let slot := Zone.player player .chest
+  let grave := Zone.player player .graveyard
+  let funded := m5Base.setPool player { actionPoints := 1, resources := 1 }
+  let card ← funded.cards.find? cid
+  let (equipped, source) ← cPlace funded player .chest cid
+  let (withWeapon, weapon) ← cPlace equipped player .weapon ⟨"WTR_078"⟩
+  let (withCheap, cheap) ← cPlace withWeapon player .hand ⟨"WTR_107_R"⟩
+  let (withExtra, expensive) ← cPlace withCheap player .hand ⟨"WTR_200_R"⟩
+  let (ready, zeroCost) ← cPlace withExtra player .hand ⟨"WTR_098_R"⟩
+  let activate : Action := ⟨.player player, .activateAbility source 0⟩
+  let play id : Action := ⟨.player player, .playCard id⟩
+  let (paid, events) ← (step 64 ready activate).toOption
+  let spent ← (paid.zone grave).head?
+  let reduced ← cSteps paid passBoth
+  let weaponPaid ← cSteps reduced [⟨.player player, .attackWeapon weapon⟩]
+  let cheapPaid ← cSteps reduced [play cheap]
+  let expensivePaid ← cSteps reduced [play expensive]
+  let zeroPaid ← cSteps reduced [play zeroCost]
+  let afterFight ← cSteps cheapPaid
+    (passBoth ++ passBoth ++ [⟨.player opponent, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth)
+  let second ← cSteps afterFight [play expensive]
+  let canceled ← cSteps second [⟨.player player, .cancelPlay⟩]
+  let ended ← cSteps reduced (passBoth ++ [⟨.player player, .arsenalSkip⟩])
+  pure (card.status == .full && card.front.defense == some 0 &&
+    paid.zone slot == [] && events.contains (.moved source spent slot grave) &&
+    (paid.cardDefOf? spent).map (·.id) == some cid && (paid.poolOf player).actionPoints == 0 &&
+    paid.activeEffects.isEmpty && (reduced.poolOf player).actionPoints == 1 &&
+    reduced.activeEffects.length == 1 &&
+    (weaponPaid.poolOf player).resources == 0 && weaponPaid.activeEffects == reduced.activeEffects &&
+    (cheapPaid.poolOf player).resources == 1 && cheapPaid.activeEffects.isEmpty &&
+    (expensivePaid.poolOf player).resources == 0 && expensivePaid.activeEffects.isEmpty &&
+    (zeroPaid.poolOf player).resources == 1 && zeroPaid.activeEffects.isEmpty &&
+    (afterFight.poolOf player).actionPoints == 1 && second.playRollback.isSome &&
+    decide (canceled = afterFight) &&
+    ended.activeEffects.isEmpty && (ended.poolOf player).actionPoints == 0)
+
+#guard checkHeartenedCrossStrap == some true
+
 /-- Scabskin Leathers spends an AP, rounds the die down, and resets its limit next turn. -/
 meta def checkScabskinLeathers (roll : Nat) : Option Bool := do
   let player : PlayerId := ⟨0⟩
