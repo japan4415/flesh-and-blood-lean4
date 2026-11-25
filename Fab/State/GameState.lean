@@ -481,7 +481,8 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     playRollback := none }
 
 /-- Constant matching-card defense effects of a public arena source (CR 6.2.3, 6.3.2). -/
-def arenaDefenseSourceEffects (s : GameState) (source : ObjId) : List ContinuousEffect :=
+def arenaDefenseSourceEffects (s : GameState) (defending : Bool) (source : ObjId) :
+    List ContinuousEffect :=
   match s.obj? source, s.cardDefOf? source with
   | some obj, some card =>
     if obj.faceDown then [] else
@@ -490,6 +491,8 @@ def arenaDefenseSourceEffects (s : GameState) (source : ObjId) : List Continuous
       | .back => card.back.getD card.front
     let mods := face.abilities.filterMap fun
       | .static_ none (.allMatching .controller filter) (.addDefense (.const bonus)) => some (filter, bonus)
+      | .static_ none (.allMatching .controller filter) (.addDefenseWhileDefending bonus) =>
+        if defending then some (filter, bonus) else none
       | _ => none
     if mods.isEmpty then [] else
     let chars := evalCharacteristics s.activeEffects obj face source
@@ -503,7 +506,8 @@ def arenaDefenseSourceEffects (s : GameState) (source : ObjId) : List Continuous
 def arenaDefenseEffects (s : GameState) (id : ObjId) : List ContinuousEffect :=
   let arena := (activationArenaZones s).flatMap s.zone
   if !arena.contains id then [] else
-  let effects := arena.flatMap s.arenaDefenseSourceEffects
+  let defending := s.combat.any (fun chain => chain.links.any (fun link => link.defending.contains id))
+  let effects := arena.flatMap (s.arenaDefenseSourceEffects defending)
   if effects.isEmpty then [] else
   let nextId := s.activeEffects.foldl (fun n effect => max n (effect.id + 1)) 0
   effects.zipIdx.map fun (effect, i) => { effect with id := nextId + i }
