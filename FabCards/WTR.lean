@@ -603,8 +603,8 @@ def sharpenSteel (base : CardDef) (bonus : Int) : CardDef :=
 
 /-- Sharpen Steel Red. -/
 def WTR_141_R : CardDef := { sharpenSteel WTR_141_R_meta 3 with status := .full }
-/-- Sharpen Steel Yellow (drafted IR). -/
-def WTR_142_Y : CardDef := sharpenSteel WTR_142_Y_meta 2
+/-- Sharpen Steel Yellow. -/
+def WTR_142_Y : CardDef := { sharpenSteel WTR_142_Y_meta 2 with status := .full }
 /-- Sharpen Steel Blue (drafted IR). -/
 def WTR_143_B : CardDef := sharpenSteel WTR_143_B_meta 1
 
