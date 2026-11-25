@@ -87,6 +87,36 @@ meta def checkPlainAttack (cid : CardId) (pitch cost power defense : Nat) : Opti
 #guard checkPlainAttack ⟨"WTR_189_Y"⟩ 2 3 6 3 == some true
 #guard checkPlainAttack ⟨"WTR_190_B"⟩ 3 3 5 3 == some true
 
+/-- Check Ironrot equipment loadout, defense, and Blade Break on chain close. -/
+meta def checkIronrot (cid : CardId) (slot : ZoneKind) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let card ← m5Base.cards.find? cid
+  let (inventory, unequipped) ← cPlace m5Base defender .inventory cid
+  let equippedZone ← loadoutEquipDest? inventory defender unequipped
+  let (equipped, equipment) ← moveObj inventory unequipped equippedZone .top false
+  let (ready, attack) ← cPlace equipped attacker .hand ⟨"WTR_203_R"⟩
+  let defense ← cSteps ready ([⟨.player attacker, .playCard attack⟩] ++ passBoth ++ passBoth)
+  let finishDefense := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let blocked ← cSteps defense ([⟨.player defender, .defendCard equipment⟩] ++ finishDefense)
+  let idle ← cSteps defense (finishDefense ++ passBoth)
+  let passed ← cSteps blocked [⟨.player attacker, .pass⟩]
+  let (closed, events) ← (step 64 passed ⟨.player defender, .pass⟩).toOption
+  let graveyard := Zone.player defender .graveyard
+  let broken ← (closed.zone graveyard).head?
+  pure (card.status == .full && equippedZone == .player defender slot &&
+    objEffectiveDefense equipped equipment == some 1 &&
+    blocked.lifeOf defender == 37 && blocked.locate equipment == some .combatChain &&
+    blocked.zone graveyard == [] && blocked.combat.map (·.step) == some .resolution &&
+    closed.combat.isNone && closed.zone equippedZone == [] &&
+    closed.zone graveyard == [broken] &&
+    (closed.cardDefOf? broken).map (·.id) == some cid &&
+    events.countP (· == .moved equipment broken .combatChain graveyard) == 1 &&
+    idle.lifeOf defender == 36 && idle.combat.isNone &&
+    idle.zone equippedZone == [equipment] && idle.zone graveyard == [])
+
+#guard checkIronrot ⟨"WTR_155"⟩ .head == some true
+
 -- 2. Battleworn & Blade Break Equipment Wear + Identical `ObjId` Preservation (I11: CR 3.0.9, 7.7, 8.3.2, 8.3.3):
 --    P0 attacks with Wounding Blow Red (4{p}). P1 defends with Tectonic Plating (Chest, 2{d}, Battleworn)
 --    and Ironrot Helm (Head, 1{d}, Blade Break) -> total defense 3 -> 1 damage (40 -> 39).
