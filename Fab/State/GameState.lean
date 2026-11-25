@@ -79,6 +79,8 @@ structure LayerInfo where
   attackAbilities : List Ability := []
   /-- Optional explicit effect body for triggered/activated ability layers (CR 6.6). -/
   triggerEffect : Option Effect := none
+  /-- Controller and equipment declared on a trigger, rechecked on resolution (CR 1.8.9). -/
+  triggerEquipment : Option (PlayerId × ObjId) := none
 deriving DecidableEq, Repr
 
 /-- Snapshot of mutable board state saved at the start of playing a card so illegal or unpayable

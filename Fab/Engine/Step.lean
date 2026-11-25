@@ -119,7 +119,7 @@ def legalFrameActions (s : GameState) : List Action :=
     s.turnOrder.map fun start => ⟨.player tp, .pickTriggerStart start⟩
   | .chooseTriggerOrder p _ :: _ =>
     (s.pendingTriggers.filter fun t => t.controller == p).flatMap fun t =>
-      (t.heroChoices s.turnOrder).map fun target => ⟨.player p, .pickTrigger t.id target⟩
+      (t.targetChoices s).map fun target => ⟨.player p, .pickTrigger t.id target.1 target.2⟩
   | .chooseReplacement aff _ cands canDecl :: _ =>
     (cands.map fun cid => ⟨.player aff, .pickReplacement (some cid)⟩) ++
       (if canDecl then [⟨.player aff, .pickReplacement none⟩] else [])

@@ -28,15 +28,17 @@ theorem flushTriggers_empty_pops {s : GameState} {rest : List Frame}
   unfold microStep
   rw [hp]
   dsimp only
-  rw [hemp]
-  rfl
+  simp [hemp]
 
-/-- **I19** (turn-player start selection): when at least one trigger is pending, `flushTriggers`
-prompts the turn-player (`s.active.getD ⟨0⟩`) with `chooseTriggerStart` (CR 6.6.6b). -/
+/-- **I19** (turn-player start selection): when at least one trigger can be declared,
+`flushTriggers` retains the legal triggers and prompts the turn-player (CR 6.6.6). -/
 theorem flushTriggers_prompts_turn_player {s : GameState} {t : PendingTrigger}
     {ts : List PendingTrigger} {rest : List Frame}
-    (hp : s.pending = .flushTriggers :: rest) (hne : s.pendingTriggers = t :: ts) :
-    microStep s = some ({ s with pending := .chooseTriggerStart (s.active.getD ⟨0⟩) :: rest }, []) := by
+    (hp : s.pending = .flushTriggers :: rest)
+    (hne : (s.pendingTriggers.filter fun t => !(t.targetChoices s).isEmpty) = t :: ts) :
+    microStep s = some ({ s with
+      pendingTriggers := t :: ts
+      pending := .chooseTriggerStart (s.active.getD ⟨0⟩) :: rest }, []) := by
   unfold microStep
   rw [hp]
   dsimp only
@@ -62,7 +64,7 @@ theorem progress_m6b_decisions {s : GameState} (hres : s.result = none) :
       s.turnOrder = p :: ps →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ p rem rest t target, s.pending = .chooseTriggerOrder p rem :: rest →
-      t ∈ s.pendingTriggers → t.controller = p → target ∈ t.heroChoices s.turnOrder →
+      t ∈ s.pendingTriggers → t.controller = p → target ∈ t.targetChoices s →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ aff st c cs cd rest, s.pending = .chooseReplacement aff st (c :: cs) cd :: rest →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
@@ -74,7 +76,7 @@ theorem progress_m6b_decisions {s : GameState} (hres : s.result = none) :
     rw [legalActions_iff]
     exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp, hord])⟩, rfl⟩
   · intro p rem rest t target hp hmem hctrl htarget
-    refine ⟨⟨.player p, .pickTrigger t.id target⟩, ?_, by simp⟩
+    refine ⟨⟨.player p, .pickTrigger t.id target.1 target.2⟩, ?_, by simp⟩
     rw [legalActions_iff]
     refine ⟨⟨hres, Or.inl ?_⟩, rfl⟩
     unfold LegalFrame

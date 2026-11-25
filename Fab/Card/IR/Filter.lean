@@ -204,6 +204,8 @@ inductive ObjRef where
   | self_
   /-- The object(s) chosen for target slot `i` (0-indexed into `EffectDef.targets`). -/
   | slot (i : Nat)
+  /-- The object bound to a target slot when a layer was put on the stack. -/
+  | declared (id : ObjId)
   /-- A lexically bound object variable. -/
   | var (v : VarId)
   /-- The active attack on the current chain link. -/

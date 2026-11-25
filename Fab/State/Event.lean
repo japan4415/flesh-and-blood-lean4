@@ -32,6 +32,8 @@ inductive Event where
   | targetedHero (layer : ObjId) (target : PlayerId)
   /-- The given layer declared an attack as a target (CR 5.1.4a). -/
   | targetedAttack (layer target : ObjId)
+  /-- The given triggered layer declared an equipment as a target (CR 6.6.6a). -/
+  | targetedEquipment (layer target : ObjId)
   /-- `amount` damage of kind `kind` (physical or arcane) was dealt to `target`. -/
   | damageDealt (target : PlayerId) (kind : DamageKind) (amount : Nat)
   /-- Player `player` gained `amount` life. -/
