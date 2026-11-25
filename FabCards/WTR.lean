@@ -254,8 +254,8 @@ def disableCard (base : CardDef) (trigger : Trigger := .onDealDamage 4 true) : C
 
 /-- Disable Red. -/
 def WTR_048_R : CardDef := { disableCard WTR_048_R_meta .onCrush with status := .full }
-/-- Disable Yellow (drafted IR). -/
-def WTR_049_Y : CardDef := disableCard WTR_049_Y_meta
+/-- Disable Yellow. -/
+def WTR_049_Y : CardDef := { disableCard WTR_049_Y_meta .onCrush with status := .full }
 /-- Disable Blue (drafted IR). -/
 def WTR_050_B : CardDef := disableCard WTR_050_B_meta
 
