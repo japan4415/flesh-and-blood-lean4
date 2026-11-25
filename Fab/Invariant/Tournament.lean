@@ -583,9 +583,10 @@ private theorem finishPaidActivation_ttr {s s' : GameState} {p : PlayerId} {laye
     s'.turn = s.turn ∧ s'.tournament = s.tournament ∧ s'.result = s.result := by
   unfold finishPaidActivation at h
   obtain ⟨⟨paid, events⟩, hpay, h⟩ := Option.bind_eq_some_iff.mp h
-  cases h
+  simp only [pure, Option.some.injEq, Prod.mk.injEq] at h
+  obtain ⟨h, -⟩ := h
   obtain ⟨ht, htn, hr⟩ := payActivationSource_turn_tournament_result hpay
-  exact ⟨ht, htn, hr⟩
+  split at h <;> subst s' <;> exact ⟨ht, htn, hr⟩
 
 set_option maxHeartbeats 300000 in
 /-- **I14** (microStep preservation): every `microStep` preserves `TimeLimitBounded deadline`.

@@ -371,9 +371,10 @@ theorem HiddenEquiv.canAttackWithWeapon_eq {p : PlayerId} {s1 s2 : GameState}
     canAttackWithWeapon s1 p wid = canAttackWithWeapon s2 p wid := by
   have hs : s1.zone .stack = s2.zone .stack := h.visibleZones _ rfl
   have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
+  have hwid : s1.obj? wid = s2.obj? wid := by simp [GameState.obj?, h.objects]
   unfold canAttackWithWeapon
   rw [h.combat, h.phase, h.active, hs, hp, h.weaponAttackCandidateIds_eq,
-      (h.cardDef_face wid).1, h.activatedThisTurn, h.activeEffects]
+      (h.cardDef_face wid).1, h.activatedThisTurn, h.activeEffects, hwid]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canPitchCard s p id`. -/
 theorem HiddenEquiv.canPitchCard_eq {p : PlayerId} {s1 s2 : GameState}

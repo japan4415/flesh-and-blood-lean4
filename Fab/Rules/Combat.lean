@@ -254,6 +254,13 @@ def weaponAttackSpec? (c : CardDef) : Option (Nat × Bool × AssetCost) :=
 def weaponAttackCost (c : CardDef) : AssetCost :=
   ((weaponAttackSpec? c).map fun (_, _, cost) => cost).getD { actionPoints := 1 }
 
+/-- Additional counters removed from a weapon to pay its attack activation (CR 5.2.2b). -/
+def weaponAttackCounterCost? (c : CardDef) : Option (Nat × CounterKind × Nat) := do
+  let (index, _, _) ← weaponAttackSpec? c
+  let .activated _ _ _ [{ cost := .removeCounters kind n, optional := false, cond := none }] _ _ _ ←
+    c.front.abilities[index]? | none
+  return (index, kind, n)
+
 /-- The ability index that a successful activation uses up for this turn. -/
 def limitedWeaponAttackIndex? (c : CardDef) : Option Nat := do
   let (index, once, _) ← weaponAttackSpec? c
@@ -287,7 +294,10 @@ def canAttackWithWeapon (s : GameState) (p : PlayerId) (weaponId : ObjId) : Bool
   | some c =>
     let alreadyUsed := (limitedWeaponAttackIndex? c).any fun index =>
       s.activatedThisTurn.contains (weaponId, index)
-    c.isWeapon && (!alreadyUsed || s.activeEffects.any (fun effect => effect.allowsWeaponAttack p weaponId))
+    let canPayCounters := (weaponAttackCounterCost? c).all fun (_, kind, n) =>
+      (s.obj? weaponId).any (fun weapon => decide (n ≤ weapon.counterCount kind))
+    c.isWeapon && canPayCounters &&
+      (!alreadyUsed || s.activeEffects.any (fun effect => effect.allowsWeaponAttack p weaponId))
   | none => false
 
 /-- Return an Arena equipment card `id` from `Zone.combatChain` during Close Step (CR 7.7),

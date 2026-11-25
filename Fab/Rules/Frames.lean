@@ -1153,13 +1153,20 @@ def finishPaidActivation (s : GameState) (p : PlayerId) (layerId : ObjId)
   let uses := if payment.oncePerTurn then (payment.source, payment.index) :: paid.activatedThisTurn
     else paid.activatedThisTurn
   let flush := if paid.pendingTriggers.isEmpty then [] else [.flushTriggers]
-  some ({ paid with
-    activatedThisTurn := uses
-    activeEffects := if payment.isAction then paid.activeEffects.filter (fun e => !e.isNextActionCostFor p)
-      else paid.activeEffects
-    layerMeta := paid.layerMeta.insert layerId.n { info with activationPayment := none }
-    playRollback := none
-    pending := flush ++ (.priority p 0 :: rest) }, events)
+  let isWeaponAttack := (paid.obj? layerId).any fun layer =>
+    match layer.kind with
+    | .attackProxy _ _ => true
+    | _ => false
+  let finished := if isWeaponAttack then
+      finishPaidPlay paid p layerId false none rest
+    else { paid with
+      activatedThisTurn := uses
+      activeEffects := if payment.isAction then paid.activeEffects.filter (fun e => !e.isNextActionCostFor p)
+        else paid.activeEffects
+      layerMeta := paid.layerMeta.insert layerId.n { info with activationPayment := none }
+      playRollback := none
+      pending := flush ++ (.priority p 0 :: rest) }
+  return (finished, events)
 
 /-- Announce an activation and enter the normal asset payment procedure (CR 5.2.2). -/
 def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat)
@@ -1354,8 +1361,18 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       match addObject s .stack proxyObj .top with
       | none => none
       | some (s1, proxyId) =>
+        let payment := (s.cardDefOf? wid).bind fun card =>
+          (weaponAttackCounterCost? card).bind fun (index, kind, n) => do
+            let weapon ← s.obj? wid
+            let origin ← s.locate wid
+            some {
+              source := wid, index, origin, owner := weapon.owner, destroySource := false
+              oncePerTurn := false, removeCounters := some (kind, n), isAction := true }
+        let layers := payment.elim s1.layerMeta fun cost =>
+          s1.layerMeta.insert proxyId.n { controller := p, activationPayment := some cost }
         let rest' := dropPendingClose rest
         some ({ s1 with
+                  layerMeta := layers
                   playRollback := some snap
                   pending := .playPayCost p proxyId false none cost :: rest' },
               [])

@@ -32,8 +32,20 @@ def ARC_002 : CardDef :=
     front := { Meta.ARC_002_meta.front with abilities := [dashSetupAbility] }
     status := .full }
 
+/-- Teklo Plasma Pistol (ARC003). -/
+def ARC_003 : CardDef :=
+  { Meta.ARC_003_meta with
+    front := { Meta.ARC_003_meta.front with
+      abilities :=
+        [ .activated .action false { actionPoints := 1 } [{ cost := .removeCounters .steam 1 }] none false
+            { body := .prim .weaponAttack }
+        , .activated .action false { actionPoints := 1, resources := 1 } [] none true
+            { body := .ifThen (.sourceCounterLt .steam 1)
+                (.prim (.addCounter .self_ .steam (.const 1))) .nop } ] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
-def arcCards : List CardDef := [ARC_000_B, ARC_001, ARC_002]
+def arcCards : List CardDef := [ARC_000_B, ARC_001, ARC_002, ARC_003]
 
 end FabCards.ARC
 

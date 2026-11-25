@@ -329,6 +329,53 @@ meta def dashSetupScenario (hero : String) (format : Format) (deckSize : Nat) : 
 #guard dashSetupScenario "ARC_001" .classicConstructed 60 == some true
 #guard dashSetupScenario "ARC_002" .blitz 40 == some true
 
+#guard (["ARC003", "LGS009-P"].map fun number =>
+  (earlyPrintingCardId? number).bind throughArcDB.find? |>.map (·.front.name)) ==
+  [some "Teklo Plasma Pistol", some "Teklo Plasma Pistol"]
+
+meta def tekloPlasmaPistolScenario : Option Bool := do
+  let p := earlyAttacker
+  let (ready, pistol) ← earlyPlace { earlyBase with cards := throughArcDB } p
+    (.player p .weapon) "ARC_003"
+  let fire : Action := ⟨.player p, .attackWeapon pistol⟩
+  let load : Action := ⟨.player p, .activateAbility pistol 1 none⟩
+  let steam (s : GameState) := (s.obj? pistol).map (fun obj => obj.counterCount .steam)
+  let loaded ← earlySteps ready (load :: earlyPass)
+  let surcharge : ContinuousEffect :=
+    { id := loaded.nextTimestamp, source := pistol, controller := p, target := .nextActionBy p
+      op := .addCostRes 1, duration := .thisTurn, timestamp := ⟨loaded.nextTimestamp⟩ }
+  let (taxed, pitch) ← earlyPlace
+    { loaded.setPool p { actionPoints := 4 } with activeEffects := [surcharge] }
+    p (.player p .hand) "WTR_100_B"
+  let paying ← earlySteps taxed [fire]
+  let cancelled ← earlySteps paying [⟨.player p, .cancelPlay⟩]
+  let paidByPitch ← earlySteps paying [⟨.player p, .pitchCard pitch⟩]
+  let loadedAgain ← earlySteps loaded (load :: earlyPass)
+  let paid ← earlySteps loadedAgain [fire]
+  let defending ← earlySteps paid (earlyPass ++ earlyPass)
+  let link ← defending.combat.bind CombatChain.activeLink?
+  let hit ← earlyDamage defending
+  let closed ← earlySteps hit (earlyPass ++ earlyPass)
+  let reloaded ← earlySteps closed (load :: earlyPass)
+  let second ← earlyAttack reloaded (.attackWeapon pistol)
+  let secondLink ← second.combat.bind CombatChain.activeLink?
+  pure ((earlySteps ready [fire]).isNone && steam ready == some 0 &&
+    steam loaded == some 1 && (loaded.poolOf p).actionPoints == 4 && (loaded.poolOf p).resources == 7 &&
+    steam paying == some 1 && steam cancelled == some 1 &&
+    cancelled.zone .stack == [] && cancelled.zone (.player p .hand) == [pitch] &&
+    (cancelled.poolOf p).actionPoints == 4 && cancelled.activeEffects == [surcharge] &&
+    steam paidByPitch == some 0 && (paidByPitch.poolOf p).resources == 2 &&
+    paidByPitch.activeEffects.isEmpty &&
+    steam loadedAgain == some 1 && (loadedAgain.poolOf p).actionPoints == 4 &&
+    (loadedAgain.poolOf p).resources == 6 &&
+    steam paid == some 0 && (paid.poolOf p).actionPoints == 3 && (paid.poolOf p).resources == 6 &&
+    link.attackSource == some pistol && linkAttackPower defending link == 2 &&
+    (earlySteps closed [fire]).isNone &&
+    secondLink.attackSource == some pistol && secondLink.turnAttackOrdinal == 2 &&
+    linkAttackPower second secondLink == 2 && steam second == some 0)
+
+#guard tekloPlasmaPistolScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
