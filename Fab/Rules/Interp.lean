@@ -1772,19 +1772,22 @@ def ModScope.isSelf : ModScope → Bool
   | .self_ | .obj .self_ => true
   | _ => false
 
-/-- Apply a self-grant to an attack card that is still a paid layer on the stack. -/
-def modifyPendingAttack (s : GameState) (ctrl : PlayerId) (src : ObjId)
+/-- Apply a self-grant to a paid action layer (CR 5.3.5, 8.3.5). -/
+def modifyPendingAction (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) :
     Option LayerInfo := do
-  if dur != .thisChainLink || !scope.isSelf || s.locate src != some .stack then none else
+  if !scope.isSelf || s.locate src != some .stack then none else
     let card ← s.cardDefOf? src
-    if !card.front.hasType .action || !card.front.hasSubtype .attack then none else
+    let face := card.front
+    if !face.hasType .action then none else
       let info ← s.layerMeta.get? src.n
-      match mod with
-      | .addPower d =>
+      match face.hasSubtype .attack, dur, mod with
+      | true, .thisChainLink, .addPower d =>
         some { info with attackPowerBonus := info.attackPowerBonus + evalNumExpr s ctrl env d }
-      | .grantKeyword kw => some { info with attackKeywords := kw :: info.attackKeywords }
-      | _ => none
+      | true, .thisChainLink, .grantKeyword kw =>
+        some { info with attackKeywords := kw :: info.attackKeywords }
+      | false, .thisTurn, .grantKeyword .goAgain => some { info with goAgain := true }
+      | _, _, _ => none
 
 /-- Put a resolving defense reaction's self-granted defense on the card (CR 5.3.4, 6.3.2h). -/
 def defenseReactionGrant (s : GameState) (ctrl : PlayerId) (src : ObjId)
@@ -1806,7 +1809,7 @@ def defenseReactionGrant (s : GameState) (ctrl : PlayerId) (src : ObjId)
 turn- and chain-scoped continuous effects in `s.activeEffects` (CR 6.2-6.3, 7.4). -/
 def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) : GameState :=
-  if let some info := modifyPendingAttack s ctrl src env scope mod dur then
+  if let some info := modifyPendingAction s ctrl src env scope mod dur then
     { s with layerMeta := s.layerMeta.insert src.n info }
   else if let some effect := defenseReactionGrant s ctrl src env scope mod dur then
     { s with activeEffects := s.activeEffects ++ [effect], nextTimestamp := s.nextTimestamp + 1 }
@@ -1861,6 +1864,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .nextAttack filter, .grantKeyword _
         | .nextAttack filter, .grantAttackAbility _
         | .nextAttack filter, .addPowerIfFewerDefenders _ _ => .nextAttack filter
+        | .allAttacks filter, .addPower _ => .allAttacks filter
         | _, _ => .matching (ctrl := some ctrl)
       let eff : ContinuousEffect :=
         { id := s.nextTimestamp

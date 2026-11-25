@@ -107,18 +107,18 @@ def WTR_006_R : CardDef :=
   { draftCard WTR_006_R_meta [intimidateOnAttack]
       (some { extraCosts := [{ cost := .discardRandom 1 }] }) with status := .full }
 
-/-- Bloodrush Bellow (drafted IR). -/
+/-- Bloodrush Bellow. -/
 def WTR_007_Y : CardDef :=
-  draftCard WTR_007_Y_meta []
-    (some
-      { extraCosts := [{ cost := .discardRandom 1 }]
-        body := .seqL
-          [ .grant (.allMatching .controller bruteAttackFilter) (.addPower (.const 2)) .thisTurn
-          , .ifThen (.lastDiscardedMatches power6Filter)
-              (.seqL
-                [ .prim (.draw .controller (.const 2))
-                , .grant .self_ (.grantKeyword .goAgain) .thisTurn ])
-              .nop ] })
+  { draftCard WTR_007_Y_meta []
+      (some
+        { extraCosts := [{ cost := .discardRandom 1 }]
+          body := .seqL
+            [ .grant (.allAttacks bruteAttackFilter) (.addPower (.const 2)) .thisTurn
+            , .ifThen (.lastDiscardedMatches power6Filter)
+                (.seqL
+                  [ .prim (.draw .controller (.const 2))
+                  , .grant .self_ (.grantKeyword .goAgain) .thisTurn ])
+                .nop ] }) with status := .full }
 
 /-- Reckless Swing. -/
 def WTR_008_B : CardDef :=

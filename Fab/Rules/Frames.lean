@@ -516,7 +516,7 @@ def attackLayerFace? (s : GameState) (layerId : ObjId) : Option (CardFace × Boo
     if face.hasType .action && face.hasSubtype .attack then some (face, false) else none
   | _ => none
 
-/-- Claim matching next-attack modifiers after successful payment. Card-cost filters read
+/-- Apply matching attack modifiers after successful payment. Card-cost filters read
 the unmodified cost (CR 2.2.4b, 5.1.7, 5.2.2a). -/
 def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo) :
     LayerInfo × List ContinuousEffect :=
@@ -528,11 +528,16 @@ def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo
       let eligible := match effect.target with
         | .nextAttackCard filter =>
           !isProxy && !filter.isWeaponAttack && cardFaceMatches filter face
-        | .nextAttack filter => (!filter.isWeaponAttack || isWeapon) && cardFaceMatches filter face
+        | .nextAttack filter | .allAttacks filter =>
+          (!filter.isWeaponAttack || isWeapon) && cardFaceMatches filter face
         | _ => false
       if effect.controller == info.controller && eligible then
         match effect.op with
-        | .addPower bonus => ({ layer with attackPowerBonus := layer.attackPowerBonus + bonus }, rest)
+        | .addPower bonus =>
+          let remaining := match effect.target with
+            | .allAttacks _ => effect :: rest
+            | _ => rest
+          ({ layer with attackPowerBonus := layer.attackPowerBonus + bonus }, remaining)
         | .addPowerIfFewerDefenders limit bonus =>
           ({ layer with attackPowerForFewerDefenders := (limit, bonus) ::
               layer.attackPowerForFewerDefenders }, rest)
