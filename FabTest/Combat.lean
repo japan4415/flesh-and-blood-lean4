@@ -2564,6 +2564,7 @@ meta def checkDroneOfBrutality (cid : CardId) (pitch power : Nat) : Option Bool 
 
 #guard checkDroneOfBrutality ⟨"WTR_164_R"⟩ 1 6 == some true
 #guard checkDroneOfBrutality ⟨"WTR_165_Y"⟩ 2 5 == some true
+#guard checkDroneOfBrutality ⟨"WTR_166_B"⟩ 3 4 == some true
 
 /-- Dawnblade's second hit and its counter retention both use the whole turn, across chains. -/
 meta def checkDawnblade : Option Bool := do
