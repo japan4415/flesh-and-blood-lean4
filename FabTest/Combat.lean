@@ -524,6 +524,28 @@ meta def checkNextAttackCardPower (cid : CardId) (cost bonus : Nat) (lowCost : B
 #guard checkNextAttackCardPower ⟨"WTR_218_R"⟩ 0 3 true == some true
 #guard checkNextAttackCardPower ⟨"WTR_219_Y"⟩ 0 2 true == some true
 #guard checkNextAttackCardPower ⟨"WTR_220_B"⟩ 0 1 true == some true
+#guard checkNextAttackCardPower ⟨"WTR_221_R"⟩ 3 6 false == some true
+
+/-- Each cost filter keeps its effect until a qualifying attack is played. -/
+meta def checkSloggismWithNimblism : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 6 }
+  let (withNimblism, nimblism) ← cPlace funded attacker .hand ⟨"WTR_220_B"⟩
+  let (withSloggism, sloggism) ← cPlace withNimblism attacker .hand ⟨"WTR_221_R"⟩
+  let (withSurge, surge) ← cPlace withSloggism attacker .hand ⟨"WTR_107_R"⟩
+  let (ready, tap) ← cPlace withSurge attacker .hand ⟨"WTR_101_R"⟩
+  let resolve := fun id => [⟨.player attacker, .playCard id⟩] ++ passBoth
+  let fight := fun id => resolve id ++ passBoth ++
+    [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let both ← cSteps ready (resolve nimblism ++ resolve sloggism)
+  let first ← cSteps both (fight surge)
+  let last ← cSteps first (fight tap)
+  pure (both.activeEffects.length == 2 &&
+    first.activeEffects.map (·.op) == [.addPower 1] && first.lifeOf defender == 29 &&
+    last.activeEffects.isEmpty && last.lifeOf defender == 24)
+
+#guard checkSloggismWithNimblism == some true
 
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
