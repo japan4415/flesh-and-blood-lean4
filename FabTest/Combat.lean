@@ -592,6 +592,56 @@ meta def checkRisingKneeThrust (cid : CardId) (basePower : Nat) : Bool :=
 #guard checkRisingKneeThrust ⟨"WTR_105_Y"⟩ 2
 #guard checkRisingKneeThrust ⟨"WTR_106_B"⟩ 1
 
+/-- Hurricane Technique can return on a combo hit and be replayed without the prior combo. -/
+meta def checkHurricaneTechnique : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_084_Y"⟩
+  let hand := Zone.player attacker .hand
+  let graveyard := Zone.player attacker .graveyard
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 3 }
+  let card ← funded.cards.find? cid
+  let (withLeg, leg) ← cPlace funded attacker .hand ⟨"WTR_101_R"⟩
+  let (withKnee, knee) ← cPlace withLeg attacker .hand ⟨"WTR_104_R"⟩
+  let (withHurricane, hurricane) ← cPlace withKnee attacker .hand cid
+  let physical ← (withHurricane.obj? hurricane).bind (·.kind.phys?)
+  let (oneBlock, first) ← cPlace withHurricane defender .hand ⟨"WTR_203_R"⟩
+  let (ready, second) ← cPlace oneBlock defender .hand ⟨"WTR_204_Y"⟩
+  let enter := fun id => [⟨.player attacker, .playCard id⟩] ++ passBoth ++ passBoth
+  let toDamage := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth
+  let finish := toDamage ++ passBoth
+  let prior ← cSteps ready (enter leg ++ finish ++ enter knee ++ finish)
+  let defense ← cSteps prior (enter hurricane)
+  let hit ← cSteps defense toDamage
+  let struck ← (hit.combat.bind CombatChain.activeLink?).bind (·.attack)
+  let trigger ← hit.pendingTriggers.head?
+  let stacked ← cSteps hit [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩, ⟨.player attacker, .pass⟩]
+  let (resolved, events) ← (step 64 stacked ⟨.player defender, .pass⟩).toOption
+  let returned ← (resolved.zone hand).head?
+  let firstResolution ← cSteps resolved passBoth
+  let replayed ← cSteps firstResolution (enter returned ++ finish)
+  let replayLink ← replayed.combat.bind CombatChain.activeLink?
+  let closed ← cSteps replayed passBoth
+  let blocked ← cSteps defense ([⟨.player defender, .defendCard first⟩,
+    ⟨.player defender, .defendCard second⟩] ++ finish)
+  pure (card.status == .full && prior.lifeOf defender == 31 &&
+    hit.lifeOf defender == 26 && hit.pendingTriggers.length == 1 &&
+    hit.locate struck == some .combatChain && hit.zone hand == [] &&
+    resolved.zone hand == [returned] && (resolved.obj? returned).bind (·.kind.phys?) == some physical &&
+    resolved.locate struck == none &&
+    events.countP (· == .moved struck returned .combatChain hand) == 1 &&
+    (firstResolution.poolOf attacker).actionPoints == 1 &&
+    replayed.lifeOf defender == 22 && replayLink.powerBonus == 0 && replayLink.damageDealt == 4 &&
+    replayed.pendingTriggers.isEmpty && replayed.zone hand == [] &&
+    (replayed.poolOf attacker).resources == 0 && (replayed.poolOf attacker).actionPoints == 0 &&
+    closed.combat.isNone && (closed.zone graveyard).length == 3 &&
+    blocked.locate struck == some .combatChain && blocked.zone hand == [] &&
+    blocked.lifeOf defender == 31 && blocked.pendingTriggers.isEmpty &&
+    (blocked.poolOf attacker).actionPoints == 1)
+
+#guard checkHurricaneTechnique == some true
+
 /-- Open the Center gets power, Go Again, and Dominate only immediately after Head Jab. -/
 meta def checkOpenTheCenter (cid : CardId) (basePower : Nat) : Bool :=
   checkComboAttack [⟨"WTR_098_R"⟩] cid (basePower + 1) 1 [.goAgain, .dominate] == some true &&

@@ -375,18 +375,18 @@ def WTR_082_R : CardDef :=
           [ .grant (.obj (.slot 0)) (.addPower (.const 1)) .thisChainLink
           , .prim (.draw .controller (.const 1)) ] })
 
-/-- Hurricane Technique (drafted IR). -/
+/-- Hurricane Technique. -/
 def WTR_084_Y : CardDef :=
-  draftCard WTR_084_Y_meta []
-    (some
-      { body := .ifThen (.prevChainLinkNamed "Rising Knee Thrust")
-          (.seqL
-            [ .grant .self_ (.addPower (.const 1)) .thisChainLink
-            , .grant .self_ (.grantKeyword .goAgain) .thisChainLink
-            , .grant .self_
-                (.grantTrigger .onHit none (.prim (.moveCard .self_ .hand .top false)))
-                .thisChainLink ])
-          .nop })
+  { draftCard WTR_084_Y_meta []
+      (some
+        { body := .ifThen (.prevChainLinkNamed "Rising Knee Thrust")
+            (.seqL
+              [ .grant .self_ (.addPower (.const 1)) .thisChainLink
+              , .grant .self_ (.grantKeyword .goAgain) .thisChainLink
+              , .grant .self_
+                  (.grantTrigger .onHit none (.prim (.moveCard .self_ .hand .top false)))
+                  .thisChainLink ])
+            .nop }) with status := .full }
 
 /-- Pounding Gale (drafted IR). -/
 def WTR_085_R : CardDef :=
