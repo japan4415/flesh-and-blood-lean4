@@ -261,7 +261,10 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     | none => false
   | .defendingWeaponAttack =>
     match s.combat.bind CombatChain.activeLink? with
-    | some cur => cur.attackSource.isSome
+    | some cur =>
+      let source := cur.attackSource.or cur.attack
+      let types := (source.bind s.characteristics).map (·.types) |>.getD cur.attackLki.types
+      types.contains .weapon
     | none => false
   | .sourceNotHitThisTurn =>
     match s.combat with

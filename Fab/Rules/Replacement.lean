@@ -34,7 +34,7 @@ namespace Fab
 
 /-- A proposed event passing through the 4-stage replacement pipeline (CR 1.9, 6.4). -/
 inductive ProposedEvent where
-  /-- Proposed damage of `kind` (physical or arcane) to `target` for `amount` points. -/
+  /-- Proposed damage of `kind` to `target` for `amount` points (CR 8.5.3). -/
   | damage (target : PlayerId) (kind : DamageKind) (amount : Nat) (outcomeTag : Nat := 0)
   /-- Proposed zone movement of `obj` owned by `owner` from `src` to `dst`. -/
   | moveToZone (obj : ObjId) (owner : PlayerId) (src dst : Zone) (faceDown : Bool := false)

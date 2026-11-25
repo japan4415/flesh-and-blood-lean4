@@ -21,12 +21,14 @@ inductive ColorStrip where
   | blue
 deriving DecidableEq, Repr, Hashable
 
-/-- Damage type distinguishing blockable physical damage from arcane damage (CR 7.5, 8.3). -/
+/-- Generic, physical, and arcane damage are distinct (CR 8.5.3b). -/
 inductive DamageKind where
-  /-- Standard physical damage dealt by combat attacks and effects. -/
+  /-- Physical damage dealt using attack power during the Damage Step (CR 7.5.2). -/
   | physical
   /-- Arcane damage, which cannot be defended by defense values and requires prevention. -/
   | arcane
+  /-- Damage dealt by an effect that specifies no damage type (CR 8.5.3b). -/
+  | generic
 deriving DecidableEq, Repr, Hashable
 
 /-- The four replacement-effect application stages in strict precedence order (CR 6.4.10, 6.5.1). -/
