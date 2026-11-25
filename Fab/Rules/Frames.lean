@@ -1164,31 +1164,35 @@ structure ActivationPlan where
 def activationTargetZones (s : GameState) : List Zone :=
   .stack :: activationArenaZones s
 
-/-- Check an attack action card target, including cards on earlier links (CR 1.8.5, 1.8.9). -/
+/-- Check an attack target. Weapon attacks target the active link's attack object (CR 1.8.5, 7.4). -/
 def matchesActivationTarget (s : GameState) (spec : TargetSpec) (id : ObjId) : Bool :=
-  spec.kind == .attackAction &&
-    ((activationTargetZones s).flatMap s.zone).contains id &&
-    (s.obj? id).any (fun obj => !obj.faceDown && match obj.kind with
-      | .card _ _ => true
-      | _ => false) &&
-    match s.objectFace? id, s.characteristics id with
-    | some face, some chars =>
-      chars.types.contains .action && chars.subtypes.contains .attack &&
-        cardFaceMatches spec.filter { face with
-          types := chars.types, subtypes := chars.subtypes, keywords := chars.keywords,
-          cost := chars.baseCost }
-    | _, _ => false
+  if spec.kind == .weaponAttack then
+    (s.combat.bind CombatChain.activeLink?).any fun link => matchingActiveAttack s link spec == some id
+  else
+    spec.kind == .attackAction &&
+      ((activationTargetZones s).flatMap s.zone).contains id &&
+      (s.obj? id).any (fun obj => !obj.faceDown && match obj.kind with
+        | .card _ _ => true
+        | _ => false) &&
+      match s.objectFace? id, s.characteristics id with
+      | some face, some chars =>
+        chars.types.contains .action && chars.subtypes.contains .attack &&
+          cardFaceMatches spec.filter { face with
+            types := chars.types, subtypes := chars.subtypes, keywords := chars.keywords,
+            cost := chars.baseCost }
+      | _, _ => false
 
-/-- Bind a declared single target to a turn-duration attack modifier (CR 5.1.4a, 5.2.2b, 6.2.2a). -/
+/-- Bind the declared target of an attack modifier (CR 5.1.4a, 5.2.2b, 6.2.2a). -/
 def activationResolution? (s : GameState) (effect : EffectDef) (target : Option ObjId) :
     Option (Effect × Option (TargetSpec × ObjId)) :=
   match effect.targets, target, effect.body with
   | [], none, body => some (body, none)
-  | [spec], some id, .grant (.obj (.slot 0)) mod .thisTurn =>
-    if spec.minCount == 1 && spec.maxCount == some 1 && matchesActivationTarget s spec id then
+  | [spec], some id, .grant (.obj (.slot 0)) mod duration =>
+    if (duration == .thisTurn || duration == .thisChainLink) &&
+        spec.minCount == 1 && spec.maxCount == some 1 && matchesActivationTarget s spec id then
       match mod with
       | .addPower _ | .grantKeyword _ =>
-        some (.grant (.paidAttack id) mod .thisTurn, some (spec, id))
+        some (.grant (.paidAttack id) mod duration, some (spec, id))
       | _ => none
     else none
   | _, _, _ => none

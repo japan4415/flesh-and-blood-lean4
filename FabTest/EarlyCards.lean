@@ -730,6 +730,55 @@ meta def sparkOfGeniusScenario (x : Nat) (boosted : Bool) : Option Bool := do
 #guard sparkOfGeniusScenario 0 false == some true
 #guard sparkOfGeniusScenario 2 true == some true
 
+#guard ((earlyPrintingCardId? "ARC010").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Induction Chamber" && card.status == .full)
+
+meta def inductionChamberScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let permanent := Zone.player p .permanent
+  let hand := Zone.player p .hand
+  let (equipped, pistol) ← earlyPlace { earlyBase with cards := throughArcDB } p (.player p .weapon) "ARC_003"
+  let (withAttack, ordinaryAttack) ← earlyPlace equipped p hand "WTR_100_B"
+  let (ready, item) ← earlyPlace withAttack p hand "ARC_010_R"
+  let installed ← earlySteps ready (⟨.player p, .playCard item⟩ :: earlyPass)
+  let chamber ← (installed.zone permanent).head?
+  let load (id : ObjId) (index : Nat) : List Action := ⟨.player p, .activateAbility id index none⟩ :: earlyPass
+  let reaction (s : GameState) (attack : ActionKind) :=
+    (earlyAttack s attack).bind (earlySteps · (⟨.player q, .defendDone⟩ :: earlyPass))
+  let getLink (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let giveGoAgain (target : ObjId) : Action := ⟨.player p, .activateAbility chamber 1 (some target)⟩
+  let steam (s : GameState) := (s.obj? chamber).map (·.counterCount .steam)
+  let loadedPistol ← earlySteps installed (load pistol 1)
+  let uncharged ← reaction loadedPistol (.attackWeapon pistol)
+  let unchargedAttack ← (getLink uncharged).bind (·.attack)
+  let loaded ← earlySteps loadedPistol (load chamber 0)
+  let loadedAgain ← earlySteps loaded (load chamber 0)
+  let wrongReaction ← reaction loaded (.playCard ordinaryAttack)
+  let wrongTarget ← (getLink wrongReaction).bind (·.attack)
+  let firstReaction ← reaction loadedAgain (.attackWeapon pistol)
+  let link ← getLink firstReaction
+  let target ← link.attack
+  let paid ← earlySteps firstReaction [giveGoAgain target]
+  let granted ← earlySteps paid earlyPass
+  let grantedLink ← getLink granted
+  let awarded ← earlySteps granted (earlyPass ++ earlyPass)
+  let closed ← earlySteps awarded earlyPass
+  let reloaded ← earlySteps closed (load pistol 1 ++ load chamber 0)
+  let secondReaction ← reaction reloaded (.attackWeapon pistol)
+  let newTarget ← (getLink secondReaction).bind (·.attack)
+  pure (steam installed == some 0 && steam loaded == some 1 && steam loadedAgain == some 1 &&
+    (loadedAgain.poolOf p).resources + 1 == (loaded.poolOf p).resources &&
+    (loadedAgain.poolOf p).actionPoints == (loaded.poolOf p).actionPoints &&
+    (earlySteps uncharged [giveGoAgain unchargedAttack]).isNone &&
+    (earlySteps wrongReaction [giveGoAgain wrongTarget]).isNone &&
+    !linkHasKeyword firstReaction link .goAgain && steam paid == some 0 &&
+    linkHasKeyword granted grantedLink .goAgain &&
+    (awarded.poolOf p).actionPoints == (granted.poolOf p).actionPoints + 1 &&
+    steam reloaded == some 1 && (earlySteps secondReaction [giveGoAgain newTarget]).isNone)
+
+#guard inductionChamberScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

@@ -247,20 +247,23 @@ theorem HiddenEquiv.loadoutEquipDest {p : PlayerId} {s1 s2 : GameState} (h : Hid
   simp only [hstart]
 
 /-- The cards and active combat link determine whether an attack target can be declared. -/
+private theorem HiddenEquiv.matchingActiveAttack_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) (link : ChainLink) (spec : TargetSpec) :
+    matchingActiveAttack s1 link spec = matchingActiveAttack s2 link spec := by
+  unfold matchingActiveAttack
+  rw [h.visibleZones .combatChain rfl]
+  cases link.attack with
+  | none => rfl
+  | some attack =>
+    cases link.attackSource with
+    | none => cases spec.kind <;> simp [(h.cardDef_face attack).2]
+    | some source => cases spec.kind <;> simp [(h.cardDef_face source).2]
+
+/-- Legal reaction targets are independent of hidden zones. -/
 theorem HiddenEquiv.hasRequiredAttackTarget_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) (card : CardDef) (modeIdx : Option Nat) :
     hasRequiredAttackTarget s1 card modeIdx = hasRequiredAttackTarget s2 card modeIdx := by
-  have hm (link : ChainLink) (spec : TargetSpec) :
-      matchingActiveAttack s1 link spec = matchingActiveAttack s2 link spec := by
-    unfold matchingActiveAttack
-    rw [h.visibleZones .combatChain rfl]
-    cases link.attack with
-    | none => rfl
-    | some attack =>
-      cases link.attackSource with
-      | none => cases spec.kind <;> simp [(h.cardDef_face attack).2]
-      | some source => cases spec.kind <;> simp [(h.cardDef_face source).2]
-  simp only [hasRequiredAttackTarget, h.combat, hm]
+  simp only [hasRequiredAttackTarget, h.combat, h.matchingActiveAttack_eq]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canPickCardMode`. -/
 theorem HiddenEquiv.canPickCardMode_eq {p : PlayerId} {s1 s2 : GameState}
@@ -418,7 +421,8 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
   have hmatching (spec : TargetSpec) (id : ObjId) :
       matchesActivationTarget s1 spec id = matchesActivationTarget s2 spec id := by
     have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
-    simp only [matchesActivationTarget, htargets, ho, (h.cardDef_face id).2, h.characteristics_eq id]
+    simp only [matchesActivationTarget, h.combat, h.matchingActiveAttack_eq,
+      htargets, ho, (h.cardDef_face id).2, h.characteristics_eq id]
   have hresolution (effect : EffectDef) (target : Option ObjId) :
       activationResolution? s1 effect target = activationResolution? s2 effect target := by
     unfold activationResolution?
