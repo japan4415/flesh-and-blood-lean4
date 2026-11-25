@@ -1392,7 +1392,7 @@ meta def optekalMonocleScenario : Option Bool := do
 #guard ((earlyPrintingCardId? "ARC038").bind throughArcDB.find?).any
   (fun card => card.front.name == "Azalea, Ace in the Hole" && card.status == .full)
 
-meta def azaleaScenario (arrowTop : Bool) : Option Bool := do
+meta def azaleaScenario (heroId : String) (arrowTop : Bool) : Option Bool := do
   let p := earlyAttacker
   let deck := Zone.player p .deck
   let arsenal := Zone.player p .arsenal
@@ -1401,7 +1401,7 @@ meta def azaleaScenario (arrowTop : Bool) : Option Bool := do
   let bow := FabCards.ARC.Meta.ARC_040_meta
   let db : CardDB := ⟨arrow :: bow :: throughArcDB.cards⟩
   let state := { earlyBase with cards := db }
-  let (withHero, hero) ← earlyPlace state p (.player p .hero) "ARC_038"
+  let (withHero, hero) ← earlyPlace state p (.player p .hero) heroId
   let (withBow, _) ← earlyPlace withHero p (.player p .weapon) bow.id.val
   let (withHand, handArrow) ← earlyPlace withBow p hand arrow.id.val
   let (withBottom, originalBottom) ← earlyPlace withHand p deck "WTR_191_R"
@@ -1438,8 +1438,20 @@ meta def azaleaScenario (arrowTop : Bool) : Option Bool := do
     (rotated.poolOf p).actionPoints == (withArsenal.poolOf p).actionPoints &&
     !((step 64 rotated use).isOk) && attackOk)
 
-#guard azaleaScenario true == some true
-#guard azaleaScenario false == some true
+#guard azaleaScenario "ARC_038" true == some true
+#guard azaleaScenario "ARC_038" false == some true
+
+#guard ((earlyPrintingCardId? "ARC039").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Azalea" && card.front.life == some 20 &&
+    card.front.hasSubtype .young && card.status == .full)
+
+#guard ["HER018", "HER018-P"].all
+  (fun printing => earlyPrintingCardId? printing == some ⟨"ARC_038"⟩)
+#guard ["HER014", "HER014-P"].all
+  (fun printing => earlyPrintingCardId? printing == some ⟨"ARC_039"⟩)
+
+#guard azaleaScenario "ARC_039" true == some true
+#guard azaleaScenario "ARC_039" false == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
