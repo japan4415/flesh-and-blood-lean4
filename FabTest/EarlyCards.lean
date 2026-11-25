@@ -1355,6 +1355,40 @@ meta def hyperDriverScenario : Option Bool := do
 
 #guard hyperDriverScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC037").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Optekal Monocle" && card.status == .full)
+
+meta def optekalMonocleScenario : Option Bool := do
+  let p := earlyAttacker
+  let arena := Zone.player p .permanent
+  let deck := Zone.player p .deck
+  let (withBottom, bottom) ← earlyPlace { earlyBase with cards := throughArcDB } p deck "WTR_100_B"
+  let (withTop, top) ← earlyPlace withBottom p deck "ARC_007_B"
+  let (ready, item) ← earlyPlace withTop p (.player p .hand) "ARC_037_B"
+  let installed ← earlySteps ready (⟨.player p, .playCard item⟩ :: earlyPass)
+  let monocle ← (installed.zone arena).head?
+  let steam (s : GameState) := (s.obj? monocle).map (·.counterCount .steam)
+  let activate : Action := ⟨.player p, .activateAbility monocle 1 none⟩
+  let keep : Action := ⟨.player p, .optPick true none⟩
+  let stepOpt (s : GameState) := earlySteps s (activate :: (earlyPass ++ [keep]))
+  let one ← ([0, 1, 2, 3] : List Nat).foldlM (fun s _ => stepOpt s) installed
+  let paid ← earlySteps one [activate]
+  let destruction ← paid.pendingTriggers.head?
+  let destroyed ← earlySteps paid
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger destruction.id⟩] ++ earlyPass)
+  let opting ← earlySteps destroyed earlyPass
+  let .chooseOpt chooser viewed _ _ _ :: _ := opting.pending | none
+  let resolved ← earlySteps opting [⟨.player p, .optPick false none⟩]
+  pure (steam installed == some 5 && steam one == some 1 && steam paid == some 0 &&
+    destruction.source == monocle && destruction.effect == .prim (.destroy .self_) &&
+    destroyed.zone arena == [] && opting.zone deck == [top, bottom] &&
+    chooser == p && viewed == top && resolved.zone deck == [bottom, top] &&
+    (one.poolOf p).actionPoints == (installed.poolOf p).actionPoints &&
+    (resolved.poolOf p) == (installed.poolOf p) &&
+    (earlySteps resolved [activate]).isNone)
+
+#guard optekalMonocleScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
