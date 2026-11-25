@@ -1688,6 +1688,45 @@ meta def checkHeartenedCrossStrap : Option Bool := do
 
 #guard checkHeartenedCrossStrap == some true
 
+/-- Goliath Gauntlet waits for a paid attack action card with a cost of at least two. -/
+meta def checkGoliathGauntlet : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_153"⟩
+  let slot := Zone.player player .arms
+  let grave := Zone.player player .graveyard
+  let funded := m5Base.setPool player { actionPoints := 1, resources := 7 }
+  let card ← funded.cards.find? cid
+  let (equipped, source) ← cPlace funded player .arms cid
+  let (withWeapon, weapon) ← cPlace equipped player .weapon ⟨"WTR_078"⟩
+  let (withCheap, cheap) ← cPlace withWeapon player .hand ⟨"WTR_101_R"⟩
+  let (withFirst, first) ← cPlace withCheap player .hand ⟨"WTR_107_R"⟩
+  let (ready, second) ← cPlace withFirst player .hand ⟨"WTR_107_R"⟩
+  let activate : Action := ⟨.player player, .activateAbility source 0⟩
+  let fight (s : GameState) (id : ObjId) := cSteps s
+    ([⟨.player player, .playCard id⟩] ++ passBoth ++ passBoth ++
+      [⟨.player opponent, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth)
+  let (paid, events) ← (step 64 ready activate).toOption
+  let spent ← (paid.zone grave).head?
+  let buffed ← cSteps paid passBoth
+  let afterWeapon ← cSteps buffed [⟨.player player, .attackWeapon weapon⟩]
+  let afterCheap ← fight buffed cheap
+  let boosted ← fight afterCheap first
+  let normal ← fight boosted second
+  let expired ← cSteps buffed (passBoth ++ [⟨.player player, .arsenalSkip⟩])
+  let powerBonus (s : GameState) := (s.combat.bind CombatChain.activeLink?).map (·.powerBonus)
+  pure (card.status == .full && card.front.defense == some 0 &&
+    paid.zone slot == [] && events.contains (.moved source spent slot grave) &&
+    (paid.cardDefOf? spent).map (·.id) == some cid && (paid.poolOf player).actionPoints == 0 &&
+    paid.activeEffects.isEmpty && (buffed.poolOf player).actionPoints == 1 &&
+    buffed.activeEffects.length == 1 &&
+    afterWeapon.activeEffects == buffed.activeEffects && afterCheap.activeEffects == buffed.activeEffects &&
+    powerBonus afterCheap == some 0 && powerBonus boosted == some 2 && powerBonus normal == some 0 &&
+    afterCheap.lifeOf opponent == 36 && boosted.lifeOf opponent == 29 && normal.lifeOf opponent == 24 &&
+    boosted.activeEffects.isEmpty && expired.activeEffects.isEmpty)
+
+#guard checkGoliathGauntlet == some true
+
 /-- Scabskin Leathers spends an AP, rounds the die down, and resets its limit next turn. -/
 meta def checkScabskinLeathers (roll : Nat) : Option Bool := do
   let player : PlayerId := ⟨0⟩
