@@ -871,6 +871,20 @@ def WTR_192_Y : CardDef := { scarForAScar WTR_192_Y_meta with status := .full }
 /-- Scar for a Scar Blue. -/
 def WTR_193_B : CardDef := { scarForAScar WTR_193_B_meta with status := .full }
 
+/-- Scour the Battlescape can cycle a hand card when it attacks. -/
+def scourTheBattlescape (base : CardDef) : CardDef :=
+  draftCard base
+    [ .triggered .onAttack false none none
+        { body := .ifThen (.zoneEmpty .controller .hand) .nop
+            (.may (.prim (.putHandOnDeck .controller .bottom))
+              (.prim (.draw .controller (.const 1)))) } ]
+    (some
+      { body := .ifThen .playedFromArsenal
+          (.grant .self_ (.grantKeyword .goAgain) .thisChainLink) .nop })
+
+/-- Scour the Battlescape Red. -/
+def WTR_194_R : CardDef := { scourTheBattlescape WTR_194_R_meta with status := .full }
+
 /-- Wounded Bull gets +1 power if its controller has less life when playing it. -/
 def woundedBull (base : CardDef) : CardDef :=
   draftCard base
@@ -1021,7 +1035,8 @@ def draftedCards : List CardDef :=
   , WTR_164_R, WTR_165_Y, WTR_166_B, WTR_167_R, WTR_168_Y, WTR_169_B
   , WTR_173_R, WTR_174_Y, WTR_175_B, WTR_176_R, WTR_177_Y, WTR_178_B
   , WTR_188_R, WTR_189_Y, WTR_190_B
-  , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_200_R, WTR_201_Y, WTR_202_B
+  , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_194_R
+  , WTR_200_R, WTR_201_Y, WTR_202_B
   , WTR_203_R, WTR_204_Y, WTR_205_B
   , WTR_206_R, WTR_207_Y, WTR_208_B, WTR_209_R, WTR_210_Y, WTR_211_B
   , WTR_212_R, WTR_213_Y, WTR_214_B, WTR_215_R, WTR_216_Y, WTR_217_B

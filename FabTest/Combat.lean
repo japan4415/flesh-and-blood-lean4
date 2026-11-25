@@ -1095,6 +1095,61 @@ meta def checkBloodrushBellow (fromArsenal highPayment : Bool) : Option Bool := 
 #guard checkBloodrushBellow true true == some true
 #guard checkBloodrushBellow true false == some true
 
+/-- Scour's attack trigger cycles a card by choice, and only an arsenal play gets Go Again. -/
+meta def checkScourTheBattlescape (cid : CardId) (pitch power : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player attacker .hand
+  let deck := Zone.player attacker .deck
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let card ← m5Base.cards.find? cid
+  let (withBottom, bottom) ← cPlace m5Base attacker .deck ⟨"WTR_188_R"⟩
+  let (withTop, top) ← cPlace withBottom attacker .deck ⟨"WTR_189_Y"⟩
+  let (emptyHand, attack) ← cPlace withTop attacker origin cid fromArsenal
+  let (withChoice, chosen) ← cPlace emptyHand attacker .hand ⟨"WTR_204_Y"⟩
+  let (ready, kept) ← cPlace withChoice attacker .hand ⟨"WTR_205_B"⟩
+  let play : Action := ⟨.player attacker, .playCard attack⟩
+  let beginAttack := play :: passBoth
+  let attacking ← cSteps ready beginAttack
+  let trigger ← attacking.pendingTriggers.head?
+  let beginResolve := [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth
+  let prompt ← cSteps attacking beginResolve
+  let declined ← cSteps prompt [⟨.player attacker, .pickMay false⟩]
+  let choosing ← cSteps prompt [⟨.player attacker, .pickMay true⟩]
+  let (accepted, events) ← (step 64 choosing ⟨.player attacker, .handToDeckPick chosen⟩).toOption
+  let drawn ← (accepted.zone hand).head?
+  let putBack ← (accepted.zone deck).getLast?
+  let emptyAttacking ← cSteps emptyHand beginAttack
+  let emptyTrigger ← emptyAttacking.pendingTriggers.head?
+  let emptyResolved ← cSteps emptyAttacking ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger emptyTrigger.id⟩] ++ passBoth)
+  let fight := passBoth ++ [⟨.player defender, .defendDone⟩] ++
+    passBoth ++ passBoth ++ passBoth
+  let hit ← cSteps accepted fight
+  let hitDeclined ← cSteps declined fight
+  let hitEmpty ← cSteps emptyResolved fight
+  let outcome := fun (s : GameState) =>
+    (s.combat.bind CombatChain.activeLink?).any (fun link =>
+      link.damageDealt == power && linkHasKeyword s link .goAgain == fromArsenal) &&
+    (s.poolOf attacker).actionPoints == (if fromArsenal then 1 else 0)
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 2 &&
+    attacking.combat.map (·.step) == some .attack && attacking.pendingTriggers.length == 1 &&
+    (attacking.poolOf attacker).actionPoints == 0 &&
+    choosing.pending.head? == some (.chooseHandToDeck attacker .bottom) &&
+    declined.zone hand == [kept, chosen] && declined.zone deck == [top, bottom] &&
+    accepted.zone hand == [drawn, kept] && accepted.zone deck == [bottom, putBack] &&
+    (accepted.cardDefOf? drawn).map (·.id) == some ⟨"WTR_189_Y"⟩ &&
+    (accepted.cardDefOf? putBack).map (·.id) == some ⟨"WTR_204_Y"⟩ &&
+    events.countP (· == .moved chosen putBack hand deck) == 1 &&
+    events.countP (· == .drawn attacker drawn) == 1 &&
+    emptyResolved.zone hand == [] && emptyResolved.zone deck == [top, bottom] &&
+    outcome hit && outcome hitDeclined && outcome hitEmpty)
+
+#guard checkScourTheBattlescape ⟨"WTR_194_R"⟩ 1 3 false == some true
+#guard checkScourTheBattlescape ⟨"WTR_194_R"⟩ 1 3 true == some true
+
 /-- Barraging Beatdown checks the live non-equipment defenders of the first Brute attack. -/
 meta def checkBarragingBeatdown (cid : CardId) (pitch bonus : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
