@@ -1856,12 +1856,12 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
     let cc' := cc.updateActiveLink fun link =>
       let targetSlotOk := match scope with
         | .obj (.slot i) => i == 0 && declaredAttackStillMatches s src link
-        | .paidAttack _ => false
+        | .paidAttack id => link.attack == some id
         | _ => true
       let targetsAttack := match scope with
         | .self_ | .obj .self_ => link.attack == some src
         | .obj .currentAttack => link.attack.isSome
-        | .obj (.slot _) => targetSlotOk
+        | .obj (.slot _) | .paidAttack _ => targetSlotOk
         | _ => false
       if !targetSlotOk then link else match mod with
       | .addPower d => { link with powerBonus := link.powerBonus + evalNumExpr s ctrl env d (some src) }
