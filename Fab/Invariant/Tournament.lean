@@ -380,11 +380,13 @@ theorem interpRunStep_ttr (s : GameState) (ctrl : PlayerId) (src : ObjId)
     | grant _ mod dur =>
       unfold interpRunStep applyChainLinkMod
       dsimp only
-      cases dur <;> cases s.combat <;>
-        first
-        | exact ⟨rfl, rfl, id⟩
-        | (dsimp only; cases mod <;>
-            first | exact ⟨rfl, rfl, id⟩ | (dsimp only; split <;> exact ⟨rfl, rfl, id⟩))
+      split
+      · exact ⟨rfl, rfl, id⟩
+      · cases dur <;> cases s.combat <;>
+          first
+          | exact ⟨rfl, rfl, id⟩
+          | (dsimp only; cases mod <;>
+              first | exact ⟨rfl, rfl, id⟩ | (dsimp only; split <;> exact ⟨rfl, rfl, id⟩))
     | chooseOne _ =>
       unfold interpRunStep; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
     | prim p =>

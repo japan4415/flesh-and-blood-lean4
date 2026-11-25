@@ -694,6 +694,7 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
     | some (sa, aid) => (sa, aid, [Event.moved layerId aid .stack .combatChain])
     | none => (s1, layerId, [])
   let lki := captureLki s2 atkId attacker
+  let attackInfo := s.layerMeta.getD layerId.n { controller := attacker }
   let prevLinks := match s2.combat with | some cc => cc.links | none => []
   let newLink : ChainLink :=
     { linkId := ⟨prevLinks.length + 1⟩
@@ -701,7 +702,9 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
       defender := defender
       attack := some atkId
       attackSource := srcWeapon?
-      attackLki := lki }
+      attackLki := lki
+      powerBonus := attackInfo.attackPowerBonus
+      grantedKeywords := attackInfo.attackKeywords }
   let s3 := { s2 with
     combat := some { step := .attack, links := newLink :: prevLinks }
     layerMeta := s2.layerMeta.erase layerId.n }

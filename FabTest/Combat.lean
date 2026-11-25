@@ -396,6 +396,46 @@ meta def checkSigilOfSolace (cid : CardId) (amount : Nat) : Option Bool := do
 #guard checkSigilOfSolace ⟨"WTR_174_Y"⟩ 2 == some true
 #guard checkSigilOfSolace ⟨"WTR_175_B"⟩ 1 == some true
 
+/-- An on-play life condition is checked after payment and before either player responds. -/
+meta def checkWoundedBull (cid : CardId) (power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := (m5Base.setLife attacker 39).setPool attacker { actionPoints := 1, resources := 3 }
+  let card ← funded.cards.find? cid
+  let (withBull, bull) ← cPlace funded attacker .hand cid
+  let (withHealing, ownSigil) ← cPlace withBull attacker .hand ⟨"WTR_173_R"⟩
+  let (ready, theirSigil) ← cPlace withHealing defender .hand ⟨"WTR_173_R"⟩
+  let playBull : Action := ⟨.player attacker, .playCard bull⟩
+  let paid ← cSteps ready [playBull]
+  let trigger ← paid.pendingTriggers.head?
+  let stacked ← cSteps paid [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩]
+  let highLife ← cSteps stacked ([⟨.player attacker, .playCard ownSigil⟩] ++ passBoth)
+  let boosted ← cSteps highLife passBoth
+  let paidEqual ← cSteps (ready.setLife attacker 40) [playBull]
+  let nowBehind ← cSteps paidEqual [⟨.player attacker, .pass⟩,
+    ⟨.player defender, .playCard theirSigil⟩, ⟨.player defender, .pass⟩, ⟨.player attacker, .pass⟩]
+  let finish := passBoth ++ passBoth ++ [⟨.player defender, .defendDone⟩] ++
+    passBoth ++ passBoth ++ passBoth
+  let withBonus ← cSteps boosted finish
+  let withoutBonus ← cSteps nowBehind finish
+  let broke := ready.setPool attacker { actionPoints := 1 }
+  let unpaid ← cSteps broke [playBull]
+  let cancelled ← cSteps unpaid [⟨.player attacker, .cancelPlay⟩]
+  pure (card.status == .full && (paid.poolOf attacker).resources == 0 &&
+    paid.pendingTriggers.length == 1 && (stacked.zone .stack).length == 2 &&
+    highLife.lifeOf attacker == 42 && boosted.zone .stack == paid.zone .stack &&
+    paidEqual.pendingTriggers.isEmpty && (paidEqual.zone .stack).length == 1 &&
+    nowBehind.lifeOf defender == 43 &&
+    withBonus.lifeOf defender == 40 - Int.ofNat (power + 1) &&
+    withoutBonus.lifeOf defender == 43 - Int.ofNat power &&
+    (withBonus.combat.bind CombatChain.activeLink?).map (·.powerBonus) == some 1 &&
+    (withoutBonus.combat.bind CombatChain.activeLink?).map (·.powerBonus) == some 0 &&
+    unpaid.pendingTriggers.isEmpty && cancelled.pendingTriggers.isEmpty &&
+    cancelled.zone (.player attacker .hand) == ready.zone (.player attacker .hand))
+
+#guard checkWoundedBull ⟨"WTR_200_R"⟩ 7 == some true
+
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
