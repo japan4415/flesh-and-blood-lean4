@@ -497,8 +497,8 @@ def whelmingGustwave (base : CardDef) : CardDef :=
 
 /-- Whelming Gustwave Red. -/
 def WTR_110_R : CardDef := { whelmingGustwave WTR_110_R_meta with status := .full }
-/-- Whelming Gustwave Yellow (drafted IR). -/
-def WTR_111_Y : CardDef := whelmingGustwave WTR_111_Y_meta
+/-- Whelming Gustwave Yellow. -/
+def WTR_111_Y : CardDef := { whelmingGustwave WTR_111_Y_meta with status := .full }
 /-- Whelming Gustwave Blue (drafted IR). -/
 def WTR_112_B : CardDef := whelmingGustwave WTR_112_B_meta
 

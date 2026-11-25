@@ -249,6 +249,7 @@ meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool :=
     withoutCombo standalone && withoutCombo intervened)
 
 #guard checkWhelmingGustwave ⟨"WTR_110_R"⟩ 3 == some true
+#guard checkWhelmingGustwave ⟨"WTR_111_Y"⟩ 2 == some true
 
 -- 6. Weapon Attack-Proxy + Weapon Identical `ObjId` Return + LKI Go Again (CR 1.4.3, 3.5.4b):
 --    P0 attacks with Harmonized Kodachi (1{p}, cost 1{r}) via `.attackWeapon` -> creates proxy ->
