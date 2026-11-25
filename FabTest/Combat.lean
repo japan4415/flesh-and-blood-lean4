@@ -1084,6 +1084,8 @@ meta def checkSteelbladeShunt (cid : CardId) (pitch defense : Nat) (fromArsenal 
 
 #guard checkSteelbladeShunt ⟨"WTR_126_R"⟩ 1 6 false == some true
 #guard checkSteelbladeShunt ⟨"WTR_126_R"⟩ 1 6 true == some true
+#guard checkSteelbladeShunt ⟨"WTR_127_Y"⟩ 2 5 false == some true
+#guard checkSteelbladeShunt ⟨"WTR_127_Y"⟩ 2 5 true == some true
 
 -- The first reaction on the stack fails to resolve if another reaction has already defended Dominate.
 #guard (do
