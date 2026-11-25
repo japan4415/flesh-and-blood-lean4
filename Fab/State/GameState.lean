@@ -41,10 +41,12 @@ structure LayerInfo where
   heroTarget : Option PlayerId := none
   /-- Whether this layer has Go Again on resolution (CR 5.3.4, 8.3.5). -/
   goAgain : Bool := false
-  /-- Power granted to an attack card before the card enters the combat chain. -/
+  /-- Power granted to an attack before it enters the combat chain. -/
   attackPowerBonus : Int := 0
-  /-- Keywords granted to an attack card before the card enters the combat chain. -/
+  /-- Keywords granted to an attack before it enters the combat chain. -/
   attackKeywords : List KeywordInst := []
+  /-- Triggered abilities granted to an attack before it enters the combat chain. -/
+  attackAbilities : List Ability := []
   /-- Optional explicit effect body for triggered/activated ability layers (CR 6.6). -/
   triggerEffect : Option Effect := none
 deriving DecidableEq, Repr

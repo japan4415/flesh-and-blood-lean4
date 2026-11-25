@@ -1811,7 +1811,12 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       match mod with
       | .addPower d => { link with powerBonus := link.powerBonus + evalNumExpr s ctrl env d }
       | .addDefense d => { link with defenseBonus := link.defenseBonus + evalNumExpr s ctrl env d }
-      | .grantKeyword kw => { link with grantedKeywords := kw :: link.grantedKeywords }
+      | .grantKeyword kw =>
+        if scope.isSelf && !targetsAttack then link
+        else if kw == .goAgain then
+          if link.attackLki.keywords.contains kw then link
+          else { link with grantedKeywords := insertUnique kw link.grantedKeywords }
+        else { link with grantedKeywords := kw :: link.grantedKeywords }
       | .doubleDamageToHero =>
         if targetsAttack then { link with damageMultiplier := link.damageMultiplier * 2 } else link
       | .grantTrigger trigger cond body =>
@@ -1830,13 +1835,18 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | .modifyCost d =>
         if 0 ≤ d then some (.addCostRes d.toNat) else some (.subCostRes (-d).toNat)
       | .grantKeyword kw => some (.grantKeyword kw)
+      | .grantTrigger trigger cond body =>
+        match scope with
+        | .nextAttack _ => some (.grantAttackAbility (.triggered trigger false none cond { body := body }))
+        | _ => none
       | _ => none
     match op? with
     | some op =>
       let target : EffectTarget := match scope, op with
         | .nextCardPlayed filter, .addPower _ => .nextAttackCard filter
         | .nextAttack filter, .addPower _
-        | .nextAttack filter, .grantKeyword _ => .nextAttack filter
+        | .nextAttack filter, .grantKeyword _
+        | .nextAttack filter, .grantAttackAbility _ => .nextAttack filter
         | _, _ => .matching (ctrl := some ctrl)
       let eff : ContinuousEffect :=
         { id := s.nextTimestamp

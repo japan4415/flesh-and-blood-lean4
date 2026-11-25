@@ -156,6 +156,8 @@ inductive EffectOp where
   | addSupertype (st : Supertype)
   /-- Stage 6: grant keyword `kw` (CR 6.3.2f). -/
   | grantKeyword (kw : KeywordInst)
+  /-- Stage 6: grant an ability to the next matching attack (CR 6.3.2f). -/
+  | grantAttackAbility (ability : Ability)
   /-- Stage 6: remove keyword `kw` (CR 6.3.2f). -/
   | loseKeyword (kw : KeywordInst)
   /-- Stage 6: lose all abilities and keywords (CR 6.3.2f). -/
@@ -195,7 +197,7 @@ def EffectOp.stage : EffectOp → EffectStage
   | .setName _ | .setColor _ => .stage3NameColorText
   | .addType _ | .addSubtype _ | .setSubtypes _ => .stage4TypeSubtype
   | .addSupertype _ => .stage5Supertype
-  | .grantKeyword _ | .loseKeyword _ | .loseAllAbilities => .stage6Ability
+  | .grantKeyword _ | .grantAttackAbility _ | .loseKeyword _ | .loseAllAbilities => .stage6Ability
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .stage7BaseNumeric
   | .lockPower | .mulPower _ | .divPower _ | .addPower _ | .subPower _
   | .addDefense _ | .subDefense _ | .addCostRes _ | .subCostRes _
@@ -207,7 +209,7 @@ def EffectOp.subStage : EffectOp → SubStage
   | .copyFace _ | .setController _ | .setName _ | .setColor _ | .setSubtypes _
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .set
   | .mulPower _ | .divPower _ => .mulDiv
-  | .addType _ | .addSubtype _ | .addSupertype _ | .grantKeyword _
+  | .addType _ | .addSubtype _ | .addSupertype _ | .grantKeyword _ | .grantAttackAbility _
   | .addPower _ | .addDefense _ | .addCostRes _ | .addIntellect _ => .add
   | .loseKeyword _ | .loseAllAbilities | .subPower _ | .subDefense _ | .subCostRes _ => .sub
 
@@ -242,6 +244,7 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
   | .setSubtypes sts => { c with subtypes := sts }
   | .addSupertype st => { c with supertypes := insertUnique st c.supertypes }
   | .grantKeyword kw => { c with keywords := insertUnique kw c.keywords }
+  | .grantAttackAbility _ => c
   | .loseKeyword kw => { c with keywords := c.keywords.filter (· != kw) }
   | .loseAllAbilities => { c with keywords := [], abilitiesLost := true }
   | .setBasePower v => { c with basePower := some v, power := some v }

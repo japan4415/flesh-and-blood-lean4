@@ -704,7 +704,8 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
       attackSource := srcWeapon?
       attackLki := lki
       powerBonus := attackInfo.attackPowerBonus
-      grantedKeywords := attackInfo.attackKeywords }
+      grantedKeywords := attackInfo.attackKeywords
+      grantedAbilities := attackInfo.attackAbilities }
   let s3 := { s2 with
     combat := some { step := .attack, links := newLink :: prevLinks }
     layerMeta := s2.layerMeta.erase layerId.n }
