@@ -783,6 +783,15 @@ def WTR_120_R : CardDef :=
                 (.prim (.returnDefendingCardToHand CardFilter.nonEquipment))
                 .nop ] }) with status := .full }
 
+/-- Ironsong Determination. -/
+def WTR_122_Y : CardDef :=
+  { draftCard WTR_122_Y_meta []
+      (some
+        { targets := [{ kind := .anyWeapon }]
+          body := .seqL
+            [ .grant .targetedWeaponAttacks (.addPower (.const 1)) .thisTurn
+            , .grant .targetedWeaponAttacks (.grantKeyword .dominate) .thisTurn ] }) with status := .full }
+
 /-- Shared 3-color helper for Overpower (weapon attack +base, or +repriseBonus if Reprise). -/
 def overpowerCard (base : CardDef) (baseBonus repriseBonus : Int) : CardDef :=
   draftCard base []
@@ -1365,7 +1374,7 @@ def draftedCards : List CardDef :=
   , WTR_098_R, WTR_099_Y, WTR_100_B, WTR_101_R, WTR_102_Y, WTR_103_B
   , WTR_104_R, WTR_105_Y, WTR_106_B
   , WTR_107_R, WTR_108_Y, WTR_109_B, WTR_110_R, WTR_111_Y, WTR_112_B
-  , WTR_113, WTR_114, WTR_115, WTR_116, WTR_117, WTR_118_B, WTR_119_R, WTR_120_R
+  , WTR_113, WTR_114, WTR_115, WTR_116, WTR_117, WTR_118_B, WTR_119_R, WTR_120_R, WTR_122_Y
   , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_126_R, WTR_127_Y, WTR_128_B, WTR_129_R, WTR_130_Y, WTR_131_B, WTR_132_R, WTR_133_Y, WTR_134_B, WTR_135_R, WTR_136_Y, WTR_137_B, WTR_138_R, WTR_139_Y, WTR_140_B
   , WTR_141_R, WTR_142_Y, WTR_143_B, WTR_144_R, WTR_145_Y, WTR_146_B, WTR_147_R, WTR_148_Y, WTR_149_B
   , WTR_150, WTR_151, WTR_152, WTR_153, WTR_154, WTR_155, WTR_156, WTR_157, WTR_158

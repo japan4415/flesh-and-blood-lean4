@@ -1944,6 +1944,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .allMatching player filter, _ => .matchingCard (evalPlayerRef s ctrl player) filter
         | .paidAttack id, _ => .obj id
         | .obj (.slot 0), _ => (weaponTarget.map EffectTarget.obj).getD (.objects [])
+        | .targetedWeaponAttacks, _ => (weaponTarget.map EffectTarget.weaponAttacks).getD (.objects [])
         | .arenaObjectsOfType player kind, _ =>
           let affected := evalPlayerRef s ctrl player
           let arena := (allZones s.playerCount).filter Zone.isArena

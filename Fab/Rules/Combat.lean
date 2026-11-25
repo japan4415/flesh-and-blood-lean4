@@ -98,6 +98,13 @@ def objEffectivePower (s : GameState) (id : ObjId) : Option Int :=
 def objEffectiveDefense (s : GameState) (id : ObjId) : Option Int :=
   (s.characteristics id).bind (·.defense)
 
+/-- Modifiers bound to the particular weapon that sourced this link (CR 1.4.3d). -/
+def linkWeaponAttackModifiers (s : GameState) (link : ChainLink) : List EffectOp :=
+  s.activeEffects.filterMap fun effect =>
+    match effect.target with
+    | .weaponAttacks source => if link.attackSource == some source then some effect.op else none
+    | _ => none
+
 /-- Effective attack power `{p}` of a `ChainLink` — falls back to `attackLki` if the attack left
 the combat chain (CR 3.5.4b) — clamped to `Nat` (CR 2.0.3, 7.5.2). -/
 def linkAttackPower (s : GameState) (link : ChainLink) : Nat :=
@@ -107,7 +114,11 @@ def linkAttackPower (s : GameState) (link : ChainLink) : Nat :=
     | none => (link.attackLki.power.getD 0) + Int.ofNat link.attackLki.plusPowerCounters
   let conditionalPower := link.powerForFewerDefenders.foldl (fun total (limit, bonus) =>
     if nonEquipmentDefenderCount s link < limit then total + bonus else total) 0
-  clampNonNeg (basePow + link.powerBonus + conditionalPower)
+  let weaponPower := (linkWeaponAttackModifiers s link).foldl (fun total op =>
+    match op with
+    | .addPower bonus => total + bonus
+    | _ => total) 0
+  clampNonNeg (basePow + link.powerBonus + conditionalPower + weaponPower)
 
 /-- Sum of effective defense values `{d}` of all defending cards on a `ChainLink` (CR 7.5.2). -/
 def linkTotalDefense (s : GameState) (link : ChainLink) : Nat :=
@@ -173,6 +184,7 @@ def linkHasKeyword (s : GameState) (link : ChainLink) (kw : KeywordInst) : Bool 
     link.grantedKeywords.contains kw ||
     link.attackLki.keywords.contains kw ||
     (if kw = .goAgain then weaponAttackHasGoAgain s link else false) ||
+    (linkWeaponAttackModifiers s link).contains (.grantKeyword kw) ||
     (link.attack.bind s.characteristics).any (fun chars => chars.keywords.contains kw)
 
 /-- All currently un-defended armor equipment `ObjId`s in player `p`'s Arena equipment slots. -/

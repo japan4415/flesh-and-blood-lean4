@@ -180,6 +180,8 @@ inductive TargetKind where
   | weaponAttack
   /-- A weapon permanent controlled by a player. -/
   | weapon (p : PlayerRef)
+  /-- A weapon permanent without a controller requirement. -/
+  | anyWeapon
   /-- An equipment permanent controlled by a player. -/
   | equipment (p : PlayerRef)
   /-- A defending card on the current chain link. -/

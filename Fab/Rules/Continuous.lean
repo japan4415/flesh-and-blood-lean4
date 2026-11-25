@@ -288,6 +288,8 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
 inductive EffectTarget where
   /-- Applies specifically to object `id`. -/
   | obj (id : ObjId)
+  /-- Attacks made with an identified weapon (CR 1.4.3d). -/
+  | weaponAttacks (source : ObjId)
   /-- Restricts the specified player rather than altering an object's characteristics. -/
   | player (p : PlayerId)
   /-- Applies to each object selected when the effect was generated (CR 6.2.2c). -/
@@ -322,7 +324,7 @@ def EffectTarget.matches (t : EffectTarget) (c : DerivedChars) (id : ObjId) : Bo
   match t with
   | .obj tid => tid == id
   | .objects ids => ids.contains id
-  | .player _ | .nextAttackCard _ | .nextAttack _ | .nextAttackBy _ | .nextActionBy _
+  | .player _ | .weaponAttacks _ | .nextAttackCard _ | .nextAttack _ | .nextAttackBy _ | .nextActionBy _
   | .nextDefend _ | .allAttacks _ => false
   | .matchingCard controller filter =>
     c.controller == controller && !filter.isWeaponAttack &&
