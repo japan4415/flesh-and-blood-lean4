@@ -448,8 +448,8 @@ def WTR_097_B : CardDef := { openTheCenter WTR_097_B_meta with status := .full }
 def WTR_098_R : CardDef := { WTR_098_R_meta with status := .full }
 /-- Head Jab Yellow, whose printed Go Again is handled by combat resolution. -/
 def WTR_099_Y : CardDef := { WTR_099_Y_meta with status := .full }
-/-- Head Jab Blue (vanilla Go Again, drafted IR). -/
-def WTR_100_B : CardDef := draftVanilla WTR_100_B_meta
+/-- Head Jab Blue, whose printed Go Again is handled by combat resolution. -/
+def WTR_100_B : CardDef := { WTR_100_B_meta with status := .full }
 
 /-- Leg Tap Red, whose printed Go Again is handled by combat resolution. -/
 def WTR_101_R : CardDef := { WTR_101_R_meta with status := .full }
