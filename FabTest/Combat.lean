@@ -1271,6 +1271,8 @@ meta def checkFlicFlak (cid : CardId) (pitch defense : Nat) : Option Bool := do
 
 #guard checkFlicFlak ⟨"WTR_092_R"⟩ 1 4 == some true
 
+#guard checkFlicFlak ⟨"WTR_093_Y"⟩ 2 3 == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
