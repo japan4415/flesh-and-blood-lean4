@@ -326,3 +326,4 @@ meta def checkBlackoutKick (cid : CardId) (basePower : Nat) : Bool :=
   checkComboAttack [⟨"WTR_104_R"⟩, ⟨"WTR_203_R"⟩] cid basePower 0 == some true
 
 #guard checkBlackoutKick ⟨"WTR_089_R"⟩ 4
+#guard checkBlackoutKick ⟨"WTR_090_Y"⟩ 3
