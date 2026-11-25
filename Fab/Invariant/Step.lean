@@ -297,10 +297,12 @@ private theorem finishPaidActivation_preserves {s s' : GameState} {p : PlayerId}
     (h : finishPaidActivation s p layerId payment rest = some (s', es)) : StepPreserves s s' := by
   unfold finishPaidActivation at h
   obtain ⟨⟨paid, events⟩, hpay, h⟩ := Option.bind_eq_some_iff.mp h
-  cases h
+  simp only [pure, Option.some.injEq, Prod.mk.injEq] at h
+  obtain ⟨h, -⟩ := h
   have hp := payActivationSource_preserves hwf hok hrb hpay
-  exact ⟨GameState.WF.congr hp.wf rfl rfl rfl rfl,
-    GameState.OwnerOk.congr hp.ownerOk rfl rfl, GameState.RollbackOk.of_none rfl, hp.physIds, hp.config⟩
+  split at h <;> subst s' <;>
+    exact ⟨GameState.WF.congr hp.wf rfl rfl rfl rfl,
+      GameState.OwnerOk.congr hp.ownerOk rfl rfl, GameState.RollbackOk.of_none rfl, hp.physIds, hp.config⟩
 
 private theorem startActivation_preserves {s s' : GameState} {p : PlayerId}
     {source : ObjId} {index : Nat} {target : Option ObjId} {rest : List Frame} {es : List Event}
