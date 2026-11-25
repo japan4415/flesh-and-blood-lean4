@@ -647,6 +647,9 @@ meta def checkStrokeOfForesight (cid : CardId) (pitch bonus : Nat) (fromArsenal 
 #guard checkStrokeOfForesight ⟨"WTR_139_Y"⟩ 2 2 false == some true
 #guard checkStrokeOfForesight ⟨"WTR_139_Y"⟩ 2 2 true == some true
 
+#guard checkStrokeOfForesight ⟨"WTR_140_B"⟩ 3 1 false == some true
+#guard checkStrokeOfForesight ⟨"WTR_140_B"⟩ 3 1 true == some true
+
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
 --    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!
