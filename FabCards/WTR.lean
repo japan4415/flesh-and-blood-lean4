@@ -1257,8 +1257,8 @@ def pummelCard (base : CardDef) (bonus : Int) : CardDef :=
 
 /-- Pummel Red. -/
 def WTR_206_R : CardDef := { pummelCard WTR_206_R_meta 4 with status := .full }
-/-- Pummel Yellow (drafted IR). -/
-def WTR_207_Y : CardDef := pummelCard WTR_207_Y_meta 3
+/-- Pummel Yellow. -/
+def WTR_207_Y : CardDef := { pummelCard WTR_207_Y_meta 3 with status := .full }
 /-- Pummel Blue (drafted IR). -/
 def WTR_208_B : CardDef := pummelCard WTR_208_B_meta 2
 
