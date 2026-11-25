@@ -1275,6 +1275,73 @@ meta def checkFlicFlak (cid : CardId) (pitch defense : Nat) : Option Bool := do
 
 #guard checkFlicFlak ⟨"WTR_094_B"⟩ 3 2 == some true
 
+/-- A paid discard queues the Club's one power bonus for the turn (CR 6.6). -/
+meta def checkRompingClub : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_003"⟩
+  let funded := m5Base.setPool attacker { actionPoints := 3, resources := 4 }
+  let card ← funded.cards.find? cid
+  let (armed, club) ← cPlace funded attacker .weapon cid
+  let (withSwing, swing) ← cPlace armed attacker .hand ⟨"WTR_020_R"⟩
+  let (qualified, _) ← cPlace withSwing attacker .hand ⟨"WTR_189_Y"⟩
+  let (below, _) ← cPlace withSwing attacker .hand ⟨"WTR_190_B"⟩
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let attack : Action := ⟨.player attacker, .attackWeapon club⟩
+  let resolve := passBoth ++ passBoth ++ [⟨.player defender, .defendDone⟩] ++
+    passBoth ++ passBoth ++ passBoth
+  let unqualified ← cSteps below [play swing]
+  let paid ← cSteps qualified [play swing]
+  let trigger ← paid.pendingTriggers.head?
+  let enhanced ← cSteps paid ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let cardHit ← cSteps enhanced resolve
+  let closed ← cSteps cardHit passBoth
+  let (withSecondSwing, secondSwing) ← cPlace closed attacker .hand ⟨"WTR_020_R"⟩
+  let (withSecondDiscard, _) ← cPlace withSecondSwing attacker .hand ⟨"WTR_189_Y"⟩
+  let paidAgain ← cSteps withSecondDiscard [play secondSwing]
+  let secondCardHit ← cSteps paidAgain resolve
+  let beforeClub ← cSteps secondCardHit passBoth
+  let clubHit ← cSteps beforeClub (attack :: resolve)
+  let hitPower (s : GameState) := (s.combat.bind CombatChain.activeLink?).map (·.damageDealt)
+  let (expired, _) ← microStep { beforeClub with pending := [.endTurnCleanup attacker] }
+  pure (card.status == .full && card.front.power == some 4 &&
+    unqualified.pendingTriggers.isEmpty && unqualified.triggeredThisTurn.isEmpty &&
+    objEffectivePower paid club == some 4 && trigger.source == club &&
+    paid.pendingTriggers.length == 1 && paid.triggeredThisTurn == [(club, 1)] &&
+    enhanced.activatedThisTurn.isEmpty && objEffectivePower enhanced club == some 5 &&
+    hitPower cardHit == some 7 && paidAgain.pendingTriggers.isEmpty &&
+    paidAgain.triggeredThisTurn == paid.triggeredThisTurn &&
+    objEffectivePower paidAgain club == some 5 && hitPower clubHit == some 5 &&
+    clubHit.activatedThisTurn == [(club, 0)] &&
+    (clubHit.poolOf attacker).resources == 0 && expired.triggeredThisTurn.isEmpty &&
+    objEffectivePower expired club == some 4)
+
+/-- An opposing effect can trigger the Club, even when two qualifying cards are discarded together. -/
+meta def checkRompingClubEffectDiscard : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 7 }
+  let (armed, club) ← cPlace funded defender .weapon ⟨"WTR_003"⟩
+  let (withAttack, crush) ← cPlace armed attacker .hand ⟨"WTR_043_R"⟩
+  let (withFirst, _) ← cPlace withAttack defender .hand ⟨"WTR_188_R"⟩
+  let (ready, _) ← cPlace withFirst defender .hand ⟨"WTR_189_Y"⟩
+  let crushed ← cSteps ready ([⟨.player attacker, .playCard crush⟩] ++ passBoth ++ passBoth ++
+    [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth)
+  let discard ← crushed.pendingTriggers.head?
+  let discarded ← cSteps crushed ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger discard.id⟩] ++ passBoth)
+  let boost ← discarded.pendingTriggers.head?
+  let resolved ← cSteps discarded ([⟨.player attacker, .pickTriggerStart defender⟩,
+    ⟨.player defender, .pickTrigger boost.id⟩] ++ passBoth)
+  pure (discard.controller == attacker && boost.source == club && boost.controller == defender &&
+    (discarded.zone (.player defender .graveyard)).length == 2 &&
+    discarded.pendingTriggers.length == 1 && discarded.triggeredThisTurn == [(club, 1)] &&
+    objEffectivePower discarded club == some 4 && objEffectivePower resolved club == some 5)
+
+#guard checkRompingClub == some true
+#guard checkRompingClubEffectDiscard == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
@@ -2155,7 +2222,13 @@ meta def checkBloodrushBellow (fromArsenal highPayment : Bool) : Option Bool := 
   let order := if highPayment then [high, low] else [low, high]
   let paid ← cSteps paying [⟨.chance, .shuffleOrder order⟩]
   let discarded ← (paid.zone grave).head?
-  let buffed ← cSteps paid passBoth
+  let resolveClub (s : GameState) :=
+    match s.pendingTriggers.head? with
+    | none => some s
+    | some trigger => cSteps s ([⟨.player attacker, .pickTriggerStart attacker⟩,
+        ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let clubResolved ← resolveClub paid
+  let buffed ← cSteps clubResolved passBoth
   let expired ← cSteps buffed (passBoth ++ [⟨.player attacker, .arsenalSkip⟩])
   let (withGeneric, generic) ← cPlace buffed attacker .hand ⟨"WTR_203_R"⟩
   let fight := passBoth ++ passBoth ++ [⟨.player defender, .defendDone⟩] ++
@@ -2169,7 +2242,8 @@ meta def checkBloodrushBellow (fromArsenal highPayment : Bool) : Option Bool := 
     let paidAttack ← if trying.pending.head? == some (.chanceShuffle hand) then
       cSteps trying [⟨.chance, .shuffleOrder (trying.zone hand)⟩]
       else some trying
-    cSteps paidAttack fight
+    let clubResolved ← resolveClub paidAttack
+    cSteps clubResolved fight
   let weaponFirst ← cSteps bruteReady (swing :: fight)
   let weaponClosed ← cSteps weaponFirst passBoth
   let cardSecond ← playBrute weaponClosed
@@ -2178,6 +2252,8 @@ meta def checkBloodrushBellow (fromArsenal highPayment : Bool) : Option Bool := 
   let weaponSecond ← cSteps cardClosed (swing :: fight)
   let damage := fun (s : GameState) =>
     (s.combat.bind CombatChain.activeLink?).map (·.damageDealt)
+  let buffs := if highPayment then [EffectOp.addPower 1, .addPower 2] else [.addPower 2]
+  let finalBuffs := if highPayment then buffs else buffs ++ [.addPower 1]
   pure (card.status == .full && card.front.pitch == some 2 && card.front.defense == some 3 &&
     decide (rejected = bare) && paying.pending.head? == some (.chanceShuffle hand) &&
     (paid.poolOf attacker).actionPoints == 3 && (paid.poolOf attacker).resources == 3 &&
@@ -2187,11 +2263,11 @@ meta def checkBloodrushBellow (fromArsenal highPayment : Bool) : Option Bool := 
     (buffed.poolOf attacker).actionPoints == (if highPayment then 4 else 3) &&
     (buffed.zone hand).length == (if highPayment then 3 else 1) &&
     (buffed.zone deck).length == (if highPayment then 0 else 2) &&
-    objEffectivePower buffed weapon == some 4 &&
-    buffed.activeEffects.map (·.op) == [.addPower 2] && expired.activeEffects.isEmpty &&
-    damage genericHit == some 4 && damage weaponFirst == some 6 && damage cardSecond == some 9 &&
-    damage cardFirst == some 9 && damage weaponSecond == some 6 &&
-    weaponSecond.activeEffects == buffed.activeEffects && cardSecond.activeEffects == buffed.activeEffects)
+    objEffectivePower buffed weapon == some (if highPayment then 5 else 4) &&
+    buffed.activeEffects.map (·.op) == buffs && expired.activeEffects.isEmpty &&
+    damage genericHit == some 4 && damage weaponFirst == some (if highPayment then 7 else 6) &&
+    damage cardSecond == some 9 && damage cardFirst == some 9 && damage weaponSecond == some 7 &&
+    weaponSecond.activeEffects.map (·.op) == finalBuffs && cardSecond.activeEffects.map (·.op) == finalBuffs)
 
 #guard checkBloodrushBellow false true == some true
 #guard checkBloodrushBellow false false == some true

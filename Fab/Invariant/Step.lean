@@ -941,13 +941,14 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
   · -- run (L4!)
     rename_i ctrl src fromArsenal env todo rest _
     simp only [Option.some.injEq] at h
-    have hs' : s' = (interpRunStep s ctrl src fromArsenal env todo rest).1 :=
+    let ran := interpRunStep s ctrl src fromArsenal env todo rest
+    have hs' : s' = queueDiscardTriggers ran.1 ran.2 :=
       congrArg Prod.fst h.symm
     subst hs'
     have hmeta := interpRunStep_meta hwf hok ctrl src fromArsenal env todo rest
     have hperm := interpRunStep_physIds hwf hok ctrl src fromArsenal env todo rest
-    exact ⟨interpRunStep_wf hwf hok ctrl src fromArsenal env todo rest,
-           interpRunStep_ownerOk hwf hok ctrl src fromArsenal env todo rest,
+    exact ⟨GameState.WF.congr (interpRunStep_wf hwf hok ctrl src fromArsenal env todo rest) rfl rfl rfl rfl,
+           GameState.OwnerOk.congr (interpRunStep_ownerOk hwf hok ctrl src fromArsenal env todo rest) rfl rfl,
            GameState.RollbackOk.preserve hrb hmeta.1 hmeta.2 hperm,
            hperm, hmeta.1⟩
   · -- optStep 0

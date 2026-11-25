@@ -531,13 +531,13 @@ def supportsTriggerTargets (effect : EffectDef) : Bool :=
     (effect.targets == [{ kind := .hero }] &&
       effect.body == .prim (.intimidate (.ownerOfSlot 0)))
 
-/-- Collect matching triggers that require no modes or additional costs (CR 6.6). -/
-def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId) (fromArsenal : Bool)
+/-- Find matching triggers and their once-per-turn flags (CR 6.6). -/
+def matchingCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId) (fromArsenal : Bool)
     (abilities : List Ability) (matchesEvent : Trigger → Option Condition → Bool) :
-    List PendingTrigger :=
-  let triggers := abilities.zipIdx.filterMap fun (ability, abilityIdx) =>
+    List (PendingTrigger × Bool) :=
+  abilities.zipIdx.filterMap fun (ability, abilityIdx) =>
     match ability with
-    | .triggered trigger false none cond eff =>
+    | .triggered trigger once none cond eff =>
       if matchesEvent trigger cond && supportsTriggerTargets eff && eff.modes.isEmpty &&
           eff.extraCosts.isEmpty then
         some ({
@@ -547,10 +547,55 @@ def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
           controller := controller
           abilityIdx := abilityIdx
           fromArsenal := fromArsenal
-          effect := eff.body } : PendingTrigger)
+          effect := eff.body }, once)
       else none
     | _ => none
+
+/-- Collect matching unrestricted triggers that require no modes or additional costs (CR 6.6). -/
+def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId) (fromArsenal : Bool)
+    (abilities : List Ability) (matchesEvent : Trigger → Option Condition → Bool) :
+    List PendingTrigger :=
+  let triggers := (matchingCardTriggers s source controller fromArsenal abilities matchesEvent).filterMap
+    fun (trigger, once) => if once then none else some trigger
   triggers.zipIdx.map fun (trigger, idx) => { trigger with id := s.nextTimestamp + idx }
+
+/-- Find installed arena abilities triggered by the card just discarded (CR 3.0.14b, 3.10, 6.6.5). -/
+def discardEventTriggers (s : GameState) (p : PlayerId) (discarded : ObjId) :
+    List (PendingTrigger × Bool) :=
+  match s.objectFace? discarded with
+  | none => []
+  | some face =>
+    let arena := (allZones s.playerCount).filter fun
+      | .player _ kind => kind.isArena && kind != .soul
+      | _ => false
+    (arena.flatMap s.zone).flatMap fun source =>
+      if (s.characteristics source).any (fun c => c.controller == p && !c.abilitiesLost) &&
+          (s.obj? source).any (fun obj => !obj.faceDown) then
+        let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+        matchingCardTriggers s source p false abilities fun trigger cond =>
+          match trigger with
+          | .onDiscard filter duringAction =>
+            (!duringAction || (s.phase == .actionPhase && s.active == some p)) &&
+              cardFaceMatches filter face &&
+              (cond.map (evalCondition s p source false)).getD true
+          | _ => false
+      else []
+
+/-- Queue discards in event order, consuming a once-per-turn use as soon as it triggers (CR 6.6.5e). -/
+def queueDiscardTriggers (s : GameState) (events : List Event) : GameState :=
+  let candidates := events.flatMap fun
+    | .discarded p id => discardEventTriggers s p id
+    | _ => []
+  let collected := candidates.foldl (fun (used, pending) (trigger, once) =>
+    let key := (trigger.source, trigger.abilityIdx)
+    if once && used.contains key then (used, pending)
+    else (if once then key :: used else used, trigger :: pending)) (s.triggeredThisTurn, [])
+  let triggers := collected.2.reverse.zipIdx.map fun (trigger, idx) =>
+    { trigger with id := s.nextTimestamp + idx }
+  { s with
+    triggeredThisTurn := collected.1
+    pendingTriggers := if triggers.isEmpty then s.pendingTriggers else s.pendingTriggers ++ triggers
+    nextTimestamp := s.nextTimestamp + triggers.length }
 
 /-- Collect printed and granted hit and Crush triggers (CR 6.6, 7.5.5, 8.4.2). -/
 def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigger :=
@@ -678,10 +723,10 @@ def permanentEntryTriggers (s : GameState) (fromArsenal : Bool) (events : List E
       permanentTriggers s source controller fromArsenal .onEnterArena
     | _ => []
 
-/-- Put a resolving permanent's triggers ahead of the next priority window (CR 6.6.6). -/
+/-- Put pending triggers ahead of the next priority window after a layer resolves (CR 6.6.6). -/
 def afterPermanentEntry (s : GameState) (triggers : List PendingTrigger) (rest : List Frame) : GameState :=
   let queued := triggers.zipIdx.map fun (trigger, index) => { trigger with id := s.nextTimestamp + index }
-  let flush := if triggers.isEmpty then [] else [.flushTriggers]
+  let flush := if (s.pendingTriggers ++ queued).isEmpty then [] else [.flushTriggers]
   { s with
     pendingTriggers := s.pendingTriggers ++ queued
     nextTimestamp := s.nextTimestamp + queued.length
@@ -1173,7 +1218,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let discarded := events.reverse.findSome? fun
       | .discarded _ id => paid.objectFace? id
       | _ => none
-    some (finishPaidPlay paid p layerId fromArsenal modeIdx rest discarded, events)
+    some (finishPaidPlay (queueDiscardTriggers paid events) p layerId fromArsenal modeIdx rest discarded, events)
   | .resolveStack :: rest =>
     match s.zone .stack with
     | topId :: _ =>
@@ -1251,7 +1296,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let effFrames :=
       if eff == .nop then [] else [.run info.controller atkId info.fromArsenal [] [eff]]
     let attackTriggers := attackingCardTriggers s1 atkId info.controller info.fromArsenal info.attackAbilities
-    let triggerFrames := if attackTriggers.isEmpty then [] else [.flushTriggers]
+    let triggerFrames := if attackTriggers.isEmpty && eff == .nop then [] else [.flushTriggers]
     some ({ s1 with
               pendingTriggers := s1.pendingTriggers ++ attackTriggers
               nextTimestamp := s1.nextTimestamp + attackTriggers.length
@@ -1347,7 +1392,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let s1 := gspRun s
     some ({ s1 with pending := rest }, [])
   | .run ctrl src fromArsenal env todo :: rest =>
-    some (interpRunStep s ctrl src fromArsenal env todo rest)
+    let ran := interpRunStep s ctrl src fromArsenal env todo rest
+    some (queueDiscardTriggers ran.1 ran.2, ran.2)
   | .optStep _ 0 :: rest =>
     some ({ s with pending := rest }, [])
   | .optStep p (n + 1) :: rest =>
@@ -1397,7 +1443,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       activeReplacements := []
       chargedThisTurn := []
       banishedSixPowerThisTurn := []
-      activatedThisTurn := [] }).expireEffects .thisTurn
+      activatedThisTurn := []
+      triggeredThisTurn := [] }).expireEffects .thisTurn
     let draws := endPhaseDrawFrames s2 tp
     some ({ s2 with pending := draws ++ rest }, [])
   | .flushTriggers :: rest =>

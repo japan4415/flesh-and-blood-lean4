@@ -1903,6 +1903,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .nextAttack filter, .addPowerIfFewerDefenders _ _ => .nextAttack filter
         | .nextDefend filter, .addDefense _ => .nextDefend filter
         | .allAttacks filter, .addPower _ => .allAttacks filter
+        | .self_, .addPower _ | .obj .self_, .addPower _ => .obj src
         | .paidAttack id, _ => .obj id
         | .arenaObjectsOfType player kind, _ =>
           let affected := evalPlayerRef s ctrl player

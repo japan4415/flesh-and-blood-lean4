@@ -100,6 +100,8 @@ structure BoardSnapshot where
   banishedSixPowerThisTurn : List PlayerId := []
   /-- Saved once-per-turn activated ability usages `(objId, abilityIdx)`. -/
   activatedThisTurn : List (ObjId × Nat) := []
+  /-- Saved once-per-turn triggered ability usages `(objId, abilityIdx)`. -/
+  triggeredThisTurn : List (ObjId × Nat) := []
 deriving DecidableEq, Repr
 
 /-- Complete state of a Flesh and Blood game (M2-M5 core). -/
@@ -158,6 +160,8 @@ structure GameState where
   banishedSixPowerThisTurn : List PlayerId := []
   /-- Once-per-turn activated abilities already used this turn (CR 5.2). -/
   activatedThisTurn : List (ObjId × Nat) := []
+  /-- Once-per-turn triggered abilities already triggered this turn (CR 6.6). -/
+  triggeredThisTurn : List (ObjId × Nat) := []
 deriving DecidableEq, Repr
 
 /-- List of every valid zone in an `n`-player game (CR 3.0). -/
@@ -409,7 +413,8 @@ def snapshot (s : GameState) : BoardSnapshot :=
     activeReplacements := s.activeReplacements
     chargedThisTurn := s.chargedThisTurn
     banishedSixPowerThisTurn := s.banishedSixPowerThisTurn
-    activatedThisTurn := s.activatedThisTurn }
+    activatedThisTurn := s.activatedThisTurn
+    triggeredThisTurn := s.triggeredThisTurn }
 
 /-- Restore a saved `BoardSnapshot` and clear `playRollback` (CR 5.1.1). -/
 def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
@@ -432,6 +437,7 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     chargedThisTurn := snap.chargedThisTurn
     banishedSixPowerThisTurn := snap.banishedSixPowerThisTurn
     activatedThisTurn := snap.activatedThisTurn
+    triggeredThisTurn := snap.triggeredThisTurn
     playRollback := none }
 
 /-- Evaluate the 8-stage derived characteristics of object `id` in state `s` (CR 6.3.2). -/

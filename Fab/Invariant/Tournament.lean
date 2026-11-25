@@ -813,7 +813,8 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
   · -- run
     rename_i ctrl src fa env todo rest _
     simp only [Option.some.injEq] at h
-    have hs' : s' = (interpRunStep s ctrl src fa env todo rest).1 := congrArg Prod.fst h.symm
+    let ran := interpRunStep s ctrl src fa env todo rest
+    have hs' : s' = queueDiscardTriggers ran.1 ran.2 := congrArg Prod.fst h.symm
     subst hs'
     have hi := interpRunStep_ttr s ctrl src fa env todo rest
     exact timeLimitBounded_of_eq hb hi.1 hi.2.1 hi.2.2
