@@ -780,20 +780,19 @@ def WTR_210_Y : CardDef := razorReflex WTR_210_Y_meta 2
 def WTR_211_B : CardDef := razorReflex WTR_211_B_meta 1
 
 /-- Shared 3-color helper for Sink Below (may put hand card on deck bottom; if done, draw 1). -/
-def sinkBelow (base : CardDef) (skipWithEmptyHand : Bool := false) : CardDef :=
+def sinkBelow (base : CardDef) : CardDef :=
   let swapAndDraw : Effect := .may
     (.prim (.putHandOnDeck .controller .bottom))
     (.prim (.draw .controller (.const 1)))
-  let body : Effect :=
-    if skipWithEmptyHand then .ifThen (.zoneEmpty .controller .hand) .nop swapAndDraw else swapAndDraw
-  draftCard base [] (some { body := body })
+  draftCard base []
+    (some { body := .ifThen (.zoneEmpty .controller .hand) .nop swapAndDraw })
 
 /-- Sink Below Red. -/
-def WTR_215_R : CardDef := { sinkBelow WTR_215_R_meta true with status := .full }
+def WTR_215_R : CardDef := { sinkBelow WTR_215_R_meta with status := .full }
 /-- Sink Below Yellow. -/
-def WTR_216_Y : CardDef := { sinkBelow WTR_216_Y_meta true with status := .full }
-/-- Sink Below Blue (drafted IR). -/
-def WTR_217_B : CardDef := sinkBelow WTR_217_B_meta
+def WTR_216_Y : CardDef := { sinkBelow WTR_216_Y_meta with status := .full }
+/-- Sink Below Blue. -/
+def WTR_217_B : CardDef := { sinkBelow WTR_217_B_meta with status := .full }
 
 /-- Quicken Token (drafted IR). -/
 def WTR_225 : CardDef :=

@@ -415,6 +415,7 @@ meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
 
 #guard checkSinkBelow ⟨"WTR_215_R"⟩ 4 == some true
 #guard checkSinkBelow ⟨"WTR_216_Y"⟩ 3 == some true
+#guard checkSinkBelow ⟨"WTR_217_B"⟩ 2 == some true
 
 /-- Check Disable's damage threshold and the arsenal move after its trigger resolves. -/
 meta def checkDisable (cid : CardId) (power : Nat) : Option Bool := do
