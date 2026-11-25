@@ -1020,7 +1020,8 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
   let moved := moveManyObjs s selected.reverse destination position false
   let events := moved.2
   let draw := if drawSame && !events.isEmpty then [.draw p events.length] else []
-  ({ moved.1 with pending := .chanceShuffle deck :: (draw ++ rest) }, revealed ++ events)
+  let shuffle := if search.all (·.shuffleAfter) then [.chanceShuffle deck] else []
+  ({ moved.1 with pending := shuffle ++ draw ++ rest }, revealed ++ events)
 
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=

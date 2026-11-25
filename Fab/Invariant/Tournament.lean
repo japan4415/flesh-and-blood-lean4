@@ -377,6 +377,9 @@ theorem interpRunStep_ttr (s : GameState) (ctrl : PlayerId) (src : ObjId)
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact ⟨rfl, rfl, id⟩
+    | discardTopOfHand pref _ _ _ =>
+      have h := discardManyObjs_ttr (evalPlayerRef s ctrl pref) ((s.zone (.player (evalPlayerRef s ctrl pref) .hand)).take 1) s
+      exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
     | grant _ mod dur =>
       unfold interpRunStep applyChainLinkMod
       dsimp only

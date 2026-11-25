@@ -154,7 +154,7 @@ meta def soulShadowSearchTest : Bool :=
       -- Search waits for the player to choose which matching card to reveal.
       let (sSrch, _, extraSrch) := execPrim sD p0 ⟨0⟩ [] (.searchDeck .controller { minPower := some 6 } (some 1) .hand true none)
       let srchOk := (sSrch.zone (.player p0 .hand)).isEmpty &&
-        extraSrch == [.chooseShuffleCards p0 1 [deckCard] [] false (some ⟨.player p0 .hand, true, true⟩)]
+        extraSrch == [.chooseShuffleCards p0 1 [deckCard] [] false (some ⟨.player p0 .hand, true, true, true⟩)]
       let (_, _, noMatches) := execPrim sD p0 ⟨0⟩ [] (.searchDeck .controller { minPower := some 7 } (some 1) .hand true none)
       let (_, _, unrestricted) := execPrim sD p0 ⟨0⟩ [] (.searchDeck .controller .any (some 1) .hand false none)
       let choose : Action := ⟨.player p0, .pickShuffleCard (some deckCard)⟩

@@ -182,9 +182,11 @@ inductive Prim where
   /-- Return a non-equipment defending card on the current chain link to its owner's hand (Rout). -/
   | returnDefendingCardToHand (f : CardFilter)
   /-- Search `p`'s deck for up to `maxCount` cards matching `f`, move to `dst`, optionally reveal,
-  then shuffle; optionally allow playing the banished card for `playableDuration` (Katsu, Singing Steelblade). -/
+  and normally shuffle; optionally allow playing the banished card for `playableDuration`. -/
   | searchDeck (p : PlayerRef) (f : CardFilter) (maxCount : Option Nat) (dst : ZoneRef)
-      (reveal : Bool) (playableDuration : Option Duration)
+      (reveal : Bool) (playableDuration : Option Duration) (shuffleAfter : Bool := true)
+  /-- Randomize the order of a player's zone using a chance decision (CR 8.5.20). -/
+  | shuffleZone (p : PlayerRef) (z : ZoneRef)
   /-- Player `p` chooses up to `maxCount` cards matching `f` from `src` to shuffle into their deck.
   If `drawSame`, they then draw that many cards (Remembrance, Hope Merchant's Hood). -/
   | shuffleZoneIntoDeck (p : PlayerRef) (src : ZoneRef) (f : CardFilter)
@@ -237,6 +239,8 @@ inductive Effect where
   | rollDie6 (bindVar : VarId) (branches : DieBranchList) (cont : Effect)
   /-- Reveal the top `n` cards of `p`'s deck, bind the count matching `f` to `bindVar`, then run `cont` (Blessing of Deliverance). -/
   | bindRevealTopCount (p : PlayerRef) (n : Nat) (f : CardFilter) (bindVar : VarId) (cont : Effect)
+  /-- Discard the first card in a randomized hand, then execute the branch matching its face. -/
+  | discardTopOfHand (p : PlayerRef) (f : CardFilter) (ifMatches otherwise : Effect)
   /-- Apply a continuous modification `mod` over `scope` for duration `dur` (CR 6.2). -/
   | grant (scope : ModScope) (mod : ContinuousMod) (dur : Duration)
   /-- Rare escape hatch for card-specific logic that does not yet fit IR (design.md §7.1). -/

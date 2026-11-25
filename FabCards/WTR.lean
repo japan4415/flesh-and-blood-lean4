@@ -131,6 +131,18 @@ def WTR_008_B : CardDef :=
             (.prim (.dealDamage .generic .attackingHero (.const 2)))
             .nop }) with status := .full }
 
+/-- Sand Sketched Plan. -/
+def WTR_009_B : CardDef :=
+  let shuffleDeck := Effect.prim (.shuffleZone .controller .deck)
+  { draftCard WTR_009_B_meta []
+      (some
+        { body := .seqL
+            [ .prim (.searchDeck .controller .any (some 1) .hand false none false)
+            , .ifThen (.zoneCountGe .controller .hand .any 2) (.prim (.shuffleZone .controller .hand)) .nop
+            , .discardTopOfHand .controller power6Filter
+                (.seqL [shuffleDeck, .prim (.gainAP .controller (.const 2))]) shuffleDeck ] })
+    with status := .full }
+
 /-- Bone Head Barrier. -/
 def WTR_010_Y : CardDef :=
   { draftCard WTR_010_Y_meta []
@@ -1253,7 +1265,7 @@ def WTR_225 : CardDef :=
 /-- All WTR cards with handwritten overrides. -/
 def draftedCards : List CardDef :=
   [ WTR_000_B
-  , WTR_001, WTR_002, WTR_003, WTR_004, WTR_005, WTR_006_R, WTR_007_Y, WTR_008_B, WTR_010_Y
+  , WTR_001, WTR_002, WTR_003, WTR_004, WTR_005, WTR_006_R, WTR_007_Y, WTR_008_B, WTR_009_B, WTR_010_Y
   , WTR_011_R, WTR_012_Y, WTR_013_B, WTR_014_R, WTR_015_Y, WTR_016_B
   , WTR_017_R, WTR_018_Y, WTR_019_B, WTR_020_R, WTR_021_Y, WTR_022_B
   , WTR_023_R, WTR_024_Y, WTR_025_B, WTR_026_R, WTR_027_Y, WTR_028_B, WTR_029_R, WTR_030_Y, WTR_031_B
