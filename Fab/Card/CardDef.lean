@@ -77,6 +77,43 @@ structure CardFace where
   playEffect : Option EffectDef := none
 deriving DecidableEq, Repr
 
+/-- Test whether a `CardFace` matches a syntactic `CardFilter`. -/
+def cardFaceMatches (f : CardFilter) (face : CardFace) : Bool :=
+  f.supertypes.all (face.supertypes.contains ·) &&
+  f.types.all (face.types.contains ·) &&
+  f.subtypes.all (face.subtypes.contains ·) &&
+  (f.anySubtypes.isEmpty || f.anySubtypes.any (face.subtypes.contains ·)) &&
+  f.excludeTypes.all (fun t => !face.types.contains t) &&
+  f.keywords.all (face.keywords.contains ·) &&
+  (f.nameIn.isEmpty || f.nameIn.contains face.name) &&
+  (match f.minCost with
+    | none => true
+    | some lo =>
+      match face.cost with
+      | some c => lo ≤ c.resources
+      | none => false) &&
+  (match f.maxCost with
+    | none => true
+    | some hi =>
+      match face.cost with
+      | some c => c.resources ≤ hi
+      | none => false) &&
+  (match f.minPower with
+    | none => true
+    | some lo =>
+      match face.power with
+      | some p => lo ≤ p
+      | none => false) &&
+  (match f.maxPower with
+    | none => true
+    | some hi =>
+      match face.power with
+      | some p => p ≤ hi
+      | none => false) &&
+  (match f.color with
+    | none => true
+    | some col => face.color == some col)
+
 /-- Logical card definition uniquely identified by `CardId` (representing a `(name, pitch)` card)
 (CR 2.6, 2.8). -/
 structure CardDef where

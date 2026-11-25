@@ -294,6 +294,8 @@ inductive EffectTarget where
       (reqSupertype : Option Supertype := none)
       (reqMinPower : Option Int := none)
       (reqName : Option String := none)
+  /-- Applies to cards a player controls that satisfy the full filter (CR 6.2.2). -/
+  | matchingCard (controller : PlayerId) (filter : CardFilter)
   /-- Waits for the controller to play an attack action card matching the filter. -/
   | nextAttackCard (filter : CardFilter)
   /-- Waits for the controller to pay for an attack matching the filter, including an attack-proxy. -/
@@ -310,6 +312,12 @@ def EffectTarget.matches (t : EffectTarget) (c : DerivedChars) (id : ObjId) : Bo
   | .obj tid => tid == id
   | .objects ids => ids.contains id
   | .nextAttackCard _ | .nextAttack _ | .nextDefend _ | .allAttacks _ => false
+  | .matchingCard controller filter =>
+    c.controller == controller && !filter.isWeaponAttack &&
+      cardFaceMatches filter {
+        name := c.name, types := c.types, subtypes := c.subtypes,
+        supertypes := c.supertypes, color := c.color, keywords := c.keywords,
+        cost := c.baseCost, power := c.power }
   | .matching ctrl reqT reqSub reqSup reqMinP reqName =>
     (match ctrl with | some p => c.controller == p | none => true) &&
     (match reqT with | some ty => c.types.contains ty | none => true) &&

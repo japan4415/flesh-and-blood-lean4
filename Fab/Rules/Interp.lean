@@ -90,43 +90,6 @@ def evalNumExpr (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int)) : 
     let target := evalPlayerRef s ctrl p
     Int.ofNat (s.zone (.player target .banished)).length
 
-/-- Test whether a `CardFace` matches a syntactic `CardFilter`. -/
-def cardFaceMatches (f : CardFilter) (face : CardFace) : Bool :=
-  f.supertypes.all (face.supertypes.contains ·) &&
-  f.types.all (face.types.contains ·) &&
-  f.subtypes.all (face.subtypes.contains ·) &&
-  (f.anySubtypes.isEmpty || f.anySubtypes.any (face.subtypes.contains ·)) &&
-  f.excludeTypes.all (fun t => !face.types.contains t) &&
-  f.keywords.all (face.keywords.contains ·) &&
-  (f.nameIn.isEmpty || f.nameIn.contains face.name) &&
-  (match f.minCost with
-    | none => true
-    | some lo =>
-      match face.cost with
-      | some c => lo ≤ c.resources
-      | none => false) &&
-  (match f.maxCost with
-    | none => true
-    | some hi =>
-      match face.cost with
-      | some c => c.resources ≤ hi
-      | none => false) &&
-  (match f.minPower with
-    | none => true
-    | some lo =>
-      match face.power with
-      | some p => lo ≤ p
-      | none => false) &&
-  (match f.maxPower with
-    | none => true
-    | some hi =>
-      match face.power with
-      | some p => p ≤ hi
-      | none => false) &&
-  (match f.color with
-    | none => true
-    | some col => face.color == some col)
-
 /-- The required single-attack target of a card or its chosen mode (CR 5.1.4a). -/
 def singleAttackTargetSpec (card : CardDef) (modeIdx : Option Nat) : Option TargetSpec := do
   let effect ← card.front.playEffect
@@ -1910,6 +1873,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
           (((s.combat.bind CombatChain.activeLink?).bind (·.attackSource)).map EffectTarget.obj).getD (.objects [])
         | .hero player, .addIntellect _ =>
           .objects (s.zone (.player (evalPlayerRef s ctrl player) .hero))
+        | .allMatching player filter, _ => .matchingCard (evalPlayerRef s ctrl player) filter
         | .paidAttack id, _ => .obj id
         | .arenaObjectsOfType player kind, _ =>
           let affected := evalPlayerRef s ctrl player
