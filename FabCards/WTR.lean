@@ -86,11 +86,11 @@ def WTR_003 : CardDef :=
       , .triggered (.onDiscard power6Filter false) true none none
           { body := .grant .self_ (.addPower (.const 1)) .thisTurn } ] with status := .full }
 
-/-- Scabskin Leathers (drafted IR). -/
+/-- Scabskin Leathers. -/
 def WTR_004 : CardDef :=
-  draftCard WTR_004_meta
-    [ .activated .action true { actionPoints := 1, resources := 0 } [] none false
-        { body := .rollDie6 ⟨0⟩ .nil (.prim (.gainAP .controller (.halfRoundDown ⟨0⟩))) } ]
+  { draftCard WTR_004_meta
+      [ .activated .action true { actionPoints := 1 } [] none false
+          { body := .rollDie6 ⟨0⟩ .nil (.prim (.gainAP .controller (.halfRoundDown ⟨0⟩))) } ] with status := .full }
 
 /-- Barkbone Strapping (drafted IR). -/
 def WTR_005 : CardDef :=

@@ -1645,6 +1645,46 @@ meta def checkDawnblade : Option Bool := do
 
 #guard checkDawnblade == some true
 
+/-- Scabskin Leathers spends an AP, rounds the die down, and resets its limit next turn. -/
+meta def checkScabskinLeathers (roll : Nat) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_004"⟩
+  let slot := Zone.player player .legs
+  let funded := m5Base.setPool player { actionPoints := 2 }
+  let base : GameState := { funded with pending := funded.pending ++ [.beginTurn] }
+  let card ← base.cards.find? cid
+  let (equipped, source) ← cPlace base player .legs cid
+  let activate : Action := ⟨.player player, .activateAbility source 0⟩
+  let noPoints := equipped.setPool player {}
+  let paid ← cSteps equipped [activate]
+  let rolling ← cSteps paid passBoth
+  let resolved ← cSteps rolling [⟨.chance, .die6Roll roll⟩]
+  let opponentTurn ← cSteps resolved passBoth
+  let nextOwnTurn ← cSteps opponentTurn passBoth.reverse
+  let reused ← cSteps nextOwnTurn [activate]
+  let (wearReady, wornSource) ← cPlace m5Base opponent .legs cid
+  let (withAttack, attack) ← cPlace wearReady player .hand ⟨"WTR_203_R"⟩
+  let defending ← cSteps withAttack
+    (⟨.player player, .playCard attack⟩ :: (passBoth ++ passBoth))
+  let closed ← cSteps defending
+    ([⟨.player opponent, .defendCard wornSource⟩, ⟨.player opponent, .defendDone⟩] ++
+      passBoth ++ passBoth ++ passBoth ++ passBoth)
+  pure (card.status == .full && card.front.defense == some 2 && card.front.keywords.contains .battleworn &&
+    (legalActionsFor player equipped).contains activate && (step 64 noPoints activate).toOption.isNone &&
+    paid.zone slot == [source] && paid.activatedThisTurn.contains (source, 0) &&
+    (paid.poolOf player).actionPoints == 1 && (rolling.poolOf player).actionPoints == 1 &&
+    (resolved.poolOf player).actionPoints == 1 + roll / 2 &&
+    !(legalActionsFor player resolved).contains activate && (step 64 resolved activate).toOption.isNone &&
+    opponentTurn.active == some opponent && nextOwnTurn.active == some player &&
+    nextOwnTurn.activatedThisTurn.isEmpty && (reused.poolOf player).actionPoints == 0 &&
+    reused.activatedThisTurn.contains (source, 0) &&
+    closed.lifeOf opponent == 38 && closed.zone (.player opponent .legs) == [wornSource] &&
+    (closed.obj? wornSource).map (·.minusDefenseCounters) == some 1 &&
+    objEffectiveDefense closed wornSource == some 1)
+
+#guard [1, 2, 3, 4, 5, 6].all (fun roll => checkScabskinLeathers roll == some true)
+
 /-- Roll every Crazy Brew outcome through the activated layer and test the next attack. -/
 meta def checkCrazyBrew (roll : Nat) : Option Bool := do
   let player : PlayerId := ⟨0⟩
