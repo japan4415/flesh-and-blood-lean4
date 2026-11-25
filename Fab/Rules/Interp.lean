@@ -878,8 +878,8 @@ def remainingDamage : ProposedEvent → Nat
   | _ => 0
 
 /-- Apply damage of `kind` and `amt` to `target` through the 4-stage replacement & prevention
-pipeline (`s.activeReplacements`), destroying Ward/Spellvoid sources, consuming applied one-shot
-effects, subtracting remaining damage from `heroLife`, and running `checkHeroDefeat`
+pipeline (`s.activeReplacements`), destroying Ward/Spellvoid sources, updating damage shields,
+subtracting remaining damage from `heroLife`, and running `checkHeroDefeat`
 (CR 6.4-6.5, 7.5, 8.3.21). -/
 def applyDamageWithPrevention (s : GameState) (target : PlayerId) (kind : DamageKind) (amt : Nat) :
     GameState × List Event :=
@@ -891,7 +891,7 @@ def applyDamageWithPrevention (s : GameState) (target : PlayerId) (kind : Damage
   else
     let rRes := applyReplacementPipeline [] s.activeReplacements
       { event := .damage target kind amt, availResources := (s.poolOf target).resources }
-    let remRepls := s.activeReplacements.filter fun e => !(rRes.usedIds.contains e.id)
+    let remRepls := keepDamageReplacements s.activeReplacements rRes
     let dRes := destroyManyObjs { s with activeReplacements := remRepls } rRes.destroyedSources
     let remDmg := remainingDamage rRes.event
     if remDmg = 0 then
@@ -923,7 +923,7 @@ theorem applyDamageWithPrevention_inv {s : GameState} (hwf : s.WF) (hok : s.Owne
     · dsimp only
       let rRes := applyReplacementPipeline [] s.activeReplacements
         { event := .damage target kind amt, availResources := (s.poolOf target).resources }
-      let remRepls := s.activeReplacements.filter fun e => !(rRes.usedIds.contains e.id)
+      let remRepls := keepDamageReplacements s.activeReplacements rRes
       have hwf0 : ({ s with activeReplacements := remRepls }).WF :=
         GameState.WF.congr hwf rfl rfl rfl rfl
       have hok0 : ({ s with activeReplacements := remRepls }).OwnerOk :=
@@ -955,7 +955,7 @@ theorem applyDamageWithPrevention_ttr (s : GameState) (target : PlayerId)
     · dsimp only
       let rRes := applyReplacementPipeline [] s.activeReplacements
         { event := .damage target kind amt, availResources := (s.poolOf target).resources }
-      let remRepls := s.activeReplacements.filter fun e => !(rRes.usedIds.contains e.id)
+      let remRepls := keepDamageReplacements s.activeReplacements rRes
       have hd := destroyManyObjs_ttr rRes.destroyedSources { s with activeReplacements := remRepls }
       split
       · exact ⟨hd.1, hd.2.1, fun hr => hd.2.2 ▸ hr⟩

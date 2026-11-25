@@ -1029,6 +1029,59 @@ meta def checkPrimevalBellow (cid : CardId) (pitch bonus : Nat) (fromArsenal : B
 #guard checkPrimevalBellow ⟨"WTR_037_B"⟩ 3 3 false == some true
 #guard checkPrimevalBellow ⟨"WTR_037_B"⟩ 3 3 true == some true
 
+/-- Bone Head Barrier prevents the rolled total across damage events in the same turn. -/
+meta def checkBoneHeadBarrier (roll : Nat) (fromArsenal : Bool) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let cid : CardId := ⟨"WTR_010_Y"⟩
+  let card ← m5Base.cards.find? cid
+  let funded := m5Base.setPool defender { resources := 1 }
+  let (withAttack, attack) ← cPlace funded attacker .hand ⟨"WTR_203_R"⟩
+  let (ready, barrier) ← cPlace withAttack defender origin cid fromArsenal
+  let cast : Action := ⟨.player defender, .playCard barrier⟩
+  let paying ← cSteps ready [⟨.player attacker, .pass⟩]
+  let paid ← cSteps paying [cast]
+  let rolling ← cSteps paid [⟨.player defender, .pass⟩, ⟨.player attacker, .pass⟩]
+  let (shielded, rollEvents) ← (step 64 rolling ⟨.chance, .die6Roll roll⟩).toOption
+  let spentCard ← (shielded.zone (.player defender .graveyard)).head?
+  let shield ← shielded.activeReplacements.head?
+  let (other, otherEvents) := applyDamageWithPrevention shielded attacker .generic 1
+  let (arcane, arcaneEvents) := applyDamageWithPrevention other defender .arcane 2
+  let (zero, zeroEvents) := applyDamageWithPrevention arcane defender .generic 0
+  let expired ← cSteps shielded (passBoth ++ [⟨.player attacker, .arsenalSkip⟩])
+  let fight := passBoth ++ passBoth ++ [⟨.player defender, .defendDone⟩] ++
+    passBoth ++ passBoth ++ passBoth
+  let hit ← cSteps zero (⟨.player attacker, .playCard attack⟩ :: fight)
+  let link ← hit.combat.bind CombatChain.activeLink?
+  let afterCombat := 4 - (roll - 2)
+  let afterArcane := 2 - roll
+  let expectedArcane := if afterArcane == 0 then [] else [.damageDealt defender .arcane afterArcane]
+  pure (card.status == .full && card.front.pitch == some 2 && card.front.defense.isNone &&
+    (legalActionsFor defender paying).contains cast &&
+    (paid.poolOf defender).resources == 0 && (paid.poolOf defender).actionPoints == 0 &&
+    paid.activeReplacements.isEmpty && rolling.activeReplacements.isEmpty &&
+    (step 64 rolling ⟨.chance, .die6Roll 0⟩).toOption.isNone &&
+    (step 64 rolling ⟨.chance, .die6Roll 7⟩).toOption.isNone &&
+    (shielded.cardDefOf? spentCard).map (·.id) == some cid &&
+    shielded.activeReplacements.length == 1 && shield.action == .shieldPrevent roll &&
+    other.activeReplacements == [shield] && otherEvents == [.damageDealt attacker .generic 1] &&
+    arcaneEvents == expectedArcane &&
+    arcane.activeReplacements.map (·.action) ==
+      (if roll > 2 then [.shieldPrevent (roll - 2)] else []) &&
+    zero.activeReplacements == arcane.activeReplacements && zeroEvents.isEmpty &&
+    expired.activeReplacements.isEmpty &&
+    hit.lifeOf defender == 40 - Int.ofNat (afterArcane + afterCombat) &&
+    link.damageDealt == afterCombat && link.hit == decide (0 < afterCombat) &&
+    hit.activeReplacements.isEmpty && !rollEvents.isEmpty)
+
+#guard checkBoneHeadBarrier 1 false == some true
+#guard checkBoneHeadBarrier 2 true == some true
+#guard checkBoneHeadBarrier 3 false == some true
+#guard checkBoneHeadBarrier 4 true == some true
+#guard checkBoneHeadBarrier 5 false == some true
+#guard checkBoneHeadBarrier 6 true == some true
+
 /-- Bloodrush always buffs Brute attacks and only rewards its own qualifying discard. -/
 meta def checkBloodrushBellow (fromArsenal highPayment : Bool) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
