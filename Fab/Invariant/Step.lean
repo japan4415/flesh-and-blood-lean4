@@ -731,6 +731,18 @@ theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
         exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
       · exact stackPendingTrigger_preserves hwf hok hrb h
     · cases h
+  · -- choosePreventionPitch pitchCard
+    split at h
+    · split at h
+      · cases h
+      · rename_i _ pitched events hpitch
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        have hm := pitchOne_config_rollback hpitch
+        have hp := pitchOne_physIds hwf hpitch
+        exact ⟨GameState.WF.congr (pitchOne_wf hwf hpitch) rfl rfl rfl rfl,
+          GameState.OwnerOk.congr (pitchOne_ownerOk hwf hok hpitch) rfl rfl,
+          GameState.RollbackOk.preserve hrb hm.1 hm.2 hp, hp, hm.1⟩
+    · cases h
   · -- chooseReplacement pickReplacement
     dsimp only at h
     split at h <;>
@@ -811,6 +823,44 @@ theorem sameBoard_gspRun_pending_preserves {s s1 : GameState} (hwf : s.WF) (hok 
     StepPreserves s { gspRun s1 with pending := newPending } := by
   have hp1 := sameBoard_preserves hwf hok hrb hc ho hz hn hr
   exact hp1.trans (gspRun_pending_preserves hp1.wf hp1.ownerOk hp1.rollbackOk newPending)
+
+/-- Settling an arcane event preserves the board invariants. -/
+private theorem finishArcaneDamage_preserves {s : GameState} {p : PlayerId}
+    {effects : List ReplacementEffect} {damage : ReplacementState} {rest : List Frame}
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk) :
+    StepPreserves s (finishArcaneDamage s p effects damage rest).1 := by
+  have h := settleDamage_inv hwf hok p .arcane (applyReplacementStage .outcome [] effects damage)
+  exact ⟨GameState.WF.congr h.1 rfl rfl rfl rfl,
+    GameState.OwnerOk.congr h.2.1 rfl rfl,
+    GameState.RollbackOk.preserve hrb h.2.2.2.1 h.2.2.2.2 h.2.2.1,
+    h.2.2.1, h.2.2.2.1⟩
+
+private theorem advanceArcaneDamage_preserves {s : GameState} {p : PlayerId}
+    {effects : List ReplacementEffect} {damage : ReplacementState} {stage : ArcaneDamageStep}
+    {rest : List Frame} (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk) :
+    StepPreserves s (advanceArcaneDamage s p effects damage stage rest).1 := by
+  cases stage with
+  | offer =>
+    unfold advanceArcaneDamage
+    dsimp only
+    split
+    · exact finishArcaneDamage_preserves hwf hok hrb
+    · split <;> exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  | readChoice =>
+    unfold advanceArcaneDamage
+    dsimp only
+    split
+    · exact finishArcaneDamage_preserves hwf hok hrb
+    · exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  | pay effect =>
+    unfold advanceArcaneDamage
+    dsimp only
+    split
+    · rename_i board hspend
+      obtain ⟨h, _⟩ := spendAssetCost_preserves hwf hok hrb hspend
+      exact h.trans (sameBoard_preserves h.wf h.ownerOk h.rollbackOk rfl rfl rfl rfl rfl)
+    · split <;> exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
 
 set_option maxHeartbeats 400000 in
 /-- One `microStep` preserves `WF`, `OwnerOk`, `RollbackOk`, `physIds`, and `config` (L2 + L4). -/
@@ -909,6 +959,10 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
         exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact rollbackPlay_preserves hwf hok hrb _
+  · -- arcaneDamage
+    have heq : _ = s' := congrArg Prod.fst (Option.some.inj h)
+    rw [← heq]
+    exact advanceArcaneDamage_preserves hwf hok hrb
   · -- payRandomDiscard
     rename_i p _ _ _ count _ _
     let ids := (s.zone (.player p .hand)).take count
@@ -1536,6 +1590,13 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
+    | choosePreventionPitch p =>
+      cases actor <;> cases kind <;> simp [Actor.isPlayer, pitchableCards, List.mem_filter]
+      constructor
+      · rintro ⟨⟨_, hcan⟩, rfl⟩
+        exact ⟨rfl, hcan⟩
+      · rintro ⟨rfl, hcan⟩
+        exact ⟨⟨mem_hand_of_canPitchCard hcan, hcan⟩, rfl⟩
     | chooseOptionalPlayCost p _ _ _ _ _ =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer, eq_comm]
       rename_i choice
@@ -1765,7 +1826,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
     | resolveStack
     | finishResolve _ | combatStep _ _ | gameStateProcess | run _ _ _ _ _
     | chanceDie6 _ _ _ _ _ _ _ | optStep _ _ | endPhaseStart _ | endPhaseArsenal _ | returnPitch _
-    | endTurnCleanup _ | endTurnFinish | flushTriggers =>
+    | arcaneDamage _ _ _ _ | endTurnCleanup _ | endTurnFinish | flushTriggers =>
       cases actor with
       | player _ => cases kind <;> simp only [List.not_mem_nil, false_and]
       | chance | clock | judge =>
@@ -2079,6 +2140,13 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
+    | choosePreventionPitch p =>
+      cases actor <;> cases kind <;> try exact False.elim hlf
+      obtain ⟨rfl, hcan⟩ := hlf
+      simp only [hcan, and_self, ↓reduceIte]
+      have hm := mem_hand_of_canPitchCard hcan
+      have hpitch := pitchOne_isSome hwf hok (player_lt_of_mem_zone hwf hm) hcan
+      split <;> simp_all
     | chooseOptionalPlayCost p _ _ _ _ _ =>
       cases actor <;> cases kind <;> simp_all
     | chooseVariableResources p _ _ _ _ _ =>
@@ -2353,7 +2421,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
     | actionPhaseStart _ | playPayCost _ _ _ _ _ | payRandomDiscard _ _ _ _ _
     | resolveStack | finishResolve _
     | combatStep _ _ | gameStateProcess | run _ _ _ _ _ | optStep _ _
-    | endPhaseStart _ | endPhaseArsenal _ | returnPitch _ | endTurnCleanup _ | endTurnFinish | flushTriggers =>
+    | endPhaseStart _ | endPhaseArsenal _ | returnPitch _ | arcaneDamage _ _ _ _ | endTurnCleanup _ | endTurnFinish | flushTriggers =>
       cases actor <;> cases kind <;> exact False.elim hlf
 
 /-- Under `WF` and `OwnerOk`, every legal action applies without failing. -/
@@ -2416,7 +2484,7 @@ theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
               · rfl
               · split <;> rfl
     · split <;> rfl
-  | payRandomDiscard _ _ _ _ _ => rfl
+  | arcaneDamage _ _ _ _ | payRandomDiscard _ _ _ _ _ => rfl
   | resolveStack =>
     dsimp only
     split

@@ -54,8 +54,17 @@ def ARC_004 : CardDef :=
                 (.prim (.gainResource .controller (.varVal ⟨0⟩))) } ] }
     status := .full }
 
+/-- Achilles Accelerator (ARC005). -/
+def ARC_005 : CardDef :=
+  { Meta.ARC_005_meta with
+    front := { Meta.ARC_005_meta.front with
+      abilities :=
+        [ .activated .instant false {} [{ cost := .destroySelf }] (some (.boostedThisTurn 1)) false
+            { body := .prim (.gainAP .controller (.const 1)) } ] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
-def arcCards : List CardDef := [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004]
+def arcCards : List CardDef := [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005]
 
 end FabCards.ARC
 

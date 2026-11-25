@@ -135,6 +135,8 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
         if p == q then frame else .chooseDiscard q 0 [] []
       | .chooseOpt q _ _ _ _ =>
         if p == q then frame else .chooseOpt q ⟨0⟩
+      | .chooseReplacement q stage _ canDecline =>
+        if p == q then frame else .chooseReplacement q stage [] canDecline
       | _ => frame
     pendingTriggers := s.pendingTriggers
     selectionChoices := selectionChoices }
@@ -647,13 +649,26 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
           | chooseTriggerOrder _ _ =>
             dsimp only
             simp only [h.pendingTriggers, h.triggerTargetChoices_eq]
+          | choosePreventionPitch q =>
+            dsimp only
+            by_cases hqp : q = p
+            · subst hqp
+              unfold pitchableCards
+              rw [h.visibleZones (.player q .hand) (by simp [Zone.isSecretTo]),
+                funext h.canPitchCard_eq]
+            · have hne : (Actor.player q == Actor.player p) = false := by simp [hqp]
+              have hnil : ∀ (l : List ObjId),
+                  List.filter (fun a => a.actor == Actor.player p)
+                    (l.map fun id => Action.mk (.player q) (.pitchCard id)) = [] := by
+                intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
+              rw [hnil, hnil]
           | chooseReplacement _ _ _ _ | chooseTriggerGraveyard _ _ _ _ _ _ => rfl
           | chanceFirstPlayer | revealLoadouts | chanceShuffle _ | openingDraws | draw _ _
           | beginTurn | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _
           | payRandomDiscard _ _ _ _ _
           | resolveStack | finishResolve _ | combatStep _ _ | gameStateProcess | run _ _ _ _ _
           | chanceDie6 _ _ _ _ _ _ _ | optStep _ _ | endPhaseStart _ | endPhaseArsenal _ | returnPitch _
-          | endTurnCleanup _ | endTurnFinish | flushTriggers => rfl
+          | arcaneDamage _ _ _ _ | endTurnCleanup _ | endTurnFinish | flushTriggers => rfl
       · -- concedeActions
         unfold concedeActions
         rw [h.playerCount]
