@@ -21,6 +21,8 @@ lake check --inadvisably-no-sandbox
 
 step "4/5 generated cards check"
 python3 scripts/gen_lean.py --check
+uv run --no-project scripts/gen_lean.py --check \
+  --in data/normalized/arc_cards.json --out FabCards/ARC/Meta.lean
 
 step "5/5 rule citations"
 python3 scripts/cr_citations.py

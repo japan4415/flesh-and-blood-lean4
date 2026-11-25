@@ -256,3 +256,8 @@ meta def goBananasScenario : Option Bool := do
   (["FAB001-P", "HER005-P", "HER006-P", "HER007-P", "HER008-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
   ["Fyendal's Spring Tunic", "Rhinar", "Bravo", "Katsu", "Dorinthea"].map some
+
+#guard ARC.Meta.allMeta.length == 219
+#guard ARC.Meta.allMeta.all (fun card => card.sets == [.arc] && card.status == .todo)
+#guard ((earlyPrintingCardId? "ARC218").bind throughWtrDB.find?).any
+  (fun card => card.front.name == "Cracked Bauble" && card.status == .full)
