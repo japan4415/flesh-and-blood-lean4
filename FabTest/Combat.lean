@@ -334,6 +334,7 @@ meta def checkSigilOfSolace (cid : CardId) (amount : Nat) : Option Bool := do
     events.countP (· == .moved layer discarded .stack graveyard) == 1)
 
 #guard checkSigilOfSolace ⟨"WTR_173_R"⟩ 3 == some true
+#guard checkSigilOfSolace ⟨"WTR_174_Y"⟩ 2 == some true
 
 /-- Check Disable's damage threshold and the arsenal move after its trigger resolves. -/
 meta def checkDisable (cid : CardId) (power : Nat) : Option Bool := do
