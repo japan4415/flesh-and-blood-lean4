@@ -4660,6 +4660,7 @@ meta def checkCrushConfidence (cid : CardId) (pitch power : Nat) : Option Bool :
     loses stillActive hero && !loses future.finishTurnEffects hero)
 
 #guard checkCrushConfidence ⟨"WTR_063_R"⟩ 1 7 == some true
+#guard checkCrushConfidence ⟨"WTR_064_Y"⟩ 2 6 == some true
 
 /-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
 meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
