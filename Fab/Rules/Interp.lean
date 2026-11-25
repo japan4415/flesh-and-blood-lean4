@@ -1779,11 +1779,14 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | _ => none
     match op? with
     | some op =>
+      let target : EffectTarget := match scope, op with
+        | .nextCardPlayed filter, .addPower _ => .nextAttackCard filter
+        | _, _ => .matching (ctrl := some ctrl)
       let eff : ContinuousEffect :=
         { id := s.nextTimestamp
-          source := ⟨0⟩
+          source := src
           controller := ctrl
-          target := .matching (ctrl := some ctrl)
+          target := target
           op := op
           duration := dur
           timestamp := ⟨s.nextTimestamp⟩ }

@@ -443,6 +443,23 @@ def playedCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
     collectCardTriggers s source controller fromArsenal face.abilities fun trigger cond =>
       trigger == .onPlay && (cond.map (evalCondition s controller source fromArsenal)).getD true
 
+/-- Claim the controller's matching next-attack bonuses after a card's costs are paid.
+Cost filters read the unmodified cost of the card (CR 2.2.4b, 5.1.6). -/
+def consumeNextAttackPower (s : GameState) (p : PlayerId) (layerId : ObjId) :
+    Int × List ContinuousEffect :=
+  match s.objectFace? layerId with
+  | some face =>
+    if face.hasType .action && face.hasSubtype .attack then
+      s.activeEffects.foldr (fun effect (power, rest) =>
+        match effect.target, effect.op with
+        | .nextAttackCard filter, .addPower bonus =>
+          if effect.controller == p && cardFaceMatches filter face then
+            (power + bonus, rest)
+          else (power, effect :: rest)
+        | _, _ => (power, effect :: rest)) (0, [])
+    else (0, s.activeEffects)
+  | none => (0, s.activeEffects)
+
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
   match s.pending, a.actor, a.kind with
@@ -764,6 +781,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .playPayCost p layerId fromArsenal modeIdx cost :: rest =>
     match spendAssetCost s p cost with
     | some s1 =>
+      let nextAttack := consumeNextAttackPower s1 p layerId
       let hasGoAgain :=
         match s1.cardDefOf? layerId with
         | some c => c.front.keywords.contains .goAgain && !c.front.hasSubtype .attack
@@ -772,11 +790,13 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         { controller := p
           fromArsenal := fromArsenal
           modeIdx := modeIdx
-          goAgain := hasGoAgain }
+          goAgain := hasGoAgain
+          attackPowerBonus := nextAttack.1 }
       let triggers := playedCardTriggers s1 layerId p fromArsenal
       let flush := if triggers.isEmpty then [] else [.flushTriggers]
       some ({ s1 with
                 layerMeta := s1.layerMeta.insert layerId.n info
+                activeEffects := nextAttack.2
                 playRollback := none
                 pendingTriggers := s1.pendingTriggers ++ triggers
                 nextTimestamp := s1.nextTimestamp + triggers.length

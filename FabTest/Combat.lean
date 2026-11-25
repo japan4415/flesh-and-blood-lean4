@@ -474,6 +474,55 @@ meta def checkScarForAScar (cid : CardId) (power : Nat) : Option Bool := do
 #guard checkScarForAScar ⟨"WTR_192_Y"⟩ 3 == some true
 #guard checkScarForAScar ⟨"WTR_193_B"⟩ 2 == some true
 
+/-- Verify the first qualifying attack claims the bonus, including across plays and turn cleanup. -/
+meta def checkNextAttackCardPower (cid : CardId) (cost bonus : Nat) (lowCost : Bool) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 12 }
+  let card ← funded.cards.find? cid
+  let low : CardId := ⟨"WTR_101_R"⟩
+  let high : CardId := ⟨"WTR_107_R"⟩
+  let eligible := if lowCost then low else high
+  let ineligible := if lowCost then high else low
+  let eligiblePower : Nat := if lowCost then 4 else 5
+  let ineligiblePower : Nat := if lowCost then 5 else 4
+  let (withBuff, buff) ← cPlace funded attacker .hand cid
+  let (withSecondBuff, secondBuff) ← cPlace withBuff attacker .hand cid
+  let (withOther, other) ← cPlace withSecondBuff attacker .hand ineligible
+  let (withFirst, first) ← cPlace withOther attacker .hand eligible
+  let (withSecond, second) ← cPlace withFirst attacker .hand eligible
+  let (ready, instant) ← cPlace withSecond attacker .hand ⟨"WTR_173_R"⟩
+  let play := fun id => [⟨.player attacker, .playCard id⟩]
+  let fight := fun id => play id ++ passBoth ++ passBoth ++
+    [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let buffed ← cSteps ready (play buff ++ passBoth)
+  let afterInstant ← cSteps buffed (play instant ++ passBoth)
+  let afterOther ← cSteps afterInstant (fight other)
+  let enhanced ← cSteps afterOther (fight first)
+  let normal ← cSteps enhanced (fight second)
+  let doubleBuff ← cSteps buffed (play secondBuff ++ passBoth)
+  let doubleEnhanced ← cSteps doubleBuff (fight first)
+  let unpaid ← cSteps (buffed.setPool attacker { actionPoints := 1 }) (play first)
+  let cancelled ← cSteps unpaid [⟨.player attacker, .cancelPlay⟩]
+  let ended ← cSteps buffed (passBoth ++ [⟨.player attacker, .arsenalSkip⟩])
+  let combatDamage := fun (s : GameState) =>
+    (s.combat.bind CombatChain.activeLink?).map (·.damageDealt)
+  pure (card.status == .full && (buffed.poolOf attacker).actionPoints == 1 &&
+    (buffed.poolOf attacker).resources == 12 - cost && buffed.activeEffects.length == 1 &&
+    objEffectivePower buffed first == some (Int.ofNat eligiblePower) &&
+    afterInstant.activeEffects == buffed.activeEffects &&
+    combatDamage afterOther == some ineligiblePower && afterOther.activeEffects == buffed.activeEffects &&
+    combatDamage enhanced == some (eligiblePower + bonus) && enhanced.activeEffects.isEmpty &&
+    combatDamage normal == some eligiblePower &&
+    doubleBuff.activeEffects.length == 2 &&
+    combatDamage doubleEnhanced == some (eligiblePower + 2 * bonus) &&
+    doubleEnhanced.activeEffects.isEmpty &&
+    unpaid.activeEffects == buffed.activeEffects && cancelled.activeEffects == buffed.activeEffects &&
+    cancelled.zone (.player attacker .hand) == buffed.zone (.player attacker .hand) &&
+    ended.activeEffects.isEmpty && (ended.poolOf attacker).actionPoints == 0)
+
+#guard checkNextAttackCardPower ⟨"WTR_218_R"⟩ 0 3 true == some true
+
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
