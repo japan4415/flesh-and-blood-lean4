@@ -165,3 +165,14 @@ meta def assaultScenario : Option Bool := do
   let hit ← (earlyAttack ready (.playCard assault)).bind earlyDamage
   pure (hit.lifeOf earlyDefender == 36 && (hit.poolOf p).resources == 6)
 #guard assaultScenario == some true
+
+meta def pressScenario : Option Bool := do
+  let p := earlyAttacker
+  let (hand, jab) ← earlyPlace earlyBase p (.player p .hand) "WTR_100_B"
+  let (ready, press) ← earlyPlace hand p (.player p .hand) "IRA_011_B"
+  let defending ← earlyAttack ready (.playCard jab)
+  let reaction ← earlySteps defending (⟨.player earlyDefender, .defendDone⟩ :: earlyPass)
+  let resolved ← earlySteps reaction (⟨.player p, .playCard press⟩ :: earlyPass)
+  let link ← resolved.combat.bind CombatChain.activeLink?
+  pure (linkAttackPower resolved link == 2 && (resolved.poolOf p).resources == 8)
+#guard pressScenario == some true

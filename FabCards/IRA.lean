@@ -81,8 +81,20 @@ def IRA_007_R : CardDef :=
 def IRA_010_B : CardDef :=
   iraAttackCard "IRA_010_B" "Brutal Assault" .generic 3 2 4 3
 
+/-- Lunging Press. -/
+def IRA_011_B : CardDef :=
+  { id := ⟨"IRA_011_B"⟩
+    front :=
+      { name := "Lunging Press", supertypes := [.generic], types := [.attackReaction]
+        color := some .blue, pitch := some 3, cost := some {}, defense := some 2
+        playEffect := some
+          { targets := [{ kind := .attackAction }]
+            body := .grant (.obj (.slot 0)) (.addPower (.const 1)) .thisChainLink } }
+    sets := [⟨"IRA"⟩]
+    status := .full }
+
 /-- Logical cards first published in the Ira Welcome Deck. -/
-def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y, IRA_005_Y, IRA_006_R, IRA_007_R, IRA_010_B]
+def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y, IRA_005_Y, IRA_006_R, IRA_007_R, IRA_010_B, IRA_011_B]
 
 end IRA
 end FabCards
