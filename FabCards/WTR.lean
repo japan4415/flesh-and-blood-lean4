@@ -688,6 +688,17 @@ def WTR_130_Y : CardDef := { warriorsValor WTR_130_Y_meta 2 with status := .full
 /-- Warrior's Valor Blue. -/
 def WTR_131_B : CardDef := { warriorsValor WTR_131_B_meta 1 with status := .full }
 
+/-- Give the targeted weapon attack more power if it was defended from hand. -/
+def ironsongResponse (base : CardDef) (bonus : Int) : CardDef :=
+  draftCard base []
+    (some
+      { targets := [targetWeaponAttack]
+        body := .ifThen .defendedFromHandThisLink
+          (.grant (.obj (.slot 0)) (.addPower (.const bonus)) .thisChainLink) .nop })
+
+/-- Ironsong Response Red. -/
+def WTR_132_R : CardDef := { ironsongResponse WTR_132_R_meta 3 with status := .full }
+
 /-- Shared 3-color helper for Sharpen Steel (next weapon attack +3/+2/+1). -/
 def sharpenSteel (base : CardDef) (bonus : Int) : CardDef :=
   draftCard base []
@@ -1035,7 +1046,7 @@ def draftedCards : List CardDef :=
   , WTR_104_R, WTR_105_Y, WTR_106_B
   , WTR_107_R, WTR_108_Y, WTR_109_B, WTR_110_R, WTR_111_Y, WTR_112_B
   , WTR_113, WTR_114, WTR_115, WTR_116, WTR_117, WTR_118_B, WTR_119_R, WTR_120_R
-  , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_126_R, WTR_127_Y, WTR_128_B, WTR_129_R, WTR_130_Y, WTR_131_B
+  , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_126_R, WTR_127_Y, WTR_128_B, WTR_129_R, WTR_130_Y, WTR_131_B, WTR_132_R
   , WTR_141_R, WTR_142_Y, WTR_143_B, WTR_144_R, WTR_145_Y, WTR_146_B
   , WTR_150, WTR_151, WTR_154, WTR_155, WTR_156, WTR_157, WTR_158
   , WTR_159_R, WTR_160_Y, WTR_161_B, WTR_162_B, WTR_163_Y
