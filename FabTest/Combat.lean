@@ -677,6 +677,7 @@ meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) : Option 
 #guard checkIntimidateAttack ⟨"WTR_025_B"⟩ 3 2 4 == some true
 #guard checkIntimidateAttack ⟨"WTR_026_R"⟩ 1 3 7 == some true
 #guard checkIntimidateAttack ⟨"WTR_027_Y"⟩ 2 3 6 == some true
+#guard checkIntimidateAttack ⟨"WTR_028_B"⟩ 3 3 5 == some true
 
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do

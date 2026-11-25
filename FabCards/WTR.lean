@@ -184,6 +184,8 @@ def WTR_025_B : CardDef := { packHunt WTR_025_B_meta with status := .full }
 def WTR_026_R : CardDef := { intimidateAttack WTR_026_R_meta with status := .full }
 /-- Smash Instinct Yellow. -/
 def WTR_027_Y : CardDef := { intimidateAttack WTR_027_Y_meta with status := .full }
+/-- Smash Instinct Blue. -/
+def WTR_028_B : CardDef := { intimidateAttack WTR_028_B_meta with status := .full }
 
 /-- Shared 3-color helper for Awakening Bellow (intimidate + next Brute attack +3/+2/+1). -/
 def awakeningBellow (base : CardDef) (bonus : Int) : CardDef :=
@@ -848,7 +850,7 @@ def draftedCards : List CardDef :=
   [ WTR_000_B
   , WTR_001, WTR_002, WTR_003, WTR_004, WTR_005, WTR_006_R, WTR_007_Y, WTR_008_B, WTR_010_Y
   , WTR_011_R, WTR_012_Y, WTR_013_B, WTR_017_R, WTR_018_Y, WTR_019_B
-  , WTR_023_R, WTR_024_Y, WTR_025_B, WTR_026_R, WTR_027_Y, WTR_032_R, WTR_033_Y, WTR_034_B
+  , WTR_023_R, WTR_024_Y, WTR_025_B, WTR_026_R, WTR_027_Y, WTR_028_B, WTR_032_R, WTR_033_Y, WTR_034_B
   , WTR_038, WTR_039, WTR_040, WTR_041, WTR_042, WTR_043_R, WTR_044_R, WTR_045_B
   , WTR_048_R, WTR_049_Y, WTR_050_B, WTR_051_R, WTR_052_Y, WTR_053_B
   , WTR_054_R, WTR_055_Y, WTR_056_B, WTR_057_R, WTR_058_Y, WTR_059_B, WTR_075
