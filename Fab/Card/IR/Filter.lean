@@ -224,6 +224,8 @@ inductive NumExpr where
   | const (n : Int)
   /-- The chosen value of `X` from play/cost declaration (CR 5.1.2). -/
   | xValue
+  /-- Number of counters of kind `k` on the effect source, using its last known state if it left. -/
+  | sourceCounterCount (k : CounterKind)
   /-- Integer value bound to lexical variable `v` (e.g., die roll or reveal count). -/
   | varVal (v : VarId)
   /-- Number of cards currently in player `p`'s hand (Tome of Fyendal). -/

@@ -1205,6 +1205,99 @@ meta def lockedAndLoadedScenario (cardId : String) (bonus : Int) (boosted : Bool
 #guard lockedAndLoadedScenario "ARC_034_B" 1 false == some true
 #guard lockedAndLoadedScenario "ARC_034_B" 1 true == some true
 
+#guard ((earlyPrintingCardId? "ARC035").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Dissipation Shield" && card.status == .full)
+
+meta def dissipationShieldScenario : Option Bool := do
+  let p := earlyAttacker
+  let arena := Zone.player p .permanent
+  let graveyard := Zone.player p .graveyard
+  let (ready, card) ← earlyPlace { earlyBase with cards := throughArcDB } p (.player p .hand) "ARC_035_Y"
+  let installed ← earlySteps ready (⟨.player p, .playCard card⟩ :: earlyPass)
+  let shield ← (installed.zone arena).head?
+  let counters (s : GameState) := (s.obj? shield).map (·.counterCount .steam)
+  let start (s : GameState) := ((advance 64 { s with pending := [.actionPhaseStart p] } []).toOption).map Prod.fst
+  let resolveStart (s : GameState) := do
+    let trigger ← s.pendingTriggers.head?
+    earlySteps s ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let atStart ← start installed
+  let choice ← resolveStart atStart
+  let kept ← earlySteps choice [⟨.player p, .pickMode 0⟩]
+  let declined ← earlySteps choice [⟨.player p, .pickMode 1⟩]
+  let empty := updateSingleObject installed shield (fun obj => obj.clearCounterVal .steam)
+  let emptyStart ← start empty
+  let lost ← resolveStart emptyStart
+  let (paid, events) ← (step 64 kept ⟨.player p, .activateAbility shield 1 none⟩).toOption
+  let discarded ← (paid.zone graveyard).head?
+  let shieldActive ← earlySteps paid earlyPass
+  let fixed ← shieldActive.activeReplacements.head?
+  let hit (s : GameState) (kind : DamageKind) (amount : Int) :=
+    execPrim s p shield [] (.dealDamage kind .controller (.const amount))
+  let (spent, firstEvents, firstFrames) := hit shieldActive .physical 1
+  let (nextHit, _, _) := hit spent .arcane 4
+  let (largeHit, _, _) := hit shieldActive .arcane 5
+  let (afterLifeLoss, _, _) := execPrim shieldActive p shield [] (.loseLife .controller (.const 1))
+  let (expired, _) ← (advance 64 { shieldActive with pending := [.endTurnCleanup p] } []).toOption
+  pure (counters installed == some 4 && counters kept == some 3 &&
+    declined.zone arena == [] && lost.zone arena == [] &&
+    paid.zone arena == [] && events.contains (.moved shield discarded arena graveyard) &&
+    paid.activeReplacements.isEmpty && fixed.source == shield && fixed.action == .fixedPrevent 3 &&
+    firstEvents.isEmpty && firstFrames.isEmpty && spent.lifeOf p == shieldActive.lifeOf p &&
+    spent.activeReplacements.isEmpty && nextHit.lifeOf p == shieldActive.lifeOf p - 4 &&
+    largeHit.lifeOf p == shieldActive.lifeOf p - 2 && largeHit.activeReplacements.isEmpty &&
+    afterLifeLoss.lifeOf p == shieldActive.lifeOf p - 1 && afterLifeLoss.activeReplacements == [fixed] &&
+    expired.activeReplacements.isEmpty)
+
+#guard dissipationShieldScenario == some true
+
+meta def fixedPreventionCombatScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let fixed : ReplacementEffect :=
+    { id := 100, source := ⟨0⟩, controller := q, stage := .prevention, action := .fixedPrevent 3 }
+  let shielded : ReplacementEffect := { fixed with id := 101, action := .shieldPrevent 5 }
+  let board := { earlyBase with
+    cards := throughArcDB, activeReplacements := [fixed, shielded] }
+  let (ready, card) ← earlyPlace board p (.player p .hand) "WTR_100_B"
+  let attack ← earlyAttack ready (.playCard card)
+  let oldLink ← attack.combat.bind CombatChain.activeLink?
+  let prompt ← earlyDamage attack
+  let .chooseReplacement chooser .prevention [first, second] false :: _ := prompt.pending | none
+  let choose (id : Nat) : Action := ⟨.player q, .pickReplacement (some id)⟩
+  let fixedFirst ← earlySteps prompt [choose first]
+  let shieldFirst ← earlySteps prompt [choose second]
+  let newLink ← fixedFirst.combat.bind CombatChain.activeLink?
+  let otherLink ← shieldFirst.combat.bind CombatChain.activeLink?
+  let resolved ← earlySteps fixedFirst earlyPass
+  pure (chooser == q && first == fixed.id && second == shielded.id &&
+    fixedFirst.lifeOf q == ready.lifeOf q && shieldFirst.lifeOf q == ready.lifeOf q &&
+    fixedFirst.activeReplacements == [shielded] &&
+    shieldFirst.activeReplacements == [fixed, { shielded with action := .shieldPrevent 4 }] &&
+    newLink.linkId == oldLink.linkId && otherLink.linkId == oldLink.linkId &&
+    !newLink.hit && !otherLink.hit && newLink.damageDealt == 0 && otherLink.damageDealt == 0 &&
+    (resolved.poolOf p).actionPoints == (ready.poolOf p).actionPoints)
+
+#guard fixedPreventionCombatScenario == some true
+
+meta def fixedPreventionDirectDamageScenario (kind : DamageKind) : Option Bool := do
+  let p := earlyAttacker
+  let fixed : ReplacementEffect :=
+    { id := 100, source := ⟨0⟩, controller := p, stage := .prevention, action := .fixedPrevent 3 }
+  let shielded : ReplacementEffect := { fixed with id := 101, action := .shieldPrevent 5 }
+  let board := { earlyBase with activeReplacements := [fixed, shielded] }
+  let (initial, _, frames) := execPrim board p ⟨0⟩ [] (.dealDamage kind .controller (.const 1))
+  let (prompt, _) ← (advance 64 { initial with pending := frames } []).toOption
+  let .chooseReplacement chooser .prevention [first, second] false :: _ := prompt.pending | none
+  let fixedFirst ← earlySteps prompt [⟨.player p, .pickReplacement (some first)⟩]
+  let shieldFirst ← earlySteps prompt [⟨.player p, .pickReplacement (some second)⟩]
+  pure (chooser == p && first == fixed.id && second == shielded.id &&
+    fixedFirst.lifeOf p == board.lifeOf p && shieldFirst.lifeOf p == board.lifeOf p &&
+    fixedFirst.activeReplacements == [shielded] &&
+    shieldFirst.activeReplacements == [fixed, { shielded with action := .shieldPrevent 4 }])
+
+#guard fixedPreventionDirectDamageScenario .physical == some true
+#guard fixedPreventionDirectDamageScenario .arcane == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

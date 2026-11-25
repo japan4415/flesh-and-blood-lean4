@@ -849,21 +849,38 @@ theorem sameBoard_gspRun_pending_preserves {s s1 : GameState} (hwf : s.WF) (hok 
   have hp1 := sameBoard_preserves hwf hok hrb hc ho hz hn hr
   exact hp1.trans (gspRun_pending_preserves hp1.wf hp1.ownerOk hp1.rollbackOk newPending)
 
-/-- Settling an arcane event preserves the board invariants. -/
+private theorem finishCombatDamage_preserves {s : GameState}
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
+    (attack : ObjId) (amount : Nat) (rest : List Frame) :
+    StepPreserves s (finishCombatDamage s attack amount rest) := by
+  unfold finishCombatDamage
+  split
+  · exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · dsimp only
+    split
+    · exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · refine sameBoard_gspRun_pending_preserves hwf hok hrb ?_ ?_ ?_ ?_ ?_ _ <;> rfl
+
+/-- Settling a damage event preserves the board invariants. -/
 private theorem finishArcaneDamage_preserves {s : GameState} {p : PlayerId}
     {effects : List ReplacementEffect} {damage : ReplacementState} {rest : List Frame}
-    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk) :
-    StepPreserves s (finishArcaneDamage s p effects damage rest).1 := by
-  have h := settleDamage_inv hwf hok p .arcane (applyReplacementStage .outcome [] effects damage)
-  exact ⟨GameState.WF.congr h.1 rfl rfl rfl rfl,
-    GameState.OwnerOk.congr h.2.1 rfl rfl,
-    GameState.RollbackOk.preserve hrb h.2.2.2.1 h.2.2.2.2 h.2.2.1,
-    h.2.2.1, h.2.2.2.1⟩
+    {attack : Option ObjId} (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk) :
+    StepPreserves s (finishArcaneDamage s p effects damage rest attack).1 := by
+  let result := applyReplacementStage .outcome [] effects damage
+  let settled := (settleDamage s p (preventionDamageKind damage) result).1
+  obtain ⟨hw, ho, hp, hc, hr⟩ := settleDamage_inv hwf hok p (preventionDamageKind damage) result
+  have h : StepPreserves s settled :=
+    ⟨hw, ho, GameState.RollbackOk.preserve hrb hc hr hp, hp, hc⟩
+  unfold finishArcaneDamage
+  dsimp only
+  split
+  · exact h.trans (finishCombatDamage_preserves h.wf h.ownerOk h.rollbackOk _ _ _)
+  · exact h.trans (sameBoard_preserves h.wf h.ownerOk h.rollbackOk rfl rfl rfl rfl rfl)
 
 private theorem advanceArcaneDamage_preserves {s : GameState} {p : PlayerId}
     {effects : List ReplacementEffect} {damage : ReplacementState} {stage : ArcaneDamageStep}
-    {rest : List Frame} (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk) :
-    StepPreserves s (advanceArcaneDamage s p effects damage stage rest).1 := by
+    {rest : List Frame} {attack : Option ObjId} (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk) :
+    StepPreserves s (advanceArcaneDamage s p effects damage stage rest attack).1 := by
   cases stage with
   | offer =>
     unfold advanceArcaneDamage
@@ -1144,36 +1161,33 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
   · -- combatStep .damage
     rename_i atkId rest _
     dsimp only at h
-    cases hcc : s.combat with
+    cases hl : s.combat.bind CombatChain.activeLink? with
     | none =>
-      rw [hcc] at h
+      rw [hl] at h
       simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
-    | some cc =>
-      rw [hcc] at h
+      exact finishCombatDamage_preserves hwf hok hrb _ _ _
+    | some link =>
+      rw [hl] at h
       dsimp only at h
-      cases hl : cc.activeLink? with
-      | none =>
-        rw [hl] at h
+      cases hp : damagePreventionFrame? s link.defender .physical
+          (linkDamageBeforePrevention s link) (some atkId) with
+      | some prevention =>
+        rw [hp] at h
         simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
-      | some link =>
-        rw [hl] at h
-        dsimp only at h
+      | none =>
+        rw [hp] at h
         have hinv := applyDamageWithPrevention_inv hwf hok link.defender .physical
           (linkDamageBeforePrevention s link)
         cases hdmg : applyDamageWithPrevention s link.defender .physical
             (linkDamageBeforePrevention s link) with
-        | mk s2 es2 =>
+        | mk settled events =>
           rw [hdmg] at h hinv
-          dsimp only at h hinv
-          simp only [Option.some.injEq, Prod.mk.injEq] at h
-          obtain ⟨rfl, -⟩ := h
-          obtain ⟨hwf2, hok2, hp2, hc2, hr2⟩ := hinv
-          have hp2s : StepPreserves s s2 :=
-            ⟨hwf2, hok2, GameState.RollbackOk.preserve hrb hc2 hr2 hp2, hp2, hc2⟩
-          apply hp2s.trans
-          refine sameBoard_gspRun_pending_preserves hwf2 hok2 hp2s.rollbackOk ?_ ?_ ?_ ?_ ?_ _ <;> rfl
+          simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          obtain ⟨hw, ho, hp, hc, hr⟩ := hinv
+          have applied : StepPreserves s settled :=
+            ⟨hw, ho, GameState.RollbackOk.preserve hrb hc hr hp, hp, hc⟩
+          exact applied.trans (finishCombatDamage_preserves hw ho applied.rollbackOk _ _ _)
   · -- combatStep .resolution
     dsimp only at h
     split at h
@@ -1851,7 +1865,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
     | resolveStack
     | finishResolve _ | combatStep _ _ | gameStateProcess | run _ _ _ _ _
     | chanceDie6 _ _ _ _ _ _ _ | optStep _ _ | endPhaseStart _ | endPhaseArsenal _ | returnPitch _
-    | arcaneDamage _ _ _ _ | endTurnCleanup _ | endTurnFinish | flushTriggers =>
+    | arcaneDamage _ _ _ _ _ | endTurnCleanup _ | endTurnFinish | flushTriggers =>
       cases actor with
       | player _ => cases kind <;> simp only [List.not_mem_nil, false_and]
       | chance | clock | judge =>
@@ -2446,7 +2460,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
     | actionPhaseStart _ | playPayCost _ _ _ _ _ | payRandomDiscard _ _ _ _ _
     | resolveStack | finishResolve _
     | combatStep _ _ | gameStateProcess | run _ _ _ _ _ | optStep _ _
-    | endPhaseStart _ | endPhaseArsenal _ | returnPitch _ | arcaneDamage _ _ _ _ | endTurnCleanup _ | endTurnFinish | flushTriggers =>
+    | endPhaseStart _ | endPhaseArsenal _ | returnPitch _ | arcaneDamage _ _ _ _ _ | endTurnCleanup _ | endTurnFinish | flushTriggers =>
       cases actor <;> cases kind <;> exact False.elim hlf
 
 /-- Under `WF` and `OwnerOk`, every legal action applies without failing. -/
@@ -2509,7 +2523,7 @@ theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
               · rfl
               · split <;> rfl
     · split <;> rfl
-  | arcaneDamage _ _ _ _ | payRandomDiscard _ _ _ _ _ => rfl
+  | arcaneDamage _ _ _ _ _ | payRandomDiscard _ _ _ _ _ => rfl
   | resolveStack =>
     dsimp only
     split

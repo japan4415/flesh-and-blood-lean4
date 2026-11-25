@@ -254,6 +254,20 @@ def ARC_033_Y : CardDef := { lockedAndLoaded Meta.ARC_033_Y_meta 2 with status :
 /-- Locked and Loaded (ARC034). -/
 def ARC_034_B : CardDef := { lockedAndLoaded Meta.ARC_034_B_meta 1 with status := .full }
 
+/-- Dissipation Shield (ARC035). -/
+def ARC_035_Y : CardDef :=
+  let destroy := Effect.prim (.destroy .self_)
+  let spend := Effect.prim (.removeCounter .self_ .steam (.const 1))
+  { Meta.ARC_035_Y_meta with
+    front := { Meta.ARC_035_Y_meta.front with
+      entryCounters := [(.steam, 4)]
+      abilities :=
+        [ .triggered .onStartOfActionPhase false none none
+            { body := .ifThen (.sourceCounterLt .steam 1) destroy (.chooseOneL [spend, destroy]) }
+        , .activated .instant false {} [{ cost := .destroySelf }] none false
+            { body := .prim (.preventDamageOnce .controller (.sourceCounterCount .steam)) } ] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -262,7 +276,7 @@ def arcCards : List CardDef :=
    ARC_023_R, ARC_024_Y, ARC_025_B,
    ARC_026_R, ARC_027_Y, ARC_028_B,
    ARC_029_R, ARC_030_Y, ARC_031_B,
-   ARC_032_R, ARC_033_Y, ARC_034_B]
+   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y]
 
 end FabCards.ARC
 

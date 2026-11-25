@@ -26,11 +26,11 @@ def captureLki (s : GameState) (id : ObjId) (fallbackOwner : PlayerId) : LkiSnap
       match s.objectFace? id with
       | some face =>
         LkiSnapshot.ofFace o.owner o.controller o.kind.cardId? face
-          o.minusDefenseCounters o.plusPowerCounters
+          o.minusDefenseCounters o.plusPowerCounters o.extraCounters
       | none =>
         { cardId := o.kind.cardId?, name := "", owner := o.owner, controller := o.controller,
           minusDefenseCounters := o.minusDefenseCounters,
-          plusPowerCounters := o.plusPowerCounters }
+          plusPowerCounters := o.plusPowerCounters, extraCounters := o.extraCounters }
 
 /-- Untap a single object if it is controlled by player `p` (CR 4.4.3d). -/
 def untapIfControlled (p : PlayerId) (o : Object) : Object :=

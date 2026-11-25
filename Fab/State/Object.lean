@@ -97,13 +97,8 @@ theorem Object.resetOnZoneChange_owner (o : Object) (ts : Timestamp) (fd : Bool)
     (o.resetOnZoneChange ts fd).owner = o.owner := rfl
 
 /-- Read counter count of kind `k` on object `o`. -/
-def Object.counterCount (o : Object) : CounterKind → Nat
-  | .minusOneDefense => o.minusDefenseCounters
-  | .plusOnePower => o.plusPowerCounters
-  | .energy => (o.extraCounters.find? (·.1 == "energy")).map (·.2) |>.getD 0
-  | .steam => (o.extraCounters.find? (·.1 == "steam")).map (·.2) |>.getD 0
-  | .aim => (o.extraCounters.find? (·.1 == "aim")).map (·.2) |>.getD 0
-  | .named lbl => (o.extraCounters.find? (·.1 == lbl)).map (·.2) |>.getD 0
+def Object.counterCount (o : Object) : CounterKind → Nat :=
+  readCounterCount o.minusDefenseCounters o.plusPowerCounters o.extraCounters
 
 /-- Update counter `k` on object `o` by adding `delta`. -/
 def Object.addCounterVal (o : Object) (k : CounterKind) (delta : Nat) : Object :=

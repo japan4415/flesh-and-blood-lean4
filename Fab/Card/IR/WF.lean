@@ -31,6 +31,7 @@ when `hasX` is true. -/
 def NumExpr.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : NumExpr → Bool
   | .const _ => true
   | .xValue => hasX
+  | .sourceCounterCount _ => true
   | .varVal v => env.contains v
   | .handCount p => p.wfBool numSlots
   | .chainHits => true
@@ -112,6 +113,7 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .addCounter o _ n | .removeCounter o _ n => o.wfBool numSlots env && n.wfBool numSlots env hasX
   | .removeAllCounters o _ => o.wfBool numSlots env
   | .preventNextDamage p n _ => p.wfBool numSlots && n.wfBool numSlots env hasX
+  | .preventDamageOnce p n => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .closeCombatChain => true
   | .charge p => p.wfBool numSlots
   | .banishFromSoul p _ => p.wfBool numSlots

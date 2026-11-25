@@ -53,6 +53,16 @@ def lookupVar (env : List (VarId × Int)) (v : VarId) : Int :=
   | some (_, val) => val
   | none => 0
 
+/-- Read source counters from the live object or a matching resolving layer's snapshot. -/
+def effectSourceCounterCount (s : GameState) (source : ObjId) (kind : CounterKind) : Nat :=
+  match s.obj? source with
+  | some obj => obj.counterCount kind
+  | none =>
+    ((s.zone .stack).head?.bind s.obj?).map (fun layer =>
+      match layer.kind with
+      | .layer original (some lki) _ _ => if original == source then lki.counterCount kind else 0
+      | _ => 0) |>.getD 0
+
 /-- Evaluate a `NumExpr` in the current state and lexical environment. -/
 def evalNumExpr (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
     (value : NumExpr) (source : Option ObjId := none) : Int :=
@@ -60,6 +70,8 @@ def evalNumExpr (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
   | .const n => n
   | .xValue =>
     Int.ofNat ((source.bind fun id => (s.layerMeta.get? id.n).bind (·.variableResources)).getD 0)
+  | .sourceCounterCount kind =>
+    Int.ofNat ((source.map (fun id => effectSourceCounterCount s id kind)).getD 0)
   | .varVal v => lookupVar env v
   | .handCount p =>
     let target := evalPlayerRef s ctrl p
@@ -899,17 +911,33 @@ def arcaneBarrierEffects (s : GameState) (p : PlayerId) : List ReplacementEffect
     { id := firstId + index, source, controller := p, stage := .prevention,
       action := .arcaneBarrierPrevent cost, optional := true }
 
-/-- Start an event's interactive prevention stage after the first two replacement stages (CR 6.4.10). -/
-def arcanePreventionFrame? (s : GameState) (p : PlayerId) (kind : DamageKind) (amt : Nat) :
-    Option Frame :=
-  if kind != .arcane || amt == 0 then none else
-    let barriers := arcaneBarrierEffects s p
-    if barriers.isEmpty then none else
-      let effects := s.activeReplacements ++ barriers
-      let proposed : ReplacementState := { event := .damage p kind amt }
-      let damage := applyReplacementStage .standard [] effects
-        (applyReplacementStage .selfOrIdentity [] effects proposed)
-      some (.arcaneDamage p effects damage .offer)
+/-- Resource cost of a paid prevention effect (CR 8.3.8). -/
+def preventionResourceCost (effect : ReplacementEffect) : Nat :=
+  match effect.action with
+  | .arcaneBarrierPrevent n | .quellPrevent n => n
+  | _ => 0
+
+/-- Open a prevention choice when Arcane Barrier is available or fixed prevention competes
+with another eligible effect (CR 6.4.10, 6.5.1). -/
+def damagePreventionFrame? (s : GameState) (p : PlayerId) (kind : DamageKind) (amount : Nat)
+    (attack : Option ObjId := none) : Option Frame :=
+  if amount = 0 then none
+  else
+    let barriers := if kind == .arcane then arcaneBarrierEffects s p else []
+    let effects := s.activeReplacements ++ barriers
+    let proposed : ReplacementState := { event := .damage p kind amount }
+    let damage := applyReplacementStage .standard [] effects
+      (applyReplacementStage .selfOrIdentity [] effects proposed)
+    let candidates := effects.filter fun effect =>
+      let offeredEnergy := max (preventionResourceCost effect) (s.poolOf p).totalEnergy
+      effect.eligible .prevention { damage with availResources := offeredEnergy }
+    let hasFixed := candidates.any fun effect =>
+      match effect.action with
+      | .fixedPrevent _ => true
+      | _ => false
+    if !barriers.isEmpty || (hasFixed && candidates.length > 1) then
+      some (.arcaneDamage p effects damage .offer attack)
+    else none
 
 /-- Banish the first card in a hand and schedule its return at the beginning of the end phase. -/
 def intimidateHandFront (s : GameState) (ctrl target : PlayerId) : GameState × List Event × List Frame :=
@@ -1013,7 +1041,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
   | .dealDamage kind pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
-    match arcanePreventionFrame? s target kind amt with
+    match damagePreventionFrame? s target kind amt with
     | some frame => (s, [], [frame])
     | none =>
       let (s1, es) := applyDamageWithPrevention s target kind amt
@@ -1234,7 +1262,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         | none => (s, revealed, [])
       else
         (s, revealed, [])
-  | .preventNextDamage pref n _ =>
+  | .preventNextDamage pref n _ | .preventDamageOnce pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     if amt = 0 then
@@ -1245,7 +1273,9 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
           source := src
           controller := target
           stage := .prevention
-          action := .shieldPrevent amt
+          action := match p with
+            | .preventDamageOnce _ _ => .fixedPrevent amt
+            | _ => .shieldPrevent amt
           optional := false }
       ({ s with
           activeReplacements := s.activeReplacements ++ [re]
@@ -1500,7 +1530,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
           exact ⟨moveObj_wf hwf hm, moveObj_ownerOk hwf hok hm,
                  moveObj_physIds hwf hm, hmeta.1, hmeta.2⟩
       · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-  | preventNextDamage pref n _ =>
+  | preventNextDamage pref n _ | preventDamageOnce pref n =>
     unfold execPrim; dsimp only
     split
     · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
@@ -1753,7 +1783,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
           have h := moveObj_ttr_core hm
           exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
       · exact ⟨rfl, rfl, id⟩
-  | preventNextDamage _ _ _ =>
+  | preventNextDamage _ _ _ | preventDamageOnce _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | charge pref =>
     unfold execPrim; dsimp only
