@@ -574,6 +574,9 @@ meta def checkNaturesPathPilgrimage (cid : CardId) (pitch bonus : Nat) (fromArse
 #guard checkNaturesPathPilgrimage ⟨"WTR_148_Y"⟩ 2 2 false == some true
 #guard checkNaturesPathPilgrimage ⟨"WTR_148_Y"⟩ 2 2 true == some true
 
+#guard checkNaturesPathPilgrimage ⟨"WTR_149_B"⟩ 3 1 false == some true
+#guard checkNaturesPathPilgrimage ⟨"WTR_149_B"⟩ 3 1 true == some true
+
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
 --    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!
