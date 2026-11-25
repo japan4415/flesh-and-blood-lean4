@@ -479,19 +479,17 @@ def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
     | _ => none
   triggers.zipIdx.map fun (trigger, idx) => { trigger with id := s.nextTimestamp + idx }
 
-/-- Collect an attack's unconditional hit and Crush triggers (CR 7.5.3, 8.4.2). -/
+/-- Collect an attack's unconditional hit and Crush triggers (CR 7.5.5, 8.4.2). -/
 def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigger :=
   match link.attack with
   | none => []
   | some source =>
-    match s.objectFace? source with
-    | none => []
-    | some face =>
-      collectCardTriggers s source link.attacker false (face.abilities ++ link.grantedAbilities)
-        fun trigger cond => cond.isNone && match trigger with
-          | .onHit => link.hit
-          | .onCrush => crushTriggered link
-          | _ => false
+    let printed := ((s.objectFace? source).map (·.abilities)).getD []
+    collectCardTriggers s source link.attacker false (printed ++ link.grantedAbilities)
+      fun trigger cond => cond.isNone && match trigger with
+        | .onHit => link.hit
+        | .onCrush => crushTriggered link
+        | _ => false
 
 /-- Collect the card's own on-play triggers once its costs have been paid (CR 5.1, 6.6.5). -/
 def playedCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
@@ -504,12 +502,10 @@ def playedCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
 
 /-- Collect an attack's own triggered abilities when it becomes attacking (CR 7.2.3). -/
 def attackingCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
-    (fromArsenal : Bool) : List PendingTrigger :=
-  match s.objectFace? source with
-  | none => []
-  | some face =>
-    collectCardTriggers s source controller fromArsenal face.abilities fun trigger cond =>
-      trigger == .onAttack && (cond.map (evalCondition s controller source fromArsenal)).getD true
+    (fromArsenal : Bool) (granted : List Ability := []) : List PendingTrigger :=
+  let printed := ((s.objectFace? source).map (·.abilities)).getD []
+  collectCardTriggers s source controller fromArsenal (printed ++ granted) fun trigger cond =>
+    trigger == .onAttack && (cond.map (evalCondition s controller source fromArsenal)).getD true
 
 /-- Read the face used to match a pending attack and whether the attack is a proxy (CR 1.4.3a). -/
 def attackLayerFace? (s : GameState) (layerId : ObjId) : Option (CardFace × Bool) :=
@@ -539,6 +535,8 @@ def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo
         | .addPower bonus => ({ layer with attackPowerBonus := layer.attackPowerBonus + bonus }, rest)
         | .grantKeyword keyword =>
           ({ layer with attackKeywords := insertUnique keyword layer.attackKeywords }, rest)
+        | .grantAttackAbility ability =>
+          ({ layer with attackAbilities := ability :: layer.attackAbilities }, rest)
         | _ => (layer, effect :: rest)
       else (layer, effect :: rest)) (info, [])
 
@@ -977,7 +975,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let tp := s1.active.getD ⟨0⟩
     let effFrames :=
       if eff == .nop then [] else [.run info.controller atkId info.fromArsenal [] [eff]]
-    let attackTriggers := attackingCardTriggers s1 atkId info.controller info.fromArsenal
+    let attackTriggers := attackingCardTriggers s1 atkId info.controller info.fromArsenal info.attackAbilities
     let triggerFrames := if attackTriggers.isEmpty then [] else [.flushTriggers]
     some ({ s1 with
               pendingTriggers := s1.pendingTriggers ++ attackTriggers

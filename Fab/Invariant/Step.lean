@@ -771,10 +771,13 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
     exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
   · -- combatStep .attack
     rename_i layerId rest _
-    dsimp only at h
-    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
     let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
-    obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := enterAttackStep_inv hwf hok layerId info.controller
+    have hinv := enterAttackStep_inv hwf hok layerId info.controller
+    dsimp only at h
+    generalize enterAttackStep s layerId info.controller = entered at h hinv
+    rcases entered with ⟨enteredState, attack, events⟩
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := hinv
     exact ⟨GameState.WF.congr hwf1 rfl rfl rfl rfl,
            GameState.OwnerOk.congr hok1 rfl rfl,
            GameState.RollbackOk.preserve hrb hc1 hr1 hp1,

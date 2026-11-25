@@ -675,6 +675,80 @@ meta def checkNextWeaponBuff (cid : CardId) (pitch cost bonus : Nat) (givesGoAga
 #guard checkNextWeaponBuff ⟨"WTR_145_Y"⟩ 2 2 2 true == some true
 #guard checkNextWeaponBuff ⟨"WTR_146_B"⟩ 3 2 1 true == some true
 
+/-- A weapon gets Go Again only when its granted hit trigger resolves. -/
+meta def checkWarriorsValor (cid : CardId) (pitch bonus : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 4 }
+  let card ← funded.cards.find? cid
+  let (withValor, valor) ← cPlace funded attacker .hand cid
+  let (withSecondValor, secondValor) ← cPlace withValor attacker .hand cid
+  let (withJab, jab) ← cPlace withSecondValor attacker .hand ⟨"WTR_098_R"⟩
+  let (equipped, weapon) ← cPlace withJab attacker .weapon ⟨"WTR_078"⟩
+  let (withSecondWeapon, secondWeapon) ← cPlace equipped attacker .weapon ⟨"WTR_078"⟩
+  let (withBlock, block) ← cPlace withSecondWeapon defender .hand ⟨"WTR_203_R"⟩
+  let (ready, secondBlock) ← cPlace withBlock defender .hand ⟨"WTR_204_Y"⟩
+  let play := fun id => (⟨.player attacker, .playCard id⟩ : Action)
+  let swing := fun id => (⟨.player attacker, .attackWeapon id⟩ : Action)
+  let defend := fun id => (⟨.player defender, .defendCard id⟩ : Action)
+  let toDefend := passBoth ++ passBoth
+  let toDamage := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth
+  let activeLink := fun (s : GameState) => s.combat.bind CombatChain.activeLink?
+  let ap := fun (s : GameState) => (s.poolOf attacker).actionPoints
+  let start : Action := ⟨.player attacker, .pickTriggerStart attacker⟩
+  let pick := fun (trig : PendingTrigger) => (⟨.player attacker, .pickTrigger trig.id⟩ : Action)
+  let buffed ← cSteps ready (play valor :: passBoth)
+  let afterJab ← cSteps buffed (play jab :: (toDefend ++ toDamage ++ passBoth))
+  let beforeSwing ← cSteps afterJab passBoth
+  let broke := beforeSwing.setPool attacker { actionPoints := 1 }
+  let cancelled ← cSteps broke [swing weapon, ⟨.player attacker, .cancelPlay⟩]
+  let paid ← cSteps beforeSwing [swing weapon]
+  let proxy ← (paid.zone .stack).head?
+  let pending ← paid.layerMeta.get? proxy.n
+  let defending ← cSteps paid toDefend
+  let defendLink ← activeLink defending
+  let hit ← cSteps defending toDamage
+  let hitLink ← activeLink hit
+  let trigger ← hit.pendingTriggers.head?
+  let stacked ← cSteps hit [start, pick trigger]
+  let afterTrigger ← cSteps stacked passBoth
+  let triggeredLink ← activeLink afterTrigger
+  let resolved ← cSteps afterTrigger passBoth
+  let ordinary ← cSteps resolved (passBoth ++ [swing secondWeapon] ++ toDefend ++ toDamage ++ passBoth)
+  let ordinaryLink ← activeLink ordinary
+  let blocked ← cSteps defending ([defend block, defend secondBlock] ++ toDamage ++ passBoth)
+  let blockedLink ← activeLink blocked
+  let (shielded, _, _) := execPrim defending defender ⟨0⟩ []
+    (.preventNextDamage .controller (.const (Int.ofNat (1 + bonus))) .thisTurn)
+  let prevented ← cSteps shielded (toDamage ++ passBoth)
+  let preventedLink ← activeLink prevented
+  let doubleBuffed ← cSteps buffed (play secondValor :: passBoth)
+  let doubleHit ← cSteps doubleBuffed (swing weapon :: (toDefend ++ toDamage))
+  let firstTrigger ← doubleHit.pendingTriggers[0]?
+  let secondTrigger ← doubleHit.pendingTriggers[1]?
+  let doubleResolved ← cSteps doubleHit ([start, pick firstTrigger, pick secondTrigger] ++
+    passBoth ++ passBoth ++ passBoth)
+  let doubleLink ← activeLink doubleResolved
+  let ended ← cSteps buffed (passBoth ++ [⟨.player attacker, .arsenalSkip⟩])
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    ap buffed == 1 && (buffed.poolOf attacker).resources == 3 && buffed.activeEffects.length == 2 &&
+    afterJab.lifeOf defender == 37 && beforeSwing.activeEffects == buffed.activeEffects &&
+    decide (cancelled = broke) && paid.activeEffects.isEmpty && pending.attackAbilities.length == 1 &&
+    pending.attackPowerBonus == Int.ofNat bonus && !linkHasKeyword defending defendLink .goAgain &&
+    hitLink.attackSource == some weapon && hitLink.damageDealt == 1 + bonus && hitLink.hit &&
+    hit.pendingTriggers.length == 1 && some trigger.source == hitLink.attack &&
+    !linkHasKeyword hit hitLink .goAgain && ap hit == 0 && ap stacked == 0 &&
+    linkHasKeyword afterTrigger triggeredLink .goAgain && ap afterTrigger == 0 && ap resolved == 1 &&
+    ordinaryLink.attackSource == some secondWeapon && ordinaryLink.damageDealt == 1 &&
+    ordinaryLink.grantedAbilities.isEmpty && ap ordinary == 0 &&
+    !blockedLink.hit && ap blocked == 0 && blocked.pendingTriggers.isEmpty &&
+    !preventedLink.hit && ap prevented == 0 && prevented.pendingTriggers.isEmpty &&
+    doubleHit.pendingTriggers.length == 2 && firstTrigger.id != secondTrigger.id &&
+    doubleLink.damageDealt == 1 + 2 * bonus && doubleLink.grantedKeywords == [.goAgain] &&
+    ap doubleResolved == 1 && ended.activeEffects.isEmpty)
+
+#guard checkWarriorsValor ⟨"WTR_129_R"⟩ 1 3 == some true
+
 -- A queued Go Again belongs to the weapon attack.
 #guard (do
   let attacker : PlayerId := ⟨0⟩
