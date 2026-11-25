@@ -358,8 +358,8 @@ def blessingOfDeliverance (base : CardDef) (revealCount : Nat) : CardDef :=
 
 /-- Blessing of Deliverance Red. -/
 def WTR_054_R : CardDef := { blessingOfDeliverance WTR_054_R_meta 3 with status := .full }
-/-- Blessing of Deliverance Yellow (drafted IR). -/
-def WTR_055_Y : CardDef := blessingOfDeliverance WTR_055_Y_meta 2
+/-- Blessing of Deliverance Yellow. -/
+def WTR_055_Y : CardDef := { blessingOfDeliverance WTR_055_Y_meta 2 with status := .full }
 /-- Blessing of Deliverance Blue (drafted IR). -/
 def WTR_056_B : CardDef := blessingOfDeliverance WTR_056_B_meta 1
 
