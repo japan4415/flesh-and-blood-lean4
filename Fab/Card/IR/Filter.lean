@@ -115,6 +115,8 @@ inductive Duration where
   | thisTurn
   /-- Lasts during the affected player's next action phase (Spinal Crush, Cranial Crush). -/
   | nextActionPhase
+  /-- The action phase in which a previously scheduled restriction is active (CR 4.3, 4.4). -/
+  | thisActionPhase
   /-- Lasts until the end of the affected player's next turn (Crush Confidence). -/
   | untilEndOfNextTurn
   /-- Lasts as long as the source object remains in the arena (CR 6.2.2). -/

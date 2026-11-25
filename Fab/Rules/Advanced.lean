@@ -553,18 +553,7 @@ theorem crackGold_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
     (crackGold s p tokId).1.playRollback = s.playRollback := by
   unfold crackGold
   obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := destroyObjToGraveyard_inv hwf hok tokId
-  have hd_meta : (drawOne (destroyObjToGraveyard s tokId).1 p).1.config =
-      (destroyObjToGraveyard s tokId).1.config ∧
-      (drawOne (destroyObjToGraveyard s tokId).1 p).1.playRollback =
-      (destroyObjToGraveyard s tokId).1.playRollback := by
-    unfold drawOne
-    cases (destroyObjToGraveyard s tokId).1.zone (.player p .deck) with
-    | nil => exact ⟨rfl, rfl⟩
-    | cons cid _ =>
-      dsimp only
-      cases hm : moveObj (destroyObjToGraveyard s tokId).1 cid (.player p .hand) .top false with
-      | none => exact ⟨rfl, rfl⟩
-      | some _ => exact moveObj_config_rollback hm
+  have hd_meta := drawOne_meta (destroyObjToGraveyard s tokId).1 p
   exact ⟨drawOne_wf hwf1, drawOne_ownerOk hwf1 hok1,
          (drawOne_physIds hwf1).trans hp1,
          hd_meta.1.trans hc1, hd_meta.2.trans hr1⟩

@@ -14,70 +14,77 @@ deck-out loss or Burn Out rule (CR 4.5).
 
 namespace Fab
 
-/-- Draw one card for player `p`. If `p`'s deck is empty, returns `(s, [])` unchanged (CR 4.5). -/
+/-- Draw one card for `p` unless drawing is prohibited or their deck is empty (CR 8.5.6). -/
 def drawOne (s : GameState) (p : PlayerId) : GameState × List Event :=
-  match s.zone (.player p .deck) with
-  | [] => (s, [])
-  | top :: _ =>
-    match moveObj s top (.player p .hand) .top false with
-    | some (s', id') =>
-      (s', [.moved top id' (.player p .deck) (.player p .hand), .drawn p id'])
-    | none => (s, [])
+  if s.hasActionPhaseEffect p .cantDrawCards then (s, []) else
+    match s.zone (.player p .deck) with
+    | [] => (s, [])
+    | top :: _ =>
+      match moveObj s top (.player p .hand) .top false with
+      | some (s', id') =>
+        (s', [.moved top id' (.player p .deck) (.player p .hand), .drawn p id'])
+      | none => (s, [])
 
 /-- Drawing from an empty deck is a no-op with no events (CR 4.5). -/
 theorem drawOne_empty_noop {s : GameState} {p : PlayerId}
     (h : s.zone (.player p .deck) = []) :
     drawOne s p = (s, []) := by
-  unfold drawOne
-  rw [h]
+  simp [drawOne, h]
 
 /-- `drawOne` preserves `WF`. -/
 theorem drawOne_wf {s : GameState} {p : PlayerId} (hwf : s.WF) :
     (drawOne s p).1.WF := by
   unfold drawOne
-  cases h : s.zone (.player p .deck) with
-  | nil => exact hwf
-  | cons top rest =>
-    dsimp only
-    cases hm : moveObj s top (.player p .hand) .top false with
-    | none => exact hwf
-    | some res =>
-      obtain ⟨s', id'⟩ := res
-      exact moveObj_wf hwf hm
+  split
+  · exact hwf
+  · cases h : s.zone (.player p .deck) with
+    | nil => exact hwf
+    | cons top rest =>
+      dsimp only
+      cases hm : moveObj s top (.player p .hand) .top false with
+      | none => exact hwf
+      | some res =>
+        obtain ⟨s', id'⟩ := res
+        exact moveObj_wf hwf hm
 
 /-- `drawOne` preserves the multiset of physical card identifiers (I1). -/
 theorem drawOne_physIds {s : GameState} {p : PlayerId} (hwf : s.WF) :
     (drawOne s p).1.physIds.Perm s.physIds := by
   unfold drawOne
-  cases h : s.zone (.player p .deck) with
-  | nil => exact List.Perm.refl _
-  | cons top rest =>
-    dsimp only
-    cases hm : moveObj s top (.player p .hand) .top false with
-    | none => exact List.Perm.refl _
-    | some res =>
-      obtain ⟨s', id'⟩ := res
-      exact moveObj_physIds hwf hm
+  split
+  · exact List.Perm.refl _
+  · cases h : s.zone (.player p .deck) with
+    | nil => exact List.Perm.refl _
+    | cons top rest =>
+      dsimp only
+      cases hm : moveObj s top (.player p .hand) .top false with
+      | none => exact List.Perm.refl _
+      | some res =>
+        obtain ⟨s', id'⟩ := res
+        exact moveObj_physIds hwf hm
 
 /-- `drawOne` preserves `OwnerOk`. -/
 theorem drawOne_ownerOk {s : GameState} {p : PlayerId} (hwf : s.WF) (hok : s.OwnerOk) :
     (drawOne s p).1.OwnerOk := by
   unfold drawOne
-  cases h : s.zone (.player p .deck) with
-  | nil => exact hok
-  | cons top rest =>
-    dsimp only
-    cases hm : moveObj s top (.player p .hand) .top false with
-    | none => exact hok
-    | some res =>
-      obtain ⟨s', id'⟩ := res
-      exact moveObj_ownerOk hwf hok hm
+  split
+  · exact hok
+  · cases h : s.zone (.player p .deck) with
+    | nil => exact hok
+    | cons top rest =>
+      dsimp only
+      cases hm : moveObj s top (.player p .hand) .top false with
+      | none => exact hok
+      | some res =>
+        obtain ⟨s', id'⟩ := res
+        exact moveObj_ownerOk hwf hok hm
 
-/-- In a well-formed game with `OwnerOk`, drawing from a non-empty deck of a seated player
+/-- When allowed, drawing from a non-empty deck of a seated player in a well-formed game
 decrements deck length by 1 and increments hand length by 1. -/
 theorem drawOne_lengths_of_ownerOk {s : GameState} {p : PlayerId} {top : ObjId} {rest : List ObjId}
     (hwf : s.WF) (hok : s.OwnerOk) (hp : p.n < s.playerCount)
-    (hdeck : s.zone (.player p .deck) = top :: rest) :
+    (hdeck : s.zone (.player p .deck) = top :: rest)
+    (hallowed : s.hasActionPhaseEffect p .cantDrawCards = false) :
     ((drawOne s p).1.zone (.player p .deck)).length + 1 = (s.zone (.player p .deck)).length ∧
     ((drawOne s p).1.zone (.player p .hand)).length = (s.zone (.player p .hand)).length + 1 := by
   have hvalid_d : Zone.player p .deck ∈ allZones s.playerCount := Zone.valid_player hp .deck
@@ -116,14 +123,26 @@ theorem drawOne_lengths_of_ownerOk {s : GameState} {p : PlayerId} {top : ObjId} 
     rw [hd, ho_eq, hown]; simp [Zone.normalize, ZoneKind.isArena]
   have heq : (drawOne s p).1 = s' := by
     unfold drawOne
-    rw [hdeck]
-    dsimp only
-    rw [hm]
+    simp only [hallowed, Bool.false_eq_true, ↓reduceIte, hdeck, hm]
   rw [heq]
   subst hsrc
   subst hdst
   rw [hs.zone_src, hs.zone_dst, hdeck]
   simp [Pos.insert]
+
+/-- Helper: `drawOne` preserves `config` and `playRollback`. -/
+theorem drawOne_meta (s : GameState) (p : PlayerId) :
+    (drawOne s p).1.config = s.config ∧ (drawOne s p).1.playRollback = s.playRollback := by
+  unfold drawOne
+  split
+  · exact ⟨rfl, rfl⟩
+  · cases s.zone (.player p .deck) with
+    | nil => exact ⟨rfl, rfl⟩
+    | cons id _ =>
+      dsimp only
+      cases hm : moveObj s id (.player p .hand) .top false with
+      | none => exact ⟨rfl, rfl⟩
+      | some res => exact moveObj_config_rollback hm
 
 end Fab
 

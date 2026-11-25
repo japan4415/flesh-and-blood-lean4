@@ -130,13 +130,15 @@ theorem drawOne_turn_tournament_result (s : GameState) (p : PlayerId) :
     (drawOne s p).1.turn = s.turn ∧ (drawOne s p).1.tournament = s.tournament ∧
     (drawOne s p).1.result = s.result := by
   unfold drawOne
-  cases s.zone (.player p .deck) with
-  | nil => exact ⟨rfl, rfl, rfl⟩
-  | cons id _ =>
-    dsimp only
-    cases hm : moveObj s id (.player p .hand) .top false with
-    | none => exact ⟨rfl, rfl, rfl⟩
-    | some res => exact moveObj_turn_tournament_result hm
+  split
+  · exact ⟨rfl, rfl, rfl⟩
+  · cases s.zone (.player p .deck) with
+    | nil => exact ⟨rfl, rfl, rfl⟩
+    | cons id _ =>
+      dsimp only
+      cases hm : moveObj s id (.player p .hand) .top false with
+      | none => exact ⟨rfl, rfl, rfl⟩
+      | some res => exact moveObj_turn_tournament_result hm
 
 /-- Helper: `updateSingleObject` preserves `turn`, `tournament`, and `result`. -/
 theorem updateSingleObject_turn_tournament_result (s : GameState) (id : ObjId)
