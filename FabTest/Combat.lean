@@ -145,7 +145,7 @@ meta def checkIronrot (cid : CardId) (slot : ZoneKind) : Option Bool := do
   | none => false
 
 -- 3. Reaction Step: Attack Reaction (Ancestral Empowerment +1{p}, draw 1) + Defense Reaction
---    (Sink Below Red, 4{d}, decline `may`) join combat before Damage Step (CR 7.4, 7.5)!
+--    (Sink Below Red, 4{d}) join combat before Damage Step (CR 7.4, 7.5)!
 --    Wounding Blow Red (4{p}) + Ancestral (+1{p} = 5{p}) vs 3{d} hand card + Sink Below (4{d} = 7{d}) -> 0 dmg!
 #guard match (do
     let (s1, _) ← cPlace m5Base ⟨0⟩ .deck ⟨"WTR_188_R"⟩
@@ -160,10 +160,10 @@ meta def checkIronrot (cid : CardId) (slot : ZoneKind) : Option Bool := do
     let onReact := sReact.combat.map (·.step) == some .reaction
     -- P0 plays Ancestral Empowerment (+1{p} & draw 1), both pass -> resolves
     let sAfterAnc ← cSteps sReact ([⟨.player ⟨0⟩, .playCard ancId⟩] ++ passBoth)
-    -- P0 passes -> P1 plays Sink Below Red (4{d}), P1 passes, P0 passes -> prompts `chooseMay` -> decline
+    -- Sink Below resolves without a choice because P1 has no cards left in hand.
     let sAfterSink ← cSteps sAfterAnc
       [⟨.player ⟨0⟩, .pass⟩, ⟨.player ⟨1⟩, .playCard sinkId⟩,
-       ⟨.player ⟨1⟩, .pass⟩, ⟨.player ⟨0⟩, .pass⟩, ⟨.player ⟨1⟩, .pickMay false⟩]
+       ⟨.player ⟨1⟩, .pass⟩, ⟨.player ⟨0⟩, .pass⟩]
     -- Both pass Reaction Step -> Damage Step (5{p} vs 6{d} = 0 dmg, hit = false)
     let sDmg ← cSteps sAfterSink passBoth
     pure (onReact &&
@@ -369,6 +369,51 @@ meta def checkSigilOfSolace (cid : CardId) (amount : Nat) : Option Bool := do
 #guard checkSigilOfSolace ⟨"WTR_173_R"⟩ 3 == some true
 #guard checkSigilOfSolace ⟨"WTR_174_Y"⟩ 2 == some true
 #guard checkSigilOfSolace ⟨"WTR_175_B"⟩ 1 == some true
+
+/-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
+meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player defender .hand
+  let deck := Zone.player defender .deck
+  let card ← m5Base.cards.find? cid
+  let (withAttack, attack) ← cPlace m5Base attacker .hand ⟨"WTR_203_R"⟩
+  let (deckBase, keptDeck) ← cPlace withAttack defender .deck ⟨"WTR_188_R"⟩
+  let (withDeck, deckTop) ← cPlace deckBase defender .deck ⟨"WTR_189_Y"⟩
+  let (noExtraHand, sink) ← cPlace withDeck defender .hand cid
+  let (withChoice, chosen) ← cPlace noExtraHand defender .hand ⟨"WTR_204_Y"⟩
+  let (withOther, keptHand) ← cPlace withChoice defender .hand ⟨"WTR_205_B"⟩
+  let play := fun (s : GameState) =>
+    cSteps s ([⟨.player attacker, .playCard attack⟩] ++ passBoth ++ passBoth ++
+      [⟨.player defender, .defendDone⟩] ++ passBoth ++
+      [⟨.player attacker, .pass⟩, ⟨.player defender, .playCard sink⟩,
+       ⟨.player defender, .pass⟩, ⟨.player attacker, .pass⟩])
+  let prompt ← play withOther
+  let emptyResolved ← play noExtraHand
+  let declined ← cSteps prompt [⟨.player defender, .pickMay false⟩]
+  let choosing ← cSteps prompt [⟨.player defender, .pickMay true⟩]
+  let (accepted, events) ← (step 64 choosing ⟨.player defender, .handToDeckPick chosen⟩).toOption
+  let drawn ← (accepted.zone hand).head?
+  let bottom ← (accepted.zone deck).getLast?
+  let acceptedDamage ← cSteps accepted passBoth
+  let declinedDamage ← cSteps declined passBoth
+  let emptyDamage ← cSteps emptyResolved passBoth
+  let damageOk := fun (s : GameState) =>
+    s.lifeOf defender == 40 - Int.ofNat (4 - defenseValue) &&
+    (s.combat.bind CombatChain.activeLink?).map (linkTotalDefense s) == some defenseValue
+  pure (card.status == .full && prompt.zone hand == [keptHand, chosen] &&
+    choosing.pending.head? == some (.chooseHandToDeck defender .bottom) &&
+    declined.zone hand == [keptHand, chosen] && declined.zone deck == [deckTop, keptDeck] &&
+    accepted.zone hand == [drawn, keptHand] && accepted.zone deck == [keptDeck, bottom] &&
+    (accepted.cardDefOf? drawn).map (·.id) == some ⟨"WTR_189_Y"⟩ &&
+    (accepted.cardDefOf? bottom).map (·.id) == some ⟨"WTR_204_Y"⟩ &&
+    events.countP (· == .moved chosen bottom hand deck) == 1 &&
+    events.countP (· == .drawn defender drawn) == 1 &&
+    emptyResolved.zone .stack == [] && emptyResolved.zone hand == [] &&
+    emptyResolved.zone deck == [deckTop, keptDeck] &&
+    [acceptedDamage, declinedDamage, emptyDamage].all damageOk)
+
+#guard checkSinkBelow ⟨"WTR_215_R"⟩ 4 == some true
 
 /-- Check Disable's damage threshold and the arsenal move after its trigger resolves. -/
 meta def checkDisable (cid : CardId) (power : Nat) : Option Bool := do
