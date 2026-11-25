@@ -958,6 +958,60 @@ meta def aetherSinkScenario : Option Bool := do
 
 #guard aetherSinkScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC018").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Cognition Nodes" && card.status == .full)
+
+meta def cognitionNodesScenario (blocked : Bool) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let arena := Zone.player p .permanent
+  let getLink (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let (equipped, weapon) ← earlyPlace { earlyBase with cards := throughArcDB } p
+    (.player p .weapon) "WTR_078"
+  let (withDeck, top) ← earlyPlace equipped p deck "WTR_191_R"
+  let (withJab, jab) ← earlyPlace withDeck p hand "WTR_100_B"
+  let (withBlock, blocker) ← earlyPlace withJab q (.player q .hand) "WTR_100_B"
+  let (ready, item) ← earlyPlace withBlock p hand "ARC_018_B"
+  let installed ← earlySteps ready (⟨.player p, .playCard item⟩ :: earlyPass)
+  let nodes ← (installed.zone arena).head?
+  let steam (s : GameState) := (s.obj? nodes).map (·.counterCount .steam)
+  let reaction (s : GameState) (attack : ActionKind) (blocks : List Action) :=
+    (earlyAttack s attack).bind (earlySteps · (blocks ++ (⟨.player q, .defendDone⟩ :: earlyPass)))
+  let use (target : ObjId) : Action := ⟨.player p, .activateAbility nodes 1 (some target)⟩
+  let unloaded ← reaction installed (.playCard jab) []
+  let unloadedTarget ← (getLink unloaded).bind (·.attack)
+  let loaded ← earlySteps installed (⟨.player p, .activateAbility nodes 0 none⟩ :: earlyPass)
+  let withWeapon ← reaction loaded (.attackWeapon weapon) []
+  let weaponTarget ← (getLink withWeapon).bind (·.attack)
+  let blocks := if blocked then [⟨.player q, .defendCard blocker⟩] else []
+  let fighting ← reaction loaded (.playCard jab) blocks
+  let link ← getLink fighting
+  let target ← link.attack
+  let paid ← earlySteps fighting [use target]
+  let armed ← earlySteps paid earlyPass
+  let damage ← earlySteps armed earlyPass
+  let moved ← if blocked then some damage else do
+    let trigger ← damage.pendingTriggers.head?
+    earlySteps damage
+      ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let resolved ← earlySteps moved earlyPass
+  let resolvedLink ← getLink resolved
+  pure (steam installed == some 0 && steam loaded == some 1 && steam paid == some 0 &&
+    (earlySteps unloaded [use unloadedTarget]).isNone && (earlySteps withWeapon [use weaponTarget]).isNone &&
+    (grantedAttackAbilities armed target).length == 1 &&
+    damage.pendingTriggers.length == (if blocked then 0 else 1) &&
+    resolvedLink.hit == !blocked && resolvedLink.linkId == link.linkId &&
+    (resolved.poolOf p).actionPoints == (fighting.poolOf p).actionPoints + 1 &&
+    if blocked then resolved.zone deck == [top] && (resolved.zone .combatChain).contains target
+    else resolved.locate target == none &&
+      (resolved.zone deck).map (fun id => (resolved.cardDefOf? id).map (·.id.val)) ==
+        [some "WTR_191_R", some "WTR_100_B"])
+
+#guard cognitionNodesScenario false == some true
+#guard cognitionNodesScenario true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
