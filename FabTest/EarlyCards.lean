@@ -290,3 +290,8 @@ meta def eyeOfOphidiaScenario : Option Bool := do
     (swapped.poolOf player).resources == 2 && (swapped.zone .stack).length == 1)
 
 #guard eyeOfOphidiaScenario == some true
+
+#guard
+  (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
+    ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
+  ["Rhinar, Reckless Rampage", "Bravo, Showstopper", "Katsu, the Wanderer", "Dorinthea Ironsong"].map some
