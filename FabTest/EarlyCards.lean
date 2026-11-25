@@ -897,6 +897,8 @@ meta def pourTheMoldCostScenario (moldId : String) (maxCost : Nat) : Option Bool
 
 #guard (earlyPrintingCardId? "ARC015").map (·.val) == some "ARC_015_Y"
 #guard pourTheMoldCostScenario "ARC_015_Y" 1 == some true
+#guard (earlyPrintingCardId? "ARC016").map (·.val) == some "ARC_016_B"
+#guard pourTheMoldCostScenario "ARC_016_B" 2 == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
