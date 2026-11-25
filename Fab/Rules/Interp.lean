@@ -1201,10 +1201,10 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         match s.objectFace? id with
         | some face => cardFaceMatches f face
         | none => false
-      let picked := match maxCount with | some k => matching.take k | none => matching
-      let (s1, es) := moveManyObjs s picked (.player target .deck) .bottom false
-      let drawF := if drawSame && 0 < picked.length then [.draw target picked.length] else []
-      (s1, es, [.chanceShuffle (.player target .deck)] ++ drawF)
+      let limit := min (maxCount.getD matching.length) matching.length
+      let follow := if limit = 0 then [.chanceShuffle (.player target .deck)]
+        else [.chooseShuffleCards target limit matching [] drawSame]
+      (s, [], follow)
   | .revealTopToArsenalIf pref f =>
     let target := evalPlayerRef s ctrl pref
     let deck := Zone.player target .deck
@@ -1445,9 +1445,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) srcRef with
     | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-    | some srcZ =>
-      dsimp only
-      exact moveManyObjs_inv (.player (evalPlayerRef s ctrl pref) .deck) .bottom false _ hwf hok
+    | some _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | revealTopToArsenalIf pref _ =>
     unfold execPrim; dsimp only
     cases s.zone (.player (evalPlayerRef s ctrl pref) .deck) with
@@ -1696,13 +1694,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) srcRef with
     | none => exact ⟨rfl, rfl, id⟩
-    | some srcZ =>
-      dsimp only
-      let matching := (s.zone srcZ).filter fun id =>
-        match s.objectFace? id with | some face => cardFaceMatches f face | none => false
-      let picked := match maxCount with | some k => matching.take k | none => matching
-      have h := moveManyObjs_ttr (.player (evalPlayerRef s ctrl pref) .deck) .bottom false picked s
-      exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+    | some _ => exact ⟨rfl, rfl, id⟩
   | revealTopToArsenalIf pref _ =>
     unfold execPrim; dsimp only
     cases s.zone (.player (evalPlayerRef s ctrl pref) .deck) with

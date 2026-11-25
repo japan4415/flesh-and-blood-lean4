@@ -70,6 +70,10 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     1 ≤ roll ∧ roll ≤ 6
   | .chooseHandToDeck p _ :: _, .player q, .handToDeckPick id =>
     q = p ∧ id ∈ s.zone (.player p .hand)
+  | .chooseShuffleCards p remaining candidates _ _ :: _, .player q, .pickShuffleCard choice =>
+    q = p ∧ match choice with
+    | some id => 0 < remaining ∧ id ∈ candidates
+    | none => True
   | .chooseOpt p _ :: _, .player q, .optPick _ =>
     q = p
   | .chooseArsenal tp :: _, .player q, .arsenalPut id =>

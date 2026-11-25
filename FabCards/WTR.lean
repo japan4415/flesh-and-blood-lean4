@@ -852,11 +852,11 @@ def WTR_150 : CardDef :=
     , .activated .instant false {} [{ cost := .removeCounters .energy 3 }] none false
         { body := .prim (.gainResource .controller (.const 1)) } ]
 
-/-- Hope Merchant's Hood (drafted IR). -/
+/-- Hope Merchant's Hood. -/
 def WTR_151 : CardDef :=
-  draftCard WTR_151_meta
-    [ .activated .instant false {} [{ cost := .destroySelf }] none false
-        { body := .prim (.shuffleZoneIntoDeck .controller .hand CardFilter.any none true) } ]
+  { draftCard WTR_151_meta
+      [ .activated .instant false {} [{ cost := .destroySelf }] none false
+          { body := .prim (.shuffleZoneIntoDeck .controller .hand CardFilter.any none true) } ] with status := .full }
 
 /-- Heartened Cross Strap. -/
 def WTR_152 : CardDef :=

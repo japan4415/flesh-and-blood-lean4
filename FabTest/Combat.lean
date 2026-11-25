@@ -1143,6 +1143,69 @@ meta def checkSeismicSurge : Option Bool := do
 
 #guard checkSeismicSurge == some true
 
+/-- Hope Merchant's Hood shuffles exactly the cards its controller chooses, then draws that many. -/
+meta def checkHopeMerchantsHood : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let player : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_151"⟩
+  let hand := Zone.player player .hand
+  let deck := Zone.player player .deck
+  let grave := Zone.player player .graveyard
+  let head := Zone.player player .head
+  let keepCid : CardId := ⟨"WTR_203_R"⟩
+  let pickOneCid : CardId := ⟨"WTR_204_Y"⟩
+  let pickTwoCid : CardId := ⟨"WTR_205_B"⟩
+  let topCid : CardId := ⟨"WTR_188_R"⟩
+  let bottomCid : CardId := ⟨"WTR_189_Y"⟩
+  let card ← m5Base.cards.find? cid
+  let (equipped, source) ← cPlace m5Base player .head cid
+  let (withKeep, keep) ← cPlace equipped player .hand keepCid
+  let (withOne, one) ← cPlace withKeep player .hand pickOneCid
+  let (withHand, two) ← cPlace withOne player .hand pickTwoCid
+  let (withDeckTop, top) ← cPlace withHand player .deck topCid
+  let (withDeck, bottom) ← cPlace withDeckTop player .deck bottomCid
+  let (ready, attack) ← cPlace withDeck attacker .hand ⟨"WTR_203_R"⟩
+  let activate : Action := ⟨.player player, .activateAbility source 0⟩
+  let choose (id : ObjId) : Action := ⟨.player player, .pickShuffleCard (some id)⟩
+  let done : Action := ⟨.player player, .pickShuffleCard none⟩
+  let shuffle (ids : List ObjId) : Action := ⟨.chance, .shuffleOrder ids⟩
+  let announced ← cSteps ready [⟨.player attacker, .playCard attack⟩, ⟨.player attacker, .pass⟩]
+  let attackLayer ← (announced.zone .stack).head?
+  let (paid, payment) ← (step 64 announced activate).toOption
+  let spent ← (paid.zone grave).head?
+  let picking ← cSteps paid passBoth.reverse
+  let pickingAgain ← cSteps picking [choose one]
+  let beforeConfirm ← cSteps pickingAgain [choose two]
+  let (committed, moves) ← (step 64 beforeConfirm done).toOption
+  let inDeck ← (committed.zone deck).find? (fun id => (committed.cardDefOf? id).map (·.id) == some pickOneCid)
+  let otherInDeck ← (committed.zone deck).find? (fun id => (committed.cardDefOf? id).map (·.id) == some pickTwoCid)
+  let drawn ← cSteps committed [shuffle [top, bottom, inDeck, otherInDeck]]
+  let zero ← cSteps picking [done]
+  let zeroDrawn ← cSteps zero [shuffle [bottom, top]]
+  let all ← cSteps picking [choose one, choose two, choose keep, done]
+  pure (card.status == .full && card.front.defense == some 0 &&
+    (legalActionsFor player announced).contains activate && paid.zone head == [] &&
+    (paid.cardDefOf? spent).map (·.id) == some cid && payment.contains (.moved source spent head grave) &&
+    (step 64 paid (choose one)).toOption.isNone &&
+    (legalActionsFor player picking).contains (choose one) && (legalActionsFor player picking).contains done &&
+    !(legalActionsFor attacker picking).any (fun a => match a.kind with | .pickShuffleCard _ => true | _ => false) &&
+    (step 64 picking ⟨.player attacker, .pickShuffleCard (some one)⟩).toOption.isNone &&
+    (step 64 picking (choose top)).toOption.isNone &&
+    (step 64 pickingAgain (choose one)).toOption.isNone &&
+    beforeConfirm.zone hand == announced.zone hand && beforeConfirm.zone deck == announced.zone deck &&
+    committed.zone hand == [keep] && committed.pending.head? == some (.chanceShuffle deck) &&
+    moves == [.moved one inDeck hand deck, .moved two otherInDeck hand deck] &&
+    !(legalActionsFor player committed).contains done &&
+    (drawn.zone hand).length == 3 && (drawn.zone hand).contains keep &&
+    (drawn.zone hand).any (fun id => (drawn.cardDefOf? id).map (·.id) == some topCid) &&
+    (drawn.zone hand).any (fun id => (drawn.cardDefOf? id).map (·.id) == some bottomCid) &&
+    drawn.zone deck == [inDeck, otherInDeck] && drawn.zone .stack == [attackLayer] &&
+    zero.pending.head? == some (.chanceShuffle deck) &&
+    zeroDrawn.zone hand == announced.zone hand && zeroDrawn.zone .stack == [attackLayer] &&
+    all.zone hand == [] && (all.zone deck).length == 5)
+
+#guard checkHopeMerchantsHood == some true
+
 /-- Bravo grants Dominate to every cost-3-or-more attack action card played that turn. -/
 meta def checkBravoAbility (cid : CardId) (life : Int) (young : Bool) : Option Bool := do
   let player : PlayerId := ⟨0⟩
