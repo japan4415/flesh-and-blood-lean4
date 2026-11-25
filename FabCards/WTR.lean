@@ -645,8 +645,8 @@ def snatchCard (base : CardDef) : CardDef :=
 def WTR_167_R : CardDef := { snatchCard WTR_167_R_meta with status := .full }
 /-- Snatch Yellow. -/
 def WTR_168_Y : CardDef := { snatchCard WTR_168_Y_meta with status := .full }
-/-- Snatch Blue (drafted IR). -/
-def WTR_169_B : CardDef := snatchCard WTR_169_B_meta
+/-- Snatch Blue. -/
+def WTR_169_B : CardDef := { snatchCard WTR_169_B_meta with status := .full }
 
 /-- Shared 3-color helper for Sigil of Solace (Instant gain 3/2/1 life). -/
 def sigilOfSolace (base : CardDef) (amount : Int) : CardDef :=

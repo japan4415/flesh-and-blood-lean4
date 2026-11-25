@@ -290,3 +290,4 @@ meta def checkSnatch (cid : CardId) (power : Nat) : Option Bool := do
 
 #guard checkSnatch ⟨"WTR_167_R"⟩ 4 == some true
 #guard checkSnatch ⟨"WTR_168_Y"⟩ 3 == some true
+#guard checkSnatch ⟨"WTR_169_B"⟩ 2 == some true
