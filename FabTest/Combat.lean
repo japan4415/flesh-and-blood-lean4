@@ -719,6 +719,9 @@ meta def checkStaunchResponse (cid : CardId) (pitch printedDefense : Nat) (fromA
 #guard checkStaunchResponse ⟨"WTR_051_R"⟩ 1 7 false == some true
 #guard checkStaunchResponse ⟨"WTR_051_R"⟩ 1 7 true == some true
 
+#guard checkStaunchResponse ⟨"WTR_052_Y"⟩ 2 6 false == some true
+#guard checkStaunchResponse ⟨"WTR_052_Y"⟩ 2 6 true == some true
+
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
 --    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!

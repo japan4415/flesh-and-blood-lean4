@@ -339,8 +339,8 @@ def staunchResponse (base : CardDef) : CardDef :=
 
 /-- Staunch Response Red. -/
 def WTR_051_R : CardDef := { staunchResponse WTR_051_R_meta with status := .full }
-/-- Staunch Response Yellow (drafted IR). -/
-def WTR_052_Y : CardDef := staunchResponse WTR_052_Y_meta
+/-- Staunch Response Yellow. -/
+def WTR_052_Y : CardDef := { staunchResponse WTR_052_Y_meta with status := .full }
 /-- Staunch Response Blue (drafted IR). -/
 def WTR_053_B : CardDef := staunchResponse WTR_053_B_meta
 
