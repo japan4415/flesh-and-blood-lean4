@@ -6,6 +6,7 @@ public import FabCards.WTR
 public import FabCards.Registry
 public import FabCards.EarlyPrintings
 public import FabCards.ThroughWtr
+public import FabCards.LSS
 
 /-!
 # FabCards

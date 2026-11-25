@@ -171,6 +171,8 @@ inductive Prim where
   | intimidateHandFront (target : PlayerId)
   /-- Player `p` opts `n` (look at top `n` cards, put any on top or bottom) (CR 8.5.22). -/
   | opt (p : PlayerRef) (n : Nat)
+  /-- Name an action card, then open boosters for matching cards (CR 1.9.1a). -/
+  | openBoosters (name : Option String := none)
   /-- Create `n` copies of token `tokenId` under player `p`'s control (CR 8.5.2). -/
   | createToken (p : PlayerRef) (tokenId : CardId) (n : Nat)
   /-- Destroy object `o` (CR 8.5.5). -/

@@ -2,8 +2,10 @@ module
 
 import FabCards
 import Fab.Engine.Step
+import Fab.Rules.Setup
 meta import FabCards
 meta import Fab.Engine.Step
+meta import Fab.Rules.Setup
 
 open Fab FabCards
 
@@ -224,3 +226,28 @@ meta def springboardScenario : Option Bool := do
 #guard earlyPrintingCardId? "KSU028" == some ⟨"IRA_011_B"⟩
 #guard earlyPrintingCardId? "KSU003" == earlyPrintingCardId? "KSU004"
 #guard earlyPrintingCardId? "KSU031" == none
+
+meta def goBananasScenario : Option Bool := do
+  let player := earlyAttacker
+  let opponent := earlyDefender
+  let hand := Zone.player player .hand
+  let cards : CardDB := ⟨LSS.LSS_002_Y :: throughWtrDB.cards⟩
+  let setup := { earlyBase with cards, phase := .setup }
+  let first ← supplyBooster setup player [⟨"WTR_203_R"⟩]
+  let other ← supplyBooster first opponent [⟨"WTR_098_R"⟩]
+  let stocked ← supplyBooster other player [⟨"WTR_098_R"⟩, ⟨"WTR_100_B"⟩, ⟨"WTR_203_R"⟩]
+  let (ready, promo) ← earlyPlace { stocked with phase := .actionPhase } player hand "LSS_002_Y"
+  let choose ← earlySteps ready (⟨.player player, .playCard promo⟩ :: earlyPass)
+  let .chooseModal _ _ _ _ choices :: _ := choose.pending | none
+  let headJab ← choices.findIdx? (· == .prim (.openBoosters (some "Head Jab")))
+  let (miss, firstEvents) ← (step 64 choose ⟨.player player, .pickMode headJab⟩).toOption
+  let declined ← earlySteps miss [⟨.player player, .pickMay false⟩]
+  let (hit, nextEvents) ← (step 64 miss ⟨.player player, .pickMay true⟩).toOption
+  let received := (hit.zone hand).filterMap fun id => (hit.obj? id).bind (·.kind.cardId?)
+  pure ((declined.zone hand).isEmpty && received.length == 2 &&
+    received.contains ⟨"WTR_098_R"⟩ && received.contains ⟨"WTR_100_B"⟩ &&
+    firstEvents.contains (.boosterOpened player [⟨"WTR_203_R"⟩]) &&
+    nextEvents.contains (.boosterOpened player [⟨"WTR_098_R"⟩, ⟨"WTR_100_B"⟩, ⟨"WTR_203_R"⟩]) &&
+    hit.unopenedBoosters.length == 1 && hit.physIds.length == ready.physIds.length)
+
+#guard goBananasScenario == some true

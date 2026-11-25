@@ -140,6 +140,8 @@ structure BoardSnapshot where
   attackActionHitsThisTurn : List PlayerId := []
   /-- Saved turn attack history, including attacks that did not hit. -/
   attacksThisTurn : List PlayerId := []
+  /-- Saved unopened outside-game boosters (CR 1.9.1a). -/
+  unopenedBoosters : List (PlayerId × List ObjId) := []
   /-- Saved once-per-turn triggered ability usages `(objId, abilityIdx)`. -/
   triggeredThisTurn : List (ObjId × Nat) := []
 deriving DecidableEq, Repr
@@ -206,6 +208,8 @@ structure GameState where
   attackActionHitsThisTurn : List PlayerId := []
   /-- Players who attacked this turn, with one entry per attack. -/
   attacksThisTurn : List PlayerId := []
+  /-- Unopened outside-game boosters, in supplied order, each with its tracked physical cards. -/
+  unopenedBoosters : List (PlayerId × List ObjId) := []
   /-- Once-per-turn triggered abilities already triggered this turn (CR 6.6). -/
   triggeredThisTurn : List (ObjId × Nat) := []
 deriving DecidableEq, Repr
@@ -492,6 +496,7 @@ def snapshot (s : GameState) : BoardSnapshot :=
     weaponHitsThisTurn := s.weaponHitsThisTurn
     attackActionHitsThisTurn := s.attackActionHitsThisTurn
     attacksThisTurn := s.attacksThisTurn
+    unopenedBoosters := s.unopenedBoosters
     triggeredThisTurn := s.triggeredThisTurn }
 
 /-- Restore a saved `BoardSnapshot` and clear `playRollback` (CR 5.1.1). -/
@@ -518,6 +523,7 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     weaponHitsThisTurn := snap.weaponHitsThisTurn
     attackActionHitsThisTurn := snap.attackActionHitsThisTurn
     attacksThisTurn := snap.attacksThisTurn
+    unopenedBoosters := snap.unopenedBoosters
     triggeredThisTurn := snap.triggeredThisTurn
     playRollback := none }
 

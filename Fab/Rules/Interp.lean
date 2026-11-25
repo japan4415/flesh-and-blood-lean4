@@ -1074,6 +1074,29 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
   | .opt pref n =>
     let target := evalPlayerRef s ctrl pref
     (s, [], [.optStep target n])
+  | .openBoosters none =>
+    let names := (s.cards.cards.filterMap (fun card =>
+      if card.front.hasType .action then some card.front.name else none)).eraseDups
+    let choices := names.map fun name => Effect.prim (.openBoosters (some name))
+    if choices.isEmpty then (s, [], [])
+    else (s, [], [.chooseModal ctrl src false env choices])
+  | .openBoosters (some name) =>
+    match s.unopenedBoosters.find? (fun pack => pack.1 == ctrl) with
+    | none => (s, [], [])
+    | some pack =>
+      let contents := pack.2.filter (s.zone (.player ctrl .outside)).contains
+      let cards := contents.filterMap fun id => (s.obj? id).bind (·.kind.cardId?)
+      let matchingCards := contents.filter fun id => (s.objectFace? id).any (·.name == name)
+      let remaining := s.unopenedBoosters.erase pack
+      let after :=
+        if matchingCards.isEmpty then
+          if remaining.any (fun next => next.1 == ctrl) then
+            [.chooseMay ctrl src false env (.prim (.openBoosters (some name))) .nop]
+          else []
+        else
+          let moves := matchingCards.map fun id => Effect.prim (.moveCard (.declared id) .hand .top false)
+          [.run ctrl src false env moves]
+      ({ s with unopenedBoosters := remaining }, [.boosterOpened ctrl cards], after)
   | .createToken pref tokId n =>
     let target := evalPlayerRef s ctrl pref
     (createTokens s target tokId n, [], [])
@@ -1298,6 +1321,10 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
   cases p with
   | draw _ _ | opt _ _ | weaponAttack | closeCombatChain =>
     exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | openBoosters name =>
+    cases name <;> unfold execPrim <;> dsimp only <;> split <;>
+      exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
+             GameState.OwnerOk.congr hok rfl rfl, List.Perm.refl _, rfl, rfl⟩
   | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
     exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
            GameState.OwnerOk.congr hok rfl rfl,
@@ -1547,6 +1574,8 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
   | draw _ _ | opt _ _ | weaponAttack | closeCombatChain
   | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
     exact ⟨rfl, rfl, id⟩
+  | openBoosters name =>
+    cases name <;> unfold execPrim <;> dsimp only <;> split <;> exact ⟨rfl, rfl, id⟩
   | loseLife _ _ =>
     exact checkHeroDefeat_ttr_core _
   | dealDamage kind pref n =>
