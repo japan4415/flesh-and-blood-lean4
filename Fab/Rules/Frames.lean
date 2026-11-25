@@ -604,17 +604,19 @@ def queueDiscardTriggers (s : GameState) (events : List Event) : GameState :=
     | .discarded p id => discardEventTriggers s p id
     | _ => [])
 
-/-- Find arena abilities that trigger when an attack action card extends the chain's hit streak (CR 7.5.3). -/
-def consecutiveHitCardTriggers (s : GameState) (link : ChainLink) : List (PendingTrigger × Bool) :=
-  if link.attackSource.isSome then [] else
-    match link.attack.bind s.characteristics with
-    | some attack =>
-      if !(attack.types.contains .action && attack.subtypes.contains .attack) then [] else
-        let streak := ((s.combat.map fun chain => chain.links.takeWhile (·.hit)).getD []).length
-        installedCardTriggers s attack.controller fun
-          | .onConsecutiveHitLink minLink => minLink ≤ streak
-          | _ => false
-    | none => []
+/-- Find installed arena abilities triggered by a successful attack (CR 7.5.3). -/
+def installedHitTriggers (s : GameState) (link : ChainLink) : List (PendingTrigger × Bool) :=
+  let source := link.attackSource.or link.attack
+  match source.bind s.characteristics with
+  | some attack =>
+    let isAction := link.attackSource.isNone && attack.types.contains .action && attack.subtypes.contains .attack
+    let isWeapon := link.attackSource.isSome && attack.types.contains .weapon
+    let streak := ((s.combat.map fun chain => chain.links.takeWhile (·.hit)).getD []).length
+    installedCardTriggers s attack.controller fun
+      | .onConsecutiveHitLink minLink => isAction && minLink ≤ streak
+      | .onWeaponAttackHit => isWeapon
+      | _ => false
+  | none => []
 
 /-- Collect printed and granted hit and Crush triggers (CR 6.6, 7.5.5, 8.4.2). -/
 def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigger :=
@@ -1368,7 +1370,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         let withDamage := { s2 with combat := some cc' }
         let damageTriggers := if isHit && withDamage.result.isNone then
           (attackDamageTriggers withDamage damagedLink).map (fun trigger => (trigger, false)) ++
-            consecutiveHitCardTriggers withDamage damagedLink
+            installedHitTriggers withDamage damagedLink
           else []
         let queued := queueCardTriggers withDamage damageTriggers
         let s3 := gspRun queued

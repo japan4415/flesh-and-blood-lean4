@@ -256,6 +256,10 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     | none => false
   | .lessLifeThanOpponent =>
     (allPlayers s.playerCount).any fun opp => opp != ctrl && s.lifeOf ctrl < s.lifeOf opp
+  | .sourceInArena =>
+    (s.locate src).any fun
+      | .player _ .soul => false
+      | zone => zone.isArena
   | .sourceCounterLt k n =>
     match s.obj? src with
     | some o => o.counterCount k < n

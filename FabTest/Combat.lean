@@ -1472,6 +1472,73 @@ meta def checkMaskOfMomentum : Option Bool := do
 
 #guard checkMaskOfMomentum == some true
 
+/-- Refraction Bolters is optional on a weapon hit and its Go Again only grants one action point. -/
+meta def checkRefractionBolters : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_117"⟩
+  let card ← m5Base.cards.find? cid
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 1 }
+  let (equipped, bolters) ← cPlace funded attacker .legs cid
+  let (withWeapon, weapon) ← cPlace equipped attacker .weapon ⟨"WTR_115"⟩
+  let (withBlock, block) ← cPlace withWeapon defender .hand ⟨"WTR_203_R"⟩
+  let (withReaction, glint) ← cPlace withBlock attacker .hand ⟨"WTR_118_B"⟩
+  let (ready, cardAttack) ← cPlace withReaction attacker .hand ⟨"WTR_203_R"⟩
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let swing : Action := ⟨.player attacker, .attackWeapon weapon⟩
+  let enter (s : GameState) (a : Action) := cSteps s (a :: (passBoth ++ passBoth))
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let toDamage := done :: (passBoth ++ passBoth)
+  let prompt (s : GameState) (tid : Nat) :=
+    cSteps s ([⟨.player attacker, .pickTriggerStart attacker⟩, ⟨.player attacker, .pickTrigger tid⟩] ++ passBoth)
+  let accept yes : Action := ⟨.player attacker, .pickMay yes⟩
+  let legs := Zone.player attacker .legs
+  let grave := Zone.player attacker .graveyard
+  let hasGoAgain (s : GameState) :=
+    (s.combat.bind CombatChain.activeLink?).any fun link => linkHasKeyword s link .goAgain
+  let defending ← enter ready swing
+  let hit ← cSteps defending toDamage
+  let trigger ← hit.pendingTriggers.head?
+  let choice ← prompt hit trigger.id
+  let (destroyed, es) ← (step 64 choice (accept true)).toOption
+  let spent ← (destroyed.zone grave).head?
+  let finished ← cSteps destroyed passBoth
+  let declined ← cSteps choice (accept false :: passBoth)
+  let (removed, _) ← moveObj hit bolters grave .top false
+  let sourceGone ← prompt removed trigger.id
+  let goneFinished ← cSteps sourceGone passBoth
+  let blocked ← cSteps defending (⟨.player defender, .defendCard block⟩ :: (toDamage ++ passBoth))
+  let genericDefend ← enter ready (play cardAttack)
+  let genericHit ← cSteps genericDefend (toDamage ++ passBoth)
+  let reaction ← cSteps defending (done :: passBoth)
+  let glintPaid ← cSteps reaction [play glint]
+  let priorGoAgain ← cSteps glintPaid passBoth
+  let secondHit ← cSteps priorGoAgain passBoth
+  let secondTrigger ← secondHit.pendingTriggers.head?
+  let secondChoice ← prompt secondHit secondTrigger.id
+  let twiceGranted ← cSteps secondChoice (accept true :: passBoth)
+  let (otherSide, otherBolters) ← cPlace funded defender .legs cid
+  let (wearReady, wearAttack) ← cPlace otherSide attacker .hand ⟨"WTR_203_R"⟩
+  let wearDefend ← enter wearReady (play wearAttack)
+  let worn ← cSteps wearDefend ([⟨.player defender, .defendCard otherBolters⟩] ++
+    toDamage ++ passBoth ++ passBoth)
+  pure (card.status == .full && card.front.defense == some 1 && card.front.keywords.contains .battleworn &&
+    hit.pendingTriggers.length == 1 && trigger.source == bolters && !hasGoAgain hit &&
+    (legalActionsFor attacker choice).contains (accept true) &&
+    (legalActionsFor attacker choice).contains (accept false) &&
+    destroyed.zone legs == [] && es.contains (.moved bolters spent legs grave) &&
+    (destroyed.cardDefOf? spent).map (·.id) == some cid &&
+    hasGoAgain finished && (finished.poolOf attacker).actionPoints == 1 &&
+    declined.zone legs == [bolters] && !hasGoAgain declined && (declined.poolOf attacker).actionPoints == 0 &&
+    sourceGone.pending.head? == some (.priority attacker 0) &&
+    !hasGoAgain goneFinished && (goneFinished.poolOf attacker).actionPoints == 0 &&
+    blocked.pendingTriggers.isEmpty && genericHit.pendingTriggers.isEmpty &&
+    hasGoAgain priorGoAgain && (twiceGranted.poolOf attacker).actionPoints == 1 &&
+    worn.zone (.player defender .legs) == [otherBolters] &&
+    (worn.obj? otherBolters).any (fun obj => obj.minusDefenseCounters == 1))
+
+#guard checkRefractionBolters == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
