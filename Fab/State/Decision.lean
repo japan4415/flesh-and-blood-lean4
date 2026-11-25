@@ -70,7 +70,7 @@ inductive ActionKind where
   /-- Activate a weapon attack using weapon `weaponId` in the player's weapon zone (CR 1.4.3, 7.1). -/
   | attackWeapon (weaponId : ObjId)
   /-- Activate the indexed ability of an arena object while holding priority (CR 5.2.2). -/
-  | activateAbility (source : ObjId) (index : Nat)
+  | activateAbility (source : ObjId) (index : Nat) (target : Option ObjId := none)
   /-- Defend Step: declare card or equipment `id` as a defending card on the active link (CR 7.3). -/
   | defendCard (id : ObjId)
   /-- Defend Step: finish declaring defending cards for the active link (CR 7.3). -/

@@ -213,6 +213,13 @@ theorem HiddenEquiv.canPickCardMode_eq {p : PlayerId} {s1 s2 : GameState}
     canPickCardMode s1 layerId idx = canPickCardMode s2 layerId idx := by
   simp only [canPickCardMode, (h.cardDef_face layerId).1, h.hasRequiredAttackTarget_eq]
 
+private theorem HiddenEquiv.characteristics_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) (id : ObjId) :
+    s1.characteristics id = s2.characteristics id := by
+  have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
+  unfold GameState.characteristics
+  rw [ho, (h.cardDef_face id).1, h.activeEffects]
+
 /-- The attack keywords used to check defense legality agree under `HiddenEquiv`. -/
 theorem HiddenEquiv.linkHasKeyword_eq_of_ne_goAgain {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) (link : ChainLink) (kw : KeywordInst) (hgo : kw ≠ .goAgain) :
@@ -221,7 +228,7 @@ theorem HiddenEquiv.linkHasKeyword_eq_of_ne_goAgain {p : PlayerId} {s1 s2 : Game
   simp only [ite_eq_right hgo]
   cases link.attack with
   | none => rfl
-  | some aid => simp [(h.cardDef_face aid).2]
+  | some aid => simp [h.characteristics_eq aid]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canPlayCard s p id`. -/
 theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : HiddenEquiv p s1 s2)
@@ -287,18 +294,27 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
     | nil => rfl
     | cons z zs ih =>
       simp only [List.flatMap_cons, hvisible z (by simp), ih (fun a ha => hvisible a (by simp [ha]))]
-  have hplan (id : ObjId) (index : Nat) : activationPlan? s1 p id index = activationPlan? s2 p id index := by
+  have htargets : (activationTargetZones s1).flatMap s1.zone = (activationTargetZones s2).flatMap s2.zone := by
+    simp only [activationTargetZones, List.flatMap_cons, hz, hsources, h.visibleZones .stack rfl]
+  have hmatching (spec : TargetSpec) (id : ObjId) :
+      matchesActivationTarget s1 spec id = matchesActivationTarget s2 spec id := by
     have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
-    have hc : s1.characteristics id = s2.characteristics id := by
-      unfold GameState.characteristics
-      rw [ho, (h.cardDef_face id).1, h.activeEffects]
+    simp only [matchesActivationTarget, htargets, ho, (h.cardDef_face id).2, h.characteristics_eq id]
+  have hresolution (effect : EffectDef) (target : Option ObjId) :
+      activationResolution? s1 effect target = activationResolution? s2 effect target := by
+    unfold activationResolution?
+    split <;> simp only [hmatching]
+  have hplan (id : ObjId) (index : Nat) (target : Option ObjId) :
+      activationPlan? s1 p id index target = activationPlan? s2 p id index target := by
+    have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
     have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
     unfold activationPlan?
-    rw [hz, hfind, ho, hc, (h.cardDef_face id).2, hp, h.playerCount,
+    rw [hz, hfind, ho, h.characteristics_eq, (h.cardDef_face id).2, hp, h.playerCount,
       h.phase, h.active, h.combat, h.visibleZones .stack rfl, h.activatedThisTurn]
+    simp only [hresolution]
   have hface (id : ObjId) := (h.cardDef_face id).2
   unfold availableActivations
-  simp only [hz, hsources, hface, hplan]
+  simp only [hz, hsources, hface, hplan, htargets]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canDefendWith s link p id`. -/
 theorem HiddenEquiv.canDefendWith_eq {p : PlayerId} {s1 s2 : GameState}

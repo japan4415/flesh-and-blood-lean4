@@ -1727,6 +1727,98 @@ meta def checkGoliathGauntlet : Option Bool := do
 
 #guard checkGoliathGauntlet == some true
 
+/-- Snapdragon Scalers grants Go Again to a legal attack action card during the reaction step. -/
+meta def checkSnapdragonScalers : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_154"⟩
+  let slot := Zone.player attacker .legs
+  let grave := Zone.player attacker .graveyard
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 3 }
+  let card ← funded.cards.find? cid
+  let (equipped, source) ← cPlace funded attacker .legs cid
+  let (withOther, other) ← cPlace equipped defender .legs cid
+  let (withWeapon, weapon) ← cPlace withOther attacker .weapon ⟨"WTR_078"⟩
+  let (withCheap, attack) ← cPlace withWeapon attacker .hand ⟨"WTR_203_R"⟩
+  let (withBoundary, boundary) ← cPlace withCheap attacker .hand ⟨"WTR_101_R"⟩
+  let (ready, expensive) ← cPlace withBoundary attacker .hand ⟨"WTR_107_R"⟩
+  let activate target : Action := ⟨.player attacker, .activateAbility source 0 (some target)⟩
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let enter (a : Action) := cSteps ready (a :: (passBoth ++ passBoth ++ [done] ++ passBoth))
+  let defending ← cSteps ready (play attack :: (passBoth ++ passBoth))
+  let reaction ← cSteps defending (done :: passBoth)
+  let target ← (reaction.combat.bind CombatChain.activeLink?).bind (·.attack)
+  let current (s : GameState) := (s.combat.bind CombatChain.activeLink?).bind (·.attack)
+  let onBoundary ← enter (play boundary)
+  let onExpensive ← enter (play expensive)
+  let onWeapon ← enter ⟨.player attacker, .attackWeapon weapon⟩
+  let boundaryTarget ← current onBoundary
+  let expensiveTarget ← current onExpensive
+  let weaponTarget ← current onWeapon
+  let defenderWindow ← cSteps reaction [⟨.player attacker, .pass⟩]
+  let (paid, events) ← (step 64 reaction (activate target)).toOption
+  let layer ← (paid.zone .stack).head?
+  let spent ← (paid.zone grave).head?
+  let enhanced ← cSteps paid passBoth
+  let hit ← cSteps enhanced (passBoth ++ passBoth ++ passBoth)
+  let normal ← cSteps reaction (passBoth ++ passBoth ++ passBoth)
+  let (missingTarget, _) ← moveObj paid target grave .top false
+  let unbound ← cSteps missingTarget passBoth
+  let hasGoAgain (s : GameState) :=
+    (s.combat.bind CombatChain.activeLink?).any fun link => linkHasKeyword s link .goAgain
+  pure (card.status == .full && card.front.defense == some 0 &&
+    (step 64 ready (activate attack)).toOption.isNone && (step 64 defending (activate target)).toOption.isNone &&
+    (legalActionsFor attacker reaction).contains (activate target) &&
+    (step 64 reaction ⟨.player attacker, .activateAbility source 0⟩).toOption.isNone &&
+    (legalActionsFor attacker onBoundary).contains (activate boundaryTarget) &&
+    (step 64 onExpensive (activate expensiveTarget)).toOption.isNone &&
+    (step 64 onWeapon (activate weaponTarget)).toOption.isNone &&
+    (step 64 defenderWindow ⟨.player defender, .activateAbility other 0 (some target)⟩).toOption.isNone &&
+    paid.zone slot == [] && events.contains (.moved source spent slot grave) &&
+    events.contains (.targetedAttack layer target) && (paid.cardDefOf? spent).map (·.id) == some cid &&
+    (paid.poolOf attacker).actionPoints == 0 && !hasGoAgain paid && hasGoAgain enhanced &&
+    (enhanced.poolOf attacker).actionPoints == 0 && (hit.poolOf attacker).actionPoints == 1 &&
+    (normal.poolOf attacker).actionPoints == 0 && !hasGoAgain unbound)
+
+#guard checkSnapdragonScalers == some true
+
+/-- A legal earlier or defending card can be targeted without changing the active attack. -/
+meta def checkSnapdragonOtherTarget (earlier : Bool) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cheap : CardId := ⟨"WTR_203_R"⟩
+  let funded := m5Base.setPool attacker { actionPoints := 2, resources := 3 }
+  let (equipped, source) ← cPlace funded attacker .legs ⟨"WTR_154"⟩
+  let (withFirst, first) ← cPlace equipped attacker .hand cheap
+  let (withNext, next) ← cPlace withFirst attacker .hand ⟨"WTR_188_R"⟩
+  let (ready, block) ← cPlace withNext defender .hand cheap
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let finish : Action := ⟨.player defender, .defendDone⟩
+  let activate id : Action := ⟨.player attacker, .activateAbility source 0 (some id)⟩
+  let link (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let firstDefend ← cSteps ready (play first :: (passBoth ++ passBoth))
+  let prior ← (link firstDefend).bind (·.attack)
+  let afterFirst ← cSteps firstDefend (finish :: (passBoth ++ passBoth ++ passBoth))
+  let secondDefend ← cSteps afterFirst (play next :: (passBoth ++ passBoth))
+  let reacting ← cSteps secondDefend ([⟨.player defender, .defendCard block⟩, finish] ++ passBoth)
+  let active ← link reacting
+  let chosen ← if earlier then some prior else active.defending.head?
+  let (paid, events) ← (step 64 reacting (activate chosen)).toOption
+  let layer ← (paid.zone .stack).head?
+  let affected ← cSteps paid passBoth
+  let current ← link affected
+  let finished ← cSteps affected (passBoth ++ passBoth ++ passBoth)
+  pure ((legalActionsFor attacker reacting).contains (activate prior) &&
+    active.defending.all (fun id => (legalActionsFor attacker reacting).contains (activate id)) &&
+    !(active.attack.any (fun id => (legalActionsFor attacker reacting).contains (activate id))) &&
+    events.contains (.targetedAttack layer chosen) &&
+    (affected.characteristics chosen).any (fun chars => chars.keywords.contains .goAgain) &&
+    !linkHasKeyword affected current .goAgain && (finished.poolOf attacker).actionPoints == 0)
+
+#guard checkSnapdragonOtherTarget true == some true
+#guard checkSnapdragonOtherTarget false == some true
+
 /-- Barkbone Strapping can be spent in a reaction window, including while defending. -/
 meta def checkBarkboneStrapping (roll : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
