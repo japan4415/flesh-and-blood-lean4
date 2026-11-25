@@ -185,8 +185,8 @@ inductive Prim where
   then shuffle; optionally allow playing the banished card for `playableDuration` (Katsu, Singing Steelblade). -/
   | searchDeck (p : PlayerRef) (f : CardFilter) (maxCount : Option Nat) (dst : ZoneRef)
       (reveal : Bool) (playableDuration : Option Duration)
-  /-- Shuffle up to `maxCount` cards matching `f` from `p`'s `src` zone into deck; if `drawSame`,
-  draw that many cards (Remembrance, Hope Merchant's Hood, Lord of Wind). -/
+  /-- Player `p` chooses up to `maxCount` cards matching `f` from `src` to shuffle into their deck.
+  If `drawSame`, they then draw that many cards (Remembrance, Hope Merchant's Hood). -/
   | shuffleZoneIntoDeck (p : PlayerRef) (src : ZoneRef) (f : CardFilter)
       (maxCount : Option Nat) (drawSame : Bool)
   /-- Reveal the top card of `p`'s deck; if it matches `f`, put it into `p`'s arsenal (Nature's Path Pilgrimage). -/

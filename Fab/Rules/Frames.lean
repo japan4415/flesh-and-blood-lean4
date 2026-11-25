@@ -981,6 +981,15 @@ def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
     pending := .playPayCost p layerId false none plan.cost :: rest },
     plan.target.toList.map (fun declared => .targetedAttack layerId declared.2))
 
+/-- Move the confirmed selection together before shuffling and drawing (CR 8.5.20b). -/
+def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
+    (drawSame : Bool) (rest : List Frame) : GameState × List Event :=
+  let deck := Zone.player p .deck
+  let moved := moveManyObjs s selected.reverse deck .bottom false
+  let events := moved.2
+  let draw := if drawSame && !events.isEmpty then [.draw p events.length] else []
+  ({ moved.1 with pending := .chanceShuffle deck :: (draw ++ rest) }, events)
+
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
   match s.pending, a.actor, a.kind with
@@ -1223,6 +1232,17 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
         some ({ s1 with pending := rest }, [.moved id id' (.player p .hand) (.player p .deck)])
     else
       none
+  | .chooseShuffleCards p remaining candidates selected drawSame :: rest, .player q, .pickShuffleCard choice =>
+    if p = q then
+      match choice with
+      | some id =>
+        if 0 < remaining ∧ id ∈ candidates then
+          let next := Frame.chooseShuffleCards p (remaining - 1)
+            (candidates.filter (· != id)) (id :: selected) drawSame
+          some ({ s with pending := next :: rest }, [])
+        else none
+      | none => some (confirmShuffleCards s p selected drawSame rest)
+    else none
   | .chooseOpt p cardId :: rest, .player q, .optPick putOnTop =>
     if p = q then
       if putOnTop then

@@ -101,6 +101,9 @@ def legalFrameActions (s : GameState) : List Action :=
     (List.range modes.length).map fun idx => ⟨.player ctrl, .pickMode idx⟩
   | .chooseHandToDeck p _ :: _ =>
     (s.zone (.player p .hand)).map fun id => ⟨.player p, .handToDeckPick id⟩
+  | .chooseShuffleCards p remaining candidates _ _ :: _ =>
+    ⟨.player p, .pickShuffleCard none⟩ ::
+      (if 0 < remaining then candidates.map (fun id => ⟨.player p, .pickShuffleCard (some id)⟩) else [])
   | .chooseOpt p _ :: _ =>
     [⟨.player p, .optPick true⟩, ⟨.player p, .optPick false⟩]
   | .chooseArsenal tp :: _ =>
