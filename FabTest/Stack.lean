@@ -73,6 +73,7 @@ meta def runSteps (s : GameState) : List Action → Option GameState
     -- P0 passes, P1 passes -> Tome resolves second! P0 draws 2 cards, stack empty.
     let sAfterTome ← runSteps sAfterSigil [⟨.player ⟨0⟩, .pass⟩, ⟨.player ⟨1⟩, .pass⟩]
     let tomeOk := (sAfterTome.zone (.player ⟨0⟩ .hand)).length == 2 &&
+      sAfterTome.lifeOf ⟨0⟩ == 40 &&
       (sAfterTome.zone .stack).isEmpty &&
       (sAfterTome.zone (.player ⟨0⟩ .graveyard)).length == 1 &&
       (sAfterTome.zone (.player ⟨1⟩ .graveyard)).length == 1 &&
@@ -155,6 +156,34 @@ meta def runSteps (s : GameState) : List Action → Option GameState
       sDone.lifeOf ⟨0⟩ == 43)) with
   | some b => b
   | none => false
+
+/-- Resolve Tome from arsenal with a deck too small to draw two cards. -/
+meta def checkTomeShortDraw (withCard : Bool) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let cid : CardId := ⟨"WTR_160_Y"⟩
+  let funded := m4BaseState.setPool player { actionPoints := 1, resources := 1 }
+  let card ← funded.cards.find? cid
+  let (withHand, _) ← placeCard funded player .hand ⟨"WTR_203_R"⟩
+  let withDeck ← if withCard then
+    (placeCard withHand player .deck ⟨"WTR_191_R"⟩).map Prod.fst
+    else some withHand
+  let (ready, tome) ← placeCard withDeck player .arsenal cid true
+  let beforeResolution ← runSteps ready [⟨.player player, .playCard tome⟩, ⟨.player player, .pass⟩]
+  let (resolved, events) ← (step 64 beforeResolution ⟨.player ⟨1⟩, .pass⟩).toOption
+  let drawn := if withCard then 1 else 0
+  let gained := 1 + drawn
+  let draws := events.filterMap fun
+    | .drawn p id => if p == player then some id else none
+    | _ => none
+  pure (card.status == .full && card.front.pitch == some 2 && card.front.defense == some 2 &&
+    resolved.zone (.player player .arsenal) == [] && resolved.zone (.player player .deck) == [] &&
+    (resolved.zone (.player player .hand)).length == gained && draws.length == drawn &&
+    events.countP (· == .lifeGained player gained) == 1 &&
+    resolved.lifeOf player == 40 + Int.ofNat gained &&
+    (resolved.poolOf player).actionPoints == 0 && (resolved.poolOf player).resources == 0)
+
+#guard checkTomeShortDraw true == some true
+#guard checkTomeShortDraw false == some true
 
 -- 6. Optional choice `Effect.may` (I18) and `putHandOnDeck` via `Frame.run`:
 --    Sink Below effect (`may (putHandOnDeck .bottom) (draw 1)`) ALWAYS prompts `chooseMay`.

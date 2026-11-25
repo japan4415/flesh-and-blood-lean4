@@ -650,15 +650,15 @@ def WTR_159_R : CardDef :=
           , .grant .self_ (.addPower (.const 2)) .thisChainLink
           , .grant .self_ (.grantKeyword .goAgain) .thisChainLink ] })
 
-/-- Tome of Fyendal (drafted IR). -/
+/-- Tome of Fyendal. -/
 def WTR_160_Y : CardDef :=
-  draftCard WTR_160_Y_meta []
+  { draftCard WTR_160_Y_meta []
     (some
       { body := .seqL
           [ .prim (.draw .controller (.const 2))
           , .ifThen .playedFromArsenal
               (.prim (.gainLife .controller (.handCount .controller)))
-              .nop ] })
+              .nop ] }) with status := .full }
 
 /-- Crazy Brew (drafted IR — 6-sided die branches 1-2 / 3-4 / 5-6). -/
 def WTR_162_B : CardDef :=
