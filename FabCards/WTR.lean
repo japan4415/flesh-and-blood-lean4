@@ -756,6 +756,21 @@ def WTR_145_Y : CardDef := { drivingBlade WTR_145_Y_meta 2 with status := .full 
 /-- Driving Blade Blue. -/
 def WTR_146_B : CardDef := { drivingBlade WTR_146_B_meta 1 with status := .full }
 
+/-- Give the next weapon attack a bonus and an arsenal-dependent hit trigger. -/
+def naturesPathPilgrimage (base : CardDef) (bonus : Int) : CardDef :=
+  let scope := ModScope.nextAttack CardFilter.weaponAttack
+  draftCard base []
+    (some
+      { body := .seqL
+          [ .grant scope (.addPower (.const bonus)) .thisTurn
+          , .grant scope
+              (.grantTrigger .onHit (some (.zoneEmpty .controller .arsenal))
+                (.prim (.revealTopToArsenalIf .controller { types := [.action] })))
+              .thisTurn ] })
+
+/-- Nature's Path Pilgrimage Red. -/
+def WTR_147_R : CardDef := { naturesPathPilgrimage WTR_147_R_meta 3 with status := .full }
+
 /-! ## Generic Equipment, Attacks, Reactions, Instants, Items, Tokens (WTR150-WTR225) -/
 
 /-- Fyendal's Spring Tunic (drafted IR). -/
@@ -1073,7 +1088,7 @@ def draftedCards : List CardDef :=
   , WTR_107_R, WTR_108_Y, WTR_109_B, WTR_110_R, WTR_111_Y, WTR_112_B
   , WTR_113, WTR_114, WTR_115, WTR_116, WTR_117, WTR_118_B, WTR_119_R, WTR_120_R
   , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_126_R, WTR_127_Y, WTR_128_B, WTR_129_R, WTR_130_Y, WTR_131_B, WTR_132_R, WTR_133_Y, WTR_134_B, WTR_135_R, WTR_136_Y, WTR_137_B
-  , WTR_141_R, WTR_142_Y, WTR_143_B, WTR_144_R, WTR_145_Y, WTR_146_B
+  , WTR_141_R, WTR_142_Y, WTR_143_B, WTR_144_R, WTR_145_Y, WTR_146_B, WTR_147_R
   , WTR_150, WTR_151, WTR_154, WTR_155, WTR_156, WTR_157, WTR_158
   , WTR_159_R, WTR_160_Y, WTR_161_B, WTR_162_B, WTR_163_Y
   , WTR_164_R, WTR_165_Y, WTR_166_B, WTR_167_R, WTR_168_Y, WTR_169_B

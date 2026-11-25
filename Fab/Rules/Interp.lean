@@ -1239,21 +1239,18 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
       (s1, es, [.chanceShuffle (.player target .deck)] ++ drawF)
   | .revealTopToArsenalIf pref f =>
     let target := evalPlayerRef s ctrl pref
-    if !(s.zone (.player target .arsenal)).isEmpty then
-      (s, [], [])
-    else
-      match s.zone (.player target .deck) with
-      | [] => (s, [], [])
-      | topId :: _ =>
-        let ok := match s.objectFace? topId with
-          | some face => cardFaceMatches f face
-          | none => false
-        if ok then
-          match moveObj s topId (.player target .arsenal) .top false with
-          | some (s1, id') => (s1, [.moved topId id' (.player target .deck) (.player target .arsenal)], [])
-          | none => (s, [], [])
-        else
-          (s, [], [])
+    let deck := Zone.player target .deck
+    let arsenal := Zone.player target .arsenal
+    match s.zone deck with
+    | [] => (s, [], [])
+    | topId :: _ =>
+      let revealed := ((s.cardDefOf? topId).map fun card => Event.revealed target topId card.id).toList
+      if (s.objectFace? topId).any (cardFaceMatches f) && (s.zone arsenal).isEmpty then
+        match moveObj s topId arsenal .top true with
+        | some (s1, id') => (s1, revealed ++ [.moved topId id' deck arsenal], [])
+        | none => (s, revealed, [])
+      else
+        (s, revealed, [])
   | .preventNextDamage pref n _ =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n)
@@ -1483,28 +1480,22 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     | some srcZ =>
       dsimp only
       exact moveManyObjs_inv (.player (evalPlayerRef s ctrl pref) .deck) .bottom false _ hwf hok
-  | revealTopToArsenalIf pref f =>
+  | revealTopToArsenalIf pref _ =>
     unfold execPrim; dsimp only
-    split
-    · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-    · cases s.zone (.player (evalPlayerRef s ctrl pref) .deck) with
-      | nil => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-      | cons topId _ =>
-        dsimp only
-        cases s.objectFace? topId with
+    cases s.zone (.player (evalPlayerRef s ctrl pref) .deck) with
+    | nil => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    | cons topId _ =>
+      dsimp only
+      split
+      · cases hm : moveObj s topId (.player (evalPlayerRef s ctrl pref) .arsenal) .top true with
         | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-        | some face =>
+        | some res =>
+          obtain ⟨s1, id'⟩ := res
           dsimp only
-          split
-          · cases hm : moveObj s topId (.player (evalPlayerRef s ctrl pref) .arsenal) .top false with
-            | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-            | some res =>
-              obtain ⟨s1, id'⟩ := res
-              dsimp only
-              have hmeta := moveObj_config_rollback hm
-              exact ⟨moveObj_wf hwf hm, moveObj_ownerOk hwf hok hm,
-                     moveObj_physIds hwf hm, hmeta.1, hmeta.2⟩
-          · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+          have hmeta := moveObj_config_rollback hm
+          exact ⟨moveObj_wf hwf hm, moveObj_ownerOk hwf hok hm,
+                 moveObj_physIds hwf hm, hmeta.1, hmeta.2⟩
+      · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | preventNextDamage pref n _ =>
     unfold execPrim; dsimp only
     split
@@ -1746,23 +1737,17 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
       exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
   | revealTopToArsenalIf pref _ =>
     unfold execPrim; dsimp only
-    split
-    · exact ⟨rfl, rfl, id⟩
-    · cases s.zone (.player (evalPlayerRef s ctrl pref) .deck) with
-      | nil => exact ⟨rfl, rfl, id⟩
-      | cons topId _ =>
-        dsimp only
-        cases s.objectFace? topId with
+    cases s.zone (.player (evalPlayerRef s ctrl pref) .deck) with
+    | nil => exact ⟨rfl, rfl, id⟩
+    | cons topId _ =>
+      dsimp only
+      split
+      · cases hm : moveObj s topId (.player (evalPlayerRef s ctrl pref) .arsenal) .top true with
         | none => exact ⟨rfl, rfl, id⟩
-        | some face =>
-          dsimp only
-          split
-          · cases hm : moveObj s topId (.player (evalPlayerRef s ctrl pref) .arsenal) .top false with
-            | none => exact ⟨rfl, rfl, id⟩
-            | some _ =>
-              have h := moveObj_ttr_core hm
-              exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
-          · exact ⟨rfl, rfl, id⟩
+        | some _ =>
+          have h := moveObj_ttr_core hm
+          exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+      · exact ⟨rfl, rfl, id⟩
   | preventNextDamage _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | charge pref =>

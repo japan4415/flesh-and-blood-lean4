@@ -20,6 +20,8 @@ inductive Event where
   | moved (oldId newId : ObjId) (src dst : Zone)
   /-- Player `player` drew object `obj` from deck to hand (CR 4.1.6, 4.4.3f). -/
   | drawn (player : PlayerId) (obj : ObjId)
+  /-- A private card's identity became public through a reveal effect (CR 8.5.17). -/
+  | revealed (player : PlayerId) (obj : ObjId) (card : CardId)
   /-- Player `player` pitched object `obj` generating `resources` `{r}` and `chi` `{c}` (CR 1.14.3). -/
   | pitched (player : PlayerId) (obj : ObjId) (resources chi : Nat)
   /-- Player `player` discarded object `obj` from hand to graveyard. -/
