@@ -353,3 +353,4 @@ meta def checkOpenTheCenter (cid : CardId) (basePower : Nat) : Bool :=
 
 #guard checkOpenTheCenter ⟨"WTR_095_R"⟩ 5
 #guard checkOpenTheCenter ⟨"WTR_096_Y"⟩ 4
+#guard checkOpenTheCenter ⟨"WTR_097_B"⟩ 3
