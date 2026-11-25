@@ -255,6 +255,9 @@ def primevalBellow (base : CardDef) (bonus : Int) : CardDef :=
 /-- Primeval Bellow Red. -/
 def WTR_035_R : CardDef := { primevalBellow WTR_035_R_meta 5 with status := .full }
 
+/-- Primeval Bellow Yellow. -/
+def WTR_036_Y : CardDef := { primevalBellow WTR_036_Y_meta 4 with status := .full }
+
 /-! ## Guardian (WTR038-WTR075) -/
 
 /-- Shared Bravo activated ability: Action {r}{r}: cost ≥3 attack actions get dominate. Go again. -/
@@ -982,7 +985,7 @@ def draftedCards : List CardDef :=
   , WTR_011_R, WTR_012_Y, WTR_013_B, WTR_014_R, WTR_015_Y, WTR_016_B
   , WTR_017_R, WTR_018_Y, WTR_019_B, WTR_020_R, WTR_021_Y, WTR_022_B
   , WTR_023_R, WTR_024_Y, WTR_025_B, WTR_026_R, WTR_027_Y, WTR_028_B, WTR_029_R, WTR_030_Y, WTR_031_B
-  , WTR_032_R, WTR_033_Y, WTR_034_B, WTR_035_R
+  , WTR_032_R, WTR_033_Y, WTR_034_B, WTR_035_R, WTR_036_Y
   , WTR_038, WTR_039, WTR_040, WTR_041, WTR_042, WTR_043_R, WTR_044_R, WTR_045_B
   , WTR_048_R, WTR_049_Y, WTR_050_B, WTR_051_R, WTR_052_Y, WTR_053_B
   , WTR_054_R, WTR_055_Y, WTR_056_B, WTR_057_R, WTR_058_Y, WTR_059_B, WTR_075
