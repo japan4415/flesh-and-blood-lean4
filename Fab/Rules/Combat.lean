@@ -87,6 +87,8 @@ def objEffectivePower (s : GameState) (id : ObjId) : Option Int :=
         let defenders := nonEquipmentDefenderCount s attack
         let bonus := face.abilities.foldl (fun total ability =>
           match ability with
+          | .static_ none scope (.addPower .chainHits) =>
+            if scope.isSelf then total + evalNumExpr s chars.controller [] .chainHits else total
           | .static_ (some (.defendedByFewerNonEquip limit)) scope (.addPower (.const delta)) =>
             if scope.isSelf && decide (defenders < limit) then total + delta else total
           | _ => total) 0

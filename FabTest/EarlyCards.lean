@@ -98,3 +98,18 @@ meta def blossomScenario : Option Bool := do
   pure (openingHit.pendingTriggers.isEmpty && hit.pendingTriggers.length == 1 &&
     (resolved.zone deck).isEmpty && (resolved.zone handZone).length == 2)
 #guard blossomScenario == some true
+
+meta def saltScenario : Option Bool := do
+  let p := earlyAttacker
+  let (hand, jab) ← earlyPlace earlyBase p (.player p .hand) "WTR_100_B"
+  let (ready, salt) ← earlyPlace hand p (.player p .hand) "IRA_004_Y"
+  let opening ← earlyAttack ready (.playCard salt)
+  let prior ← (earlyAttack ready (.playCard jab)).bind earlyDamage
+  let follow ← (earlySteps prior earlyPass).bind (earlyAttack · (.playCard salt))
+  let baseLink ← opening.combat.bind CombatChain.activeLink?
+  let linked ← follow.combat.bind CombatChain.activeLink?
+  let saltHit ← earlyDamage follow
+  let afterHit ← saltHit.combat.bind CombatChain.activeLink?
+  pure (linkAttackPower opening baseLink == 2 && linkAttackPower follow linked == 3 &&
+    linkAttackPower saltHit afterHit == 4 && saltHit.lifeOf earlyDefender == 36)
+#guard saltScenario == some true
