@@ -559,7 +559,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                 intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
               rw [hnil, hnil]
           | choosePlayWeapon _ _ _ _ _ _ | chooseOptionalResources _ _ _ _ _ _ => rfl
-          | chooseGraveyardCost _ _ _ _ _ _ => rfl
+          | chooseGraveyardCost _ _ _ _ _ _ | chooseVariableResources _ _ _ _ _ _ => rfl
           | chooseHandCardCost q _ _ _ cost =>
             dsimp only
             by_cases hqp : q = p
@@ -618,7 +618,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
           | chooseTriggerOrder _ _ =>
             dsimp only
             simp only [h.pendingTriggers, h.triggerTargetChoices_eq]
-          | chooseReplacement _ _ _ _ => rfl
+          | chooseReplacement _ _ _ _ | chooseTriggerGraveyard _ _ _ _ _ _ => rfl
           | chanceFirstPlayer | revealLoadouts | chanceShuffle _ | openingDraws | draw _ _
           | beginTurn | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _
           | payRandomDiscard _ _ _ _ _

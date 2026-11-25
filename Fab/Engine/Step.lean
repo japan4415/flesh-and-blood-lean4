@@ -94,6 +94,9 @@ def legalFrameActions (s : GameState) : List Action :=
       [⟨.player p, .cancelPlay⟩]
   | .chooseOptionalResources p _ _ _ _ _ :: _ =>
     [⟨.player p, .pickMay true⟩, ⟨.player p, .pickMay false⟩, ⟨.player p, .cancelPlay⟩]
+  | .chooseVariableResources p _ _ _ _ limit :: _ =>
+    [⟨.player p, .pickVariableResources none⟩, ⟨.player p, .cancelPlay⟩] ++
+      (List.range (limit + 1)).map fun x => ⟨.player p, .pickVariableResources (some x)⟩
   | .chooseGraveyardCost p _ _ _ _ candidates :: _ =>
     [⟨.player p, .pickGraveyardCost none⟩, ⟨.player p, .cancelPlay⟩] ++
       candidates.map fun id => ⟨.player p, .pickGraveyardCost (some id)⟩
@@ -127,6 +130,8 @@ def legalFrameActions (s : GameState) : List Action :=
   | .chooseTriggerOrder p _ :: _ =>
     (s.pendingTriggers.filter fun t => t.controller == p).flatMap fun t =>
       (t.targetChoices s).map fun target => ⟨.player p, .pickTrigger t.id target.1 target.2⟩
+  | .chooseTriggerGraveyard p _ _ _ candidates _ :: _ =>
+    candidates.map fun id => ⟨.player p, .pickTriggerGraveyardCard id⟩
   | .chooseReplacement aff _ cands canDecl :: _ =>
     (cands.map fun cid => ⟨.player aff, .pickReplacement (some cid)⟩) ++
       (if canDecl then [⟨.player aff, .pickReplacement none⟩] else [])

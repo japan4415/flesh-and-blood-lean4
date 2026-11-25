@@ -66,11 +66,14 @@ theorem progress_m6b_decisions {s : GameState} (hres : s.result = none) :
     (∀ p rem rest t target, s.pending = .chooseTriggerOrder p rem :: rest →
       t ∈ s.pendingTriggers → t.controller = p → target ∈ t.targetChoices s →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
+    (∀ p rem t n id candidates selected rest,
+      s.pending = .chooseTriggerGraveyard p rem t n (id :: candidates) selected :: rest →
+      ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ aff st c cs cd rest, s.pending = .chooseReplacement aff st (c :: cs) cd :: rest →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ aff st cands rest, s.pending = .chooseReplacement aff st cands true :: rest →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) := by
-  refine ⟨?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · intro tp p ps rest hp hord
     refine ⟨⟨.player tp, .pickTriggerStart p⟩, ?_, by simp⟩
     rw [legalActions_iff]
@@ -84,6 +87,10 @@ theorem progress_m6b_decisions {s : GameState} (hres : s.result = none) :
     refine ⟨rfl, ?_⟩
     rw [List.any_eq_true]
     exact ⟨t, hmem, by simp [PendingTrigger.matchesDeclaration, hctrl, htarget]⟩
+  · intro p rem t n id candidates selected rest hp
+    refine ⟨⟨.player p, .pickTriggerGraveyardCard id⟩, ?_, by simp⟩
+    rw [legalActions_iff]
+    exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩
   · intro aff st c cs cd rest hp
     refine ⟨⟨.player aff, .pickReplacement (some c)⟩, ?_, by simp⟩
     rw [legalActions_iff]

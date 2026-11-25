@@ -348,6 +348,9 @@ structure EffectDef where
   targets : List TargetSpec := []
   /-- Additional non-asset or optional costs declared at play time. -/
   extraCosts : List ExtraCostSpec := []
+  /-- After paying X, shuffle X matching target cards from the controller's graveyard,
+  then resolve the attached effect. The targets are declared when the trigger is stacked. -/
+  onPayX : Option (CardFilter × Effect) := none
   /-- Discrete effect body executed on resolution (used when `modes` is empty). -/
   body : Effect := .nop
 deriving DecidableEq, Repr

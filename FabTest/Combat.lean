@@ -2408,6 +2408,91 @@ meta def checkKatsu (cid : CardId) (life : Nat) : Option Bool := do
 #guard checkKatsu ⟨"WTR_076"⟩ 40 == some true
 #guard checkKatsu ⟨"WTR_077"⟩ 20 == some true
 
+/-- Lord of Wind declares and pays X, then targets graveyard cards on a separate triggered layer. -/
+meta def checkLordOfWind : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_081_B"⟩
+  let grave := Zone.player player .graveyard
+  let deck := Zone.player player .deck
+  let funded := m5Base.setPool player { actionPoints := 3, resources := 1 }
+  let card ← funded.cards.find? cid
+  let (withMugenshi, mugenshi) ← cPlace funded player .hand ⟨"WTR_083_Y"⟩
+  let (withLord, lord) ← cPlace withMugenshi player .hand cid
+  let (withPitch, pitch) ← cPlace withLord player .hand ⟨"WTR_205_B"⟩
+  let (withStrike, strike) ← cPlace withPitch player .graveyard ⟨"WTR_109_B"⟩
+  let (withGustwave, gustwave) ← cPlace withStrike player .graveyard ⟨"WTR_110_R"⟩
+  let (withUnrelated, unrelated) ← cPlace withGustwave player .graveyard ⟨"WTR_203_R"⟩
+  let (withOpponent, opposingCombo) ← cPlace withUnrelated opponent .graveyard ⟨"WTR_083_Y"⟩
+  let (ready, originalTop) ← cPlace withOpponent player .deck ⟨"WTR_203_R"⟩
+  let play (id : ObjId) : Action := ⟨.player player, .playCard id⟩
+  let amount (n : Option Nat) : Action := ⟨.player player, .pickVariableResources n⟩
+  let pick (id : ObjId) : Action := ⟨.player player, .pickTriggerGraveyardCard id⟩
+  let attack (s : GameState) := cSteps s (passBoth ++ passBoth)
+  let attackPower (s : GameState) := (s.combat.bind CombatChain.activeLink?).map (linkAttackPower s)
+  let defs (s : GameState) (zone : Zone) := (s.zone zone).map (fun id => (s.cardDefOf? id).map (·.id))
+  let standalone ← cSteps ready (play lord :: (passBoth ++ passBoth))
+  let previous ← cSteps ready
+    ([play mugenshi] ++ passBoth ++ passBoth ++ [⟨.player opponent, .defendDone⟩] ++
+      passBoth ++ passBoth ++ passBoth)
+  let openCost ← cSteps previous [play lord]
+  let cancelled ← cSteps openCost [⟨.player player, .cancelPlay⟩]
+  let declined ← cSteps openCost [amount none]
+  let normal ← attack declined
+  let payZero ← cSteps openCost [amount (some 0)]
+  let trigZero ← payZero.pendingTriggers.head?
+  let start := Action.mk (.player player) (.pickTriggerStart player)
+  let stack (trig : PendingTrigger) := Action.mk (.player player) (.pickTrigger trig.id)
+  let resolvedZero ← cSteps payZero ([start, stack trigZero] ++ passBoth)
+  let zeroAttack ← attack resolvedZero
+  let pitchChoice ← cSteps openCost [amount (some 2)]
+  let paid ← cSteps pitchChoice [⟨.player player, .pitchCard pitch⟩]
+  let trigger ← paid.pendingTriggers.head?
+  let lordLayer ← (paid.zone .stack).head?
+  let choosing ← cSteps paid [start, stack trigger]
+  let second ← cSteps choosing [pick strike]
+  let (stacked, events) ← (step 64 second (pick gustwave)).toOption
+  let top ← (stacked.zone .stack).head?
+  let waitingShuffle ← cSteps stacked passBoth
+  let shuffled ← cSteps waitingShuffle [⟨.chance, .shuffleOrder (waitingShuffle.zone deck).reverse⟩]
+  let boosted ← attack shuffled
+  let banished := Zone.player player .banished
+  let (interrupted, _) ← moveObj stacked strike banished
+  let waitingPartial ← cSteps interrupted passBoth
+  let shuffledPartial ← cSteps waitingPartial [⟨.chance, .shuffleOrder (waitingPartial.zone deck)⟩]
+  let partialAttack ← attack shuffledPartial
+  let (interruptedAll, _) ← moveObj interrupted gustwave banished
+  let resolvedAll ← cSteps interruptedAll passBoth
+  let allAttack ← attack resolvedAll
+  let (withoutLord, _) ← moveObj stacked lordLayer grave
+  let waitingWithoutLord ← cSteps withoutLord passBoth
+  let resolvedWithoutLord ← cSteps waitingWithoutLord [⟨.chance, .shuffleOrder (waitingWithoutLord.zone deck)⟩]
+  pure (card.status == .full && card.specializations == ["Katsu"] &&
+    attackPower standalone == some 2 && standalone.zone deck == [originalTop] &&
+    decide (cancelled = previous) && declined.pendingTriggers.isEmpty &&
+    attackPower normal == some 2 && attackPower zeroAttack == some 2 &&
+    resolvedZero.zone deck == [originalTop] && resolvedZero.zone grave == ready.zone grave &&
+    (legalActionsFor player openCost).contains (amount (some 2)) &&
+    (step 64 openCost (amount (some 3))).toOption.isNone &&
+    paid.pendingTriggers.length == 1 && trigger.source == lordLayer &&
+    (paid.layerMeta.get? lordLayer.n).any (fun info => info.additionalCostPaid) &&
+    (paid.poolOf player).resources == 1 && paid.zone grave == ready.zone grave &&
+    (legalActionsFor player choosing).contains (pick strike) &&
+    (legalActionsFor player choosing).contains (pick gustwave) &&
+    (step 64 choosing (pick unrelated)).toOption.isNone &&
+    (step 64 choosing (pick opposingCombo)).toOption.isNone &&
+    (step 64 second (pick strike)).toOption.isNone &&
+    stacked.zone .stack == [top, lordLayer] && stacked.zone deck == [originalTop] &&
+    events == [.targetedGraveyardCard top strike, .targetedGraveyardCard top gustwave] &&
+    waitingShuffle.pending.head? == some (.chanceShuffle deck) && waitingShuffle.zone grave == [unrelated] &&
+    defs shuffled deck == [some ⟨"WTR_110_R"⟩, some ⟨"WTR_109_B"⟩, some ⟨"WTR_203_R"⟩] &&
+    attackPower boosted == some 4 && attackPower partialAttack == some 4 &&
+    defs shuffledPartial deck == [some ⟨"WTR_203_R"⟩, some ⟨"WTR_110_R"⟩] &&
+    resolvedAll.zone deck == [originalTop] && attackPower allAttack == some 4 &&
+    (resolvedWithoutLord.zone deck).length == 3 && attackPower resolvedWithoutLord == attackPower previous)
+
+#guard checkLordOfWind == some true
+
 /-- Dawnblade's second hit and its counter retention both use the whole turn, across chains. -/
 meta def checkDawnblade : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

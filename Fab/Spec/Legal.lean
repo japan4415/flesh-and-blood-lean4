@@ -62,6 +62,10 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
   | .chooseOptionalResources p _ _ _ _ _ :: _, .player q, .pickMay _
   | .chooseOptionalResources p _ _ _ _ _ :: _, .player q, .cancelPlay =>
     q = p
+  | .chooseVariableResources p _ _ _ _ limit :: _, .player q, .pickVariableResources amount =>
+    q = p ∧ amount.all (· ≤ limit) = true
+  | .chooseVariableResources p _ _ _ _ _ :: _, .player q, .cancelPlay =>
+    q = p
   | .chooseGraveyardCost p _ _ _ _ candidates :: _, .player q, .pickGraveyardCost choice =>
     q = p ∧ choice.all candidates.contains = true
   | .chooseGraveyardCost p _ _ _ _ _ :: _, .player q, .cancelPlay =>
@@ -96,6 +100,8 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     q = tp ∧ start ∈ s.turnOrder
   | .chooseTriggerOrder p _ :: _, .player q, .pickTrigger tid hero equipment =>
     q = p ∧ (s.pendingTriggers.any fun t => t.matchesDeclaration s tid p hero equipment) = true
+  | .chooseTriggerGraveyard p _ _ _ candidates _ :: _, .player q, .pickTriggerGraveyardCard id =>
+    q = p ∧ id ∈ candidates
   | .chooseReplacement aff _ cands canDecl :: _, .player q, .pickReplacement choice =>
     q = aff ∧
     match choice with
