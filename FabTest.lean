@@ -19,6 +19,7 @@ public import FabTest.Effects
 public import FabTest.Advanced
 public import FabTest.MultiAndInfo
 public import FabTest.CoreRulesComplete
+public import FabTest.EarlyCards
 
 /-!
 # FabTest
