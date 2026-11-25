@@ -68,7 +68,7 @@ def legalFrameActions (s : GameState) : List Action :=
   | .priority p _ :: _ =>
     let candidates := s.zone (.player p .hand) ++ s.zone (.player p .arsenal)
     let plays := (candidates.filter (canPlayCard s p)).map fun id => ⟨.player p, .playCard id⟩
-    let weapons := ((s.zone (.player p .weapon)).filter (canAttackWithWeapon s p)).map
+    let weapons := ((weaponAttackCandidateIds s p).filter (canAttackWithWeapon s p)).map
       fun wid => ⟨.player p, .attackWeapon wid⟩
     ⟨.player p, .pass⟩ :: (plays ++ weapons)
   | .defendPick defender :: _ =>

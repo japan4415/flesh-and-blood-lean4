@@ -1883,6 +1883,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | .addPower d => some (.addPower (evalNumExpr s ctrl env d))
       | .addDefense d => some (.addDefense (evalNumExpr s ctrl env d))
       | .addIntellect d => some (.addIntellect d)
+      | .additionalWeaponAttack => some .allowWeaponAttack
       | .modifyCost d =>
         if 0 ≤ d then some (.addCostRes d.toNat) else some (.subCostRes (-d).toNat)
       | .grantKeyword kw => some (.grantKeyword kw)
@@ -1908,6 +1909,8 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .nextDefend filter, .addDefense _ => .nextDefend filter
         | .allAttacks filter, .addPower _ => .allAttacks filter
         | .self_, .addPower _ | .obj .self_, .addPower _ => .obj src
+        | .obj .currentAttack, .allowWeaponAttack =>
+          (((s.combat.bind CombatChain.activeLink?).bind (·.attackSource)).map EffectTarget.obj).getD (.objects [])
         | .paidAttack id, _ => .obj id
         | .arenaObjectsOfType player kind, _ =>
           let affected := evalPlayerRef s ctrl player
