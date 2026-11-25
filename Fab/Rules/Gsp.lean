@@ -48,13 +48,76 @@ def deadAllies (s : GameState) : List ObjId :=
   (allPlayers s.playerCount).flatMap fun p =>
     (s.zone (.player p .permanent)).filter (isDeadAlly s)
 
+/-- Whether object `id` is a Landmark permanent (CR 1.10.2b, 2.16). -/
+def isLandmarkObj (s : GameState) (id : ObjId) : Bool :=
+  match s.cardDefOf? id with
+  | some c => c.front.hasSubtype .landmark
+  | none => false
+
+/-- All Landmark permanents currently in Arena permanent zones across all players (CR 1.10.2b). -/
+def arenaLandmarks (s : GameState) : List ObjId :=
+  (allPlayers s.playerCount).flatMap fun p =>
+    (s.zone (.player p .permanent)).filter (isLandmarkObj s)
+
+/-- Timestamp numeric value of object `id` (0 if absent). -/
+def objTimestampVal (s : GameState) (id : ObjId) : Nat :=
+  match s.obj? id with
+  | some o => o.timestamp.n
+  | none => 0
+
+/-- The newest Landmark in the Arena (latest timestamp, tie-broken by largest `ObjId.n`), or
+`none` if no Landmarks are in the Arena (CR 1.10.2b). -/
+def newestLandmark? (s : GameState) : Option ObjId :=
+  (arenaLandmarks s).foldl (fun best cur =>
+    match best with
+    | none => some cur
+    | some b =>
+      let tb := objTimestampVal s b
+      let tc := objTimestampVal s cur
+      if tc > tb || (tc == tb && cur.n > b.n) then some cur else some b) none
+
+/-- Older Landmarks that must be cleared by the Landmark uniqueness rule when `≥ 2` Landmarks
+occupy the Arena simultaneously (CR 1.10.2b). -/
+def olderLandmarks (s : GameState) : List ObjId :=
+  match newestLandmark? s with
+  | none => []
+  | some keep => (arenaLandmarks s).filter (· != keep)
+
+/-- Combined list of Arena permanents that must be cleared by GSP: dead Allies (`life ≤ 0`) and
+older Landmarks violating Landmark uniqueness (CR 1.10.2b). -/
+def gspPermanentsToClear (s : GameState) : List ObjId :=
+  deadAllies s ++ olderLandmarks s
+
+/-- Every `id ∈ gspPermanentsToClear s` resides in some seated player's `.permanent` zone. -/
+theorem mem_permanent_of_mem_gspPermanentsToClear {s : GameState} {id : ObjId}
+    (hmem : id ∈ gspPermanentsToClear s) :
+    ∃ p ∈ allPlayers s.playerCount, id ∈ s.zone (.player p .permanent) := by
+  unfold gspPermanentsToClear at hmem
+  rw [List.mem_append] at hmem
+  rcases hmem with hda | hlm
+  · unfold deadAllies at hda
+    rw [List.mem_flatMap] at hda
+    obtain ⟨p, hp, hf⟩ := hda
+    exact ⟨p, hp, (List.mem_filter.mp hf).1⟩
+  · unfold olderLandmarks at hlm
+    cases hnew : newestLandmark? s with
+    | none => rw [hnew] at hlm; cases hlm
+    | some keep =>
+      rw [hnew] at hlm
+      have hmem_ar := (List.mem_filter.mp hlm).1
+      unfold arenaLandmarks at hmem_ar
+      rw [List.mem_flatMap] at hmem_ar
+      obtain ⟨p, hp, hf⟩ := hmem_ar
+      exact ⟨p, hp, (List.mem_filter.mp hf).1⟩
+
 /-- A game state is `Settled` (GSP fixed point: **I17**) when no hero defeat is pending, no stray
-tokens or attack-proxies occupy Non-Arena zones, and no dead living permanents remain in the Arena
-(CR 1.10.2). -/
+tokens or attack-proxies occupy Non-Arena zones, no dead living permanents remain in the Arena,
+and at most one Landmark exists in the Arena (CR 1.10.2). -/
 def Settled (s : GameState) : Prop :=
   (s.result = none → (checkHeroDefeat s).result = none) ∧
   nonArenaNonPhys s = [] ∧
-  deadAllies s = []
+  deadAllies s = [] ∧
+  olderLandmarks s = []
 
 instance decidableSettled (s : GameState) : Decidable (Settled s) := by
   unfold Settled
@@ -71,8 +134,9 @@ def permanentObjCount (s : GameState) : Nat :=
 /-- Weighted lexicographic measure strictly decreasing on every `gspStep` (**I12a**):
 - Hero defeat drops `(if result.isNone then 1 else 0)` by 1.
 - Removing a Non-Arena token/proxy drops `nonArenaObjCount` by 1.
-- Clearing a dead Ally drops `permanentObjCount` by 1 and increases `nonArenaObjCount` by at most 1,
-  so `nonArenaObjCount + 2 * permanentObjCount` strictly decreases by at least 1. -/
+- Clearing a dead Ally or older Landmark drops `permanentObjCount` by 1 and increases
+  `nonArenaObjCount` by at most 1, so `nonArenaObjCount + 2 * permanentObjCount` strictly
+  decreases by at least 1. -/
 def gspMeasure (s : GameState) : Nat :=
   (if s.result.isNone then 1 else 0) + nonArenaObjCount s + 2 * permanentObjCount s
 
@@ -85,7 +149,7 @@ def gspStep (s : GameState) : Option GameState :=
     match nonArenaNonPhys s with
     | id :: _ => some (removeNonPhysObj s id)
     | [] =>
-      match deadAllies s with
+      match gspPermanentsToClear s with
       | id :: _ =>
         match s.obj? id with
         | some o =>
@@ -289,17 +353,13 @@ theorem gspStep_measure_lt {s s' : GameState} (hwf : s.WF) (h : gspStep s = some
       omega
     | nil =>
       rw [hna_list] at h
-      cases hda_list : deadAllies s with
+      cases hda_list : gspPermanentsToClear s with
       | nil => rw [hda_list] at h; cases h
       | cons id rest =>
         rw [hda_list] at h
         dsimp only at h
-        have hmem_da : id ∈ deadAllies s := by rw [hda_list]; exact List.mem_cons_self
-        unfold deadAllies at hmem_da
-        rw [List.mem_flatMap] at hmem_da
-        obtain ⟨p, hp_in, hid_filt⟩ := hmem_da
-        rw [List.mem_filter] at hid_filt
-        obtain ⟨hid_perm, _⟩ := hid_filt
+        have hmem_da : id ∈ gspPermanentsToClear s := by rw [hda_list]; exact List.mem_cons_self
+        obtain ⟨p, hp_in, hid_perm⟩ := mem_permanent_of_mem_gspPermanentsToClear hmem_da
         have hp_lt : p.n < s.playerCount := mem_allPlayers_iff.mp hp_in
         have hz_perm : (Zone.player p .permanent).Valid s.playerCount :=
           Zone.valid_player hp_lt .permanent
@@ -445,7 +505,7 @@ theorem gspStep_wf {s s' : GameState} (hwf : s.WF) (h : gspStep s = some s') : s
       exact removeNonPhysObj_wf hwf id
     | nil =>
       rw [h1] at h
-      cases h2 : deadAllies s with
+      cases h2 : gspPermanentsToClear s with
       | nil => rw [h2] at h; cases h
       | cons id _ =>
         rw [h2] at h; dsimp only at h
@@ -473,7 +533,7 @@ theorem gspStep_ownerOk {s s' : GameState} (hwf : s.WF) (hok : s.OwnerOk)
       exact removeNonPhysObj_ownerOk hok id
     | nil =>
       rw [h1] at h
-      cases h2 : deadAllies s with
+      cases h2 : gspPermanentsToClear s with
       | nil => rw [h2] at h; cases h
       | cons id _ =>
         rw [h2] at h; dsimp only at h
@@ -501,7 +561,7 @@ theorem gspStep_physIds {s s' : GameState} (hwf : s.WF) (h : gspStep s = some s'
       exact removeNonPhysObj_physIds hwf id
     | nil =>
       rw [h1] at h
-      cases h2 : deadAllies s with
+      cases h2 : gspPermanentsToClear s with
       | nil => rw [h2] at h; cases h
       | cons id _ =>
         rw [h2] at h; dsimp only at h
@@ -535,7 +595,7 @@ theorem gspStep_meta {s s' : GameState} (h : gspStep s = some s') :
       exact removeNonPhysObj_meta s id
     | nil =>
       rw [h1] at h
-      cases h2 : deadAllies s with
+      cases h2 : gspPermanentsToClear s with
       | nil => rw [h2] at h; cases h
       | cons id _ =>
         rw [h2] at h; dsimp only at h
@@ -580,18 +640,16 @@ theorem settled_of_gspStep_none {s : GameState} (hwf : s.WF)
           exfalso
           apply hno_def
           simp [hres, hcd]
-      · cases h2 : deadAllies s with
-        | nil => rfl
+      · cases h2 : gspPermanentsToClear s with
+        | nil =>
+          unfold gspPermanentsToClear at h2
+          exact List.append_eq_nil_iff.mp h2
         | cons id _ =>
           exfalso
           rw [h2] at h
           dsimp only at h
-          have hmem_da : id ∈ deadAllies s := by rw [h2]; exact List.mem_cons_self
-          unfold deadAllies at hmem_da
-          rw [List.mem_flatMap] at hmem_da
-          obtain ⟨p, hp_in, hid_filt⟩ := hmem_da
-          rw [List.mem_filter] at hid_filt
-          obtain ⟨hid_perm, _⟩ := hid_filt
+          have hmem_da : id ∈ gspPermanentsToClear s := by rw [h2]; exact List.mem_cons_self
+          obtain ⟨p, hp_in, hid_perm⟩ := mem_permanent_of_mem_gspPermanentsToClear hmem_da
           have hp_lt : p.n < s.playerCount := mem_allPlayers_iff.mp hp_in
           have hz_perm : (Zone.player p .permanent).Valid s.playerCount :=
             Zone.valid_player hp_lt .permanent

@@ -258,7 +258,7 @@ theorem gameStateProcess_fixed_point {s s' : GameState} {rest : List Frame} {es 
     change (match nonArenaNonPhys t with
       | id :: _ => some (removeNonPhysObj { t with pending := rest } id)
       | [] =>
-        match deadAllies t with
+        match gspPermanentsToClear t with
         | id :: _ =>
           match t.obj? id with
           | some o =>
@@ -274,7 +274,7 @@ theorem gameStateProcess_fixed_point {s s' : GameState} {rest : List Frame} {es 
     | nil =>
       rw [hna] at hfp
       dsimp only at hfp ⊢
-      cases hda : deadAllies t with
+      cases hda : gspPermanentsToClear t with
       | nil => rfl
       | cons id _ =>
         rw [hda] at hfp

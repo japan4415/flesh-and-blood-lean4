@@ -112,7 +112,17 @@ theorem loadoutEquipDest?_spec {s : GameState} {p : PlayerId} {id : ObjId} {dst 
           · split at h
             · simp only [Option.some.injEq] at h; subst h; exact ⟨.weapon, rfl, rfl⟩
             · cases h
-          · cases h
+          · split at h
+            · split at h
+              · simp only [Option.some.injEq] at h; subst h; exact ⟨.head, rfl, rfl⟩
+              · split at h
+                · simp only [Option.some.injEq] at h; subst h; exact ⟨.chest, rfl, rfl⟩
+                · split at h
+                  · simp only [Option.some.injEq] at h; subst h; exact ⟨.arms, rfl, rfl⟩
+                  · split at h
+                    · simp only [Option.some.injEq] at h; subst h; exact ⟨.legs, rfl, rfl⟩
+                    · cases h
+            · cases h
   · cases h
 
 /-- Helper: `loadoutCanAddDeck` implies `id` is in `p`'s inventory. -/
@@ -859,9 +869,13 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
   · -- endTurnCleanup
     rename_i tp _ _
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-    have hperm : (untapPlayer s tp).physIds.Perm s.physIds := by rw [untapPlayer_physIds]
-    exact ⟨GameState.WF.congr (untapPlayer_wf hwf tp) rfl rfl rfl rfl,
-           GameState.OwnerOk.congr (untapPlayer_ownerOk hok tp) rfl rfl,
+    have hwf0 := resetAlliesLife_wf hwf
+    have hok0 := resetAlliesLife_ownerOk hok
+    have hp0 : (resetAlliesLife s).physIds = s.physIds := resetAlliesLife_physIds s
+    have hperm : (untapPlayer (resetAlliesLife s) tp).physIds.Perm s.physIds := by
+      rw [untapPlayer_physIds, hp0]
+    exact ⟨GameState.WF.congr (untapPlayer_wf hwf0 tp) rfl rfl rfl rfl,
+           GameState.OwnerOk.congr (untapPlayer_ownerOk hok0 tp) rfl rfl,
            GameState.RollbackOk.preserve hrb rfl rfl hperm,
            hperm, rfl⟩
   · -- flushTriggers

@@ -72,6 +72,8 @@ structure BoardSnapshot where
   delayedTriggers : List DelayedTrigger := []
   /-- Saved recorded replacement-effect choices. -/
   chosenReplacements : List (Option Nat) := []
+  /-- Saved list of currently Marked players (CR 8.5.48). -/
+  markedPlayers : List PlayerId := []
 deriving DecidableEq, Repr
 
 /-- Complete state of a Flesh and Blood game (M2-M5 core). -/
@@ -120,6 +122,8 @@ structure GameState where
   delayedTriggers : List DelayedTrigger := []
   /-- Replacement-effect choices recorded via `chooseReplacement` (CR 6.5.1). -/
   chosenReplacements : List (Option Nat) := []
+  /-- Players currently Marked by Mark effects (CR 8.5.48). -/
+  markedPlayers : List PlayerId := []
 deriving DecidableEq, Repr
 
 /-- List of every valid zone in an `n`-player game (CR 3.0). -/
@@ -366,7 +370,8 @@ def snapshot (s : GameState) : BoardSnapshot :=
     activeEffects := s.activeEffects
     pendingTriggers := s.pendingTriggers
     delayedTriggers := s.delayedTriggers
-    chosenReplacements := s.chosenReplacements }
+    chosenReplacements := s.chosenReplacements
+    markedPlayers := s.markedPlayers }
 
 /-- Restore a saved `BoardSnapshot` and clear `playRollback` (CR 5.1.1). -/
 def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
@@ -384,6 +389,7 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     pendingTriggers := snap.pendingTriggers
     delayedTriggers := snap.delayedTriggers
     chosenReplacements := snap.chosenReplacements
+    markedPlayers := snap.markedPlayers
     playRollback := none }
 
 /-- Evaluate the 8-stage derived characteristics of object `id` in state `s` (CR 6.3.2). -/

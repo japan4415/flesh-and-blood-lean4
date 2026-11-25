@@ -77,7 +77,7 @@ theorem gspStep_turn_tournament {s s' : GameState} (h : gspStep s = some s') :
       exact ⟨hr.1, hr.2.1⟩
     | nil =>
       rw [h1] at h
-      cases h2 : deadAllies s with
+      cases h2 : gspPermanentsToClear s with
       | nil => rw [h2] at h; cases h
       | cons id _ =>
         rw [h2] at h; dsimp only at h
@@ -517,7 +517,7 @@ theorem gspStep_result_none {s s' : GameState} (h : gspStep s = some s') (hr : s
       rw [← (removeNonPhysObj_turn_tournament_result s id).2.2]; exact hr
     | nil =>
       rw [h1] at h
-      cases h2 : deadAllies s with
+      cases h2 : gspPermanentsToClear s with
       | nil => rw [h2] at h; cases h
       | cons id _ =>
         rw [h2] at h; dsimp only at h
