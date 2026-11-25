@@ -427,6 +427,9 @@ meta def checkWeaponReprise (cid : CardId) (pitch cost baseBonus repriseBonus : 
 #guard checkWeaponReprise ⟨"WTR_123_R"⟩ 1 3 4 6 false false == some true
 #guard checkWeaponReprise ⟨"WTR_123_R"⟩ 1 3 4 6 false true == some true
 
+#guard checkWeaponReprise ⟨"WTR_124_Y"⟩ 2 3 3 5 false false == some true
+#guard checkWeaponReprise ⟨"WTR_124_Y"⟩ 2 3 3 5 false true == some true
+
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
 --    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!

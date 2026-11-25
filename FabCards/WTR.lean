@@ -648,8 +648,8 @@ def overpowerCard (base : CardDef) (baseBonus repriseBonus : Int) : CardDef :=
 
 /-- Overpower Red. -/
 def WTR_123_R : CardDef := { overpowerCard WTR_123_R_meta 4 6 with status := .full }
-/-- Overpower Yellow (drafted IR). -/
-def WTR_124_Y : CardDef := overpowerCard WTR_124_Y_meta 3 5
+/-- Overpower Yellow. -/
+def WTR_124_Y : CardDef := { overpowerCard WTR_124_Y_meta 3 5 with status := .full }
 /-- Overpower Blue (drafted IR). -/
 def WTR_125_B : CardDef := overpowerCard WTR_125_B_meta 2 4
 
