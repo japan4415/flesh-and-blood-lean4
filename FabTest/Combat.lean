@@ -1645,6 +1645,46 @@ meta def checkDawnblade : Option Bool := do
 
 #guard checkDawnblade == some true
 
+/-- Timesnap Potion destroys itself as an activation cost and grants AP only on resolution. -/
+meta def checkTimesnapPotion : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_172_B"⟩
+  let funded := m5Base.setPool player { actionPoints := 2 }
+  let card ← funded.cards.find? cid
+  let (ready, item) ← cPlace funded player .hand cid
+  let play : Action := ⟨.player player, .playCard item⟩
+  let active ← cSteps ready (play :: passBoth)
+  let arena := Zone.player player .permanent
+  let grave := Zone.player player .graveyard
+  let source ← (active.zone arena).head?
+  let activate : Action := ⟨.player player, .activateAbility source 0⟩
+  let noPoints := active.setPool player {}
+  let duringOpponentTurn := { active with active := some opponent, pending := [.priority player 0] }
+  let withCombat := { active with combat := some { step := .resolution } }
+  let (paid, events) ← (step 64 active activate).toOption
+  let spent ← (paid.zone grave).head?
+  let ability ← (paid.zone .stack).head?
+  let resolved ← cSteps paid passBoth
+  pure (card.status == .full && card.front.pitch == some 3 &&
+    (step 64 ready ⟨.player player, .activateAbility item 0⟩).toOption.isNone &&
+    (active.poolOf player).actionPoints == 1 && (legalActionsFor player active).contains activate &&
+    (step 64 active ⟨.player player, .activateAbility source 1⟩).toOption.isNone &&
+    (step 64 noPoints activate).toOption.isNone &&
+    (step 64 duringOpponentTurn activate).toOption.isNone &&
+    (step 64 withCombat activate).toOption.isNone &&
+    (step 64 active ⟨.player opponent, .activateAbility source 0⟩).toOption.isNone &&
+    (paid.poolOf player).actionPoints == 0 && paid.zone arena == [] &&
+    (paid.cardDefOf? spent).map (·.id) == some cid &&
+    events.contains (.moved source spent arena grave) &&
+    (paid.obj? ability).any (fun o => match o.kind with
+      | .layer origin _ index isTrigger => origin == source && index == 0 && !isTrigger
+      | _ => false) &&
+    (resolved.poolOf player).actionPoints == 2 && (resolved.zone .stack).isEmpty &&
+    (step 64 resolved activate).toOption.isNone)
+
+#guard checkTimesnapPotion == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do

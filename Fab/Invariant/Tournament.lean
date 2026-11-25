@@ -883,6 +883,31 @@ theorem advance_preserves_timeLimit {deadline : Nat} :
       · simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact hb
     · simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact hb
 
+private theorem payActivationSource_turn_tournament_result {s paid : GameState}
+    {source : ObjId} {plan : ActivationPlan} {events : List Event}
+    (h : payActivationSource s source plan = some (paid, events)) :
+    paid.turn = s.turn ∧ paid.tournament = s.tournament ∧ paid.result = s.result := by
+  unfold payActivationSource at h
+  split at h
+  · cases h
+    exact ⟨rfl, rfl, rfl⟩
+  · obtain ⟨⟨moved, spent⟩, hm, h⟩ := Option.bind_eq_some_iff.mp h
+    cases h
+    exact moveObj_turn_tournament_result hm
+
+private theorem startActivation_turn_tournament_result {s s' : GameState} {p : PlayerId}
+    {source : ObjId} {index : Nat} {rest : List Frame} {es : List Event}
+    (h : startActivation s p source index rest = some (s', es)) :
+    s'.turn = s.turn ∧ s'.tournament = s.tournament ∧ s'.result = s.result := by
+  unfold startActivation at h
+  obtain ⟨plan, _, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨⟨paid, events⟩, hpay, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨⟨stacked, layerId⟩, hadd, h⟩ := Option.bind_eq_some_iff.mp h
+  cases h
+  obtain ⟨ht, htourn, hr⟩ := payActivationSource_turn_tournament_result hpay
+  obtain ⟨hat, hatourn, har⟩ := addObject_turn_tournament_result hadd
+  exact ⟨hat.trans ht, hatourn.trans htourn, har.trans hr⟩
+
 /-- Helper: `applyFrame` preserves `turn`, `tournament`, and `result`. -/
 theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : List Event}
     (h : applyFrame s a = some (s', es)) :
@@ -948,6 +973,10 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
         simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         have ha' := addObject_turn_tournament_result ha
         exact ⟨ha'.1, ha'.2.1, ha'.2.2⟩
+    · cases h
+  · -- priority activateAbility
+    split at h
+    · exact startActivation_turn_tournament_result h
     · cases h
   · -- defendPick defendCard
     split at h

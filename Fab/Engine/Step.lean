@@ -70,7 +70,9 @@ def legalFrameActions (s : GameState) : List Action :=
     let plays := (candidates.filter (canPlayCard s p)).map fun id => ⟨.player p, .playCard id⟩
     let weapons := ((weaponAttackCandidateIds s p).filter (canAttackWithWeapon s p)).map
       fun wid => ⟨.player p, .attackWeapon wid⟩
-    ⟨.player p, .pass⟩ :: (plays ++ weapons)
+    let abilities := (availableActivations s p).map fun indexed =>
+      (⟨.player p, .activateAbility indexed.1 indexed.2⟩ : Action)
+    ⟨.player p, .pass⟩ :: (plays ++ weapons ++ abilities)
   | .defendPick defender :: _ =>
     let defs :=
       match s.combat.bind CombatChain.activeLink? with

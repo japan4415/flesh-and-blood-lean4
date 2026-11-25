@@ -34,6 +34,8 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     q = p ∧ canPlayCard s p id = true
   | .priority p _ :: _, .player q, .attackWeapon wid =>
     q = p ∧ canAttackWithWeapon s p wid = true
+  | .priority p _ :: _, .player q, .activateAbility source index =>
+    q = p ∧ (source, index) ∈ availableActivations s p
   | .defendPick defender :: _, .player q, .defendCard id =>
     q = defender ∧
     match s.combat.bind CombatChain.activeLink? with

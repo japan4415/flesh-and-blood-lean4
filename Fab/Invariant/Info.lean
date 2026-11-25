@@ -255,6 +255,49 @@ theorem HiddenEquiv.canAttackWithWeapon_eq {p : PlayerId} {s1 s2 : GameState}
   rw [h.combat, h.phase, h.active, hs, hp, h.weaponAttackCandidateIds_eq,
       (h.cardDef_face wid).1, h.activatedThisTurn, h.activeEffects]
 
+private theorem installedArenaZone_visible {s : GameState} {p : PlayerId} {z : Zone}
+    (hz : z ∈ installedArenaZones s) : z.isSecretTo p = false := by
+  have ha := (List.mem_filter.mp hz).2
+  cases z with
+  | player q kind => cases kind <;> simp_all [Zone.isSecretTo, ZoneKind.isArena]
+  | combatChain | stack => rfl
+
+private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) : availableActivations s1 p = availableActivations s2 p := by
+  have hz : installedArenaZones s1 = installedArenaZones s2 := by
+    unfold installedArenaZones
+    rw [h.playerCount]
+  have hvisible (z : Zone) (hm : z ∈ installedArenaZones s2) : s1.zone z = s2.zone z :=
+    h.visibleZones z (installedArenaZone_visible hm)
+  have hfind (id : ObjId) :
+      (installedArenaZones s2).find? (fun z => (s1.zone z).contains id) =
+        (installedArenaZones s2).find? (fun z => (s2.zone z).contains id) := by
+    generalize heq : installedArenaZones s2 = zones at *
+    clear heq hz
+    induction zones with
+    | nil => rfl
+    | cons z zs ih =>
+      simp only [List.find?_cons, hvisible z (by simp), ih (fun a ha => hvisible a (by simp [ha]))]
+  have hsources : (installedArenaZones s2).flatMap s1.zone = (installedArenaZones s2).flatMap s2.zone := by
+    generalize heq : installedArenaZones s2 = zones at *
+    clear heq hz hfind
+    induction zones with
+    | nil => rfl
+    | cons z zs ih =>
+      simp only [List.flatMap_cons, hvisible z (by simp), ih (fun a ha => hvisible a (by simp [ha]))]
+  have hplan (id : ObjId) (index : Nat) : activationPlan? s1 p id index = activationPlan? s2 p id index := by
+    have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
+    have hc : s1.characteristics id = s2.characteristics id := by
+      unfold GameState.characteristics
+      rw [ho, (h.cardDef_face id).1, h.activeEffects]
+    have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
+    unfold activationPlan?
+    rw [hz, hfind, ho, hc, (h.cardDef_face id).2, hp, h.playerCount,
+      h.phase, h.active, h.combat, h.visibleZones .stack rfl, h.activatedThisTurn]
+  have hface (id : ObjId) := (h.cardDef_face id).2
+  unfold availableActivations
+  simp only [hz, hsources, hface, hplan]
+
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canDefendWith s link p id`. -/
 theorem HiddenEquiv.canDefendWith_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) (link : ChainLink) (id : ObjId) :
@@ -344,17 +387,17 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
               have hplay : canPlayCard s1 q = canPlayCard s2 q := funext h.canPlayCard_eq
               have hwep : canAttackWithWeapon s1 q = canAttackWithWeapon s2 q :=
                 funext h.canAttackWithWeapon_eq
-              rw [hh, ha, h.weaponAttackCandidateIds_eq, hplay, hwep]
+              rw [hh, ha, h.weaponAttackCandidateIds_eq, hplay, hwep, h.availableActivations_eq]
             · have hne : (Actor.player q == Actor.player p) = false := by simp [hqp]
               simp only [List.filter_cons, hne, List.filter_append]
-              have hnil : ∀ (l : List ObjId) (g : ObjId → ActionKind),
+              have hnil : ∀ {α : Type} (l : List α) (g : α → ActionKind),
                   List.filter (fun a => a.actor == Actor.player p)
                     (l.map fun id => Action.mk (.player q) (g id)) = [] := by
-                intro l g
+                intro α l g
                 induction l with
                 | nil => rfl
                 | cons x xs ih => simp [hne, ih]
-              rw [hnil, hnil, hnil, hnil]
+              rw [hnil, hnil, hnil, hnil, hnil, hnil]
           | defendPick defender =>
             dsimp only
             by_cases hdp : defender = p

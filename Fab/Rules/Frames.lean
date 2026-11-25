@@ -559,13 +559,16 @@ def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
     fun (trigger, once) => if once then none else some trigger
   triggers.zipIdx.map fun (trigger, idx) => { trigger with id := s.nextTimestamp + idx }
 
+/-- Zones holding installed arena objects, excluding cards underneath a hero (CR 3.0.14b). -/
+def installedArenaZones (s : GameState) : List Zone :=
+  (allZones s.playerCount).filter fun
+    | .player _ kind => kind.isArena && kind != .soul
+    | _ => false
+
 /-- Collect relevant abilities on installed arena objects under the player's control (CR 1.7.4, 3.0.14b). -/
 def installedCardTriggers (s : GameState) (p : PlayerId) (matchesEvent : Trigger → Bool) :
     List (PendingTrigger × Bool) :=
-  let arena := (allZones s.playerCount).filter fun
-    | .player _ kind => kind.isArena && kind != .soul
-    | _ => false
-  (arena.flatMap s.zone).flatMap fun source =>
+  ((installedArenaZones s).flatMap s.zone).flatMap fun source =>
     if (s.characteristics source).any (fun c => c.controller == p && !c.abilitiesLost) &&
         (s.obj? source).any (fun obj => !obj.faceDown) then
       let abilities := ((s.objectFace? source).map (·.abilities)).getD []
@@ -848,6 +851,82 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
     nextTimestamp := s.nextTimestamp + triggers.length
     pending := flush ++ (.priority p 0 :: rest) }
 
+/-- The declarations and payment for a supported activated ability (CR 5.2.2). -/
+structure ActivationPlan where
+  /-- Public zone of the source at announcement. -/
+  origin : Zone
+  /-- Owner of the source, whose graveyard takes a destroyed card. -/
+  owner : PlayerId
+  /-- The player's pool after paying the asset cost. -/
+  pool : AssetPool
+  /-- Whether destruction of the source is a required cost. -/
+  destroySource : Bool
+  /-- Whether this indexed ability has a once-per-turn limit. -/
+  oncePerTurn : Bool
+  /-- Whether its layer grants Go Again on resolution. -/
+  goAgain : Bool
+  /-- Resolution effect stored on the activated layer. -/
+  body : Effect
+
+/-- Read the announced ability and its payable costs from a visible arena source (CR 5.2.2). -/
+def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat) :
+    Option ActivationPlan := do
+  let origin ← (installedArenaZones s).find? (fun z => (s.zone z).contains source)
+  let obj ← s.obj? source
+  if obj.owner.n ≥ s.playerCount || obj.faceDown then none else
+  let terms ← (do
+    let chars ← s.characteristics source
+    let face ← s.objectFace? source
+    let .activated speed once cost extra none goAgain effect ← face.abilities[index]? | none
+    let timely := match speed with
+      | .action => s.phase == .actionPhase && s.active == some p && s.combat.isNone && (s.zone .stack).isEmpty
+      | .instant => true
+      | _ => false
+    let destroy := extra == [{ cost := .destroySelf }]
+    if !timely || chars.abilitiesLost || chars.controller != p ||
+        (once && s.activatedThisTurn.contains (source, index)) ||
+        !(extra.isEmpty || destroy) ||
+        !(effect.targets.isEmpty && effect.modes.isEmpty && effect.extraCosts.isEmpty) ||
+        effect.body == .prim .weaponAttack then none else
+    some (speed, once, cost, destroy, goAgain, effect.body))
+  let (speed, once, cost, destroy, goAgain, body) := terms
+  let cost := if speed == .action then { cost with actionPoints := max cost.actionPoints 1 } else cost
+  let pool := s.poolOf p
+  let paid ← pool.spend cost (cost.resources - pool.resources)
+  some ⟨origin, obj.owner, paid, destroy, once, goAgain, body⟩
+
+/-- The indexed abilities currently available to a player holding priority. -/
+def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat) :=
+  let sources := (installedArenaZones s).flatMap s.zone
+  let candidates := sources.flatMap fun source =>
+    let count := ((s.objectFace? source).map (·.abilities.length)).getD 0
+    (List.range count).map fun index => (source, index)
+  candidates.filter fun (source, index) => (activationPlan? s p source index).isSome
+
+/-- Pay a permanent's destruction cost before priority returns (CR 5.2.2b). -/
+def payActivationSource (s : GameState) (source : ObjId) (plan : ActivationPlan) :
+    Option (GameState × List Event) := do
+  if !plan.destroySource then some (s, []) else
+    let graveyard := Zone.player plan.owner .graveyard
+    let (paid, spent) ← moveObj s source graveyard .top false
+    some (paid, [.moved source spent plan.origin graveyard])
+
+/-- Commit a paid activated layer with the source's last known information (CR 5.2.2). -/
+def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat) (rest : List Frame) :
+    Option (GameState × List Event) := do
+  let plan ← activationPlan? s p source index
+  let (paid, events) ← payActivationSource (s.setPool p plan.pool) source plan
+  let layer : Object :=
+    { kind := .layer source (some (captureLki s source p)) index false
+      owner := p, controller := p, timestamp := ⟨paid.nextTimestamp⟩ }
+  let (stacked, layerId) ← addObject paid .stack layer .top
+  let info : LayerInfo := { controller := p, goAgain := plan.goAgain, triggerEffect := some plan.body }
+  let uses := if plan.oncePerTurn then (source, index) :: stacked.activatedThisTurn else stacked.activatedThisTurn
+  some ({ stacked with
+    activatedThisTurn := uses
+    layerMeta := stacked.layerMeta.insert layerId.n info
+    pending := .priority p 0 :: rest }, events)
+
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
   match s.pending, a.actor, a.kind with
@@ -953,6 +1032,8 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
               [])
     else
       none
+  | .priority p _ :: rest, .player q, .activateAbility source index =>
+    if p = q then startActivation s p source index rest else none
   | .defendPick defender :: rest, .player q, .defendCard id =>
     match s.combat.bind CombatChain.activeLink? with
     | some link =>
