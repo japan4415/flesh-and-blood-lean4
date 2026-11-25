@@ -820,6 +820,8 @@ def unmovable (base : CardDef) : CardDef :=
 
 /-- Unmovable Red. -/
 def WTR_212_R : CardDef := { unmovable WTR_212_R_meta with status := .full }
+/-- Unmovable Yellow. -/
+def WTR_213_Y : CardDef := { unmovable WTR_213_Y_meta with status := .full }
 
 /-- Shared 3-color helper for Sink Below (may put hand card on deck bottom; if done, draw 1). -/
 def sinkBelow (base : CardDef) : CardDef :=
@@ -888,7 +890,7 @@ def draftedCards : List CardDef :=
   , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_200_R, WTR_201_Y, WTR_202_B
   , WTR_203_R, WTR_204_Y, WTR_205_B
   , WTR_206_R, WTR_207_Y, WTR_208_B, WTR_209_R, WTR_210_Y, WTR_211_B
-  , WTR_212_R, WTR_215_R, WTR_216_Y, WTR_217_B
+  , WTR_212_R, WTR_213_Y, WTR_215_R, WTR_216_Y, WTR_217_B
   , WTR_218_R, WTR_219_Y, WTR_220_B, WTR_221_R, WTR_222_Y, WTR_223_B, WTR_225 ]
 
 /-- Complete list of all 226 WTR logical cards with drafted IR overrides applied. -/
