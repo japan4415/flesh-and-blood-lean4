@@ -679,11 +679,18 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
         exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact rollbackPlay_preserves hwf hok hrb _
-  · -- finishPlay
+  · -- payRandomDiscard
+    rename_i p _ _ _ count _ _
+    let ids := (s.zone (.player p .hand)).take count
+    have hinv := discardManyObjs_inv p ids hwf hok
+    dsimp only at h
+    generalize discardManyObjs s p ids = paid at h hinv
+    rcases paid with ⟨paidState, events⟩
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-    exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
-           GameState.OwnerOk.congr hok rfl rfl,
-           GameState.RollbackOk.of_none rfl, List.Perm.refl _, rfl⟩
+    obtain ⟨hwf1, hok1, hp1, hc1, _⟩ := hinv
+    exact ⟨GameState.WF.congr hwf1 rfl rfl rfl rfl,
+           GameState.OwnerOk.congr hok1 rfl rfl,
+           GameState.RollbackOk.of_none rfl, hp1, hc1⟩
   · -- resolveStack
     split at h
     · split at h <;>
@@ -1441,7 +1448,8 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
           · cases hcontra
           · split at hdecl <;> simp at hdecl
     | revealLoadouts | chanceShuffle _ | openingDraws | draw _ _ | beginTurn
-    | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _ | finishPlay _ _ _ _ | resolveStack
+    | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _ | payRandomDiscard _ _ _ _ _
+    | resolveStack
     | finishResolve _ | combatStep _ _ | gameStateProcess | run _ _ _ _ _
     | chanceDie6 _ _ _ _ _ _ _ | optStep _ _ | endPhaseStart _ | endPhaseArsenal _ | returnPitch _
     | endTurnCleanup _ | flushTriggers =>
@@ -1941,7 +1949,8 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
     | revealLoadouts | openingDraws | draw _ _ | beginTurn | startPhaseWork _
-    | actionPhaseStart _ | playPayCost _ _ _ _ _ | finishPlay _ _ _ _ | resolveStack | finishResolve _
+    | actionPhaseStart _ | playPayCost _ _ _ _ _ | payRandomDiscard _ _ _ _ _
+    | resolveStack | finishResolve _
     | combatStep _ _ | gameStateProcess | run _ _ _ _ _ | optStep _ _
     | endPhaseStart _ | endPhaseArsenal _ | returnPitch _ | endTurnCleanup _ | flushTriggers =>
       cases actor <;> cases kind <;> exact False.elim hlf
@@ -1996,7 +2005,7 @@ theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
       · rfl
       · split <;> rfl
     · split <;> rfl
-  | finishPlay _ _ _ _ => rfl
+  | payRandomDiscard _ _ _ _ _ => rfl
   | resolveStack =>
     dsimp only
     split

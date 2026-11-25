@@ -158,8 +158,10 @@ inductive Frame where
   /-- Work frame: calculate/pay asset costs for `layerId`, prompting pitch or rolling back (CR 5.1.5, 5.1.6). -/
   | playPayCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
       (cost : AssetCost)
-  /-- Work frame: complete play after all costs have been paid (CR 5.1.10). -/
-  | finishPlay (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
+  /-- Work frame: pay the random-discard cost from the ordered hand and complete play
+  (CR 5.1.9, 5.1.10). -/
+  | payRandomDiscard (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
+      (modeIdx : Option Nat) (count : Nat)
   /-- Player decision: pitch a card from hand while paying `cost`, or cancel play (CR 1.14.3, 5.1.6). -/
   | choosePitch (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
       (cost : AssetCost)
@@ -226,7 +228,7 @@ def Frame.isWork : Frame → Bool
   | .startPhaseWork _ => true
   | .actionPhaseStart _ => true
   | .playPayCost _ _ _ _ _ => true
-  | .finishPlay _ _ _ _ => true
+  | .payRandomDiscard _ _ _ _ _ => true
   | .resolveStack => true
   | .finishResolve _ => true
   | .combatStep _ _ => true

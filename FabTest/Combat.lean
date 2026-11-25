@@ -675,6 +675,61 @@ meta def checkNextWeaponBuff (cid : CardId) (pitch cost bonus : Nat) (givesGoAga
 #guard checkNextWeaponBuff ⟨"WTR_145_Y"⟩ 2 2 2 true == some true
 #guard checkNextWeaponBuff ⟨"WTR_146_B"⟩ 3 2 1 true == some true
 
+/-- Breakneck Battery uses the power of the card discarded for its own play. -/
+meta def checkBreakneckBattery (cid : CardId) (pitch power : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player attacker .hand
+  let grave := Zone.player attacker .graveyard
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 2 }
+  let card ← funded.cards.find? cid
+  let (one, high) ← cPlace funded attacker .hand ⟨"WTR_189_Y"⟩
+  let (two, low) ← cPlace one attacker .hand ⟨"WTR_190_B"⟩
+  let (withCard, attack) ← cPlace two attacker origin cid fromArsenal
+  let (withFirst, first) ← cPlace withCard defender .hand ⟨"WTR_203_R"⟩
+  let (ready, second) ← cPlace withFirst defender .hand ⟨"WTR_204_Y"⟩
+  let (trying, _) ← (step 64 ready ⟨.player attacker, .playCard attack⟩).toOption
+  let layer ← (trying.zone .stack).head?
+  let paidHigh ← cSteps trying [⟨.chance, .shuffleOrder [high, low]⟩]
+  let paidLow ← cSteps trying [⟨.chance, .shuffleOrder [low, high]⟩]
+  let highDiscard ← (paidHigh.zone grave).head?
+  let lowDiscard ← (paidLow.zone grave).head?
+  let threshold := Condition.lastDiscardedMatches { minPower := some 6 }
+  let (moved, _) ← moveObj paidHigh highDiscard (.player attacker .banished) .top false
+  let (unrelatedLow, _, _) := execPrim moved attacker layer [] (.discardHandPrefix 1)
+  let (unrelatedHigh, _, _) := execPrim paidLow attacker layer [] (.discardHandPrefix 1)
+  let startDefense := passBoth ++ passBoth
+  let endDefense := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let blocks := [⟨.player defender, .defendCard first⟩, ⟨.player defender, .defendCard second⟩]
+  let check := fun (state : GameState) (goAgain : Bool) => do
+    let defending ← cSteps state startDefense
+    let link ← defending.combat.bind CombatChain.activeLink?
+    let src ← link.attack
+    let hit ← cSteps defending endDefense
+    let blocked ← cSteps defending (blocks ++ endDefense)
+    let expectedAp := if goAgain then 1 else 0
+    pure (linkHasKeyword defending link .goAgain == goAgain &&
+      evalCondition defending attacker src fromArsenal threshold == goAgain &&
+      (defending.poolOf attacker).actionPoints == 0 &&
+      hit.lifeOf defender == 40 - Int.ofNat power && blocked.lifeOf defender == 40 &&
+      (hit.poolOf attacker).actionPoints == expectedAp &&
+      (blocked.poolOf attacker).actionPoints == expectedAp)
+  let highOk ← check unrelatedLow true
+  let lowOk ← check unrelatedHigh false
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    trying.pending.head? == some (.chanceShuffle hand) &&
+    (trying.poolOf attacker).actionPoints == 0 && (trying.poolOf attacker).resources == 0 &&
+    (paidHigh.cardDefOf? highDiscard).map (·.id) == some ⟨"WTR_189_Y"⟩ &&
+    (paidLow.cardDefOf? lowDiscard).map (·.id) == some ⟨"WTR_190_B"⟩ &&
+    evalCondition paidHigh attacker layer fromArsenal threshold &&
+    !evalCondition paidLow attacker layer fromArsenal threshold &&
+    !evalCondition paidHigh attacker low fromArsenal threshold && highOk && lowOk)
+
+#guard checkBreakneckBattery ⟨"WTR_011_R"⟩ 1 6 false == some true
+#guard checkBreakneckBattery ⟨"WTR_011_R"⟩ 1 6 true == some true
+
 /-- A weapon gets Go Again only when its granted hit trigger resolves. -/
 meta def checkWarriorsValor (cid : CardId) (pitch bonus : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

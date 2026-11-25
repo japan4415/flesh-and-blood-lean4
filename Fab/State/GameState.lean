@@ -39,6 +39,8 @@ structure LayerInfo where
   modeIdx : Option Nat := none
   /-- Hero declared as a target before paying for a card-layer (CR 5.1.4a). -/
   heroTarget : Option PlayerId := none
+  /-- Face of the last card discarded to pay for this layer (CR 5.1.9). -/
+  discardedForPlay : Option CardFace := none
   /-- Whether this layer has Go Again on resolution (CR 5.3.4, 8.3.5). -/
   goAgain : Bool := false
   /-- Power granted to an attack before it enters the combat chain. -/

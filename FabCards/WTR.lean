@@ -145,8 +145,8 @@ def breakneckBattery (base : CardDef) : CardDef :=
           (.grant .self_ (.grantKeyword .goAgain) .thisChainLink)
           .nop })
 
-/-- Breakneck Battery Red (drafted IR). -/
-def WTR_011_R : CardDef := breakneckBattery WTR_011_R_meta
+/-- Breakneck Battery Red. -/
+def WTR_011_R : CardDef := { breakneckBattery WTR_011_R_meta with status := .full }
 /-- Breakneck Battery Yellow (drafted IR). -/
 def WTR_012_Y : CardDef := breakneckBattery WTR_012_Y_meta
 /-- Breakneck Battery Blue (drafted IR). -/
