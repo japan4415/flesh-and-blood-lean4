@@ -360,8 +360,8 @@ def blessingOfDeliverance (base : CardDef) (revealCount : Nat) : CardDef :=
 def WTR_054_R : CardDef := { blessingOfDeliverance WTR_054_R_meta 3 with status := .full }
 /-- Blessing of Deliverance Yellow. -/
 def WTR_055_Y : CardDef := { blessingOfDeliverance WTR_055_Y_meta 2 with status := .full }
-/-- Blessing of Deliverance Blue (drafted IR). -/
-def WTR_056_B : CardDef := blessingOfDeliverance WTR_056_B_meta 1
+/-- Blessing of Deliverance Blue. -/
+def WTR_056_B : CardDef := { blessingOfDeliverance WTR_056_B_meta 1 with status := .full }
 
 /-- Shared 3-color helper for Buckling Blow (Crush → `-1{d}` counter on target equipment). -/
 def bucklingBlow (base : CardDef) : CardDef :=
