@@ -238,11 +238,11 @@ meta def checkPlainAttack (cid : CardId) (pitch cost power defense : Nat) : Opti
   | some b => b
   | none => false
 
-/-- Play Leg Tap through resolution, checking payment, damage, and Go Again even on a miss. -/
-meta def checkLegTap (cid : CardId) (power : Nat) : Option Bool := do
+/-- Check payment, damage, and an attack's printed Go Again even on a miss. -/
+meta def checkGoAgainAttack (cid : CardId) (cost power : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
   let defender : PlayerId := ⟨1⟩
-  let s0 := m5Base.setPool attacker { actionPoints := 1, resources := 1 }
+  let s0 := m5Base.setPool attacker { actionPoints := 1, resources := cost }
   let card ← s0.cards.find? cid
   let (s1, attack) ← cPlace s0 attacker .hand cid
   let (s2, defender1) ← cPlace s1 defender .hand ⟨"WTR_203_R"⟩
@@ -263,9 +263,10 @@ meta def checkLegTap (cid : CardId) (power : Nat) : Option Bool := do
     closed.combat.isNone && (closed.poolOf attacker).actionPoints == 1 &&
     (closed.cardDefOf? graveId).map (·.id) == some cid)
 
-#guard checkLegTap ⟨"WTR_101_R"⟩ 4 == some true
-#guard checkLegTap ⟨"WTR_102_Y"⟩ 3 == some true
-#guard checkLegTap ⟨"WTR_103_B"⟩ 2 == some true
+#guard checkGoAgainAttack ⟨"WTR_101_R"⟩ 1 4 == some true
+#guard checkGoAgainAttack ⟨"WTR_102_Y"⟩ 1 3 == some true
+#guard checkGoAgainAttack ⟨"WTR_103_B"⟩ 1 2 == some true
+#guard checkGoAgainAttack ⟨"WTR_098_R"⟩ 0 3 == some true
 
 /-- Run Snatch's hit, full block, and full prevention cases through the combat engine. -/
 meta def checkSnatch (cid : CardId) (power : Nat) : Option Bool := do
