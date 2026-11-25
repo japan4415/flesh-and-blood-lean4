@@ -214,6 +214,8 @@ inductive Prim where
   | removeAllCounters (o : ObjRef) (k : CounterKind)
   /-- Create a prevention shield for player `p` preventing the next `n` damage during `dur` (Bone Head Barrier). -/
   | preventNextDamage (p : PlayerRef) (n : NumExpr) (dur : Duration)
+  /-- Prevent up to `n` damage from the next single event this turn (CR 6.4.10i). -/
+  | preventDamageOnce (p : PlayerRef) (n : NumExpr)
   /-- Immediately close the combat chain (Phantasm, Spectra) (CR 7.7). -/
   | closeCombatChain
   /-- Charge: put a card from player `p`'s hand into their hero's Soul (CR 3.9, 8.5). -/

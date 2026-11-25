@@ -66,6 +66,8 @@ inductive ReplacementAction where
   | quellPrevent (amt : Nat)
   /-- Stage C: prevent the next `amt` points of damage (CR 6.4.10a). -/
   | shieldPrevent (amt : Nat)
+  /-- Stage C: prevent up to `amt` damage from one eligible event (CR 6.4.10i). -/
+  | fixedPrevent (amt : Nat)
   /-- Stage D: replace an event's outcome tag (CR 6.4.10e). -/
   | replaceOutcome (newTag : Nat)
 deriving DecidableEq, Repr
@@ -131,7 +133,8 @@ def ReplacementEffect.eligible (e : ReplacementEffect) (stage : ReplacementStage
   | .spellvoidPrevent _, _ => false
   | .quellPrevent amt, .damage target _ dmg _ =>
     e.controller == target && decide (0 < dmg) && decide (amt ≤ st.availResources)
-  | .shieldPrevent _, .damage target _ dmg _ =>
+  | .shieldPrevent _, .damage target _ dmg _
+  | .fixedPrevent _, .damage target _ dmg _ =>
     e.controller == target && decide (0 < dmg)
   | .replaceOutcome _, .damage _ _ _ _ => true
   | .replaceOutcome _, .clashOutcome _ _ => true
@@ -170,6 +173,8 @@ def applyOneReplacement (st : ReplacementState) (e : ReplacementEffect) : Replac
     { stUsed with
       event := .damage target kind (dmg - amt) tag
       shieldRemainders := (e.id, amt - dmg) :: stUsed.shieldRemainders }
+  | .fixedPrevent amt, .damage target kind dmg tag =>
+    { stUsed with event := .damage target kind (dmg - amt) tag }
   | .replaceOutcome newTag, .damage target kind dmg _ =>
     { stUsed with event := .damage target kind dmg newTag }
   | .replaceOutcome newTag, .clashOutcome w _ =>

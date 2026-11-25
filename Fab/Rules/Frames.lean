@@ -612,59 +612,6 @@ def spendAssetCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Option Ga
   | some pool' => some (s.setPool p pool')
   | none => none
 
-/-- Resource cost of a paid prevention effect (CR 8.3.8). -/
-def preventionResourceCost (effect : ReplacementEffect) : Nat :=
-  match effect.action with
-  | .arcaneBarrierPrevent n | .quellPrevent n => n
-  | _ => 0
-
-/-- Finish an arcane event's outcome stage and commit the resulting damage (CR 6.4.10). -/
-def finishArcaneDamage (s : GameState) (p : PlayerId) (effects : List ReplacementEffect)
-    (damage : ReplacementState) (rest : List Frame) : GameState × List Event :=
-  let result := applyReplacementStage .outcome [] effects damage
-  let (settled, events) := settleDamage s p .arcane result
-  let next := if settled.result.isSome then [] else rest
-  ({ settled with pending := next }, events)
-
-/-- Apply one prevention choice at a time so the affected player can choose its order and pitch
-to pay a barrier without gaining priority during resolution (CR 1.14.3, 6.5.1, 8.3.8). -/
-def advanceArcaneDamage (s : GameState) (p : PlayerId) (effects : List ReplacementEffect)
-    (damage : ReplacementState) (stage : ArcaneDamageStep) (rest : List Frame) :
-    GameState × List Event :=
-  match stage with
-  | .offer =>
-    let publicChoices := effects.filter fun effect =>
-      let energy := max (preventionResourceCost effect) (s.poolOf p).totalEnergy
-      effect.eligible .prevention { damage with availResources := energy }
-    let energy := potentialResourceEnergy s p
-    let available := publicChoices.filter fun e => decide (preventionResourceCost e ≤ energy)
-    let prompt := Frame.chooseReplacement p .prevention (available.map (·.id)) (!available.any (·.isMandatory))
-    let waiting := { s with pending := prompt :: .arcaneDamage p effects damage .readChoice :: rest }
-    match publicChoices with
-    | [] => finishArcaneDamage s p effects damage rest
-    | [e] =>
-      if e.isMandatory && preventionResourceCost e == 0 then
-        ({ s with pending := .arcaneDamage p effects (applyOneReplacement damage e) .offer :: rest }, [])
-      else (waiting, [])
-    | _ => (waiting, [])
-  | .readChoice =>
-    match (s.chosenReplacements.getLast?.join).bind (fun id => effects.find? (·.id == id)) with
-    | none => finishArcaneDamage s p effects damage rest
-    | some choice =>
-      ({ s with pending := .arcaneDamage p effects damage (.pay choice) :: rest }, [])
-  | .pay effect =>
-    let cost := { resources := preventionResourceCost effect : AssetCost }
-    let resume := Frame.arcaneDamage p effects damage (.pay effect)
-    match spendAssetCost s p cost with
-    | some board =>
-      let result := applyOneReplacement { damage with availResources := (s.poolOf p).totalEnergy } effect
-      ({ board with pending := .arcaneDamage p effects result .offer :: rest }, [])
-    | none =>
-      if canPitchForCost s p cost then
-        ({ s with pending := .choosePreventionPitch p :: resume :: rest }, [])
-      else
-        ({ s with pending := .arcaneDamage p (effects.eraseP (·.id == effect.id)) damage .offer :: rest }, [])
-
 /-- Equipment characteristics checked for a requirement tied to a player (CR 1.8.5). -/
 def equipmentControlledBy (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
   (s.obj? id).any (fun o => !o.faceDown) &&
@@ -900,6 +847,91 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
       | .prim (.discardChoice .defendingHero filter count) =>
         { trigger with effect := .prim (.discardChoice (.seated link.defender) filter count) }
       | _ => trigger
+
+/-- Record a resolved damage event on the current combat link and queue its hit triggers (CR 7.5). -/
+def finishCombatDamage (s : GameState) (attack : ObjId) (amount : Nat)
+    (rest : List Frame) : GameState :=
+  match s.combat with
+  | none => { s with pending := rest }
+  | some cc =>
+    let tp := s.active.getD ⟨0⟩
+    let next := [.priority tp 0, .combatStep .resolution attack] ++ rest
+    match cc.activeLink? with
+    | none => { s with combat := some { cc with step := .damage }, pending := next }
+    | some link =>
+      let hit := didCombatHit amount
+      let damagedLink := { link with hit, damageDealt := amount }
+      let cc' := { cc with step := .damage }.updateActiveLink fun _ => damagedLink
+      let weaponHit := if hit then hitWeapon? s damagedLink else none
+      let cardHit := attackActionHitController? s damagedLink
+      let withDamage := { s with
+        combat := some cc'
+        weaponHitsThisTurn := weaponHit.toList ++ s.weaponHitsThisTurn
+        attackActionHitsThisTurn := cardHit.toList ++ s.attackActionHitsThisTurn }
+      let damageTriggers := if hit && withDamage.result.isNone then
+        (attackDamageTriggers withDamage damagedLink).map (fun trigger => (trigger, false)) ++
+          installedHitTriggers withDamage damagedLink ++ weaponHitTriggers withDamage damagedLink
+        else []
+      let queued := queueCardTriggers withDamage damageTriggers
+      let settled := gspRun queued
+      let triggers := if queued.pendingTriggers.isEmpty then [] else [.flushTriggers]
+      { settled with pending := triggers ++ next }
+
+/-- The damage kind carried by a damage-prevention continuation. -/
+def preventionDamageKind (damage : ReplacementState) : DamageKind :=
+  match damage.event with
+  | .damage _ kind _ _ => kind
+  | _ => .arcane
+
+/-- Finish a damage event's outcome stage, including its combat link when applicable (CR 6.4.10, 7.5). -/
+def finishArcaneDamage (s : GameState) (p : PlayerId) (effects : List ReplacementEffect)
+    (damage : ReplacementState) (rest : List Frame) (attack : Option ObjId := none) : GameState × List Event :=
+  let result := applyReplacementStage .outcome [] effects damage
+  let (settled, events) := settleDamage s p (preventionDamageKind damage) result
+  let finished := match attack with
+    | some id => finishCombatDamage settled id (remainingDamage result.event) rest
+    | none => { settled with pending := if settled.result.isSome then [] else rest }
+  (finished, events)
+
+/-- Apply one prevention choice at a time so the affected player can choose its order and pitch
+to pay a barrier without gaining priority during resolution (CR 1.14.3, 6.5.1, 8.3.8). -/
+def advanceArcaneDamage (s : GameState) (p : PlayerId) (effects : List ReplacementEffect)
+    (damage : ReplacementState) (stage : ArcaneDamageStep) (rest : List Frame)
+    (attack : Option ObjId := none) :
+    GameState × List Event :=
+  match stage with
+  | .offer =>
+    let publicChoices := effects.filter fun effect =>
+      let energy := max (preventionResourceCost effect) (s.poolOf p).totalEnergy
+      effect.eligible .prevention { damage with availResources := energy }
+    let energy := potentialResourceEnergy s p
+    let available := publicChoices.filter fun e => decide (preventionResourceCost e ≤ energy)
+    let prompt := Frame.chooseReplacement p .prevention (available.map (·.id)) (!available.any (·.isMandatory))
+    let waiting := { s with pending := prompt :: .arcaneDamage p effects damage .readChoice attack :: rest }
+    match publicChoices with
+    | [] => finishArcaneDamage s p effects damage rest attack
+    | [e] =>
+      if e.isMandatory && preventionResourceCost e == 0 then
+        ({ s with pending := .arcaneDamage p effects (applyOneReplacement damage e) .offer attack :: rest }, [])
+      else (waiting, [])
+    | _ => (waiting, [])
+  | .readChoice =>
+    match (s.chosenReplacements.getLast?.join).bind (fun id => effects.find? (·.id == id)) with
+    | none => finishArcaneDamage s p effects damage rest attack
+    | some choice =>
+      ({ s with pending := .arcaneDamage p effects damage (.pay choice) attack :: rest }, [])
+  | .pay effect =>
+    let cost := { resources := preventionResourceCost effect : AssetCost }
+    let resume := Frame.arcaneDamage p effects damage (.pay effect) attack
+    match spendAssetCost s p cost with
+    | some board =>
+      let result := applyOneReplacement { damage with availResources := (s.poolOf p).totalEnergy } effect
+      ({ board with pending := .arcaneDamage p effects result .offer attack :: rest }, [])
+    | none =>
+      if canPitchForCost s p cost then
+        ({ s with pending := .choosePreventionPitch p :: resume :: rest }, [])
+      else
+        ({ s with pending := .arcaneDamage p (effects.eraseP (·.id == effect.id)) damage .offer attack :: rest }, [])
 
 /-- Collect the card's own on-play triggers once its costs have been paid (CR 5.1, 6.6.5). -/
 def playedCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
@@ -1935,8 +1967,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         some ({ s with pending := .choosePitch p layerId fromArsenal modeIdx cost :: rest }, [])
       else
         some (rollbackPlay s rest, [])
-  | .arcaneDamage p effects proposed stage :: rest =>
-    some (advanceArcaneDamage s p effects proposed stage rest)
+  | .arcaneDamage p effects proposed stage attack :: rest =>
+    some (advanceArcaneDamage s p effects proposed stage rest attack)
   | .payRandomDiscard p layerId fromArsenal modeIdx count :: rest =>
     let (paid, events) := discardManyObjs s p ((s.zone (.player p .hand)).take count)
     let discarded := events.reverse.findSome? fun
@@ -2056,40 +2088,18 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
                 combat := cc'
                 pending := .gameStateProcess :: .priority tp 0 :: .combatStep .damage atkId :: rest }, [])
   | .combatStep .damage atkId :: rest =>
-    let tp := s.active.getD ⟨0⟩
-    match s.combat with
-    | some cc =>
-      match cc.activeLink? with
-      | some link =>
-        let rawDmg := linkDamageBeforePrevention s link
-        let (s2, es) := applyDamageWithPrevention s link.defender .physical rawDmg
-        let finalDmg :=
-          match es.reverse.find? fun | .damageDealt _ .physical _ => true | _ => false with
-          | some (.damageDealt _ _ d) => d
-          | _ => 0
-        let isHit := didCombatHit finalDmg
-        let damagedLink := { link with hit := isHit, damageDealt := finalDmg }
-        let cc' := { cc with step := .damage }.updateActiveLink fun _ => damagedLink
-        let weaponHit := if isHit then hitWeapon? s2 damagedLink else none
-        let cardHit := attackActionHitController? s2 damagedLink
-        let withDamage := { s2 with
-          combat := some cc'
-          weaponHitsThisTurn := weaponHit.toList ++ s2.weaponHitsThisTurn
-          attackActionHitsThisTurn := cardHit.toList ++ s2.attackActionHitsThisTurn }
-        let damageTriggers := if isHit && withDamage.result.isNone then
-          (attackDamageTriggers withDamage damagedLink).map (fun trigger => (trigger, false)) ++
-            installedHitTriggers withDamage damagedLink ++ weaponHitTriggers withDamage damagedLink
-          else []
-        let queued := queueCardTriggers withDamage damageTriggers
-        let s3 := gspRun queued
-        let triggers := if queued.pendingTriggers.isEmpty then [] else [.flushTriggers]
-        some ({ s3 with pending := triggers ++ [.priority tp 0, .combatStep .resolution atkId] ++ rest }, es)
+    match s.combat.bind CombatChain.activeLink? with
+    | some link =>
+      let amount := linkDamageBeforePrevention s link
+      match damagePreventionFrame? s link.defender .physical amount (some atkId) with
+      | some prevention => some ({ s with pending := prevention :: rest }, [])
       | none =>
-        some ({ s with
-                  combat := some { cc with step := .damage }
-                  pending := .priority tp 0 :: .combatStep .resolution atkId :: rest }, [])
-    | none =>
-      some ({ s with pending := rest }, [])
+        let (settled, events) := applyDamageWithPrevention s link.defender .physical amount
+        let dealt := events.reverse.findSome? fun
+          | .damageDealt _ .physical n => some n
+          | _ => none
+        some (finishCombatDamage settled atkId (dealt.getD 0) rest, events)
+    | none => some (finishCombatDamage s atkId 0 rest, [])
   | .combatStep .resolution atkId :: rest =>
     let tp := s.active.getD ⟨0⟩
     match s.combat with

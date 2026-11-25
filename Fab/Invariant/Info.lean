@@ -675,7 +675,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
           | payRandomDiscard _ _ _ _ _
           | resolveStack | finishResolve _ | combatStep _ _ | gameStateProcess | run _ _ _ _ _
           | chanceDie6 _ _ _ _ _ _ _ | optStep _ _ | endPhaseStart _ | endPhaseArsenal _ | returnPitch _
-          | arcaneDamage _ _ _ _ | endTurnCleanup _ | endTurnFinish | flushTriggers => rfl
+          | arcaneDamage _ _ _ _ _ | endTurnCleanup _ | endTurnFinish | flushTriggers => rfl
       · -- concedeActions
         unfold concedeActions
         rw [h.playerCount]

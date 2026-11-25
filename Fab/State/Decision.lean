@@ -315,9 +315,9 @@ inductive Frame where
   at `stage` (CR 6.5.1). -/
   | chooseReplacement (affected : PlayerId) (stage : ReplacementStage) (candidates : List Nat)
       (canDecline : Bool)
-  /-- Work: offer arcane prevention, apply a choice, or settle its payment. -/
+  /-- Work: offer damage prevention, apply a choice, or settle its payment. -/
   | arcaneDamage (target : PlayerId) (effects : List ReplacementEffect) (damage : ReplacementState)
-      (step : ArcaneDamageStep)
+      (step : ArcaneDamageStep) (combatAttack : Option ObjId := none)
   /-- Decision: pitch a card to pay for the chosen prevention effect (CR 1.14.3). -/
   | choosePreventionPitch (p : PlayerId)
 deriving DecidableEq, Repr
@@ -344,7 +344,7 @@ def Frame.isWork : Frame → Bool
   | .endTurnCleanup _ => true
   | .endTurnFinish => true
   | .flushTriggers => true
-  | .arcaneDamage _ _ _ _ => true
+  | .arcaneDamage _ _ _ _ _ => true
   | _ => false
 
 end Fab

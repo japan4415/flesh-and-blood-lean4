@@ -40,11 +40,27 @@ structure LkiSnapshot where
   minusDefenseCounters : Nat := 0
   /-- Number of `+1{p}` counters on the object. -/
   plusPowerCounters : Nat := 0
+  /-- Named counters on the source just before it changed zones. -/
+  extraCounters : List (String × Nat) := []
 deriving DecidableEq, Repr
+
+/-- Read a counter count from the fields shared by a live object and its snapshot. -/
+def readCounterCount (minusDef plusPow : Nat) (extra : List (String × Nat)) : CounterKind → Nat
+  | .minusOneDefense => minusDef
+  | .plusOnePower => plusPow
+  | .energy => (extra.find? (·.1 == "energy")).map (·.2) |>.getD 0
+  | .steam => (extra.find? (·.1 == "steam")).map (·.2) |>.getD 0
+  | .aim => (extra.find? (·.1 == "aim")).map (·.2) |>.getD 0
+  | .named label => (extra.find? (·.1 == label)).map (·.2) |>.getD 0
+
+/-- Read the original source's counter count from last known information (CR 1.2.3). -/
+def LkiSnapshot.counterCount (lki : LkiSnapshot) : CounterKind → Nat :=
+  readCounterCount lki.minusDefenseCounters lki.plusPowerCounters lki.extraCounters
 
 /-- Construct an `LkiSnapshot` from a `CardFace` and basic counters. -/
 def LkiSnapshot.ofFace (owner controller : PlayerId) (cardId : Option CardId)
-    (face : CardFace) (minusDef plusPow : Nat := 0) : LkiSnapshot :=
+    (face : CardFace) (minusDef plusPow : Nat := 0)
+    (extraCounters : List (String × Nat) := []) : LkiSnapshot :=
   { cardId := cardId
     name := face.name
     owner := owner
@@ -56,7 +72,8 @@ def LkiSnapshot.ofFace (owner controller : PlayerId) (cardId : Option CardId)
     defense := face.defense
     keywords := face.keywords
     minusDefenseCounters := minusDef
-    plusPowerCounters := plusPow }
+    plusPowerCounters := plusPow
+    extraCounters }
 
 end Fab
 

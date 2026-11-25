@@ -600,13 +600,42 @@ private theorem finishPaidActivation_ttr {s s' : GameState} {p : PlayerId} {laye
   obtain ⟨ht, htn, hr⟩ := payActivationSource_turn_tournament_result hpay
   split at h <;> subst s' <;> exact ⟨ht, htn, hr⟩
 
+private theorem finishCombatDamage_ttr (s : GameState) (attack : ObjId) (amount : Nat)
+    (rest : List Frame) :
+    let next := finishCombatDamage s attack amount rest
+    next.turn = s.turn ∧ next.tournament = s.tournament ∧ (next.result = none → s.result = none) := by
+  unfold finishCombatDamage
+  split
+  · exact ⟨rfl, rfl, id⟩
+  · dsimp only
+    split
+    · exact ⟨rfl, rfl, id⟩
+    · refine ⟨(gspRun_turn_tournament _).1, (gspRun_turn_tournament _).2, ?_⟩
+      intro hr
+      have withoutResult := gspRun_result_none hr
+      exact withoutResult
+
+private theorem finishArcaneDamage_ttr (s : GameState) (p : PlayerId)
+    (effects : List ReplacementEffect) (damage : ReplacementState) (rest : List Frame)
+    (attack : Option ObjId) :
+    let next := (finishArcaneDamage s p effects damage rest attack).1
+    next.turn = s.turn ∧ next.tournament = s.tournament ∧ (next.result = none → s.result = none) := by
+  let result := applyReplacementStage .outcome [] effects damage
+  let settled := (settleDamage s p (preventionDamageKind damage) result).1
+  obtain ⟨ht, htn, hr⟩ := settleDamage_ttr s p (preventionDamageKind damage) result
+  cases attack with
+  | none => exact ⟨ht, htn, hr⟩
+  | some id =>
+    obtain ⟨ht', htn', hr'⟩ := finishCombatDamage_ttr settled id (remainingDamage result.event) rest
+    exact ⟨ht'.trans ht, htn'.trans htn, hr ∘ hr'⟩
+
 private theorem advanceArcaneDamage_ttr (s : GameState) (p : PlayerId)
     (effects : List ReplacementEffect) (damage : ReplacementState) (stage : ArcaneDamageStep)
-    (rest : List Frame) :
-    (advanceArcaneDamage s p effects damage stage rest).1.turn = s.turn ∧
-    (advanceArcaneDamage s p effects damage stage rest).1.tournament = s.tournament ∧
-    ((advanceArcaneDamage s p effects damage stage rest).1.result = none → s.result = none) := by
-  have hfinish := settleDamage_ttr s p .arcane (applyReplacementStage .outcome [] effects damage)
+    (rest : List Frame) (attack : Option ObjId) :
+    (advanceArcaneDamage s p effects damage stage rest attack).1.turn = s.turn ∧
+    (advanceArcaneDamage s p effects damage stage rest attack).1.tournament = s.tournament ∧
+    ((advanceArcaneDamage s p effects damage stage rest attack).1.result = none → s.result = none) := by
+  have hfinish := finishArcaneDamage_ttr s p effects damage rest attack
   cases stage with
   | offer =>
     unfold advanceArcaneDamage
@@ -744,7 +773,7 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
   · -- arcaneDamage
     have heq : _ = s' := congrArg Prod.fst (Option.some.inj h)
     rw [← heq]
-    obtain ⟨ht, htn, hr⟩ := advanceArcaneDamage_ttr _ _ _ _ _ _
+    obtain ⟨ht, htn, hr⟩ := advanceArcaneDamage_ttr _ _ _ _ _ _ _
     exact timeLimitBounded_of_eq hb ht htn hr
   · -- payRandomDiscard
     rename_i p _ _ _ count _ _
@@ -873,30 +902,38 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact timeLimitBounded_of_eq hb rfl rfl id
   · -- combatStep .damage
+    rename_i atkId rest _
     dsimp only at h
-    cases hcc : s.combat with
+    cases hl : s.combat.bind CombatChain.activeLink? with
     | none =>
-      rw [hcc] at h; simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-      exact timeLimitBounded_of_eq hb rfl rfl id
-    | some cc =>
-      rw [hcc] at h; dsimp only at h
-      cases hl : cc.activeLink? with
-      | none =>
-        rw [hl] at h; simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      rw [hl] at h
+      simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      obtain ⟨ht, htn, hr⟩ := finishCombatDamage_ttr s atkId 0 rest
+      exact timeLimitBounded_of_eq hb ht htn hr
+    | some link =>
+      rw [hl] at h
+      dsimp only at h
+      cases hp : damagePreventionFrame? s link.defender .physical
+          (linkDamageBeforePrevention s link) (some atkId) with
+      | some prevention =>
+        rw [hp] at h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact timeLimitBounded_of_eq hb rfl rfl id
-      | some link =>
-        rw [hl] at h; dsimp only at h
-        have hd_ttr := applyDamageWithPrevention_ttr s link.defender .physical
+      | none =>
+        rw [hp] at h
+        have httr := applyDamageWithPrevention_ttr s link.defender .physical
           (linkDamageBeforePrevention s link)
         cases hd : applyDamageWithPrevention s link.defender .physical
             (linkDamageBeforePrevention s link) with
-        | mk s2 es2 =>
-          rw [hd] at h hd_ttr; dsimp only at h hd_ttr
+        | mk settled events =>
+          rw [hd] at h httr
           simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-          refine timeLimitBounded_gspRun_pending hb ?_ ?_ ?_ _
-          · exact hd_ttr.1
-          · exact hd_ttr.2.1
-          · exact hd_ttr.2.2
+          obtain ⟨ht, htn, hr⟩ := httr
+          obtain ⟨ht', htn', hr'⟩ := finishCombatDamage_ttr settled atkId
+            ((events.reverse.findSome? fun
+              | .damageDealt _ .physical n => some n
+              | _ => none).getD 0) rest
+          exact timeLimitBounded_of_eq hb (ht'.trans ht) (htn'.trans htn) (hr ∘ hr')
   · -- combatStep .resolution
     dsimp only at h
     split at h
