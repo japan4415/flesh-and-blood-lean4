@@ -88,8 +88,8 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     q = p ∧ match choice with
     | some id => 0 < remaining ∧ id ∈ candidates
     | none => shuffleSelectionCanConfirm selected search = true
-  | .chooseOpt p _ :: _, .player q, .optPick _ =>
-    q = p
+  | .chooseOpt p _ others _ _ :: _, .player q, .optPick _ selection =>
+    q = p ∧ selection.all others.contains = true
   | .chooseArsenal tp :: _, .player q, .arsenalPut id =>
     q = tp ∧ (s.zone (.player tp .arsenal)).isEmpty = true ∧ id ∈ s.zone (.player tp .hand)
   | .chooseArsenal tp :: _, .player q, .arsenalSkip =>

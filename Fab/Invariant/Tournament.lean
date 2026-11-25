@@ -1211,10 +1211,8 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
     · cases h
   · -- chooseOpt optPick
     split at h
-    · split at h
-      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact ⟨rfl, rfl, rfl⟩
-      · dsimp only at h
-        split at h <;>
+    · dsimp only at h
+      split at h <;>
         · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact ⟨rfl, rfl, rfl⟩
     · cases h
   · -- chooseArsenal arsenalPut

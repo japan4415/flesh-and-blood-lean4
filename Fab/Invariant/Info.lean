@@ -92,7 +92,7 @@ structure PlayerView where
   pending : List Frame
   /-- Pending triggers. -/
   pendingTriggers : List PendingTrigger
-  /-- Card identities for the current player's eligible discard, shuffle, or search selections. -/
+  /-- Card identities for the current player's visible selections. -/
   selectionChoices : List (ObjId × CardId)
 deriving DecidableEq, Repr
 
@@ -102,6 +102,9 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
     | .chooseShuffleCards q _ candidates _ _ _ :: _
     | .chooseDiscard q _ candidates _ :: _ =>
       if p == q then candidates.filterMap (fun id => (s.cardDefOf? id).map (fun card => (id, card.id)))
+      else []
+    | .chooseOpt q first others _ _ :: _ =>
+      if p == q then (first :: others).filterMap (fun id => (s.cardDefOf? id).map (fun card => (id, card.id)))
       else []
     | _ => []
   { config := s.config
@@ -122,6 +125,8 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
         if p == q then frame else .chooseShuffleCards q 0 [] [] drawSame search
       | .chooseDiscard q _ _ _ =>
         if p == q then frame else .chooseDiscard q 0 [] []
+      | .chooseOpt q _ _ _ _ =>
+        if p == q then frame else .chooseOpt q ⟨0⟩
       | _ => frame
     pendingTriggers := s.pendingTriggers
     selectionChoices := selectionChoices }
@@ -595,7 +600,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                     (l.map fun id => Action.mk (.player q) (.handToDeckPick id)) = [] := by
                 intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
               rw [hnil, hnil]
-          | chooseDiscard _ _ _ _ | chooseShuffleCards _ _ _ _ _ _ | chooseOpt _ _ => rfl
+          | chooseDiscard _ _ _ _ | chooseShuffleCards _ _ _ _ _ _ | chooseOpt _ _ _ _ _ => rfl
           | chooseArsenal tp =>
             dsimp only
             by_cases htp : tp = p

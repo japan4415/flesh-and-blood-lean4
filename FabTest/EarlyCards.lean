@@ -2,9 +2,11 @@ module
 
 import FabCards
 import Fab.Engine.Step
+import Fab.Invariant.Info
 import Fab.Rules.Setup
 meta import FabCards
 meta import Fab.Engine.Step
+meta import Fab.Invariant.Info
 meta import Fab.Rules.Setup
 
 open Fab FabCards
@@ -261,3 +263,30 @@ meta def goBananasScenario : Option Bool := do
 #guard ARC.Meta.allMeta.all (fun card => card.sets == [.arc] && card.status == .todo)
 #guard ((earlyPrintingCardId? "ARC218").bind throughWtrDB.find?).any
   (fun card => card.front.name == "Cracked Bauble" && card.status == .full)
+
+meta def eyeOfOphidiaScenario : Option Bool := do
+  let player := earlyAttacker
+  let deck := Zone.player player .deck
+  let hand := Zone.player player .hand
+  let setup := { earlyBase.setPool player { actionPoints := 1 } with cards := throughArcDB }
+  let (base, untouched) ← earlyPlace setup player deck "WTR_203_R"
+  let (one, second) ← earlyPlace base player deck "WTR_098_R"
+  let (two, first) ← earlyPlace one player deck "WTR_100_B"
+  let (three, eye) ← earlyPlace two player hand "ARC_000_B"
+  let (ready, tome) ← earlyPlace three player hand "WTR_160_Y"
+  let pitched ← earlySteps ready [⟨.player player, .playCard tome⟩, ⟨.player player, .pitchCard eye⟩]
+  let trigger ← pitched.pendingTriggers.head?
+  let viewed ← earlySteps pitched
+    ([⟨.player player, .pickTriggerStart player⟩, ⟨.player player, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let reorder ← earlySteps viewed [⟨.player player, .optPick true (some second)⟩]
+  let (swapped, events) ← (step 64 reorder ⟨.player player, .optPick true⟩).toOption
+  let bottom ← earlySteps viewed
+    [⟨.player player, .optPick false (some second)⟩, ⟨.player player, .optPick false⟩]
+  pure ((view player viewed).selectionChoices.map Prod.fst == [first, second] &&
+    (view earlyDefender viewed).selectionChoices.isEmpty &&
+    (earlySteps viewed [⟨.player player, .optPick true (some untouched)⟩]).isNone &&
+    swapped.zone deck == [second, first, untouched] && events.contains (.opted player 2 0) &&
+    bottom.zone deck == [untouched, second, first] &&
+    (swapped.poolOf player).resources == 2 && (swapped.zone .stack).length == 1)
+
+#guard eyeOfOphidiaScenario == some true

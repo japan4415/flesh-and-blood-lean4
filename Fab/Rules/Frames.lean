@@ -1539,17 +1539,23 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
           some (confirmShuffleCards s p selected drawSame search rest)
         else none
     else none
-  | .chooseOpt p cardId :: rest, .player q, .optPick putOnTop =>
-    if p = q then
-      if putOnTop then
-        some ({ s with pending := rest }, [])
+  | .chooseOpt p cardId others topCount bottomCount :: rest, .player q, .optPick putOnTop selection =>
+    if q = p ∧ selection.all others.contains = true then
+      let chosen := selection.getD cardId
+      let todo := (cardId :: others).erase chosen
+      let top := topCount + if putOnTop then 1 else 0
+      let bottom := bottomCount + if putOnTop then 0 else 1
+      let pending := match todo with
+        | [] => rest
+        | next :: remaining =>
+          .chooseOpt p next remaining top bottom :: rest
+      let events := if todo.isEmpty then [Event.opted p top bottom] else []
+      let deckZone := Zone.player p .deck
+      if deckZone.Valid s.playerCount then
+        let order := optDeckOrder (s.zone deckZone) topCount chosen putOnTop
+        some ({ s.reorder deckZone order with pending }, events)
       else
-        let deck := s.zone (.player p .deck)
-        if cardId ∈ deck then
-          let deck' := deck.erase cardId ++ [cardId]
-          some ({ s.reorder (.player p .deck) deck' with pending := rest }, [])
-        else
-          some ({ s with pending := rest }, [])
+        some ({ s with pending }, events)
     else
       none
   | .chooseArsenal tp :: rest, .player q, .arsenalPut id =>
@@ -1939,8 +1945,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     some ({ s with pending := rest }, [])
   | .optStep p (n + 1) :: rest =>
     match s.zone (.player p .deck) with
-    | topId :: _ =>
-      some ({ s with pending := .chooseOpt p topId :: .optStep p n :: rest }, [])
+    | topId :: tail =>
+      some ({ s with pending := .chooseOpt p topId (tail.take n) 0 :: rest }, [])
     | [] =>
       some ({ s with pending := rest }, [])
   | .endPhaseStart tp :: rest =>
