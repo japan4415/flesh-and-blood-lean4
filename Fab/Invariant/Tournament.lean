@@ -382,7 +382,9 @@ theorem interpRunStep_ttr (s : GameState) (ctrl : PlayerId) (src : ObjId)
       dsimp only
       split
       · exact ⟨rfl, rfl, id⟩
-      · cases dur <;> cases s.combat <;>
+      · split
+        · exact ⟨rfl, rfl, id⟩
+        · cases dur <;> cases s.combat <;>
           first
           | exact ⟨rfl, rfl, id⟩
           | (dsimp only; cases mod <;>
@@ -617,24 +619,25 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
     rename_i layerId rest _
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
     let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
-    let s1 := if info.goAgain then
+    let isDefReact := isDefenseReactionLayer s layerId
+    let joinsDefense := isDefReact && canResolveDefenseReaction s info
+    let s1 := if info.goAgain && (!isDefReact || joinsDefense) then
       s.setPool info.controller ((s.poolOf info.controller).addActionPoints 1) else s
     have h1 : s1.turn = s.turn ∧ s1.tournament = s.tournament ∧ s1.result = s.result := by
       dsimp only [s1]; split <;> exact ⟨rfl, rfl, rfl⟩
-    let isDefReact :=
-      match s1.cardDefOf? layerId with
-      | some c => c.front.hasType .defenseReaction && s1.combat.isSome
-      | none => false
     let p2 :=
       if layerId ∈ s1.zone .stack then
-        if isDefReact then
+        if joinsDefense then
           match moveObj s1 layerId .combatChain .top false with
           | some (sMoved, id') =>
             let cc' := sMoved.combat.map fun cc => cc.updateActiveLink fun l =>
               { l with
                 defending := l.defending ++ [id']
                 defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
-            ({ sMoved with combat := cc' }, [Event.moved layerId id' .stack .combatChain])
+            ({ sMoved with
+                combat := cc'
+                activeEffects := defenseReactionEffects sMoved.activeEffects layerId id' },
+             [Event.moved layerId id' .stack .combatChain])
           | none => (s1, [])
         else
           match s1.obj? layerId with

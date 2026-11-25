@@ -811,6 +811,16 @@ def WTR_210_Y : CardDef := razorReflex WTR_210_Y_meta 2
 /-- Razor Reflex Blue (drafted IR). -/
 def WTR_211_B : CardDef := razorReflex WTR_211_B_meta 1
 
+/-- Add one defense to Unmovable when it resolves after being played from arsenal. -/
+def unmovable (base : CardDef) : CardDef :=
+  draftCard base []
+    (some
+      { body := .ifThen .playedFromArsenal
+          (.grant .self_ (.addDefense (.const 1)) .thisChainLink) .nop })
+
+/-- Unmovable Red. -/
+def WTR_212_R : CardDef := { unmovable WTR_212_R_meta with status := .full }
+
 /-- Shared 3-color helper for Sink Below (may put hand card on deck bottom; if done, draw 1). -/
 def sinkBelow (base : CardDef) : CardDef :=
   let swapAndDraw : Effect := .may
@@ -878,7 +888,7 @@ def draftedCards : List CardDef :=
   , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_200_R, WTR_201_Y, WTR_202_B
   , WTR_203_R, WTR_204_Y, WTR_205_B
   , WTR_206_R, WTR_207_Y, WTR_208_B, WTR_209_R, WTR_210_Y, WTR_211_B
-  , WTR_215_R, WTR_216_Y, WTR_217_B
+  , WTR_212_R, WTR_215_R, WTR_216_Y, WTR_217_B
   , WTR_218_R, WTR_219_Y, WTR_220_B, WTR_221_R, WTR_222_Y, WTR_223_B, WTR_225 ]
 
 /-- Complete list of all 226 WTR logical cards with drafted IR overrides applied. -/

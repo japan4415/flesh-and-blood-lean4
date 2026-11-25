@@ -684,27 +684,28 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
     dsimp only at h
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
     let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
-    let s1 := if info.goAgain then
+    let isDefReact := isDefenseReactionLayer s layerId
+    let joinsDefense := isDefReact && canResolveDefenseReaction s info
+    let s1 := if info.goAgain && (!isDefReact || joinsDefense) then
       s.setPool info.controller ((s.poolOf info.controller).addActionPoints 1) else s
     have hp1 : StepPreserves s s1 := by
       dsimp only [s1]
       split
       · exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
       · exact StepPreserves.refl hwf hok hrb
-    let isDefReact :=
-      match s1.cardDefOf? layerId with
-      | some c => c.front.hasType .defenseReaction && s1.combat.isSome
-      | none => false
     let p2 :=
       if layerId ∈ s1.zone .stack then
-        if isDefReact then
+        if joinsDefense then
           match moveObj s1 layerId .combatChain .top false with
           | some (sMoved, id') =>
             let cc' := sMoved.combat.map fun cc => cc.updateActiveLink fun l =>
               { l with
                 defending := l.defending ++ [id']
                 defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
-            ({ sMoved with combat := cc' }, [Event.moved layerId id' .stack .combatChain])
+            ({ sMoved with
+                combat := cc'
+                activeEffects := defenseReactionEffects sMoved.activeEffects layerId id' },
+             [Event.moved layerId id' .stack .combatChain])
           | none => (s1, [])
         else
           match s1.obj? layerId with

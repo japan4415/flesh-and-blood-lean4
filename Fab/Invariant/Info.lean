@@ -207,7 +207,7 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     | some aid => simp [(h.cardDef_face aid).2]
   unfold canPlayCard
   rw [hh, ha, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat]
-  simp only [hkw]
+  simp only [canLinkTakeDefenseReaction, hkw]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canAttackWithWeapon s p wid`. -/
 theorem HiddenEquiv.canAttackWithWeapon_eq {p : PlayerId} {s1 s2 : GameState}

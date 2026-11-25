@@ -1758,14 +1758,16 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
           match s.objectFace? id with | some face => cardFaceMatches f face | none => false).take n) s
     exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
 
+/-- Whether an effect scope designates the source object itself. -/
+def ModScope.isSelf : ModScope → Bool
+  | .self_ | .obj .self_ => true
+  | _ => false
+
 /-- Apply a self-grant to an attack card that is still a paid layer on the stack. -/
 def modifyPendingAttack (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) :
     Option LayerInfo := do
-  let selfGrant := match scope with
-    | .self_ | .obj .self_ => true
-    | _ => false
-  if dur != .thisChainLink || !selfGrant || s.locate src != some .stack then none else
+  if dur != .thisChainLink || !scope.isSelf || s.locate src != some .stack then none else
     let card ← s.cardDefOf? src
     if !card.front.hasType .action || !card.front.hasSubtype .attack then none else
       let info ← s.layerMeta.get? src.n
@@ -1775,12 +1777,30 @@ def modifyPendingAttack (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | .grantKeyword kw => some { info with attackKeywords := kw :: info.attackKeywords }
       | _ => none
 
+/-- Put a resolving defense reaction's self-granted defense on the card (CR 5.3.4, 6.3.2h). -/
+def defenseReactionGrant (s : GameState) (ctrl : PlayerId) (src : ObjId)
+    (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) :
+    Option ContinuousEffect := do
+  let .addDefense delta := mod | none
+  if dur != .thisChainLink || !scope.isSelf || s.locate src != some .stack then none else
+    let face ← s.objectFace? src
+    if !face.hasType .defenseReaction then none else
+      some { id := s.nextTimestamp
+             source := src
+             controller := ctrl
+             target := .obj src
+             op := .addDefense (evalNumExpr s ctrl env delta)
+             duration := dur
+             timestamp := ⟨s.nextTimestamp⟩ }
+
 /-- Apply combat buffs to a pending attack card or the active `ChainLink`, and register
 turn- and chain-scoped continuous effects in `s.activeEffects` (CR 6.2-6.3, 7.4). -/
 def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) : GameState :=
   if let some info := modifyPendingAttack s ctrl src env scope mod dur then
     { s with layerMeta := s.layerMeta.insert src.n info }
+  else if let some effect := defenseReactionGrant s ctrl src env scope mod dur then
+    { s with activeEffects := s.activeEffects ++ [effect], nextTimestamp := s.nextTimestamp + 1 }
   else match dur, s.combat with
   | .thisChainLink, some cc =>
     let cc' := cc.updateActiveLink fun link =>
@@ -1841,7 +1861,9 @@ theorem applyChainLinkMod_fields (s : GameState) (ctrl : PlayerId) (src : ObjId)
   unfold applyChainLinkMod
   split
   · exact ⟨rfl, rfl, rfl, rfl, rfl⟩
-  · cases dur <;> cases s.combat <;>
+  · split
+    · exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+    · cases dur <;> cases s.combat <;>
       first
       | exact ⟨rfl, rfl, rfl, rfl, rfl⟩
       | (dsimp only; cases mod <;>
