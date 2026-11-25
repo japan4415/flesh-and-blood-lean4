@@ -749,6 +749,7 @@ meta def checkWarriorsValor (cid : CardId) (pitch bonus : Nat) : Option Bool := 
 
 #guard checkWarriorsValor ⟨"WTR_129_R"⟩ 1 3 == some true
 #guard checkWarriorsValor ⟨"WTR_130_Y"⟩ 2 2 == some true
+#guard checkWarriorsValor ⟨"WTR_131_B"⟩ 3 1 == some true
 
 -- A queued Go Again belongs to the weapon attack.
 #guard (do
