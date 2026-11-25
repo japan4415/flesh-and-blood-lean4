@@ -703,6 +703,7 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
       attack := some atkId
       attackSource := srcWeapon?
       attackLki := lki
+      discardedForPlay := attackInfo.discardedForPlay
       powerBonus := attackInfo.attackPowerBonus
       grantedKeywords := attackInfo.attackKeywords
       grantedAbilities := attackInfo.attackAbilities }

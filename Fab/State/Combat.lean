@@ -64,6 +64,8 @@ structure ChainLink where
   attackSource : Option ObjId := none
   /-- Immutable Last Known Information captured for this link's attack (CR 1.2.3, 3.5.4b). -/
   attackLki : LkiSnapshot
+  /-- Face of the last card discarded to pay for this attack (CR 5.1.9). -/
+  discardedForPlay : Option CardFace := none
   /-- Temporary power `{p}` modifier granted to this chain link (Attack Reactions, Combo buffs). -/
   powerBonus : Int := 0
   /-- Temporary defense `{d}` modifier granted to this chain link. -/

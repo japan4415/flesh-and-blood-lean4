@@ -126,7 +126,7 @@ theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : O
   refine ⟨_, [], rfl, ?_, rfl, ?_, ?_⟩
   · unfold finishPaidPlay
     dsimp only
-    split <;> simp
+    split <;> simp <;> split <;> simp_all
   · change ((s.setPool p pool').poolOf p).actionPoints + cost.actionPoints = _
     rw [GameState.poolOf_setPool_self]
     exact hacc.1

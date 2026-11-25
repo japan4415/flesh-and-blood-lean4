@@ -616,9 +616,15 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         unfold rollbackPlay
         cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
-  · -- finishPlay
+  · -- payRandomDiscard
+    rename_i p _ _ _ count _ _
+    let ids := (s.zone (.player p .hand)).take count
+    have hinv := discardManyObjs_ttr p ids s
+    dsimp only at h
+    generalize discardManyObjs s p ids = paid at h hinv
+    rcases paid with ⟨paidState, events⟩
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-    exact timeLimitBounded_of_eq hb rfl rfl id
+    exact timeLimitBounded_of_eq hb hinv.1 hinv.2.1 (fun hr => hinv.2.2 ▸ hr)
   · -- resolveStack
     split at h
     · split at h <;>

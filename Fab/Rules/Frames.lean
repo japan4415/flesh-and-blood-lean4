@@ -549,7 +549,7 @@ def cardPlayRandomDiscardCost (s : GameState) (layerId : ObjId) : Nat :=
 
 /-- Finalize a paid layer, then stack its play triggers and return priority (CR 5.1.10, 6.6.6). -/
 def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
-    (modeIdx : Option Nat) (rest : List Frame) : GameState :=
+    (modeIdx : Option Nat) (rest : List Frame) (discarded : Option CardFace := none) : GameState :=
   let hasGoAgain :=
     match s.cardDefOf? layerId with
     | some c => c.front.keywords.contains .goAgain && !c.front.hasSubtype .attack
@@ -559,12 +559,13 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       fromArsenal := fromArsenal
       modeIdx := modeIdx
       heroTarget := (s.layerMeta.get? layerId.n).bind (·.heroTarget)
+      discardedForPlay := discarded
       goAgain := hasGoAgain }
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
+  let s := { s with layerMeta := s.layerMeta.insert layerId.n updatedInfo }
   let triggers := playedCardTriggers s layerId p fromArsenal
   let flush := if triggers.isEmpty then [] else [.flushTriggers]
   { s with
-    layerMeta := s.layerMeta.insert layerId.n updatedInfo
     activeEffects := remainingEffects
     playRollback := none
     pendingTriggers := s.pendingTriggers ++ triggers
@@ -910,10 +911,10 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       if count = 0 then
         some (finishPaidPlay s1 p layerId fromArsenal modeIdx rest, [])
       else if count ≤ (s1.zone (.player p .hand)).length then
-        let discard := Effect.prim (.discardRandom .controller (.const (Int.ofNat count)))
-        let next := [.run p layerId fromArsenal [] [discard],
-          .finishPlay p layerId fromArsenal modeIdx]
-        some ({ s1 with pending := next ++ rest }, [])
+        let hand := Zone.player p .hand
+        let pay := Frame.payRandomDiscard p layerId fromArsenal modeIdx count :: rest
+        let next := if count < (s1.zone hand).length then .chanceShuffle hand :: pay else pay
+        some ({ s1 with pending := next }, [])
       else
         some (rollbackPlay s rest, [])
     | none =>
@@ -921,8 +922,12 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         some ({ s with pending := .choosePitch p layerId fromArsenal modeIdx cost :: rest }, [])
       else
         some (rollbackPlay s rest, [])
-  | .finishPlay p layerId fromArsenal modeIdx :: rest =>
-    some (finishPaidPlay s p layerId fromArsenal modeIdx rest, [])
+  | .payRandomDiscard p layerId fromArsenal modeIdx count :: rest =>
+    let (paid, events) := discardManyObjs s p ((s.zone (.player p .hand)).take count)
+    let discarded := events.reverse.findSome? fun
+      | .discarded _ id => paid.objectFace? id
+      | _ => none
+    some (finishPaidPlay paid p layerId fromArsenal modeIdx rest discarded, events)
   | .resolveStack :: rest =>
     match s.zone .stack with
     | topId :: _ =>

@@ -254,7 +254,13 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
       decide (nonEq < n)
     | none => false
   | .additionalCostPaid => false
-  | .lastDiscardedMatches _ => false
+  | .lastDiscardedMatches filter =>
+    let discarded := match s.layerMeta.get? src.n with
+      | some info => info.discardedForPlay
+      | none =>
+        (s.combat.bind CombatChain.activeLink?).bind fun link =>
+          if link.attack == some src then link.discardedForPlay else none
+    discarded.any (cardFaceMatches filter)
   | .weaponHitThisTurn =>
     match s.combat with
     | some cc => cc.links.any fun l => l.hit && l.attackSource.isSome

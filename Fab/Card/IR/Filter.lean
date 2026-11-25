@@ -246,7 +246,7 @@ inductive Condition where
   | playedFromArsenal
   /-- Optional additional cost was paid (Staunch Response, Regurgitating Slog, Lord of Wind). -/
   | additionalCostPaid
-  /-- Last discarded card (additional cost or action) matches `f` (Bloodrush Bellow, Savage Feast). -/
+  /-- Last card discarded to pay for the source matches `f` (Bloodrush Bellow, Savage Feast). -/
   | lastDiscardedMatches (f : CardFilter)
   /-- Player `p` has at least `n` cards matching `f` in zone `z` (Anothos, Kodachi, Blessing). -/
   | zoneCountGe (p : PlayerRef) (z : ZoneRef) (f : CardFilter) (n : Nat)
