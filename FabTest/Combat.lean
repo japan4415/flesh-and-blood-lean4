@@ -348,6 +348,9 @@ meta def checkRazorReflex (cid : CardId) (pitch bonus : Nat) (fromArsenal : Bool
 #guard checkRazorReflex ⟨"WTR_209_R"⟩ 1 3 false == some true
 #guard checkRazorReflex ⟨"WTR_209_R"⟩ 1 3 true == some true
 
+#guard checkRazorReflex ⟨"WTR_210_Y"⟩ 2 2 false == some true
+#guard checkRazorReflex ⟨"WTR_210_Y"⟩ 2 2 true == some true
+
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
 --    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!
