@@ -860,7 +860,8 @@ meta def checkAwakeningBellow (cid : CardId) (bonus : Int) : Option Bool := do
 #guard checkAwakeningBellow ⟨"WTR_034_B"⟩ 1 == some true
 
 /-- Play an attack with Intimidate and use the remaining hand card to defend. -/
-meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) : Option Bool := do
+meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) (discardCost : Bool := false)
+    (fromArsenal : Bool := false) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
   let defender : PlayerId := ⟨1⟩
   let funded := m5Base.setPool attacker { actionPoints := 1, resources := cost + 1 }
@@ -868,10 +869,23 @@ meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) : Option 
   let banished := Zone.player defender .banished
   let card ← funded.cards.find? cid
   let (withReserve, reserve) ← cPlace funded attacker .hand ⟨"WTR_205_B"⟩
-  let (withAttack, attackId) ← cPlace withReserve attacker .hand cid
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let (withAttack, attackId) ← cPlace withReserve attacker origin cid fromArsenal
   let (withFirst, first) ← cPlace withAttack defender .hand ⟨"WTR_203_R"⟩
-  let (ready, second) ← cPlace withFirst defender .hand ⟨"WTR_204_Y"⟩
-  let paid ← cSteps ready [⟨.player attacker, .playCard attackId⟩]
+  let (withoutSecondPaymentCard, second) ← cPlace withFirst defender .hand ⟨"WTR_204_Y"⟩
+  let play : Action := ⟨.player attacker, .playCard attackId⟩
+  let (ready, paid, paymentOk) ← if discardCost then do
+    let (ready, paymentCard) ← cPlace withoutSecondPaymentCard attacker .hand ⟨"WTR_188_R"⟩
+    let paying ← cSteps ready [play]
+    let (paid, events) ← (step 64 paying ⟨.chance, .shuffleOrder [paymentCard, reserve]⟩).toOption
+    let discarded ← (paid.zone (.player attacker .graveyard)).head?
+    pure (ready, paid, paying.pending.head? == some (.chanceShuffle (.player attacker .hand)) &&
+      paying.pendingTriggers.isEmpty && (paying.poolOf attacker).resources == 1 &&
+      (paid.obj? discarded).map (·.kind) == (ready.obj? paymentCard).map (·.kind) &&
+      events.contains (.discarded attacker discarded))
+  else do
+    let paid ← cSteps withoutSecondPaymentCard [play]
+    pure (withoutSecondPaymentCard, paid, (paid.zone (.player attacker .graveyard)).isEmpty)
   let attacking ← cSteps paid passBoth
   let link ← attacking.combat.bind CombatChain.activeLink?
   let trigger ← attacking.pendingTriggers.head?
@@ -899,7 +913,8 @@ meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) : Option 
     ⟨.player attacker, .pickTrigger selfDelayed.id⟩]
   let selfReturnedId ← (selfReturned.zone (.player attacker .hand)).head?
   pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
-    paid.pendingTriggers.isEmpty && paid.zone hand == ready.zone hand &&
+    paymentOk && paid.pendingTriggers.isEmpty && paid.zone hand == ready.zone hand &&
+    paid.zone (.player attacker .hand) == [reserve] &&
     (paid.poolOf attacker).resources == 1 && (paid.poolOf attacker).actionPoints == 0 &&
     attacking.combat.map (·.step) == some .attack &&
     attacking.pending.head? == some (.chooseTriggerStart attacker) &&
@@ -935,6 +950,17 @@ meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) : Option 
 #guard checkIntimidateAttack ⟨"WTR_026_R"⟩ 1 3 7 == some true
 #guard checkIntimidateAttack ⟨"WTR_027_Y"⟩ 2 3 6 == some true
 #guard checkIntimidateAttack ⟨"WTR_028_B"⟩ 3 3 5 == some true
+#guard checkIntimidateAttack ⟨"WTR_006_R"⟩ 1 3 9 true == some true
+#guard checkIntimidateAttack ⟨"WTR_006_R"⟩ 1 3 9 true true == some true
+
+-- A different Brute hero cannot include Rhinar's specialization.
+#guard (do
+  let adult ← wtrDB.find? ⟨"WTR_001"⟩
+  let young ← wtrDB.find? ⟨"WTR_002"⟩
+  let other := { adult with front := { adult.front with name := "Other Brute" } }
+  let cid : CardId := ⟨"WTR_006_R"⟩
+  pure (decide (CardAllowedForHero wtrDB adult cid) && decide (CardAllowedForHero wtrDB young cid) &&
+    !decide (CardAllowedForHero wtrDB other cid)) : Option Bool) == some true
 
 /-- Verify Unmovable's own defense and final damage when played from hand or arsenal. -/
 meta def checkUnmovable (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool) :

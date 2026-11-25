@@ -97,11 +97,15 @@ def WTR_005 : CardDef :=
     [ .activated .instant false {} [{ cost := .destroySelf }] none false
         { body := .rollDie6 ⟨0⟩ .nil (.prim (.gainResource .controller (.halfRoundDown ⟨0⟩))) } ]
 
-/-- Alpha Rampage (drafted IR). -/
+/-- Intimidate a hero chosen when the attack trigger is stacked (CR 7.2.3, 8.5.10b). -/
+def intimidateOnAttack : Ability :=
+  .triggered .onAttack false none none
+    { targets := [{ kind := .hero }], body := .prim (.intimidate (.ownerOfSlot 0)) }
+
+/-- Alpha Rampage. -/
 def WTR_006_R : CardDef :=
-  draftCard WTR_006_R_meta
-    [ .triggered .onAttack false none none { body := .prim (.intimidate .opposingHero) } ]
-    (some { extraCosts := [{ cost := .discardRandom 1 }] })
+  { draftCard WTR_006_R_meta [intimidateOnAttack]
+      (some { extraCosts := [{ cost := .discardRandom 1 }] }) with status := .full }
 
 /-- Bloodrush Bellow (drafted IR). -/
 def WTR_007_Y : CardDef :=
@@ -180,9 +184,7 @@ def WTR_022_B : CardDef := { randomDiscardAttack WTR_022_B_meta with status := .
 
 /-- Give an attack a triggered Intimidate when it attacks. -/
 def intimidateAttack (base : CardDef) : CardDef :=
-  draftCard base
-    [ .triggered .onAttack false none none
-      { targets := [{ kind := .hero }], body := .prim (.intimidate (.ownerOfSlot 0)) } ]
+  draftCard base [intimidateOnAttack]
 
 /-- Attach the Pack Hunt attack trigger to its generated metadata. -/
 abbrev packHunt := intimidateAttack
