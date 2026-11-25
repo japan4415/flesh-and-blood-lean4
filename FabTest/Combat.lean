@@ -974,6 +974,57 @@ meta def checkAwakeningBellow (cid : CardId) (bonus : Int) : Option Bool := do
 #guard checkAwakeningBellow ⟨"WTR_033_Y"⟩ 2 == some true
 #guard checkAwakeningBellow ⟨"WTR_034_B"⟩ 1 == some true
 
+/-- The next eligible attack can be a Brute attack action or a weapon attack. -/
+meta def checkPrimevalBellow (cid : CardId) (pitch bonus : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool attacker { actionPoints := 3, resources := 4 }
+  let card ← funded.cards.find? cid
+  let (bare, bellow) ← cPlace funded attacker origin cid fromArsenal
+  let play := fun id => (⟨.player attacker, .playCard id⟩ : Action)
+  let rejected ← cSteps bare [play bellow]
+  let (withPayment, reserve) ← cPlace bare attacker .hand ⟨"WTR_204_Y"⟩
+  let (equipped, weapon) ← cPlace withPayment attacker .weapon ⟨"WTR_003"⟩
+  let (paid, events) ← (step 64 equipped (play bellow)).toOption
+  let discarded ← (paid.zone (.player attacker .graveyard)).head?
+  let buffed ← cSteps paid passBoth
+  let ended ← cSteps buffed passBoth
+  let (withGeneric, genericAttack) ← cPlace buffed attacker .hand ⟨"WTR_203_R"⟩
+  let fight := passBoth ++ passBoth ++ [⟨.player defender, .defendDone⟩] ++
+    passBoth ++ passBoth ++ passBoth
+  let genericHit ← cSteps withGeneric (play genericAttack :: fight)
+  let beforeBrute ← cSteps genericHit passBoth
+  let unfunded := beforeBrute.setPool attacker { actionPoints := 2 }
+  let swing : Action := ⟨.player attacker, .attackWeapon weapon⟩
+  let unpaidSwing ← cSteps unfunded [swing]
+  let (withBrute, brute) ← cPlace beforeBrute attacker .hand ⟨"WTR_020_R"⟩
+  let (ready, _) ← cPlace withBrute attacker .hand ⟨"WTR_204_Y"⟩
+  let weaponFirst ← cSteps ready (swing :: fight)
+  let weaponClosed ← cSteps weaponFirst passBoth
+  let cardSecond ← cSteps weaponClosed (play brute :: fight)
+  let cardFirst ← cSteps ready (play brute :: fight)
+  let cardClosed ← cSteps cardFirst passBoth
+  let weaponSecond ← cSteps cardClosed (swing :: fight)
+  let damage := fun (s : GameState) =>
+    (s.combat.bind CombatChain.activeLink?).map (·.damageDealt)
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    decide (rejected = bare) && paid.activeEffects.isEmpty &&
+    (paid.poolOf attacker).actionPoints == 2 && (paid.poolOf attacker).resources == 4 &&
+    paid.zone (.player attacker .hand) == [] && events.contains (.discarded attacker discarded) &&
+    (paid.obj? discarded).map (·.kind) == (equipped.obj? reserve).map (·.kind) &&
+    (buffed.poolOf attacker).actionPoints == 3 && objEffectivePower buffed weapon == some 4 &&
+    buffed.activeEffects.map (·.op) == [.addPower (Int.ofNat bonus)] && ended.activeEffects.isEmpty &&
+    damage genericHit == some 4 && beforeBrute.activeEffects == buffed.activeEffects &&
+    decide (unpaidSwing = unfunded) &&
+    damage weaponFirst == some (4 + bonus) && weaponFirst.activeEffects.isEmpty &&
+    damage cardSecond == some 7 && damage cardFirst == some (7 + bonus) &&
+    cardFirst.activeEffects.isEmpty && damage weaponSecond == some 4)
+
+#guard checkPrimevalBellow ⟨"WTR_035_R"⟩ 1 5 false == some true
+#guard checkPrimevalBellow ⟨"WTR_035_R"⟩ 1 5 true == some true
+
 /-- Play an attack with Intimidate and use the remaining hand card to defend. -/
 meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) (discardCost : Bool := false)
     (fromArsenal : Bool := false) : Option Bool := do
