@@ -310,7 +310,22 @@ def cardWeaponTargetChoices (s : GameState) (p : PlayerId) (card : CardDef) : Op
               cost := chars.baseCost }
         | _, _ => false)
 
-/-- Whether player `p` may announce playing card `id` from hand or arsenal while holding priority
+/-- Card IDs that might supply plays during priority (CR 5.1.1a). -/
+def playCardCandidateIds (s : GameState) (p : PlayerId) : List ObjId :=
+  s.zone (.player p .hand) ++ s.zone (.player p .arsenal) ++ s.zone (.player p .banished)
+
+/-- A face-up banished card requires a live play permission belonging to this player (CR 5.1.1a). -/
+def canPlayFromBanished (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
+  (s.zone (.player p .banished)).contains id &&
+    (s.obj? id).any (fun obj => !obj.faceDown) &&
+    s.activeEffects.any fun effect =>
+      effect.controller == p && effect.target == .obj id &&
+      match effect.op with
+      | .allowBanishedPlay attack =>
+        attack.all (fun source => ((s.combat.bind CombatChain.activeLink?).bind (·.attack)) == some source)
+      | _ => false
+
+/-- Whether player `p` may announce playing card `id` from an allowed zone while holding priority
 (CR 5.1.1, 4.3, 3.2.2, 7.1, 7.4, 7.6).
 - Instants: playable anytime on priority.
 - Actions: own Action Phase, empty stack, ≥1 AP, and either combat chain closed or (for Attack
@@ -320,7 +335,7 @@ def cardWeaponTargetChoices (s : GameState) (p : PlayerId) (card : CardDef) : Op
 def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
   let fromHand := id ∈ s.zone (.player p .hand)
   let fromArsenal := id ∈ s.zone (.player p .arsenal)
-  if fromHand || fromArsenal then
+  if fromHand || fromArsenal || canPlayFromBanished s p id then
     match s.cardDefOf? id with
     | none => false
     | some c =>
@@ -1101,6 +1116,14 @@ def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
     pending := .playPayCost p layerId false none plan.cost :: rest },
     plan.target.toList.map (fun declared => .targetedAttack layerId declared.2))
 
+/-- The scope of a deck-search play permission (CR 5.1.1a). -/
+def searchPlayOp (s : GameState) : Duration → Option EffectOp
+  | .thisTurn => some (.allowBanishedPlay none)
+  | .thisChainLink =>
+    ((s.combat.bind CombatChain.activeLink?).bind (·.attack)).map
+      (fun attack => EffectOp.allowBanishedPlay (some attack))
+  | _ => none
+
 /-- Resolve a confirmed search or shuffle selection, then schedule shuffle and draw (CR 8.5.19, 8.5.20b). -/
 def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
     (drawSame : Bool) (search : Option DeckSearchChoice) (rest : List Frame) : GameState × List Event :=
@@ -1113,7 +1136,25 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
   let events := moved.2
   let draw := if drawSame && !events.isEmpty then [.draw p events.length] else []
   let shuffle := if search.all (·.shuffleAfter) then [.chanceShuffle deck] else []
-  ({ moved.1 with pending := shuffle ++ draw ++ rest }, revealed ++ events)
+  let banished := events.filterMap fun
+    | .moved _ id _ (.player owner .banished) => if owner == p then some id else none
+    | _ => none
+  let permissions : List ContinuousEffect := ((search.bind (·.playableDuration)).bind fun duration =>
+    (searchPlayOp s duration).map fun op =>
+      banished.zipIdx.map fun (id, index) =>
+        let timestamp := moved.1.nextTimestamp + index
+        { id := timestamp
+          source := id
+          controller := p
+          target := .obj id
+          op := op
+          duration := duration
+          timestamp := ⟨timestamp⟩ }).getD []
+  ({ moved.1 with
+      pending := shuffle ++ draw ++ rest
+      activeEffects := moved.1.activeEffects ++ permissions
+      nextTimestamp := moved.1.nextTimestamp + permissions.length },
+    revealed ++ events ++ banished.map (fun id => .banished p id false))
 
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
@@ -1176,7 +1217,7 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
   | .priority p _ :: rest, .player q, .playCard id =>
     if p = q ∧ canPlayCard s p id = true then
       let fromArsenal := id ∈ s.zone (.player p .arsenal)
-      let srcZone := if fromArsenal then Zone.player p .arsenal else Zone.player p .hand
+      let srcZone := (s.locate id).getD (.player p .hand)
       let snap := s.snapshot
       let cost := match s.cardDefOf? id with | some c => modifiedCardPlayCost s p c | none => {}
       let modes := match s.cardDefOf? id with | some c => cardModeCount c | none => 0

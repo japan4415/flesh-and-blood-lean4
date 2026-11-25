@@ -317,6 +317,10 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     h.visibleZones _ (by simp [Zone.isSecretTo])
   have ha : s1.zone (.player p .arsenal) = s2.zone (.player p .arsenal) :=
     h.visibleZones _ (by simp [Zone.isSecretTo])
+  have hb : s1.zone (.player p .banished) = s2.zone (.player p .banished) :=
+    h.visibleZones _ (by simp [Zone.isSecretTo])
+  have hbanished : canPlayFromBanished s1 p id = canPlayFromBanished s2 p id := by
+    simp only [canPlayFromBanished, hb, GameState.obj?, h.objects, h.combat, h.activeEffects]
   have hs : s1.zone .stack = s2.zone .stack := h.visibleZones _ rfl
   have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
   have hdom (link : ChainLink) : linkHasKeyword s1 link .dominate = linkHasKeyword s2 link .dominate :=
@@ -329,7 +333,7 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     unfold cardWeaponTargetChoices
     simp only [href, h.arenaContents_eq, hobj, hface, h.characteristics_eq]
   unfold canPlayCard
-  rw [hh, ha, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat]
+  rw [hh, ha, hbanished, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat]
   simp only [canLinkTakeDefenseReaction, hdom, attackReactionCanTarget, h.hasRequiredAttackTarget_eq, hweapon]
 
 /-- The current weapon attack candidates depend on the visible weapon zone and combat chain. -/
@@ -486,10 +490,14 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                 h.visibleZones _ (by simp [Zone.isSecretTo])
               have ha : s1.zone (.player q .arsenal) = s2.zone (.player q .arsenal) :=
                 h.visibleZones _ (by simp [Zone.isSecretTo])
+              have hb : s1.zone (.player q .banished) = s2.zone (.player q .banished) :=
+                h.visibleZones _ (by simp [Zone.isSecretTo])
+              have hcards : playCardCandidateIds s1 q = playCardCandidateIds s2 q := by
+                simp only [playCardCandidateIds, hh, ha, hb]
               have hplay : canPlayCard s1 q = canPlayCard s2 q := funext h.canPlayCard_eq
               have hwep : canAttackWithWeapon s1 q = canAttackWithWeapon s2 q :=
                 funext h.canAttackWithWeapon_eq
-              rw [hh, ha, h.weaponAttackCandidateIds_eq, hplay, hwep, h.availableActivations_eq]
+              rw [hcards, h.weaponAttackCandidateIds_eq, hplay, hwep, h.availableActivations_eq]
             · have hne : (Actor.player q == Actor.player p) = false := by simp [hqp]
               simp only [List.filter_cons, hne, List.filter_append]
               have hnil : ∀ {α : Type} (l : List α) (g : α → ActionKind),
