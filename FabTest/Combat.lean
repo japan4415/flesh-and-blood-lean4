@@ -4295,6 +4295,7 @@ meta def checkBucklingBlow (cid : CardId) (pitch power : Nat) : Option Bool := d
 
 #guard checkBucklingBlow ⟨"WTR_057_R"⟩ 1 8 == some true
 #guard checkBucklingBlow ⟨"WTR_058_Y"⟩ 2 7 == some true
+#guard checkBucklingBlow ⟨"WTR_059_B"⟩ 3 6 == some true
 
 /-- Resolve Crippling Crush with different chance outcomes and with fewer than two cards. -/
 meta def checkCripplingCrush : Option Bool := do

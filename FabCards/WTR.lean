@@ -382,18 +382,18 @@ def WTR_055_Y : CardDef := { blessingOfDeliverance WTR_055_Y_meta 2 with status 
 def WTR_056_B : CardDef := { blessingOfDeliverance WTR_056_B_meta 1 with status := .full }
 
 /-- Shared 3-color helper for Buckling Blow (Crush → `-1{d}` counter on target equipment). -/
-def bucklingBlow (base : CardDef) (trigger : Trigger := .onDealDamage 4 true) : CardDef :=
+def bucklingBlow (base : CardDef) : CardDef :=
   draftCard base
-    [ .triggered trigger false none none
+    [ .triggered .onCrush false none none
         { targets := [{ kind := .equipment .defendingHero }]
           body := .prim (.addCounter (.slot 0) .minusOneDefense (.const 1)) } ]
 
 /-- Buckling Blow Red. -/
-def WTR_057_R : CardDef := { bucklingBlow WTR_057_R_meta .onCrush with status := .full }
+def WTR_057_R : CardDef := { bucklingBlow WTR_057_R_meta with status := .full }
 /-- Buckling Blow Yellow. -/
-def WTR_058_Y : CardDef := { bucklingBlow WTR_058_Y_meta .onCrush with status := .full }
-/-- Buckling Blow Blue (drafted IR). -/
-def WTR_059_B : CardDef := bucklingBlow WTR_059_B_meta
+def WTR_058_Y : CardDef := { bucklingBlow WTR_058_Y_meta with status := .full }
+/-- Buckling Blow Blue. -/
+def WTR_059_B : CardDef := { bucklingBlow WTR_059_B_meta with status := .full }
 
 /-- Emerging Power turns into a bonus for the next Guardian attack action this turn. -/
 def emergingPower (base : CardDef) (bonus : Int) : CardDef :=
