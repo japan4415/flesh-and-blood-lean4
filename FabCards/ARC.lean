@@ -233,6 +233,21 @@ def ARC_030_Y : CardDef := { Meta.ARC_030_Y_meta with status := .full }
 /-- Zipper Hit (ARC031). -/
 def ARC_031_B : CardDef := { Meta.ARC_031_B_meta with status := .full }
 
+/-- Formalize the next attack's power modifier and conditional opt. -/
+def lockedAndLoaded (base : CardDef) (bonus : Int) : CardDef :=
+  let attacks : CardFilter :=
+    { supertypes := [.class_ .mechanologist]
+      types := [.action]
+      subtypes := [.attack] }
+  { base with front := { base.front with
+    playEffect := some {
+      body := .seqL
+        [ .grant (.nextAttack attacks) (.addPower (.const bonus)) .thisTurn
+        , .ifThen (.boostedThisTurn 1) (.prim (.opt .controller 1)) .nop ] } } }
+
+/-- Locked and Loaded (ARC032). -/
+def ARC_032_R : CardDef := { lockedAndLoaded Meta.ARC_032_R_meta 3 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -240,7 +255,8 @@ def arcCards : List CardDef :=
    ARC_016_B, ARC_017_Y, ARC_018_B, ARC_019_R, ARC_020_R, ARC_021_Y, ARC_022_B,
    ARC_023_R, ARC_024_Y, ARC_025_B,
    ARC_026_R, ARC_027_Y, ARC_028_B,
-   ARC_029_R, ARC_030_Y, ARC_031_B]
+   ARC_029_R, ARC_030_Y, ARC_031_B,
+   ARC_032_R]
 
 end FabCards.ARC
 
