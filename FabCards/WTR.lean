@@ -619,14 +619,15 @@ def WTR_113 : CardDef := { draftCard WTR_113_meta dorintheaAbility with status :
 /-- Dorinthea (Young). -/
 def WTR_114 : CardDef := { draftCard WTR_114_meta dorintheaAbility with status := .full }
 
-/-- Dawnblade (drafted IR). -/
+/-- Dawnblade. -/
 def WTR_115 : CardDef :=
-  draftCard WTR_115_meta
-    [ weaponAttackAbility 1
-    , .triggered .onHit false (some 2) none
-        { body := .prim (.addCounter .self_ .plusOnePower (.const 1)) }
-    , .triggered .onStartOfEndPhase false none (some .sourceNotHitThisTurn)
-        { body := .prim (.removeAllCounters .self_ .plusOnePower) } ]
+  { draftCard WTR_115_meta
+      [ weaponAttackAbility 1
+      , .triggered .onHit false (some 2) none
+          { body := .prim (.addCounter .self_ .plusOnePower (.const 1)) }
+      , .triggered .onStartOfEndPhase false none none
+          { body := .ifThen .sourceNotHitThisTurn (.prim (.removeAllCounters .self_ .plusOnePower)) .nop } ]
+    with status := .full }
 
 /-- Braveforge Bracers (drafted IR). -/
 def WTR_116 : CardDef :=

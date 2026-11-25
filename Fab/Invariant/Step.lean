@@ -616,6 +616,11 @@ private theorem afterPermanentEntry_preserves {s : GameState} (hwf : s.WF) (hok 
     StepPreserves s (afterPermanentEntry s triggers rest) :=
   sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
 
+private theorem beginEndPhase_preserves {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
+    (hrb : s.RollbackOk) (player : PlayerId) (rest : List Frame) :
+    StepPreserves s (beginEndPhase s player rest) :=
+  sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+
 /-- Helper: `drawOne` preserves `config` and `playRollback`. -/
 theorem drawOne_meta (s : GameState) (p : PlayerId) :
     (drawOne s p).1.config = s.config ∧ (drawOne s p).1.playRollback = s.playRollback := by
@@ -970,9 +975,7 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
       have hrb1 : sBd.RollbackOk := GameState.RollbackOk.preserve hrb hc1 hr1 hperm1
       have hsp1 : StepPreserves s sBd := ⟨hwf1, hok1, hrb1, hperm1, hc1⟩
       simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-      split
-      · exact hsp1.trans (sameBoard_preserves hwf1 hok1 hrb1 rfl rfl rfl rfl rfl)
-      · exact hsp1.trans (sameBoard_preserves hwf1 hok1 hrb1 rfl rfl rfl rfl rfl)
+      exact hsp1.trans (beginEndPhase_preserves hwf1 hok1 hrb1 tp rest)
   · -- endPhaseArsenal
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
     exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl

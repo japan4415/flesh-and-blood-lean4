@@ -32,7 +32,7 @@ open FabCards
   | none => false
 
 #guard match wtrDB.find? ⟨"WTR_115"⟩ with
-  | some c => c.front.name == "Dawnblade" && c.isTwoHanded && c.front.abilities.length == 3 && c.status == .drafted
+  | some c => c.front.name == "Dawnblade" && c.isTwoHanded && c.front.abilities.length == 3 && c.status == .full
   | none => false
 
 #guard match wtrDB.find? ⟨"WTR_206_R"⟩ with

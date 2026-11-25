@@ -533,12 +533,12 @@ def supportsTriggerTargets (effect : EffectDef) : Bool :=
 
 /-- Find matching triggers and their once-per-turn flags (CR 6.6). -/
 def matchingCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId) (fromArsenal : Bool)
-    (abilities : List Ability) (matchesEvent : Trigger → Option Condition → Bool) :
-    List (PendingTrigger × Bool) :=
+    (abilities : List Ability) (matchesEvent : Trigger → Option Condition → Bool)
+    (matchesOrdinal : Option Nat → Bool := Option.isNone) : List (PendingTrigger × Bool) :=
   abilities.zipIdx.filterMap fun (ability, abilityIdx) =>
     match ability with
-    | .triggered trigger once none cond eff =>
-      if matchesEvent trigger cond && supportsTriggerTargets eff && eff.modes.isEmpty &&
+    | .triggered trigger once ordinal cond eff =>
+      if matchesOrdinal ordinal && matchesEvent trigger cond && supportsTriggerTargets eff && eff.modes.isEmpty &&
           eff.extraCosts.isEmpty then
         some ({
           id := 0
@@ -616,6 +616,24 @@ def installedHitTriggers (s : GameState) (link : ChainLink) : List (PendingTrigg
       | .onConsecutiveHitLink minLink => isAction && minLink ≤ streak
       | .onWeaponAttackHit => isWeapon
       | _ => false
+  | none => []
+
+/-- Identify the live weapon that sourced the link's attack (CR 1.4.3, 7.5.3). -/
+def hitWeapon? (s : GameState) (link : ChainLink) : Option ObjId := do
+  let source ← link.attackSource
+  if (s.characteristics source).any (·.types.contains .weapon) then some source else none
+
+/-- Collect hit triggers on the source weapon, including exact per-turn hit ordinals (CR 6.6.5d). -/
+def weaponHitTriggers (s : GameState) (link : ChainLink) : List (PendingTrigger × Bool) :=
+  match hitWeapon? s link with
+  | some source =>
+    if (s.obj? source).any (·.faceDown) || (s.characteristics source).any (·.abilitiesLost) then [] else
+      let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+      let count := s.weaponHitsThisTurn.count source
+      matchingCardTriggers s source link.attacker false abilities
+        (fun trigger cond =>
+          trigger == .onHit && (cond.map (evalCondition s link.attacker source false)).getD true)
+        (fun ordinal => ordinal.all (· == count))
   | none => []
 
 /-- Collect printed and granted hit and Crush triggers (CR 6.6, 7.5.5, 8.4.2). -/
@@ -1171,6 +1189,29 @@ def applyAction (s : GameState) (a : Action) : Option (GameState × List Event) 
     some (applyDeclineDraw s, [])
   | _, _ => applyFrame s a
 
+/-- Stack installed and delayed end-phase triggers before the rest of the phase (CR 4.4.2). -/
+def beginEndPhase (s : GameState) (tp : PlayerId) (rest : List Frame) : GameState :=
+  let phaseState := { s with phase := .endPhase }
+  let queued := queueCardTriggers phaseState (installedCardTriggers phaseState tp (· == .onStartOfEndPhase))
+  let selected := s.delayedTriggers.partition fun trigger => trigger.watchPhase == .endPhase
+  let delayed := selected.1.map fun trigger =>
+    { id := trigger.id
+      source := trigger.source
+      sourceLki := captureLki s trigger.source trigger.controller
+      controller := trigger.controller
+      abilityIdx := 0
+      effect := trigger.effect : PendingTrigger }
+  let pendingTriggers := queued.pendingTriggers ++ delayed
+  let triggerFrames := if pendingTriggers.isEmpty then [] else [.flushTriggers, .resolveStack]
+  { s with
+    phase := .endPhase
+    nextTimestamp := queued.nextTimestamp
+    triggeredThisTurn := queued.triggeredThisTurn
+    delayedTriggers := selected.2
+    pendingTriggers := pendingTriggers
+    pending := triggerFrames ++ [.endPhaseArsenal tp] ++
+      s.turnOrder.map Frame.returnPitch ++ [.endTurnCleanup tp] ++ rest }
+
 /-- Advance a single automatic work frame on top of `s.pending` (non-recursive: design.md §6.1). -/
 def microStep (s : GameState) : Option (GameState × List Event) :=
   match s.pending with
@@ -1374,10 +1415,13 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         let isHit := didCombatHit finalDmg
         let damagedLink := { link with hit := isHit, damageDealt := finalDmg }
         let cc' := { cc with step := .damage }.updateActiveLink fun _ => damagedLink
-        let withDamage := { s2 with combat := some cc' }
+        let weaponHit := if isHit then hitWeapon? s2 damagedLink else none
+        let withDamage := { s2 with
+          combat := some cc'
+          weaponHitsThisTurn := weaponHit.toList ++ s2.weaponHitsThisTurn }
         let damageTriggers := if isHit && withDamage.result.isNone then
           (attackDamageTriggers withDamage damagedLink).map (fun trigger => (trigger, false)) ++
-            installedHitTriggers withDamage damagedLink
+            installedHitTriggers withDamage damagedLink ++ weaponHitTriggers withDamage damagedLink
           else []
         let queued := queueCardTriggers withDamage damageTriggers
         let s3 := gspRun queued
@@ -1432,26 +1476,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     | [] =>
       some ({ s with pending := rest }, [])
   | .endPhaseStart tp :: rest =>
-    let (sBd, esBd) := applyBloodDebt s tp
-    let (fired, kept) := sBd.delayedTriggers.partition fun dt => dt.watchPhase == .endPhase
-    let newTrigs := fired.map fun dt =>
-      { id := dt.id
-        source := dt.source
-        sourceLki := captureLki sBd dt.source dt.controller
-        controller := dt.controller
-        abilityIdx := 0
-        effect := dt.effect : PendingTrigger }
-    let s1 :=
-      if fired.isEmpty then sBd
-      else { sBd with
-        delayedTriggers := kept
-        pendingTriggers := sBd.pendingTriggers ++ newTrigs }
-    let trigFrames := if fired.isEmpty then [] else [.flushTriggers, .resolveStack]
-    some ({ s1 with
-              phase := .endPhase
-              pending := trigFrames ++ [.endPhaseArsenal tp] ++
-                s1.turnOrder.map Frame.returnPitch ++ [.endTurnCleanup tp] ++ rest },
-          esBd)
+    let debt := applyBloodDebt s tp
+    some (beginEndPhase debt.1 tp rest, debt.2)
   | .endPhaseArsenal tp :: rest =>
     let next :=
       if (s.zone (.player tp .arsenal)).isEmpty && !(s.zone (.player tp .hand)).isEmpty then
@@ -1473,6 +1499,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       chargedThisTurn := []
       banishedSixPowerThisTurn := []
       activatedThisTurn := []
+      weaponHitsThisTurn := []
       triggeredThisTurn := [] }).expireEffects .thisTurn
     let draws := endPhaseDrawFrames s2 tp
     some ({ s2 with pending := draws ++ rest }, [])

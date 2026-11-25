@@ -294,9 +294,8 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
           if link.attack == some src then link.discardedForPlay else none
     discarded.any (cardFaceMatches filter)
   | .weaponHitThisTurn =>
-    match s.combat with
-    | some cc => cc.links.any fun l => l.hit && l.attackSource.isSome
-    | none => false
+    s.weaponHitsThisTurn.any fun weapon =>
+      (s.characteristics weapon).any fun c => c.controller == ctrl && c.types.contains .weapon
   | .defendingWeaponAttack =>
     match s.combat.bind CombatChain.activeLink? with
     | some cur =>
@@ -304,10 +303,7 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
       let types := (source.bind s.characteristics).map (·.types) |>.getD cur.attackLki.types
       types.contains .weapon
     | none => false
-  | .sourceNotHitThisTurn =>
-    match s.combat with
-    | some cc => !(cc.links.any fun l => l.hit && l.attackSource == some src)
-    | none => true
+  | .sourceNotHitThisTurn => !s.weaponHitsThisTurn.contains src
   | .chargedThisTurn => s.chargedThisTurn.contains ctrl
   | .banishedSixPowerThisTurn => s.banishedSixPowerThisTurn.contains ctrl
   | .playedFromBanished =>

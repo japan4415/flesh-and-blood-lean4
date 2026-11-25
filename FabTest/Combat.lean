@@ -1566,7 +1566,10 @@ meta def checkDorinthea (cid : CardId) (life : Nat) : Option Bool := do
   let paying ← cSteps broke [swing]
   let cancelled ← cSteps paying [⟨.player attacker, .cancelPlay⟩]
   let secondDefend ← enter permitted
-  let second ← cSteps secondDefend (toDamage ++ passBoth)
+  let secondDamage ← cSteps secondDefend toDamage
+  let swordTrigger ← secondDamage.pendingTriggers.head?
+  let second ← cSteps secondDamage ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger swordTrigger.id⟩] ++ passBoth ++ passBoth)
   let extraFunded := second.setPool attacker { actionPoints := 1, resources := 1 }
   let blocked ← cSteps defend (⟨.player defender, .defendCard block⟩ :: (toDamage ++ passBoth))
   pure (card.status == .full && card.front.life == some life && card.front.intellect == some 4 &&
@@ -1579,6 +1582,7 @@ meta def checkDorinthea (cid : CardId) (life : Nat) : Option Bool := do
     expired.activeEffects.isEmpty && expired.triggeredThisTurn.isEmpty &&
     decide (cancelled = broke) && permitted.activeEffects.map (·.target) == [.obj weapon] &&
     secondDefend.activeEffects.isEmpty && (secondDefend.combat.map (·.links.length)) == some 2 &&
+    secondDamage.pendingTriggers.length == 1 && swordTrigger.source == weapon &&
     second.pendingTriggers.isEmpty && second.triggeredThisTurn == [(hero, 0)] &&
     !(legalActionsFor attacker extraFunded).contains swing && (step 64 extraFunded swing).toOption.isNone &&
     blocked.pendingTriggers.isEmpty && blocked.triggeredThisTurn.isEmpty)
@@ -1586,6 +1590,60 @@ meta def checkDorinthea (cid : CardId) (life : Nat) : Option Bool := do
 #guard checkDorinthea ⟨"WTR_113"⟩ 40 == some true
 
 #guard checkDorinthea ⟨"WTR_114"⟩ 20 == some true
+
+/-- Dawnblade's second hit and its counter retention both use the whole turn, across chains. -/
+meta def checkDawnblade : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_115"⟩
+  let card ← m5Base.cards.find? cid
+  let funded := m5Base.setPool attacker { actionPoints := 2, resources := 2 }
+  let (withHero, hero) ← cPlace funded attacker .hero ⟨"WTR_113"⟩
+  let (ready, sword) ← cPlace withHero attacker .weapon cid
+  let swing : Action := ⟨.player attacker, .attackWeapon sword⟩
+  let order : Action := ⟨.player attacker, .pickTriggerStart attacker⟩
+  let choose tid : Action := ⟨.player attacker, .pickTrigger tid⟩
+  let toDamage := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth
+  let swingToDamage (s : GameState) := cSteps s (swing :: (passBoth ++ passBoth ++ toDamage))
+  let first ← swingToDamage ready
+  let permitTrigger ← first.pendingTriggers.head?
+  let optional ← cSteps first ([order, choose permitTrigger.id] ++ passBoth)
+  let firstClosed ← cSteps optional (⟨.player attacker, .pickMay true⟩ :: (passBoth ++ passBoth))
+  let second ← swingToDamage firstClosed
+  let counterTrigger ← second.pendingTriggers.head?
+  let enhanced ← cSteps second ([order, choose counterTrigger.id] ++ passBoth)
+  let secondClosed ← cSteps enhanced (passBoth ++ passBoth)
+  let hitEnding ← cSteps secondClosed passBoth
+  let retainTrigger ← hitEnding.pendingTriggers.head?
+  let hitEnd ← cSteps hitEnding [order, choose retainTrigger.id]
+  let nextTurn := { hitEnd with phase := .actionPhase, pending := [.priority attacker 0, .endPhaseStart attacker] }
+  let retry := nextTurn.setPool attacker { actionPoints := 1, resources := 1 }
+  let (withBlock, firstBlock) ← cPlace retry defender .hand ⟨"WTR_203_R"⟩
+  let (blocking, secondBlock) ← cPlace withBlock defender .hand ⟨"WTR_204_Y"⟩
+  let expectedMiss ← cSteps blocking (swing :: (passBoth ++ passBoth ++
+    [⟨.player defender, .defendCard firstBlock⟩, ⟨.player defender, .defendCard secondBlock⟩] ++
+    toDamage ++ passBoth ++ passBoth))
+  let missedEnd ← cSteps expectedMiss passBoth
+  let removeTrigger ← missedEnd.pendingTriggers.head?
+  let cleared ← cSteps missedEnd [order, choose removeTrigger.id]
+  let opposingEnd := { hitEnd with
+    active := some defender
+    phase := .actionPhase
+    pending := [.endPhaseStart defender] }
+  let (opponentFinished, _) ← (advance 64 opposingEnd []).toOption
+  pure (card.status == .full && card.front.power == some 3 && permitTrigger.source == hero &&
+    first.pendingTriggers.length == 1 && first.weaponHitsThisTurn == [sword] &&
+    objEffectivePower firstClosed sword == some 3 && firstClosed.combat.isNone &&
+    second.pendingTriggers.length == 1 && counterTrigger.source == sword &&
+    second.weaponHitsThisTurn == [sword, sword] && objEffectivePower enhanced sword == some 4 &&
+    secondClosed.combat.isNone && hitEnd.pendingTriggers.isEmpty &&
+    hitEnd.weaponHitsThisTurn.isEmpty && objEffectivePower hitEnd sword == some 4 &&
+    expectedMiss.weaponHitsThisTurn.isEmpty && expectedMiss.combat.isNone &&
+    missedEnd.pendingTriggers.length == 1 && removeTrigger.source == sword &&
+    objEffectivePower cleared sword == some 3 &&
+    opponentFinished.pendingTriggers.isEmpty && objEffectivePower opponentFinished sword == some 4)
+
+#guard checkDawnblade == some true
 
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/

@@ -100,6 +100,8 @@ structure BoardSnapshot where
   banishedSixPowerThisTurn : List PlayerId := []
   /-- Saved once-per-turn activated ability usages `(objId, abilityIdx)`. -/
   activatedThisTurn : List (ObjId × Nat) := []
+  /-- Saved weapon hit history, one entry for each successful hit. -/
+  weaponHitsThisTurn : List ObjId := []
   /-- Saved once-per-turn triggered ability usages `(objId, abilityIdx)`. -/
   triggeredThisTurn : List (ObjId × Nat) := []
 deriving DecidableEq, Repr
@@ -160,6 +162,8 @@ structure GameState where
   banishedSixPowerThisTurn : List PlayerId := []
   /-- Once-per-turn activated abilities already used this turn (CR 5.2). -/
   activatedThisTurn : List (ObjId × Nat) := []
+  /-- Weapon objects that have hit this turn, one entry per hit (CR 7.5.3). -/
+  weaponHitsThisTurn : List ObjId := []
   /-- Once-per-turn triggered abilities already triggered this turn (CR 6.6). -/
   triggeredThisTurn : List (ObjId × Nat) := []
 deriving DecidableEq, Repr
@@ -414,6 +418,7 @@ def snapshot (s : GameState) : BoardSnapshot :=
     chargedThisTurn := s.chargedThisTurn
     banishedSixPowerThisTurn := s.banishedSixPowerThisTurn
     activatedThisTurn := s.activatedThisTurn
+    weaponHitsThisTurn := s.weaponHitsThisTurn
     triggeredThisTurn := s.triggeredThisTurn }
 
 /-- Restore a saved `BoardSnapshot` and clear `playRollback` (CR 5.1.1). -/
@@ -437,6 +442,7 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     chargedThisTurn := snap.chargedThisTurn
     banishedSixPowerThisTurn := snap.banishedSixPowerThisTurn
     activatedThisTurn := snap.activatedThisTurn
+    weaponHitsThisTurn := snap.weaponHitsThisTurn
     triggeredThisTurn := snap.triggeredThisTurn
     playRollback := none }
 
