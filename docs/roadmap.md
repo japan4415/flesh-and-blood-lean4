@@ -286,6 +286,10 @@ FaB ルールの中核マイルストーン。
 - 各カードのシナリオテストと `CardDB.WF` の `decide +kernel` 検査。
 - 頻出パターンの IR 昇格と `custom` 数の最小化。
 
+WTR では、Leg Tap、Blackout Kick、Open the Center、Rising Knee Thrust を追加した。Snatch のヒット誘発をスタックに接続し、Sink Below の手札の有無と選択結果をテストした。カードごとの進捗は [カバレッジ](coverage.md) に集計する。
+
+残りの WTR では、追加コストと対象の宣言、ターン中の起動回数やヒット回数を参照する誘発、次の攻撃や次のターンに適用する連続効果の接続が必要になる。
+
 ---
 
 ### M8: 高度メカニクス（両面・Transcend・Meld・Evo・Cloaked・Ally・Tap・Soul）（CR Chapter 8-9）

@@ -81,6 +81,18 @@ meta def runSteps (s : GameState) : List Action → Option GameState
   | some b => b
   | none => false
 
+/-- Resolve an instant from hand and check the printed life gain. -/
+meta def checkSigil (cid : CardId) (gain : Int) : Option Bool := do
+  let p : PlayerId := ⟨0⟩
+  let (s, sigil) ← placeCard m4BaseState p .hand cid
+  let after ← runSteps s [⟨.player p, .playCard sigil⟩, ⟨.player p, .pass⟩, ⟨.player ⟨1⟩, .pass⟩]
+  pure (after.lifeOf p == 40 + gain && (after.zone .stack).isEmpty &&
+    (after.zone (.player p .graveyard)).length == 1)
+
+#guard checkSigil ⟨"WTR_173_R"⟩ 3 == some true
+#guard checkSigil ⟨"WTR_174_Y"⟩ 2 == some true
+#guard checkSigil ⟨"WTR_175_B"⟩ 1 == some true
+
 -- 2. Go Again on non-attack Action resolution (CR 5.3.4, 8.3.5):
 --    P0 plays Awakening Bellow Red (cost 1 {r}, Go Again) -> AP 1 -> 0 -> resolves -> AP 0 -> 1,
 --    enabling P0 to play a second Action (Tome of Fyendal, cost 1 {r}) on the same turn!

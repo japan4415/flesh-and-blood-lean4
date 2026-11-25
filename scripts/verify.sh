@@ -20,9 +20,9 @@ step "3/5 axiom audit (lake check)"
 lake check --inadvisably-no-sandbox
 
 step "4/5 generated cards check"
-python3 scripts/gen_lean.py --check
+uv run --no-project scripts/gen_lean.py --check
 
 step "5/5 rule citations"
-python3 scripts/cr_citations.py
+uv run --no-project scripts/cr_citations.py
 
 printf '\nverify: OK\n'
