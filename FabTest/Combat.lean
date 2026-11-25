@@ -1149,6 +1149,8 @@ meta def checkScourTheBattlescape (cid : CardId) (pitch power : Nat) (fromArsena
 
 #guard checkScourTheBattlescape ⟨"WTR_194_R"⟩ 1 3 false == some true
 #guard checkScourTheBattlescape ⟨"WTR_194_R"⟩ 1 3 true == some true
+#guard checkScourTheBattlescape ⟨"WTR_195_Y"⟩ 2 2 false == some true
+#guard checkScourTheBattlescape ⟨"WTR_195_Y"⟩ 2 2 true == some true
 
 /-- Barraging Beatdown checks the live non-equipment defenders of the first Brute attack. -/
 meta def checkBarragingBeatdown (cid : CardId) (pitch bonus : Nat) : Option Bool := do
