@@ -424,6 +424,15 @@ def WTR_064_Y : CardDef := { crushConfidence WTR_064_Y_meta with status := .full
 /-- Crush Confidence Blue. -/
 def WTR_065_B : CardDef := { crushConfidence WTR_065_B_meta with status := .full }
 
+/-- Reduce the first attack on the damaged player's next turn. -/
+def debilitate (base : CardDef) : CardDef :=
+  draftCard base
+    [ .triggered .onCrush false none none
+        { body := .grant (.firstAttackNextTurn .defendingHero) (.addPower (.const (-2))) .untilEndOfNextTurn } ]
+
+/-- Debilitate Red. -/
+def WTR_066_R : CardDef := { debilitate WTR_066_R_meta with status := .full }
+
 /-- Emerging Power turns into a bonus for the next Guardian attack action this turn. -/
 def emergingPower (base : CardDef) (bonus : Int) : CardDef :=
   draftCard base
@@ -1291,7 +1300,7 @@ def draftedCards : List CardDef :=
   , WTR_038, WTR_039, WTR_040, WTR_041, WTR_042, WTR_043_R, WTR_044_R, WTR_045_B, WTR_046_Y, WTR_047_B
   , WTR_048_R, WTR_049_Y, WTR_050_B, WTR_051_R, WTR_052_Y, WTR_053_B
   , WTR_054_R, WTR_055_Y, WTR_056_B, WTR_057_R, WTR_058_Y, WTR_059_B, WTR_063_R, WTR_064_Y, WTR_065_B
-  , WTR_069_R, WTR_070_Y, WTR_071_B, WTR_072_R, WTR_073_Y, WTR_074_B, WTR_075
+  , WTR_066_R, WTR_069_R, WTR_070_Y, WTR_071_B, WTR_072_R, WTR_073_Y, WTR_074_B, WTR_075
   , WTR_076, WTR_077, WTR_078, WTR_079, WTR_080, WTR_081_B, WTR_082_R, WTR_083_Y, WTR_084_Y, WTR_085_R
   , WTR_086_R, WTR_087_Y, WTR_088_B, WTR_089_R, WTR_090_Y, WTR_091_B, WTR_092_R, WTR_093_Y, WTR_094_B
   , WTR_095_R, WTR_096_Y, WTR_097_B

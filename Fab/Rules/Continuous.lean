@@ -307,6 +307,8 @@ inductive EffectTarget where
   | nextAttackCard (filter : CardFilter)
   /-- Waits for the controller to pay for an attack matching the filter, including an attack-proxy. -/
   | nextAttack (filter : CardFilter)
+  /-- The next paid attack of a specific affected player (Debilitate). -/
+  | nextAttackBy (p : PlayerId)
   /-- Waits for the controller's next defending card and applies if it matches the filter. -/
   | nextDefend (filter : CardFilter)
   /-- Applies to each paid attack matching the filter while the effect is active. -/
@@ -318,7 +320,7 @@ def EffectTarget.matches (t : EffectTarget) (c : DerivedChars) (id : ObjId) : Bo
   match t with
   | .obj tid => tid == id
   | .objects ids => ids.contains id
-  | .player _ | .nextAttackCard _ | .nextAttack _ | .nextDefend _ | .allAttacks _ => false
+  | .player _ | .nextAttackCard _ | .nextAttack _ | .nextAttackBy _ | .nextDefend _ | .allAttacks _ => false
   | .matchingCard controller filter =>
     c.controller == controller && !filter.isWeaponAttack &&
       cardFaceMatches filter {
@@ -351,6 +353,8 @@ structure ContinuousEffect where
   duration : Duration := .thisTurn
   /-- On a turn after creation, expire at the specified player's turn end. -/
   endAfterTurnOf : Option (PlayerId × Nat) := none
+  /-- Wait until the beginning of the same future turn, rather than applying immediately. -/
+  waitsForNextTurn : Bool := false
   /-- Timestamp when this continuous effect was generated (CR 6.3.3). -/
   timestamp : Timestamp
 deriving DecidableEq, Repr

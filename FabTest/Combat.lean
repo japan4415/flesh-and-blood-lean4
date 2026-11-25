@@ -4663,6 +4663,65 @@ meta def checkCrushConfidence (cid : CardId) (pitch power : Nat) : Option Bool :
 #guard checkCrushConfidence ⟨"WTR_064_Y"⟩ 2 6 == some true
 #guard checkCrushConfidence ⟨"WTR_065_B"⟩ 3 5 == some true
 
+/-- Debilitate follows the damaged player's next turn and is used by their first paid attack. -/
+meta def checkDebilitate (cid : CardId) (pitch power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let base := m5Base.setPool attacker { actionPoints := 1, resources := 4 }
+  let card ← base.cards.find? cid
+  let (withAttack, attack) ← cPlace { base with pending := base.pending ++ [.beginTurn] } attacker .hand cid
+  let (withPlain, plain) ← cPlace withAttack defender .hand ⟨"WTR_203_R"⟩
+  let (withBuff, driving) ← cPlace withPlain defender .hand ⟨"WTR_144_R"⟩
+  let (withDagger, dagger) ← cPlace withBuff defender .weapon ⟨"WTR_078"⟩
+  let (withTwo, otherDagger) ← cPlace withDagger defender .weapon ⟨"WTR_078"⟩
+  let (ready, potion) ← cPlace withTwo defender .permanent ⟨"WTR_172_B"⟩
+  let defending ← cSteps ready (⟨.player attacker, .playCard attack⟩ :: (passBoth ++ passBoth))
+  let finish := ⟨.player defender, .defendDone⟩ :: (passBoth ++ passBoth)
+  let prevent (n : Nat) :=
+    (execPrim defending defender ⟨0⟩ [] (.preventNextDamage .controller (.const n) .thisTurn)).1
+  let hit ← cSteps (prevent (power - 4)) finish
+  let short ← cSteps (prevent (power - 3)) finish
+  let trigger ← hit.pendingTriggers.head?
+  let waiting ← cSteps hit ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let nextTurn (s : GameState) := cSteps s (List.replicate 3 passBoth).flatten
+  let restricted ← nextTurn waiting
+  let normal ← nextTurn short
+  let funded := restricted.setPool defender { actionPoints := 1, resources := 3 }
+  let revPass := passBoth.reverse
+  let play (id : ObjId) : Action := ⟨.player defender, .playCard id⟩
+  let swing (id : ObjId) : Action := ⟨.player defender, .attackWeapon id⟩
+  let finishAttack (s : GameState) (action : Action) :=
+    cSteps s ([action] ++ revPass ++ revPass ++ [⟨.player attacker, .defendDone⟩] ++
+      (List.replicate 3 revPass).flatten)
+  let announced ← cSteps restricted [swing dagger]
+  let restored ← cSteps announced [⟨.player defender, .cancelPlay⟩]
+  let plainFirst ← finishAttack funded (play plain)
+  let plainNormal ← finishAttack normal (play plain)
+  let drink ← cSteps funded (⟨.player defender, .activateAbility potion 0⟩ :: revPass)
+  let firstWeapon ← finishAttack drink (swing dagger)
+  let closed ← cSteps firstWeapon revPass
+  let secondWeapon ← finishAttack closed (swing otherDagger)
+  let beginning ← cSteps drink (play driving :: revPass)
+  let modified ← finishAttack beginning (swing dagger)
+  let otherTurn ← cSteps restricted (revPass ++ [⟨.player defender, .arsenalSkip⟩])
+  let later ← cSteps otherTurn passBoth
+  let attackData (s : GameState) :=
+    (s.combat.bind CombatChain.activeLink?).map fun link => (link.powerBonus, link.damageDealt)
+  let debuffs (s : GameState) := s.activeEffects.filter fun effect => effect.target == .nextAttackBy defender
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    (defending.poolOf attacker).resources == 0 && hit.lifeOf defender == 36 && short.lifeOf defender == 37 &&
+    short.pendingTriggers.isEmpty && (debuffs waiting).map (·.waitsForNextTurn) == [true] &&
+    restricted.active == some defender && (debuffs restricted).map (·.waitsForNextTurn) == [false] &&
+    decide (restored = restricted) && debuffs announced == debuffs restricted &&
+    attackData plainFirst == some (-2, 2) && attackData plainNormal == some (0, 4) &&
+    (debuffs plainFirst).isEmpty && debuffs drink == debuffs restricted &&
+    attackData firstWeapon == some (-2, 0) && attackData secondWeapon == some (0, 1) &&
+    debuffs beginning == debuffs restricted && attackData modified == some (1, 2) &&
+    (debuffs modified).isEmpty && later.active == some defender && (debuffs later).isEmpty)
+
+#guard checkDebilitate ⟨"WTR_066_R"⟩ 1 8 == some true
+
 /-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
 meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
     (keywords : List KeywordInst := []) : Option Bool := do

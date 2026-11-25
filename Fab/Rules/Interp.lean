@@ -1864,16 +1864,23 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       { s with activeEffects := s.activeEffects ++ [effect], nextTimestamp := s.nextTimestamp + 1 }
     | none => s
   | .untilEndOfNextTurn, _ =>
-    match scope, mod with
-    | .hero player, .loseAllAbilities =>
-      let affected := evalPlayerRef s ctrl player
+    let timed : Option (PlayerId × EffectTarget × EffectOp × Bool) := match scope, mod with
+      | .hero player, .loseAllAbilities =>
+        let affected := evalPlayerRef s ctrl player
+        some (affected, .objects (s.zone (.player affected .hero)), .loseAllAbilities, false)
+      | .firstAttackNextTurn player, .addPower delta =>
+        let affected := evalPlayerRef s ctrl player
+        some (affected, .nextAttackBy affected, .addPower (evalNumExpr s ctrl env delta), true)
+      | _, _ => none
+    match timed with
+    | some (affected, target, op, waits) =>
       let effect : ContinuousEffect :=
         { id := s.nextTimestamp, source := src, controller := ctrl
-          target := .objects (s.zone (.player affected .hero)), op := .loseAllAbilities
-          duration := dur, endAfterTurnOf := some (affected, s.turn)
+          target := target, op := op
+          duration := dur, endAfterTurnOf := some (affected, s.turn), waitsForNextTurn := waits
           timestamp := ⟨s.nextTimestamp⟩ }
       { s with activeEffects := s.activeEffects ++ [effect], nextTimestamp := s.nextTimestamp + 1 }
-    | _, _ => s
+    | none => s
   | .thisTurn, _ | .thisCombatChain, _ =>
     let op? : Option EffectOp :=
       match mod with
