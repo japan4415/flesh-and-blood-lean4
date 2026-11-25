@@ -1124,6 +1124,33 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
       (s, [], [])
     else
       (s, [], [.chooseHandToDeck target dpos])
+  | .cycleArsenal pref subtype keyword =>
+    let player := evalPlayerRef s ctrl pref
+    let arsenal := Zone.player player .arsenal
+    let deck := Zone.player player .deck
+    match s.zone arsenal with
+    | [] => (s, [], [])
+    | stored :: _ =>
+      match moveObj s stored deck .bottom false with
+      | none => (s, [], [])
+      | some (cycled, bottom) =>
+        let events := [Event.moved stored bottom arsenal deck]
+        match cycled.zone deck with
+        | [] => (cycled, events, [])
+        | top :: _ =>
+          match moveObj cycled top arsenal .top false with
+          | none => (cycled, events, [])
+          | some (loaded, loadedId) =>
+            let granted :=
+              if (loaded.characteristics loadedId).any (fun chars => chars.subtypes.contains subtype) then
+                let effect : ContinuousEffect :=
+                  { id := loaded.nextTimestamp, source := src, controller := player
+                    target := .arsenalCard loadedId, op := .grantKeyword keyword
+                    timestamp := ⟨loaded.nextTimestamp⟩ }
+                { loaded with activeEffects := loaded.activeEffects ++ [effect]
+                              nextTimestamp := loaded.nextTimestamp + 1 }
+              else loaded
+            (granted, events ++ [.moved top loadedId deck arsenal], [])
   | .putArsenalOnDeckBottom pref =>
     let target := evalPlayerRef s ctrl pref
     match s.zone (.player target .arsenal) with
@@ -1416,6 +1443,40 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
       · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | putHandOnDeck _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | cycleArsenal pref subtype _ =>
+    unfold execPrim
+    dsimp only
+    let player := evalPlayerRef s ctrl pref
+    cases s.zone (.player player .arsenal) with
+    | nil => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    | cons stored _ =>
+      dsimp only
+      cases hc : moveObj s stored (.player player .deck) .bottom false with
+      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      | some moved =>
+        obtain ⟨cycled, bottom⟩ := moved
+        dsimp only
+        have hwfc := moveObj_wf hwf hc
+        have hokc := moveObj_ownerOk hwf hok hc
+        have hpc := moveObj_physIds hwf hc
+        have hmc := moveObj_config_rollback hc
+        cases cycled.zone (.player player .deck) with
+        | nil => exact ⟨hwfc, hokc, hpc, hmc.1, hmc.2⟩
+        | cons top _ =>
+          dsimp only
+          cases hl : moveObj cycled top (.player player .arsenal) .top false with
+          | none => exact ⟨hwfc, hokc, hpc, hmc.1, hmc.2⟩
+          | some loadedCard =>
+            obtain ⟨loaded, loadedId⟩ := loadedCard
+            dsimp only
+            have hwfl := moveObj_wf hwfc hl
+            have hokl := moveObj_ownerOk hwfc hokc hl
+            have hpl := (moveObj_physIds hwfc hl).trans hpc
+            have hml := moveObj_config_rollback hl
+            split
+            · exact ⟨GameState.WF.congr hwfl rfl rfl rfl rfl, GameState.OwnerOk.congr hokl rfl rfl,
+                hpl, hml.1.trans hmc.1, hml.2.trans hmc.2⟩
+            · exact ⟨hwfl, hokl, hpl, hml.1.trans hmc.1, hml.2.trans hmc.2⟩
   | putArsenalOnDeckBottom pref =>
     unfold execPrim; dsimp only
     cases s.zone (.player (evalPlayerRef s ctrl pref) .arsenal) with
@@ -1686,6 +1747,32 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
       · exact ⟨rfl, rfl, id⟩
   | putHandOnDeck _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
+  | cycleArsenal pref subtype _ =>
+    unfold execPrim
+    dsimp only
+    let player := evalPlayerRef s ctrl pref
+    cases s.zone (.player player .arsenal) with
+    | nil => exact ⟨rfl, rfl, id⟩
+    | cons stored _ =>
+      dsimp only
+      cases hc : moveObj s stored (.player player .deck) .bottom false with
+      | none => exact ⟨rfl, rfl, id⟩
+      | some moved =>
+        obtain ⟨cycled, bottom⟩ := moved
+        dsimp only
+        have hmc := moveObj_ttr_core hc
+        cases cycled.zone (.player player .deck) with
+        | nil => exact ⟨hmc.1, hmc.2.1, fun hr => hmc.2.2 ▸ hr⟩
+        | cons top _ =>
+          dsimp only
+          cases hl : moveObj cycled top (.player player .arsenal) .top false with
+          | none => exact ⟨hmc.1, hmc.2.1, fun hr => hmc.2.2 ▸ hr⟩
+          | some loadedCard =>
+            obtain ⟨loaded, loadedId⟩ := loadedCard
+            dsimp only
+            have hml := moveObj_ttr_core hl
+            split <;>
+              exact ⟨hml.1.trans hmc.1, hml.2.1.trans hmc.2.1, fun hr => hmc.2.2 ▸ hml.2.2 ▸ hr⟩
   | putArsenalOnDeckBottom pref =>
     unfold execPrim; dsimp only
     cases s.zone (.player (evalPlayerRef s ctrl pref) .arsenal) with

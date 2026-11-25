@@ -319,6 +319,8 @@ inductive EffectTarget where
   | nextActionBy (p : PlayerId)
   /-- Waits for the controller's next defending card and applies if it matches the filter. -/
   | nextDefend (filter : CardFilter)
+  /-- A card with an effect that follows it specifically when it is played from arsenal. -/
+  | arsenalCard (id : ObjId)
   /-- Applies to each paid attack matching the filter while the effect is active. -/
   | allAttacks (filter : CardFilter)
 deriving DecidableEq, Repr
@@ -327,6 +329,7 @@ deriving DecidableEq, Repr
 def EffectTarget.matches (t : EffectTarget) (c : DerivedChars) (id : ObjId) : Bool :=
   match t with
   | .obj tid => tid == id
+  | .arsenalCard tid => tid == id
   | .objects ids => ids.contains id
   | .player _ | .weaponAttacks _ | .nextAttackCard _ | .nextAttack _ | .nextAttackBy _ | .nextActionBy _
   | .nextDefend _ | .allAttacks _ => false

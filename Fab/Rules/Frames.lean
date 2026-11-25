@@ -350,7 +350,15 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
     | some c =>
       let meetsRequirement := c.front.playRequirement.all fun
         | .boostedAtLeast count => decide (count ≤ s.boostsThisTurn.count p)
-      if !c.isDeckCard || !meetsRequirement then
+      -- An arrow can only be played from arsenal while its player controls a bow (CR 8.2.6).
+      let arrowAllowed :=
+        if (s.characteristics id).any (fun chars => chars.subtypes.contains .arrow) then
+          fromArsenal && ((activationArenaZones s).flatMap s.zone).any fun bow =>
+            (s.obj? bow).any (fun obj => !obj.faceDown) &&
+              (s.characteristics bow).any (fun chars =>
+                chars.controller == p && chars.types.contains .weapon && chars.subtypes.contains .bow)
+        else true
+      if !c.isDeckCard || !meetsRequirement || !arrowAllowed then
         false
       else if c.front.hasType .instant then
         true
@@ -971,6 +979,7 @@ def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo
         | .nextAttackBy player => player
         | _ => effect.controller
       let eligible := match effect.target with
+        | .arsenalCard id => info.fromArsenal && id == layerId
         | .nextAttackCard filter =>
           !isProxy && !filter.isWeaponAttack && cardFaceMatches filter face
         | .nextAttack filter | .allAttacks filter =>
@@ -1512,6 +1521,10 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       match moveObj s id .stack .top false with
       | none => none
       | some (s1, layerId) =>
+        let effects := if fromArsenal then s1.activeEffects.map fun effect =>
+            if effect.target == .arsenalCard id then { effect with target := .arsenalCard layerId }
+            else effect
+          else s1.activeEffects
         let target := if 0 < modes then none else cardAttackTarget? s1 layerId none
         let nextFrame :=
           if 0 < modes then
@@ -1520,6 +1533,7 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
             cardPlayTargetFrame s1 p layerId fromArsenal none cost
         some ({ s1 with
                   playRollback := some snap
+                  activeEffects := effects
                   layerMeta := layerMetaWithAttackTarget s1 p layerId target
                   pending := nextFrame :: rest' },
               [.moved id layerId srcZone .stack] ++ (target.map (.targetedAttack layerId)).toList)

@@ -1389,6 +1389,58 @@ meta def optekalMonocleScenario : Option Bool := do
 
 #guard optekalMonocleScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC038").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Azalea, Ace in the Hole" && card.status == .full)
+
+meta def azaleaScenario (arrowTop : Bool) : Option Bool := do
+  let p := earlyAttacker
+  let deck := Zone.player p .deck
+  let arsenal := Zone.player p .arsenal
+  let hand := Zone.player p .hand
+  let arrow := FabCards.ARC.Meta.ARC_043_R_meta
+  let bow := FabCards.ARC.Meta.ARC_040_meta
+  let db : CardDB := ⟨arrow :: bow :: throughArcDB.cards⟩
+  let state := { earlyBase with cards := db }
+  let (withHero, hero) ← earlyPlace state p (.player p .hero) "ARC_038"
+  let (withBow, _) ← earlyPlace withHero p (.player p .weapon) bow.id.val
+  let (withHand, handArrow) ← earlyPlace withBow p hand arrow.id.val
+  let (withBottom, originalBottom) ← earlyPlace withHand p deck "WTR_191_R"
+  let topCard := if arrowTop then arrow.id else ⟨"WTR_192_Y"⟩
+  let (ready, originalTop) ← earlyPlace withBottom p deck topCard.val
+  let (withArsenal, storedId) ← addObject ready arsenal
+    { kind := .card ⟨ready.nextId⟩ ⟨"WTR_193_B"⟩, owner := p, controller := p,
+      timestamp := ⟨0⟩, faceDown := true } .top
+  let use : Action := ⟨.player p, .activateAbility hero 0 none⟩
+  let empty ← earlySteps ready (use :: earlyPass)
+  let rotated ← earlySteps withArsenal (use :: earlyPass)
+  let freshId ← (rotated.zone arsenal).head?
+  let movedBottom ← (rotated.zone deck).getLast?
+  let stats ← rotated.characteristics freshId
+  let expired := rotated.finishTurnEffects
+  let canPlay := canPlayCard rotated p freshId
+  let attackOk ← if arrowTop then do
+      let attacking ← earlyAttack rotated (.playCard freshId)
+      let link ← attacking.combat.bind CombatChain.activeLink?
+      let (withoutLoaded, _) ← moveObj rotated freshId (.player p .graveyard)
+      let (withOther, other) ← moveObj withoutLoaded handArrow arsenal
+      let otherAttacking ← earlyAttack withOther (.playCard other)
+      let otherLink ← otherAttacking.combat.bind CombatChain.activeLink?
+      pure (canPlay && linkHasKeyword attacking link .dominate &&
+        !linkHasKeyword otherAttacking otherLink .dominate &&
+        !canPlayCard (rotated.setZone (.player p .weapon) []) p freshId)
+    else pure canPlay
+  pure (empty.zone deck == [originalTop, originalBottom] && empty.zone arsenal == [] &&
+    !canPlayCard rotated p handArrow && (rotated.zone deck).head? == some originalBottom &&
+    (rotated.cardDefOf? movedBottom).any (·.id == ⟨"WTR_193_B"⟩) &&
+    (rotated.cardDefOf? freshId).any (·.id == topCard) && movedBottom != storedId &&
+    freshId != originalTop && (rotated.obj? freshId).any (fun card => !card.faceDown) &&
+    stats.keywords.contains .dominate == arrowTop && expired.activeEffects.isEmpty &&
+    (rotated.poolOf p).actionPoints == (withArsenal.poolOf p).actionPoints &&
+    !((step 64 rotated use).isOk) && attackOk)
+
+#guard azaleaScenario true == some true
+#guard azaleaScenario false == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
