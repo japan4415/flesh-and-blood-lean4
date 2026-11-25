@@ -1151,6 +1151,9 @@ meta def boostOnlyArcAttackScenario (cardId : String) (power : Int) (cost pitch 
 #guard (earlyPrintingCardId? "ARC027").map (·.val) == some "ARC_027_Y"
 #guard boostOnlyArcAttackScenario "ARC_027_Y" 3 0 2 == some true
 
+#guard (earlyPrintingCardId? "ARC028").map (·.val) == some "ARC_028_B"
+#guard boostOnlyArcAttackScenario "ARC_028_B" 2 0 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
