@@ -114,8 +114,9 @@ def legalFrameActions (s : GameState) : List Action :=
   | .chooseShuffleCards p remaining candidates selected _ search :: _ =>
     (if shuffleSelectionCanConfirm selected search then [⟨.player p, .pickShuffleCard none⟩] else []) ++
       (if 0 < remaining then candidates.map (fun id => ⟨.player p, .pickShuffleCard (some id)⟩) else [])
-  | .chooseOpt p _ :: _ =>
-    [⟨.player p, .optPick true⟩, ⟨.player p, .optPick false⟩]
+  | .chooseOpt p _ others _ _ :: _ =>
+    (none :: others.map some).flatMap fun choice =>
+      [⟨.player p, .optPick true choice⟩, ⟨.player p, .optPick false choice⟩]
   | .chooseArsenal tp :: _ =>
     let puts :=
       if (s.zone (.player tp .arsenal)).isEmpty then

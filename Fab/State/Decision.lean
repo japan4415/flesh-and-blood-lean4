@@ -102,8 +102,8 @@ inductive ActionKind where
   | pickHandCostCard (id : ObjId)
   /-- Choose a graveyard card to banish as a play cost, or decline the optional cost (CR 5.1.3). -/
   | pickGraveyardCost (choice : Option ObjId)
-  /-- Opt choice: put the looked-at top card of deck on top (`true`) or bottom (`false`) (CR 8.5.22). -/
-  | optPick (putOnTop : Bool)
+  /-- Opt choice: place a viewed card on top or bottom. Omit the ID for the first candidate (CR 8.5.22). -/
+  | optPick (putOnTop : Bool) (card : Option ObjId := none)
   /-- End Phase: put card `id` from hand face-down into an empty arsenal (CR 4.4.3b). -/
   | arsenalPut (id : ObjId)
   /-- End Phase: decline putting a card into the arsenal (CR 4.4.3b). -/
@@ -253,10 +253,12 @@ inductive Frame where
   /-- Player selects cards for a single shuffle effect. Cards move when the selection is confirmed. -/
   | chooseShuffleCards (p : PlayerId) (remaining : Nat) (candidates selected : List ObjId)
       (drawSame : Bool) (search : Option DeckSearchChoice := none)
-  /-- Work frame: perform `n` remaining steps of `Opt` for player `p` (CR 8.5.22). -/
+  /-- Work frame: expose up to `n` cards for `Opt` for player `p` (CR 8.5.22). -/
   | optStep (p : PlayerId) (n : Nat)
-  /-- Player decision: put the looked-at top card of `p`'s deck on top or bottom (CR 8.5.22). -/
-  | chooseOpt (p : PlayerId) (cardId : ObjId)
+  /-- Player decision: place any remaining viewed card. The first `topCount` deck cards
+  have already been placed in their chosen top order (CR 8.5.22). -/
+  | chooseOpt (p : PlayerId) (cardId : ObjId) (others : List ObjId := [])
+      (topCount : Nat := 0) (bottomCount : Nat := 0)
   /-- Work frame: End Phase start, scheduling Arsenal, Pitch return, and cleanup (CR 4.4). -/
   | endPhaseStart (tp : PlayerId)
   /-- Work frame: check arsenal eligibility after end-phase triggers have resolved (CR 4.4.3b). -/

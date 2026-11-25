@@ -161,8 +161,8 @@ theorem optStep_single_step_progress (s : GameState) (p : PlayerId) (n : Nat) (r
     (s.zone (.player p .deck) = [] → microStep s = some ({ s with pending := rest }, [])) ∧
     (∀ topId tail, s.zone (.player p .deck) = topId :: tail →
       ∃ s', microStep s = some (s', []) ∧
-        s'.pending = .chooseOpt p topId :: .optStep p n :: rest ∧
-        (Frame.chooseOpt p topId).isWork = false) := by
+        s'.pending = .chooseOpt p topId (tail.take n) 0 :: rest ∧
+        (Frame.chooseOpt p topId (tail.take n) 0).isWork = false) := by
   constructor
   · intro hemp
     unfold microStep

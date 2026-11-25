@@ -261,7 +261,8 @@ theorem progress_m4_decisions {s : GameState} (hres : s.result = none) :
     (∀ p pos c cs rest, s.pending = .chooseHandToDeck p pos :: rest →
       s.zone (.player p .hand) = c :: cs →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
-    (∀ p cid rest, s.pending = .chooseOpt p cid :: rest →
+    (∀ p cid others topCount bottomCount rest,
+      s.pending = .chooseOpt p cid others topCount bottomCount :: rest →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ ctrl src fa env bv br ct rest,
       s.pending = .chanceDie6 ctrl src fa env bv br ct :: rest →
@@ -303,7 +304,7 @@ theorem progress_m4_decisions {s : GameState} (hres : s.result = none) :
     refine ⟨⟨.player p, .handToDeckPick c⟩, ?_, by simp⟩
     rw [legalActions_iff]
     exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp, hne])⟩, rfl⟩
-  · intro p cid rest hp
+  · intro p cid others topCount bottomCount rest hp
     refine ⟨⟨.player p, .optPick true⟩, ?_, by simp⟩
     rw [legalActions_iff]
     exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩

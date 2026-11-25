@@ -14,6 +14,32 @@ replaces a zone's list with a permutation of the same object identifiers, preser
 
 namespace Fab
 
+/-- Place a viewed card during Opt, preserving the order of cards already placed on top (CR 8.5.22). -/
+def optDeckOrder (deck : List ObjId) (topCount : Nat) (card : ObjId) (putOnTop : Bool) : List ObjId :=
+  let fixed := deck.take topCount
+  let undecided := deck.drop topCount
+  if card ∈ undecided then
+    if putOnTop then fixed ++ card :: undecided.erase card
+    else fixed ++ (undecided.erase card ++ [card])
+  else deck
+
+/-- Placing an Opt card only permutes the deck. -/
+theorem optDeckOrder_perm (deck : List ObjId) (topCount : Nat) (card : ObjId) (putOnTop : Bool) :
+    (optDeckOrder deck topCount card putOnTop).Perm deck := by
+  unfold optDeckOrder
+  dsimp only
+  split
+  · rename_i member
+    have erased := (List.perm_cons_erase member).symm
+    cases putOnTop
+    · simp only [Bool.false_eq_true, ↓reduceIte]
+      simpa only [List.take_append_drop] using
+        ((List.perm_append_comm (l₁ := (deck.drop topCount).erase card) (l₂ := [card])).trans
+          erased).append_left (deck.take topCount)
+    · simp only [↓reduceIte]
+      simpa only [List.take_append_drop] using erased.append_left (deck.take topCount)
+  · exact List.Perm.refl _
+
 namespace GameState
 
 /-- Replace the contents of zone `z` by a rearrangement `l` of its objects. -/
