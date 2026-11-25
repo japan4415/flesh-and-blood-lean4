@@ -502,6 +502,75 @@ meta def checkBitingBlade (cid : CardId) (pitch bonus : Nat) (fromArsenal : Bool
 #guard checkBitingBlade ⟨"WTR_137_B"⟩ 3 1 false == some true
 #guard checkBitingBlade ⟨"WTR_137_B"⟩ 3 1 true == some true
 
+/-- Pilgrimage gives its next weapon a conditional hit trigger and reveals only the deck top. -/
+meta def checkNaturesPathPilgrimage (cid : CardId) (pitch bonus : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let deck := Zone.player attacker .deck
+  let arsenal := Zone.player attacker .arsenal
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool attacker { actionPoints := 2, resources := 2 }
+  let card ← funded.cards.find? cid
+  let (withWeapon, weapon) ← cPlace funded attacker .weapon ⟨"WTR_078"⟩
+  let (withGeneric, generic) ← cPlace withWeapon attacker .hand ⟨"WTR_203_R"⟩
+  let (withAction, pilgrim) ← cPlace withGeneric attacker origin cid fromArsenal
+  let (ready, block) ← cPlace withAction defender .hand ⟨"WTR_188_R"⟩
+  let (allReady, blockTwo) ← cPlace ready defender .hand ⟨"WTR_188_R"⟩
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let swing : Action := ⟨.player attacker, .attackWeapon weapon⟩
+  let defend id : Action := ⟨.player defender, .defendCard id⟩
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let toDefense := passBoth ++ passBoth
+  let fight := done :: (passBoth ++ passBoth)
+  let paid ← cSteps allReady [play pilgrim]
+  let buffed ← cSteps paid passBoth
+  let genericHit ← cSteps buffed (play generic :: (toDefense ++ fight))
+  let beforeWeapon ← cSteps genericHit (passBoth ++ passBoth)
+  let actionId : CardId := ⟨"WTR_188_R"⟩
+  let instantId : CardId := ⟨"WTR_173_R"⟩
+  let (withTopAction, topAction) ← cPlace beforeWeapon attacker .deck actionId
+  let (withTopInstant, topInstant) ← cPlace beforeWeapon attacker .deck instantId
+  let (alreadyFilled, occupant) ← cPlace withTopAction attacker .arsenal instantId true
+  let weaponHit (s : GameState) := cSteps s (swing :: (toDefense ++ fight))
+  let hit ← weaponHit withTopAction
+  let nonActionHit ← weaponHit withTopInstant
+  let noDeckHit ← weaponHit beforeWeapon
+  let occupiedHit ← weaponHit alreadyFilled
+  let defending ← cSteps withTopAction (swing :: toDefense)
+  let blocked ← cSteps defending (defend block :: defend blockTwo :: fight)
+  let resolveHit (s : GameState) := do
+    let trigger ← s.pendingTriggers.head?
+    let stacked ← cSteps s [⟨.player attacker, .pickTriggerStart attacker⟩,
+      ⟨.player attacker, .pickTrigger trigger.id⟩, ⟨.player attacker, .pass⟩]
+    (step 64 stacked ⟨.player defender, .pass⟩).toOption
+  let (resolved, reveals) ← resolveHit hit
+  let arsenaled ← (resolved.zone arsenal).head?
+  let (stayed, nonActionEvents) ← resolveHit nonActionHit
+  let (empty, emptyEvents) ← resolveHit noDeckHit
+  let (filledAfterHit, late) ← cPlace hit attacker .arsenal instantId true
+  let (lateResolved, lateEvents) ← resolveHit filledAfterHit
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    (paid.poolOf attacker).actionPoints == 1 && (paid.poolOf attacker).resources == 1 &&
+    (buffed.poolOf attacker).actionPoints == 2 && buffed.activeEffects.length == 2 &&
+    (active genericHit).map (·.damageDealt) == some 4 &&
+    genericHit.pendingTriggers.isEmpty && beforeWeapon.activeEffects == buffed.activeEffects &&
+    (active hit).map (·.damageDealt) == some (1 + bonus) && hit.activeEffects.isEmpty &&
+    hit.pendingTriggers.length == 1 && hit.zone deck == [topAction] &&
+    reveals == [.revealed attacker topAction actionId, .moved topAction arsenaled deck arsenal] &&
+    (resolved.obj? arsenaled).any (·.faceDown) && resolved.zone deck == [] &&
+    stayed.zone deck == [topInstant] && stayed.zone arsenal == [] &&
+    nonActionEvents == [.revealed attacker topInstant instantId] &&
+    empty.zone arsenal == [] && emptyEvents.isEmpty &&
+    occupiedHit.pendingTriggers.isEmpty && occupiedHit.zone arsenal == [occupant] &&
+    blocked.pendingTriggers.isEmpty && (active blocked).map (·.damageDealt) == some 0 &&
+    lateResolved.zone arsenal == [late] && lateResolved.zone deck == [topAction] &&
+    lateEvents == [.revealed attacker topAction actionId])
+
+#guard checkNaturesPathPilgrimage ⟨"WTR_147_R"⟩ 1 3 false == some true
+#guard checkNaturesPathPilgrimage ⟨"WTR_147_R"⟩ 1 3 true == some true
+
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
 --    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!

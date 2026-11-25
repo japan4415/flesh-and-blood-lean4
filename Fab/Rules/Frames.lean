@@ -510,17 +510,19 @@ def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
     | _ => none
   triggers.zipIdx.map fun (trigger, idx) => { trigger with id := s.nextTimestamp + idx }
 
-/-- Collect an attack's unconditional hit and Crush triggers (CR 7.5.5, 8.4.2). -/
+/-- Collect printed and granted hit and Crush triggers (CR 6.6, 7.5.5, 8.4.2). -/
 def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigger :=
   match link.attack with
   | none => []
   | some source =>
     let printed := ((s.objectFace? source).map (·.abilities)).getD []
     collectCardTriggers s source link.attacker false (printed ++ link.grantedAbilities)
-      fun trigger cond => cond.isNone && match trigger with
-        | .onHit => link.hit
-        | .onCrush => crushTriggered link
-        | _ => false
+      fun trigger cond =>
+        let matchesEvent := match trigger with
+          | .onHit => link.hit
+          | .onCrush => crushTriggered link
+          | _ => false
+        matchesEvent && (cond.map (evalCondition s link.attacker source false)).getD true
 
 /-- Collect the card's own on-play triggers once its costs have been paid (CR 5.1, 6.6.5). -/
 def playedCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
