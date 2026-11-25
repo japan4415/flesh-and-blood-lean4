@@ -1171,6 +1171,7 @@ meta def checkBarragingBrawnhide (cid : CardId) (pitch power : Nat) : Option Boo
 
 #guard checkBarragingBrawnhide ⟨"WTR_176_R"⟩ 1 7 == some true
 #guard checkBarragingBrawnhide ⟨"WTR_177_Y"⟩ 2 6 == some true
+#guard checkBarragingBrawnhide ⟨"WTR_178_B"⟩ 3 5 == some true
 
 /-- Play an attack with Intimidate and use the remaining hand card to defend. -/
 meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) (discardCost : Bool := false)
