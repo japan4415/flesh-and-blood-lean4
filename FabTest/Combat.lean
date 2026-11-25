@@ -4208,6 +4208,51 @@ meta def checkNimbleStrike (cid : CardId) (pitch power : Nat) (fromArsenal : Boo
 #guard checkNimbleStrike ⟨"WTR_187_B"⟩ 3 2 false == some true
 #guard checkNimbleStrike ⟨"WTR_187_B"⟩ 3 2 true == some true
 
+/-- Regurgitating Slog gains Dominate only when a selected Sloggism is banished to pay for it. -/
+meta def checkRegurgitatingSlog (cid : CardId) (pitch power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let graveyard := Zone.player attacker .graveyard
+  let banished := Zone.player attacker .banished
+  let base := m5Base.setPool attacker { actionPoints := 1, resources := 2 }
+  let card ← base.cards.find? cid
+  let (withAttack, attack) ← cPlace base attacker .hand cid
+  let (withWrong, wrong) ← cPlace withAttack attacker .graveyard ⟨"WTR_218_R"⟩
+  let (withOne, firstCost) ← cPlace withWrong attacker .graveyard ⟨"WTR_221_R"⟩
+  let (withTwo, secondCost) ← cPlace withOne attacker .graveyard ⟨"WTR_223_B"⟩
+  let (oneBlock, firstBlock) ← cPlace withTwo defender .hand ⟨"WTR_203_R"⟩
+  let (ready, secondBlock) ← cPlace oneBlock defender .hand ⟨"WTR_204_Y"⟩
+  let play : Action := ⟨.player attacker, .playCard attack⟩
+  let pick (id : Option ObjId) : Action := ⟨.player attacker, .pickGraveyardCost id⟩
+  let block (id : ObjId) : Action := ⟨.player defender, .defendCard id⟩
+  let decision ← cSteps ready [play]
+  let (paid, events) ← (step 64 decision (pick (some secondCost))).toOption
+  let moved ← (paid.zone banished).head?
+  let plain ← cSteps decision [pick none]
+  let toDefend := passBoth ++ passBoth
+  let toDamage := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth
+  let dominated ← cSteps paid (toDefend ++ [block firstBlock])
+  let notDominated ← cSteps plain (toDefend ++ [block firstBlock])
+  let paidDamage ← cSteps dominated toDamage
+  let plainDamage ← cSteps notDominated (block secondBlock :: toDamage)
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let paidLink ← active paidDamage
+  let plainLink ← active plainDamage
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 2 &&
+    (legalActionsFor attacker decision).contains (pick (some firstCost)) &&
+    !(legalActionsFor attacker decision).contains (pick (some wrong)) &&
+    events.contains (.moved secondCost moved graveyard banished) &&
+    (paid.cardDefOf? moved).map (·.id) == some ⟨"WTR_223_B"⟩ &&
+    paid.zone graveyard == [firstCost, wrong] && plain.zone graveyard == ready.zone graveyard &&
+    (paid.poolOf attacker).resources == 0 && (plain.poolOf attacker).resources == 0 &&
+    !(legalActionsFor defender dominated).contains (block secondBlock) &&
+    (legalActionsFor defender notDominated).contains (block secondBlock) &&
+    paidLink.additionalCostPaid && linkHasKeyword paidDamage paidLink .dominate &&
+    !(linkHasKeyword plainDamage plainLink .dominate) &&
+    paidLink.damageDealt == power - 3 && plainLink.damageDealt == power - 6)
+
+#guard checkRegurgitatingSlog ⟨"WTR_197_R"⟩ 1 6 == some true
+
 /-- Shunt deals one point of generic damage as it resolves against a weapon. -/
 meta def checkSteelbladeShunt (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool) :
     Option Bool := do
