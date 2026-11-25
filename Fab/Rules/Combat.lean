@@ -172,9 +172,7 @@ def linkHasKeyword (s : GameState) (link : ChainLink) (kw : KeywordInst) : Bool 
   link.grantedKeywords.contains kw ||
   link.attackLki.keywords.contains kw ||
   (if kw = .goAgain then weaponAttackHasGoAgain s link else false) ||
-  match link.attack.bind s.objectFace? with
-  | some face => face.keywords.contains kw
-  | none => false
+  (link.attack.bind s.characteristics).any (fun chars => chars.keywords.contains kw)
 
 /-- All currently un-defended armor equipment `ObjId`s in player `p`'s Arena equipment slots. -/
 def equipZoneIds (s : GameState) (p : PlayerId) : List ObjId :=

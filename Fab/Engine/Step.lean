@@ -71,7 +71,7 @@ def legalFrameActions (s : GameState) : List Action :=
     let weapons := ((weaponAttackCandidateIds s p).filter (canAttackWithWeapon s p)).map
       fun wid => ⟨.player p, .attackWeapon wid⟩
     let abilities := (availableActivations s p).map fun indexed =>
-      (⟨.player p, .activateAbility indexed.1 indexed.2⟩ : Action)
+      (⟨.player p, .activateAbility indexed.1 indexed.2.1 indexed.2.2⟩ : Action)
     ⟨.player p, .pass⟩ :: (plays ++ weapons ++ abilities)
   | .defendPick defender :: _ =>
     let defs :=

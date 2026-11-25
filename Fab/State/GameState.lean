@@ -41,6 +41,8 @@ structure LayerInfo where
   heroTarget : Option PlayerId := none
   /-- Attack declared in target slot 0 before paying for a card-layer (CR 5.1.4a). -/
   attackTarget : Option ObjId := none
+  /-- Target and its filter saved before paying for an activated layer (CR 5.2.2b). -/
+  activationTarget : Option (TargetSpec × ObjId) := none
   /-- Whether to include the optional resources when paying for this layer (CR 5.1.5). -/
   payAdditionalResources : Bool := false
   /-- Whether the optional additional cost has actually been paid (CR 5.1.9). -/

@@ -867,13 +867,48 @@ structure ActivationPlan where
   goAgain : Bool
   /-- Resolution effect stored on the activated layer. -/
   body : Effect
+  /-- Required target and its resolution-time eligibility filter. -/
+  target : Option (TargetSpec × ObjId)
 
 /-- Arena zones where public activated abilities are functional (CR 1.7.4). -/
 def activationArenaZones (s : GameState) : List Zone :=
   .combatChain :: installedArenaZones s
 
+/-- Public zones that can contain an attack action card targeted by an activation (CR 1.8.5a). -/
+def activationTargetZones (s : GameState) : List Zone :=
+  .stack :: activationArenaZones s
+
+/-- Check an attack action card target, including cards on earlier links (CR 1.8.5, 1.8.9). -/
+def matchesActivationTarget (s : GameState) (spec : TargetSpec) (id : ObjId) : Bool :=
+  spec.kind == .attackAction &&
+    ((activationTargetZones s).flatMap s.zone).contains id &&
+    (s.obj? id).any (fun obj => !obj.faceDown && match obj.kind with
+      | .card _ _ => true
+      | _ => false) &&
+    match s.objectFace? id, s.characteristics id with
+    | some face, some chars =>
+      chars.types.contains .action && chars.subtypes.contains .attack &&
+        cardFaceMatches spec.filter { face with
+          types := chars.types, subtypes := chars.subtypes, keywords := chars.keywords,
+          cost := chars.baseCost }
+    | _, _ => false
+
+/-- Bind a declared single target to a turn-duration attack modifier (CR 5.1.4a, 5.2.2b, 6.2.2a). -/
+def activationResolution? (s : GameState) (effect : EffectDef) (target : Option ObjId) :
+    Option (Effect × Option (TargetSpec × ObjId)) :=
+  match effect.targets, target, effect.body with
+  | [], none, body => some (body, none)
+  | [spec], some id, .grant (.obj (.slot 0)) mod .thisTurn =>
+    if spec.minCount == 1 && spec.maxCount == some 1 && matchesActivationTarget s spec id then
+      match mod with
+      | .addPower _ | .grantKeyword _ =>
+        some (.grant (.paidAttack id) mod .thisTurn, some (spec, id))
+      | _ => none
+    else none
+  | _, _, _ => none
+
 /-- Read the announced ability and its payable costs from a visible arena source (CR 5.2.2). -/
-def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat) :
+def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat) (target : Option ObjId) :
     Option ActivationPlan := do
   let origin ← (activationArenaZones s).find? (fun z => (s.zone z).contains source)
   let obj ← s.obj? source
@@ -885,27 +920,35 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
     let timely := match speed with
       | .action => s.phase == .actionPhase && s.active == some p && s.combat.isNone && (s.zone .stack).isEmpty
       | .instant => true
+      | .attackReaction =>
+        s.combat.any fun cc => cc.step == .reaction && cc.activeLink?.any (fun link => link.attacker == p)
       | _ => false
     let destroy := extra == [{ cost := .destroySelf }]
     if !timely || chars.abilitiesLost || chars.controller != p ||
         (once && s.activatedThisTurn.contains (source, index)) ||
         !(extra.isEmpty || destroy) ||
-        !(effect.targets.isEmpty && effect.modes.isEmpty && effect.extraCosts.isEmpty) ||
+        !(effect.modes.isEmpty && effect.extraCosts.isEmpty) ||
         effect.body == .prim .weaponAttack then none else
-    some (speed, once, cost, destroy, goAgain, effect.body))
-  let (speed, once, cost, destroy, goAgain, body) := terms
+    let (body, declared) ← activationResolution? s effect target
+    some (speed, once, cost, destroy, goAgain, body, declared))
+  let (speed, once, cost, destroy, goAgain, body, declared) := terms
   let cost := if speed == .action then { cost with actionPoints := max cost.actionPoints 1 } else cost
   let pool := s.poolOf p
   let paid ← pool.spend cost (cost.resources - pool.resources)
-  some ⟨origin, obj.owner, paid, destroy, once, goAgain, body⟩
+  some ⟨origin, obj.owner, paid, destroy, once, goAgain, body, declared⟩
 
 /-- The indexed abilities currently available to a player holding priority. -/
-def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat) :=
+def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat × Option ObjId) :=
   let sources := (activationArenaZones s).flatMap s.zone
   let candidates := sources.flatMap fun source =>
-    let count := ((s.objectFace? source).map (·.abilities.length)).getD 0
-    (List.range count).map fun index => (source, index)
-  candidates.filter fun (source, index) => (activationPlan? s p source index).isSome
+    let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+    abilities.zipIdx.flatMap fun (ability, index) =>
+      match ability with
+      | .activated _ _ _ _ _ _ effect =>
+        if effect.targets.isEmpty then [(source, index, none)]
+        else ((activationTargetZones s).flatMap s.zone).map fun id => (source, index, some id)
+      | _ => []
+  candidates.filter fun (source, index, target) => (activationPlan? s p source index target).isSome
 
 /-- Pay a permanent's destruction cost before priority returns (CR 5.2.2b). -/
 def payActivationSource (s : GameState) (source : ObjId) (plan : ActivationPlan) :
@@ -916,20 +959,23 @@ def payActivationSource (s : GameState) (source : ObjId) (plan : ActivationPlan)
     some (paid, [.moved source spent plan.origin graveyard])
 
 /-- Commit a paid activated layer with the source's last known information (CR 5.2.2). -/
-def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat) (rest : List Frame) :
+def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat)
+    (target : Option ObjId) (rest : List Frame) :
     Option (GameState × List Event) := do
-  let plan ← activationPlan? s p source index
+  let plan ← activationPlan? s p source index target
   let (paid, events) ← payActivationSource (s.setPool p plan.pool) source plan
   let layer : Object :=
     { kind := .layer source (some (captureLki s source p)) index false
       owner := p, controller := p, timestamp := ⟨paid.nextTimestamp⟩ }
   let (stacked, layerId) ← addObject paid .stack layer .top
-  let info : LayerInfo := { controller := p, goAgain := plan.goAgain, triggerEffect := some plan.body }
+  let info : LayerInfo := {
+    controller := p, goAgain := plan.goAgain, triggerEffect := some plan.body, activationTarget := plan.target }
   let uses := if plan.oncePerTurn then (source, index) :: stacked.activatedThisTurn else stacked.activatedThisTurn
   some ({ stacked with
     activatedThisTurn := uses
     layerMeta := stacked.layerMeta.insert layerId.n info
-    pending := .priority p 0 :: rest }, events)
+    pending := .priority p 0 :: rest }, events ++
+      plan.target.toList.map (fun declared => .targetedAttack layerId declared.2))
 
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
@@ -1036,8 +1082,8 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
               [])
     else
       none
-  | .priority p _ :: rest, .player q, .activateAbility source index =>
-    if p = q then startActivation s p source index rest else none
+  | .priority p _ :: rest, .player q, .activateAbility source index target =>
+    if p = q then startActivation s p source index target rest else none
   | .defendPick defender :: rest, .player q, .defendCard id =>
     match s.combat.bind CombatChain.activeLink? with
     | some link =>
@@ -1382,7 +1428,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         let info := s.layerMeta.getD topId.n
           { controller := s.active.getD ⟨0⟩ }
         let eff :=
-          if isDefenseReactionLayer s topId && !canResolveDefenseReaction s info then
+          if (isDefenseReactionLayer s topId && !canResolveDefenseReaction s info) ||
+              !(info.activationTarget.all fun (spec, target) => matchesActivationTarget s spec target) then
             .nop
           else
             match info.triggerEffect with

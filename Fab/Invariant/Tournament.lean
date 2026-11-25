@@ -896,8 +896,8 @@ private theorem payActivationSource_turn_tournament_result {s paid : GameState}
     exact moveObj_turn_tournament_result hm
 
 private theorem startActivation_turn_tournament_result {s s' : GameState} {p : PlayerId}
-    {source : ObjId} {index : Nat} {rest : List Frame} {es : List Event}
-    (h : startActivation s p source index rest = some (s', es)) :
+    {source : ObjId} {index : Nat} {target : Option ObjId} {rest : List Frame} {es : List Event}
+    (h : startActivation s p source index target rest = some (s', es)) :
     s'.turn = s.turn ∧ s'.tournament = s.tournament ∧ s'.result = s.result := by
   unfold startActivation at h
   obtain ⟨plan, _, h⟩ := Option.bind_eq_some_iff.mp h

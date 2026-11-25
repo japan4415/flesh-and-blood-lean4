@@ -872,12 +872,12 @@ def WTR_153 : CardDef :=
           { body := .grant (.nextCardPlayed { minCost := some 2 }) (.addPower (.const 2)) .thisTurn } ]
     with status := .full }
 
-/-- Snapdragon Scalers (drafted IR). -/
+/-- Snapdragon Scalers. -/
 def WTR_154 : CardDef :=
-  draftCard WTR_154_meta
-    [ .activated .attackReaction false {} [{ cost := .destroySelf }] none false
-        { targets := [{ kind := .attackAction, filter := { maxCost := some 1 } }]
-          body := .grant (.obj (.slot 0)) (.grantKeyword .goAgain) .thisChainLink } ]
+  { draftCard WTR_154_meta
+      [ .activated .attackReaction false {} [{ cost := .destroySelf }] none false
+          { targets := [{ kind := .attackAction, filter := { maxCost := some 1 } }]
+            body := .grant (.obj (.slot 0)) (.grantKeyword .goAgain) .thisTurn } ] with status := .full }
 
 /-- Ironrot Helm, with Blade Break applied when the combat chain closes. -/
 def WTR_155 : CardDef := { WTR_155_meta with status := .full }

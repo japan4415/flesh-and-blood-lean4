@@ -1800,15 +1800,16 @@ def modifyPendingAction (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | _ => false
     let face := (s.cardDefOf? target).map (·.front)
     let isAttack := isProxy || face.any (fun f => f.hasType .action && f.hasSubtype .attack)
-    match isAttack, dur, mod with
-    | true, .thisChainLink, .addPower d =>
+    let bindsAttack := dur == .thisChainLink || (dur == .thisTurn && !scope.isSelf)
+    match isAttack, bindsAttack, dur, mod with
+    | true, true, _, .addPower d =>
       some (target, { info with attackPowerBonus := info.attackPowerBonus + evalNumExpr s ctrl env d })
-    | true, .thisChainLink, .grantKeyword kw =>
+    | true, true, _, .grantKeyword kw =>
       some (target, { info with attackKeywords := insertUnique kw info.attackKeywords })
-    | false, .thisTurn, .grantKeyword .goAgain =>
+    | false, _, .thisTurn, .grantKeyword .goAgain =>
       if scope.isSelf && face.any (·.hasType .action) then some (target, { info with goAgain := true })
       else none
-    | _, _, _ => none
+    | _, _, _, _ => none
 
 /-- Put a resolving defense reaction's self-granted defense on the card (CR 5.3.4, 6.3.2h). -/
 def defenseReactionGrant (s : GameState) (ctrl : PlayerId) (src : ObjId)
