@@ -790,8 +790,8 @@ def sinkBelow (base : CardDef) (skipWithEmptyHand : Bool := false) : CardDef :=
 
 /-- Sink Below Red. -/
 def WTR_215_R : CardDef := { sinkBelow WTR_215_R_meta true with status := .full }
-/-- Sink Below Yellow (drafted IR). -/
-def WTR_216_Y : CardDef := sinkBelow WTR_216_Y_meta
+/-- Sink Below Yellow. -/
+def WTR_216_Y : CardDef := { sinkBelow WTR_216_Y_meta true with status := .full }
 /-- Sink Below Blue (drafted IR). -/
 def WTR_217_B : CardDef := sinkBelow WTR_217_B_meta
 
