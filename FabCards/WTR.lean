@@ -444,8 +444,8 @@ def WTR_096_Y : CardDef := { openTheCenter WTR_096_Y_meta with status := .full }
 /-- Open the Center Blue. -/
 def WTR_097_B : CardDef := { openTheCenter WTR_097_B_meta with status := .full }
 
-/-- Head Jab Red (vanilla Go Again, drafted IR). -/
-def WTR_098_R : CardDef := draftVanilla WTR_098_R_meta
+/-- Head Jab Red, whose printed Go Again is handled by combat resolution. -/
+def WTR_098_R : CardDef := { WTR_098_R_meta with status := .full }
 /-- Head Jab Yellow (vanilla Go Again, drafted IR). -/
 def WTR_099_Y : CardDef := draftVanilla WTR_099_Y_meta
 /-- Head Jab Blue (vanilla Go Again, drafted IR). -/
