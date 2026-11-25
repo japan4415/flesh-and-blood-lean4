@@ -119,9 +119,20 @@ def ARC_010_R : CardDef :=
               body := .grant (.obj (.slot 0)) (.grantKeyword .goAgain) .thisChainLink } ] }
     status := .full }
 
+/-- A hit sets a modifier for the controller's next attack this turn. -/
+def pedalToTheMetal (base : CardDef) : CardDef :=
+  { base with
+    front := { base.front with
+      abilities := [.triggered .onHit false none none
+        { body := .grant (.nextAttack {}) (.grantKeyword .dominate) .thisTurn }] } }
+
+/-- Pedal to the Metal (ARC011). -/
+def ARC_011_R : CardDef := { pedalToTheMetal Meta.ARC_011_R_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
-  [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B, ARC_008_R, ARC_009_Y, ARC_010_R]
+  [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
+   ARC_008_R, ARC_009_Y, ARC_010_R, ARC_011_R]
 
 end FabCards.ARC
 

@@ -779,6 +779,53 @@ meta def inductionChamberScenario : Option Bool := do
 
 #guard inductionChamberScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC011").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Pedal to the Metal" && card.status == .full)
+
+meta def pedalToTheMetalScenario (cardId : String) (power : Int) (weaponNext blocked : Bool) :
+    Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let getLink (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let (equipped, pistol) ← earlyPlace { earlyBase with cards := throughArcDB } p
+    (.player p .weapon) "ARC_003"
+  let loaded ← earlySteps equipped (⟨.player p, .activateAbility pistol 1 none⟩ :: earlyPass)
+  let (withDeck, _) ← earlyPlace loaded p (.player p .deck) "ARC_007_B"
+  let (withFollowup, jab) ← earlyPlace withDeck p hand "WTR_100_B"
+  let (withPedal, pedal) ← earlyPlace withFollowup p hand cardId
+  let (withBlock, firstDefender) ← earlyPlace withPedal q (.player q .hand) "WTR_188_R"
+  let (ready, secondDefender) ← earlyPlace withBlock q (.player q .hand) "WTR_188_R"
+  let defending ← earlySteps ready
+    ([⟨.player p, .playCard pedal⟩, ⟨.player p, .pickMay true⟩] ++ earlyPass ++ earlyPass)
+  let pedalLink ← getLink defending
+  let defenders : List Action := if blocked then
+    [⟨.player q, .defendCard firstDefender⟩, ⟨.player q, .defendCard secondDefender⟩] else []
+  let damage ← (earlySteps defending defenders).bind earlyDamage
+  let resolved ← if blocked then some damage else do
+    let trigger ← damage.pendingTriggers.head?
+    earlySteps damage
+      ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let closed ← earlySteps resolved (earlyPass ++ earlyPass)
+  let nextAttack := if weaponNext then ActionKind.attackWeapon pistol else .playCard jab
+  let laterAttack := if weaponNext then ActionKind.playCard jab else .attackWeapon pistol
+  let next ← earlyAttack closed nextAttack
+  let nextLink ← getLink next
+  let nextDamage ← earlyDamage next
+  let later ← (earlySteps nextDamage earlyPass).bind (earlyAttack · laterAttack)
+  let laterLink ← getLink later
+  pure (linkAttackPower defending pedalLink == power &&
+    (defending.zone (.player p .banished)).map
+      (fun id => (defending.cardDefOf? id).map (·.id.val)) == [some "ARC_007_B"] &&
+    linkHasKeyword defending pedalLink .goAgain && !linkHasKeyword defending pedalLink .dominate &&
+    damage.pendingTriggers.length == (if blocked then 0 else 1) &&
+    closed.combat.isNone && linkHasKeyword next nextLink .dominate == !blocked &&
+    !linkHasKeyword later laterLink .dominate)
+
+#guard pedalToTheMetalScenario "ARC_011_R" 5 true false == some true
+#guard pedalToTheMetalScenario "ARC_011_R" 5 false false == some true
+#guard pedalToTheMetalScenario "ARC_011_R" 5 false true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
