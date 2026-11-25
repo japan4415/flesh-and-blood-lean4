@@ -138,7 +138,7 @@ theorem resolveStack_lifo {s : GameState} {topId : ObjId} {below : List ObjId}
     (hna : isAttackLayer s topId = false) :
     ∃ ctrl fa eff,
       microStep s = some ({ s with
-        pending := .run ctrl topId fa [] [eff] :: .finishResolve topId :: rest }, []) := by
+        pending := .run ctrl (resolvingSource s topId) fa [] [eff] :: .finishResolve topId :: rest }, []) := by
   unfold microStep
   rw [hp]
   dsimp only

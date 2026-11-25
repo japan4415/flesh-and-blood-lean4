@@ -253,3 +253,39 @@ meta def checkLegTap (cid : CardId) (power : Nat) : Option Bool := do
 #guard checkLegTap ⟨"WTR_101_R"⟩ 4 == some true
 #guard checkLegTap ⟨"WTR_102_Y"⟩ 3 == some true
 #guard checkLegTap ⟨"WTR_103_B"⟩ 2 == some true
+
+/-- Run Snatch's hit, full block, and full prevention cases through the combat engine. -/
+meta def checkSnatch (cid : CardId) (power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let card ← m5Base.cards.find? cid
+  let (s1, atk) ← cPlace m5Base attacker .hand cid
+  let (s2, topId) ← cPlace s1 attacker .deck ⟨"WTR_188_R"⟩
+  let (s3, block1) ← cPlace s2 defender .hand ⟨"WTR_203_R"⟩
+  let (s4, block2) ← cPlace s3 defender .hand ⟨"WTR_204_Y"⟩
+  let defense ← cSteps s4 ([⟨.player attacker, .playCard atk⟩] ++ passBoth ++ passBoth)
+  let finishDefense : List Action := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth
+  let hit ← cSteps defense finishDefense
+  let blocked ← cSteps defense ([⟨.player defender, .defendCard block1⟩,
+    ⟨.player defender, .defendCard block2⟩] ++ finishDefense)
+  let (shielded, _, _) := execPrim defense defender ⟨0⟩ []
+    (.preventNextDamage .controller (.const (Int.ofNat power)) .thisTurn)
+  let prevented ← cSteps shielded finishDefense
+  let trigger ← hit.pendingTriggers.head?
+  let stacked ← cSteps hit [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩]
+  let passed ← cSteps stacked [⟨.player attacker, .pass⟩]
+  let (drawn, events) ← (step 64 passed ⟨.player defender, .pass⟩).toOption
+  let drawnId ← (drawn.zone (.player attacker .hand)).head?
+  pure (card.status == .full && hit.pendingTriggers.length == 1 &&
+    hit.lifeOf defender == 40 - Int.ofNat power &&
+    blocked.lifeOf defender == 40 && blocked.pendingTriggers.isEmpty &&
+    prevented.lifeOf defender == 40 && prevented.pendingTriggers.isEmpty &&
+    [blocked, prevented, hit, stacked].all (fun s => s.zone (.player attacker .deck) == [topId]) &&
+    (stacked.zone .stack).length == 1 && (drawn.zone .stack).isEmpty &&
+    drawn.pendingTriggers.isEmpty &&
+    (drawn.zone (.player attacker .hand)).length == 1 &&
+    (drawn.cardDefOf? drawnId).map (·.id) == some ⟨"WTR_188_R"⟩ &&
+    events.countP (· == .drawn attacker drawnId) == 1)
+
+#guard checkSnatch ⟨"WTR_167_R"⟩ 4 == some true
