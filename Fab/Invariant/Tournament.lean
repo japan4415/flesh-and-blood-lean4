@@ -89,7 +89,7 @@ theorem gspStep_turn_tournament {s s' : GameState} (h : gspStep s = some s') :
           · simp only [Option.some.injEq] at h; subst h
             have hr := removeNonPhysObj_turn_tournament_result s id
             exact ⟨hr.1, hr.2.1⟩
-          · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+          · cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
             | none => rw [hm] at h; cases h
             | some _ =>
               rw [hm] at h; simp only [Option.some.injEq] at h; subst h
@@ -161,19 +161,19 @@ theorem applyEquipmentWear_turn_tournament_result (s : GameState) (id : ObjId) :
     | some _ =>
       dsimp only
       split
-      · cases hm : moveObj s id _ .top false with
+      · cases hm : moveRuleObj s id _ .top false with
         | none => exact ⟨rfl, rfl, rfl⟩
         | some _ => exact moveObj_turn_tournament_result hm
       · split
         · have hu := updateSingleObject_turn_tournament_result s id
             (fun obj => obj.addCounterVal .minusOneDefense 1)
           split
-          · cases hm : moveObj _ id _ .top false with
+          · cases hm : moveRuleObj _ id _ .top false with
             | none => exact hu
             | some _ =>
               have hm' := moveObj_turn_tournament_result hm
               exact ⟨hm'.1.trans hu.1, hm'.2.1.trans hu.2.1, hm'.2.2.trans hu.2.2⟩
-          · cases hm : moveObj _ id _ .top false with
+          · cases hm : moveRuleObj _ id _ .top false with
             | none => exact hu
             | some _ =>
               have hm' := moveObj_turn_tournament_result hm
@@ -181,7 +181,7 @@ theorem applyEquipmentWear_turn_tournament_result (s : GameState) (id : ObjId) :
         · split
           · have hu := updateSingleObject_turn_tournament_result s id
               (fun obj => obj.addCounterVal .minusOneDefense 1)
-            cases hm : moveObj _ id _ .top false with
+            cases hm : moveRuleObj _ id _ .top false with
             | none => exact hu
             | some _ =>
               have hm' := moveObj_turn_tournament_result hm
@@ -189,12 +189,12 @@ theorem applyEquipmentWear_turn_tournament_result (s : GameState) (id : ObjId) :
           · split
             · have hu := updateSingleObject_turn_tournament_result s id
                 (fun obj => obj.addCounterVal .minusOneDefense (clampNonNeg ((objEffectiveDefense s id).getD 0)))
-              cases hm : moveObj _ id _ .top false with
+              cases hm : moveRuleObj _ id _ .top false with
               | none => exact hu
               | some _ =>
                 have hm' := moveObj_turn_tournament_result hm
                 exact ⟨hm'.1.trans hu.1, hm'.2.1.trans hu.2.1, hm'.2.2.trans hu.2.2⟩
-            · cases hm : moveObj s id _ .top false with
+            · cases hm : moveRuleObj s id _ .top false with
               | none => exact ⟨rfl, rfl, rfl⟩
               | some _ => exact moveObj_turn_tournament_result hm
 
@@ -215,18 +215,18 @@ theorem closeChainObj_turn_tournament_result (s : GameState) (id : ObjId) :
       cases s.cardDefOf? id with
       | none =>
         dsimp only
-        cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+        cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
         | none => exact ⟨rfl, rfl, rfl⟩
         | some _ => exact moveObj_turn_tournament_result hm
       | some _ =>
         dsimp only
         split
-        · cases hm : moveObj s id _ .top false with
+        · cases hm : moveRuleObj s id _ .top false with
           | none => exact ⟨rfl, rfl, rfl⟩
           | some _ => exact moveObj_turn_tournament_result hm
         · split
           · exact applyEquipmentWear_turn_tournament_result s id
-          · cases hm : moveObj s id _ .top false with
+          · cases hm : moveRuleObj s id _ .top false with
             | none => exact ⟨rfl, rfl, rfl⟩
             | some _ => exact moveObj_turn_tournament_result hm
 
@@ -450,7 +450,7 @@ theorem gspStep_result_none {s s' : GameState} (h : gspStep s = some s') (hr : s
           split at h
           · simp only [Option.some.injEq] at h; subst h
             rw [← (removeNonPhysObj_turn_tournament_result s id).2.2]; exact hr
-          · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+          · cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
             | none => rw [hm] at h; cases h
             | some _ =>
               rw [hm] at h; simp only [Option.some.injEq] at h; subst h
@@ -745,8 +745,8 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
                 | none => false
               let dst := if isPerm then Zone.player info.controller .permanent
                          else Zone.player o.owner .graveyard
-              match moveObj s1 layerId dst .top false with
-              | some (sMoved, id') => (sMoved, [Event.moved layerId id' .stack dst])
+              match moveRuleObj s1 layerId dst .top false with
+              | some (sMoved, id') => (sMoved, ruleMoveEvents s1 layerId id' .stack dst)
               | none => (s1, [])
           | none => (s1, [])
       else (s1, [])
@@ -767,7 +767,7 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
             | layer _ _ _ _ => exact removeNonPhysObj_turn_tournament_result s1 layerId
             | card _ _ | token _ | attackProxy _ _ =>
               dsimp only
-              cases hm : moveObj s1 layerId _ .top false with
+              cases hm : moveRuleObj s1 layerId _ .top false with
               | none => exact ⟨rfl, rfl, rfl⟩
               | some _ => exact moveObj_turn_tournament_result hm
       · exact ⟨rfl, rfl, rfl⟩

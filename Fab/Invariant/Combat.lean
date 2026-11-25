@@ -127,6 +127,7 @@ theorem battleworn_preserves_objId {s : GameState} {id : ObjId} {o : Object} {c 
       Bool.false_eq_true, Pos.insert]
   cases slot <;> (
     dsimp only [dst] at hmove ⊢
+    simp only [moveRuleObj, ruleMoveParameters]
     change id ∈ (match moveObj s1 id _ .top false with
         | some (s2, id') => (s2, [Event.moved id id' .combatChain _])
         | none => (s1, [])).1.zone _ ∧ _
@@ -139,13 +140,14 @@ theorem battleworn_preserves_objId {s : GameState} {id : ObjId} {o : Object} {c 
   )
 
 /-- **I11** (Blade Break destruction) (CR 7.7, 8.3.3): a Blade Break equipment card on
-`Zone.combatChain` moves to its owner's graveyard on Close Step. -/
+`Zone.combatChain` moves to its owner's graveyard on Close Step if no effect redirects it. -/
 theorem bladeBreak_destroys {s : GameState} {id : ObjId} {o : Object} {c : CardDef}
     (hloc : s.locate id = some .combatChain)
     (ho : s.obj? id = some o)
     (hc : s.cardDefOf? id = some c)
     (hown : o.owner.n < s.playerCount)
-    (hbb : c.front.keywords.contains .bladeBreak = true) :
+    (hbb : c.front.keywords.contains .bladeBreak = true)
+    (hnoReplacement : replacesGraveyardWithDeckBottom s id = false) :
     let (s', _) := applyEquipmentWear s id
     (s'.zone (.player o.owner .graveyard)).length = (s.zone (.player o.owner .graveyard)).length + 1 := by
   unfold applyEquipmentWear
@@ -170,7 +172,10 @@ theorem bladeBreak_destroys {s : GameState} {id : ObjId} {o : Object} {c : CardD
     dsimp only
     rw [hnorm]
     simp only [hne, false_or, hval, not_true_eq_false, ↓reduceIte, hcross, Pos.insert]
-  rw [hm]
+  have hmove : moveRuleObj s id (.player o.owner .graveyard) .top false =
+      moveObj s id (.player o.owner .graveyard) .top false := by
+    simp [moveRuleObj, ruleMoveParameters, ho, hnoReplacement]
+  rw [hmove, hm]
   dsimp only
   have hz : ({ (s.setZone .combatChain ((s.zone .combatChain).erase id)).setZone
       (.player o.owner .graveyard) (⟨s.nextId⟩ :: s.zone (.player o.owner .graveyard)) with
@@ -265,7 +270,7 @@ theorem gameStateProcess_fixed_point {s s' : GameState} {rest : List Frame} {es 
           | some o =>
             if o.kind.phys?.isNone then some (removeNonPhysObj { t with pending := rest } id)
             else
-              match moveObj { t with pending := rest } id (.player o.owner .graveyard) .top false with
+              match moveRuleObj { t with pending := rest } id (.player o.owner .graveyard) .top false with
               | some (s', _) => some s'
               | none => none
           | none => none
@@ -289,12 +294,16 @@ theorem gameStateProcess_fixed_point {s s' : GameState} {rest : List Frame} {es 
           · cases hfp
           · rename_i hphys
             simp only [hphys]
-            have hm_none : moveObj t id (.player o.owner .graveyard) .top false = none := by
-              cases hmt : moveObj t id (.player o.owner .graveyard) .top false with
+            have hm_none : moveRuleObj t id (.player o.owner .graveyard) .top false = none := by
+              cases hmt : moveRuleObj t id (.player o.owner .graveyard) .top false with
               | none => rfl
               | some _ => rw [hmt] at hfp; cases hfp
-            have hm_eq : (moveObj { t with pending := rest } id (.player o.owner .graveyard) .top false).isNone =
-                (moveObj t id (.player o.owner .graveyard) .top false).isNone := by
+            have hm_eq : (moveRuleObj { t with pending := rest } id (.player o.owner .graveyard) .top false).isNone =
+                (moveRuleObj t id (.player o.owner .graveyard) .top false).isNone := by
+              have hargs : ruleMoveParameters { t with pending := rest } id (.player o.owner .graveyard) .top false =
+                  ruleMoveParameters t id (.player o.owner .graveyard) .top false := rfl
+              unfold moveRuleObj
+              rw [hargs]
               unfold moveObj
               have hloc' : ({ t with pending := rest }).locate id = t.locate id := rfl
               have ho' : ({ t with pending := rest }).obj? id = t.obj? id := rfl
@@ -308,13 +317,11 @@ theorem gameStateProcess_fixed_point {s s' : GameState} {rest : List Frame} {es 
                 | some obj =>
                   dsimp only
                   rw [hpc']
-                  by_cases hbad : src = Zone.normalize obj.owner (.player o.owner .graveyard) ∨
-                      ¬(Zone.normalize obj.owner (.player o.owner .graveyard)).Valid t.playerCount
-                  · simp [hbad]
-                  · simp only [hbad, ↓reduceIte]
-                    split <;> rfl
+                  split
+                  · rfl
+                  · split <;> rfl
             rw [hm_none] at hm_eq
-            cases hm : moveObj { t with pending := rest } id (.player o.owner .graveyard) .top false with
+            cases hm : moveRuleObj { t with pending := rest } id (.player o.owner .graveyard) .top false with
             | none => rfl
             | some _ => rw [hm] at hm_eq; simp at hm_eq
 

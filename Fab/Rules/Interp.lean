@@ -30,21 +30,6 @@ def DieBranchList.select (roll : Nat) : DieBranchList → Effect
   | .cons lo hi body tail =>
     if lo ≤ roll && roll ≤ hi then body else tail.select roll
 
-/-- Look up the `CardFace` of an object in `s.cards` (front or back based on `faceState`). -/
-def GameState.objectFace? (s : GameState) (id : ObjId) : Option CardFace :=
-  match s.obj? id with
-  | none => none
-  | some o =>
-    match o.kind.cardId? with
-    | none => none
-    | some cid =>
-      match s.cards.find? cid with
-      | none => none
-      | some def_ =>
-        match o.faceState with
-        | .front => some def_.front
-        | .back => def_.back
-
 /-- Resolve a `PlayerRef` to a concrete `PlayerId` (defaults to `ctrl` when unavailable). -/
 def evalPlayerRef (s : GameState) (ctrl : PlayerId) : PlayerRef → PlayerId
   | .controller => ctrl
@@ -498,8 +483,8 @@ def moveManyObjs (s : GameState) (ids : List ObjId) (dst : Zone) (pos : Pos) (fd
     let (s1, es1) :=
       match s.locate id with
       | some srcZ =>
-        match moveObj s id dst pos fd with
-        | some (sm, id') => (sm, [.moved id id' srcZ dst])
+        match moveRuleObj s id dst pos fd with
+        | some (sm, id') => (sm, ruleMoveEvents s id id' srcZ dst)
         | none => (s, [])
       | none => (s, [])
     let (s2, es2) := moveManyObjs s1 rest dst pos fd
@@ -518,8 +503,8 @@ theorem moveManyObjs_inv (dst : Zone) (pos : Pos) (fd : Bool) :
     unfold moveManyObjs
     have h1 : let p1 := match s.locate id with
         | some srcZ =>
-          match moveObj s id dst pos fd with
-          | some (sm, id') => (sm, [Event.moved id id' srcZ dst])
+          match moveRuleObj s id dst pos fd with
+          | some (sm, id') => (sm, ruleMoveEvents s id id' srcZ dst)
           | none => (s, [])
         | none => (s, [])
         p1.1.WF ∧ p1.1.OwnerOk ∧ p1.1.physIds.Perm s.physIds ∧
@@ -528,7 +513,7 @@ theorem moveManyObjs_inv (dst : Zone) (pos : Pos) (fd : Bool) :
       | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
       | some srcZ =>
         dsimp only
-        cases hm : moveObj s id dst pos fd with
+        cases hm : moveRuleObj s id dst pos fd with
         | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
         | some res =>
           have hmeta := moveObj_config_rollback hm
@@ -549,8 +534,8 @@ theorem moveManyObjs_ttr (dst : Zone) (pos : Pos) (fd : Bool) :
     unfold moveManyObjs
     let p1 := match s.locate id with
       | some srcZ =>
-        match moveObj s id dst pos fd with
-        | some (sm, id') => (sm, [Event.moved id id' srcZ dst])
+        match moveRuleObj s id dst pos fd with
+        | some (sm, id') => (sm, ruleMoveEvents s id id' srcZ dst)
         | none => (s, [])
       | none => (s, [])
     have h1 : p1.1.turn = s.turn ∧ p1.1.tournament = s.tournament ∧ p1.1.result = s.result := by
@@ -559,7 +544,7 @@ theorem moveManyObjs_ttr (dst : Zone) (pos : Pos) (fd : Bool) :
       | none => exact ⟨rfl, rfl, rfl⟩
       | some _ =>
         dsimp only
-        cases hm : moveObj s id dst pos fd with
+        cases hm : moveRuleObj s id dst pos fd with
         | none => exact ⟨rfl, rfl, rfl⟩
         | some _ => exact moveObj_ttr_core hm
     have h2 := moveManyObjs_ttr dst pos fd rest p1.1
@@ -600,7 +585,7 @@ theorem discardManyObjs_inv (p : PlayerId) :
         have hmeta : sd.config = s.config ∧ sd.playRollback = s.playRollback := by
           unfold discardOne at hd
           split at hd
-          · cases hm : moveObj s id (.player p .graveyard) .top false with
+          · cases hm : moveRuleObj s id (.player p .graveyard) .top false with
             | none => rw [hm] at hd; cases hd
             | some rm =>
               obtain ⟨sm, idm⟩ := rm
@@ -635,7 +620,7 @@ theorem discardManyObjs_ttr (p : PlayerId) :
         dsimp only
         unfold discardOne at hd
         split at hd
-        · cases hm : moveObj s id (.player p .graveyard) .top false with
+        · cases hm : moveRuleObj s id (.player p .graveyard) .top false with
           | none => rw [hm] at hd; cases hd
           | some rm =>
             obtain ⟨sm, idm⟩ := rm
@@ -786,8 +771,8 @@ def destroyManyObjs (s : GameState) : List ObjId → GameState × List Event
         if o.kind.phys?.isNone then
           (removeNonPhysObj s id, [])
         else
-          match moveObj s id (.player o.owner .graveyard) .top false with
-          | some (sm, id') => (sm, [.moved id id' srcZ (.player o.owner .graveyard)])
+          match moveRuleObj s id (.player o.owner .graveyard) .top false with
+          | some (sm, id') => (sm, ruleMoveEvents s id id' srcZ (.player o.owner .graveyard))
           | none => (s, [])
       | _, _ => (s, [])
     let (s2, es2) := destroyManyObjs s1 rest
@@ -808,8 +793,8 @@ theorem destroyManyObjs_inv :
         | some srcZ, some o =>
           if o.kind.phys?.isNone then (removeNonPhysObj s id, [])
           else
-            match moveObj s id (.player o.owner .graveyard) .top false with
-            | some (sm, id') => (sm, [Event.moved id id' srcZ (.player o.owner .graveyard)])
+            match moveRuleObj s id (.player o.owner .graveyard) .top false with
+            | some (sm, id') => (sm, ruleMoveEvents s id id' srcZ (.player o.owner .graveyard))
             | none => (s, [])
         | _, _ => (s, [])
         p1.1.WF ∧ p1.1.OwnerOk ∧ p1.1.physIds.Perm s.physIds ∧
@@ -825,7 +810,7 @@ theorem destroyManyObjs_inv :
           · have hm := removeNonPhysObj_meta s id
             exact ⟨removeNonPhysObj_wf hwf id, removeNonPhysObj_ownerOk hok id,
                    removeNonPhysObj_physIds hwf id, hm.1, hm.2⟩
-          · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+          · cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
             | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
             | some _ =>
               have hmeta := moveObj_config_rollback hm
@@ -848,8 +833,8 @@ theorem destroyManyObjs_ttr :
       | some srcZ, some o =>
         if o.kind.phys?.isNone then (removeNonPhysObj s id, [])
         else
-          match moveObj s id (.player o.owner .graveyard) .top false with
-          | some (sm, id') => (sm, [Event.moved id id' srcZ (.player o.owner .graveyard)])
+          match moveRuleObj s id (.player o.owner .graveyard) .top false with
+          | some (sm, id') => (sm, ruleMoveEvents s id id' srcZ (.player o.owner .graveyard))
           | none => (s, [])
       | _, _ => (s, [])
     have h1 : p1.1.turn = s.turn ∧ p1.1.tournament = s.tournament ∧ p1.1.result = s.result := by
@@ -869,7 +854,7 @@ theorem destroyManyObjs_ttr :
               cases s.obj? id with
               | none => exact ⟨rfl, rfl, rfl⟩
               | some _ => dsimp only; split <;> exact ⟨rfl, rfl, rfl⟩
-          · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+          · cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
             | none => exact ⟨rfl, rfl, rfl⟩
             | some _ => exact moveObj_ttr_core hm
     have h2 := destroyManyObjs_ttr rest p1.1
@@ -1095,8 +1080,8 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     | some oid =>
       match s.locate oid, s.obj? oid with
       | some srcZ, some o =>
-        match moveObj s oid (.player o.owner .graveyard) .top false with
-        | some (s1, oid') => (s1, [.moved oid oid' srcZ (.player o.owner .graveyard)], [])
+        match moveRuleObj s oid (.player o.owner .graveyard) .top false with
+        | some (s1, oid') => (s1, ruleMoveEvents s oid oid' srcZ (.player o.owner .graveyard), [])
         | none => (s, [], [])
       | _, _ => (s, [], [])
   | .banish oref fd =>
@@ -1116,8 +1101,8 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         | none => (s, [], [])
         | some dstZ =>
           let pos : Pos := match dpos with | .bottom => .bottom | _ => .top
-          match moveObj s oid dstZ pos fd with
-          | some (s1, oid') => (s1, [.moved oid oid' srcZ dstZ], [])
+          match moveRuleObj s oid dstZ pos fd with
+          | some (s1, oid') => (s1, ruleMoveEvents s oid oid' srcZ dstZ, [])
           | none => (s, [], [])
       | _, _ => (s, [], [])
   | .putHandOnDeck pref dpos =>
@@ -1338,7 +1323,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
       dsimp only
       split
       · rename_i srcZ o _ _
-        cases hm : moveObj s oid (.player o.owner .graveyard) .top false with
+        cases hm : moveRuleObj s oid (.player o.owner .graveyard) .top false with
         | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
         | some _ =>
           have hmeta := moveObj_config_rollback hm
@@ -1596,7 +1581,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
       dsimp only
       split
       · rename_i srcZ o _ _
-        cases hm : moveObj s oid (.player o.owner .graveyard) .top false with
+        cases hm : moveRuleObj s oid (.player o.owner .graveyard) .top false with
         | none => exact ⟨rfl, rfl, id⟩
         | some _ =>
           have h := moveObj_ttr_core hm

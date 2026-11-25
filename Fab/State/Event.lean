@@ -22,9 +22,11 @@ inductive Event where
   | drawn (player : PlayerId) (obj : ObjId)
   /-- A private card's identity became public through a reveal effect (CR 8.5.17). -/
   | revealed (player : PlayerId) (obj : ObjId) (card : CardId)
+  /-- A private card became public while applying a zone move, independently of reveal effects (CR 3.0.8). -/
+  | madePublic (player : PlayerId) (obj : ObjId) (card : CardId)
   /-- Player `player` pitched object `obj` generating `resources` `{r}` and `chi` `{c}` (CR 1.14.3). -/
   | pitched (player : PlayerId) (obj : ObjId) (resources chi : Nat)
-  /-- Player `player` discarded object `obj` from hand to graveyard. -/
+  /-- Player `player` discarded object `obj` from hand, including a replaced destination (CR 8.5.5c). -/
   | discarded (player : PlayerId) (obj : ObjId)
   /-- Object `obj` was banished to `owner`'s banished zone, optionally face-down (CR 3.3). -/
   | banished (owner : PlayerId) (obj : ObjId) (faceDown : Bool)

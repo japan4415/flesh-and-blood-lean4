@@ -287,33 +287,33 @@ def applyEquipmentWear (s : GameState) (id : ObjId) : GameState × List Event :=
       | some .legs => .player o.owner .legs
       | none => .player o.owner .weapon
     if kws.contains .bladeBreak then
-      match moveObj s id (.player o.owner .graveyard) .top false with
-      | some (s1, id') => (s1, [.moved id id' .combatChain (.player o.owner .graveyard)])
+      match moveRuleObj s id (.player o.owner .graveyard) .top false with
+      | some (s1, id') => (s1, ruleMoveEvents s id id' .combatChain (.player o.owner .graveyard))
       | none => (s, [])
     else if kws.contains .temper then
       let s1 := updateSingleObject s id fun obj => obj.addCounterVal .minusOneDefense 1
       let effDef := (objEffectiveDefense s1 id).getD 0
       if effDef ≤ 0 then
-        match moveObj s1 id (.player o.owner .graveyard) .top false with
-        | some (s2, id') => (s2, [.moved id id' .combatChain (.player o.owner .graveyard)])
+        match moveRuleObj s1 id (.player o.owner .graveyard) .top false with
+        | some (s2, id') => (s2, ruleMoveEvents s1 id id' .combatChain (.player o.owner .graveyard))
         | none => (s1, [])
       else
-        match moveObj s1 id slotZone .top false with
+        match moveRuleObj s1 id slotZone .top false with
         | some (s2, id') => (s2, [.moved id id' .combatChain slotZone])
         | none => (s1, [])
     else if kws.contains .battleworn then
       let s1 := updateSingleObject s id fun obj => obj.addCounterVal .minusOneDefense 1
-      match moveObj s1 id slotZone .top false with
+      match moveRuleObj s1 id slotZone .top false with
       | some (s2, id') => (s2, [.moved id id' .combatChain slotZone])
       | none => (s1, [])
     else if kws.contains .guardwell then
       let curDef := clampNonNeg ((objEffectiveDefense s id).getD 0)
       let s1 := updateSingleObject s id fun obj => obj.addCounterVal .minusOneDefense curDef
-      match moveObj s1 id slotZone .top false with
+      match moveRuleObj s1 id slotZone .top false with
       | some (s2, id') => (s2, [.moved id id' .combatChain slotZone])
       | none => (s1, [])
     else
-      match moveObj s id slotZone .top false with
+      match moveRuleObj s id slotZone .top false with
       | some (s1, id') => (s1, [.moved id id' .combatChain slotZone])
       | none => (s, [])
   | _, _ => (s, [])
@@ -330,30 +330,30 @@ theorem applyEquipmentWear_wf {s : GameState} (hwf : s.WF) (id : ObjId) :
     | some c =>
       dsimp only
       split
-      · cases hm : moveObj s id _ .top false with
+      · cases hm : moveRuleObj s id _ .top false with
         | none => exact hwf
         | some res => exact moveObj_wf hwf hm
       · split
         · have hwf1 := updateSingleObject_wf hwf id (fun obj => obj.addCounterVal .minusOneDefense 1)
           split
-          · cases hm : moveObj _ id _ .top false with
+          · cases hm : moveRuleObj _ id _ .top false with
             | none => exact hwf1
             | some res => exact moveObj_wf hwf1 hm
-          · cases hm : moveObj _ id _ .top false with
+          · cases hm : moveRuleObj _ id _ .top false with
             | none => exact hwf1
             | some res => exact moveObj_wf hwf1 hm
         · split
           · have hwf1 := updateSingleObject_wf hwf id (fun obj => obj.addCounterVal .minusOneDefense 1)
-            cases hm : moveObj _ id _ .top false with
+            cases hm : moveRuleObj _ id _ .top false with
             | none => exact hwf1
             | some res => exact moveObj_wf hwf1 hm
           · split
             · have hwf1 := updateSingleObject_wf hwf id
                 (fun obj => obj.addCounterVal .minusOneDefense (clampNonNeg ((objEffectiveDefense s id).getD 0)))
-              cases hm : moveObj _ id _ .top false with
+              cases hm : moveRuleObj _ id _ .top false with
               | none => exact hwf1
               | some res => exact moveObj_wf hwf1 hm
-            · cases hm : moveObj s id _ .top false with
+            · cases hm : moveRuleObj s id _ .top false with
               | none => exact hwf
               | some res => exact moveObj_wf hwf hm
 
@@ -369,23 +369,23 @@ theorem applyEquipmentWear_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk
     | some c =>
       dsimp only
       split
-      · cases hm : moveObj s id _ .top false with
+      · cases hm : moveRuleObj s id _ .top false with
         | none => exact hok
         | some res => exact moveObj_ownerOk hwf hok hm
       · split
         · have hwf1 := updateSingleObject_wf hwf id (fun obj => obj.addCounterVal .minusOneDefense 1)
           have hok1 := updateSingleObject_ownerOk hok id (fun obj => Object.addCounterVal_owner obj .minusOneDefense 1)
           split
-          · cases hm : moveObj _ id _ .top false with
+          · cases hm : moveRuleObj _ id _ .top false with
             | none => exact hok1
             | some res => exact moveObj_ownerOk hwf1 hok1 hm
-          · cases hm : moveObj _ id _ .top false with
+          · cases hm : moveRuleObj _ id _ .top false with
             | none => exact hok1
             | some res => exact moveObj_ownerOk hwf1 hok1 hm
         · split
           · have hwf1 := updateSingleObject_wf hwf id (fun obj => obj.addCounterVal .minusOneDefense 1)
             have hok1 := updateSingleObject_ownerOk hok id (fun obj => Object.addCounterVal_owner obj .minusOneDefense 1)
-            cases hm : moveObj _ id _ .top false with
+            cases hm : moveRuleObj _ id _ .top false with
             | none => exact hok1
             | some res => exact moveObj_ownerOk hwf1 hok1 hm
           · split
@@ -393,10 +393,10 @@ theorem applyEquipmentWear_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk
                 (fun obj => obj.addCounterVal .minusOneDefense (clampNonNeg ((objEffectiveDefense s id).getD 0)))
               have hok1 := updateSingleObject_ownerOk hok id
                 (fun obj => Object.addCounterVal_owner obj .minusOneDefense (clampNonNeg ((objEffectiveDefense s id).getD 0)))
-              cases hm : moveObj _ id _ .top false with
+              cases hm : moveRuleObj _ id _ .top false with
               | none => exact hok1
               | some res => exact moveObj_ownerOk hwf1 hok1 hm
-            · cases hm : moveObj s id _ .top false with
+            · cases hm : moveRuleObj s id _ .top false with
               | none => exact hok
               | some res => exact moveObj_ownerOk hwf hok hm
 
@@ -412,23 +412,23 @@ theorem applyEquipmentWear_physIds {s : GameState} (hwf : s.WF) (id : ObjId) :
     | some c =>
       dsimp only
       split
-      · cases hm : moveObj s id _ .top false with
+      · cases hm : moveRuleObj s id _ .top false with
         | none => exact List.Perm.refl _
         | some res => exact moveObj_physIds hwf hm
       · split
         · have hwf1 := updateSingleObject_wf hwf id (fun obj => obj.addCounterVal .minusOneDefense 1)
           have hp1 := updateSingleObject_physIds s id (fun obj => Object.addCounterVal_kind obj .minusOneDefense 1)
           split
-          · cases hm : moveObj _ id _ .top false with
+          · cases hm : moveRuleObj _ id _ .top false with
             | none => rw [hp1]
             | some res => exact (moveObj_physIds hwf1 hm).trans (by rw [hp1])
-          · cases hm : moveObj _ id _ .top false with
+          · cases hm : moveRuleObj _ id _ .top false with
             | none => rw [hp1]
             | some res => exact (moveObj_physIds hwf1 hm).trans (by rw [hp1])
         · split
           · have hwf1 := updateSingleObject_wf hwf id (fun obj => obj.addCounterVal .minusOneDefense 1)
             have hp1 := updateSingleObject_physIds s id (fun obj => Object.addCounterVal_kind obj .minusOneDefense 1)
-            cases hm : moveObj _ id _ .top false with
+            cases hm : moveRuleObj _ id _ .top false with
             | none => rw [hp1]
             | some res => exact (moveObj_physIds hwf1 hm).trans (by rw [hp1])
           · split
@@ -436,10 +436,10 @@ theorem applyEquipmentWear_physIds {s : GameState} (hwf : s.WF) (id : ObjId) :
                 (fun obj => obj.addCounterVal .minusOneDefense (clampNonNeg ((objEffectiveDefense s id).getD 0)))
               have hp1 := updateSingleObject_physIds s id
                 (fun obj => Object.addCounterVal_kind obj .minusOneDefense (clampNonNeg ((objEffectiveDefense s id).getD 0)))
-              cases hm : moveObj _ id _ .top false with
+              cases hm : moveRuleObj _ id _ .top false with
               | none => rw [hp1]
               | some res => exact (moveObj_physIds hwf1 hm).trans (by rw [hp1])
-            · cases hm : moveObj s id _ .top false with
+            · cases hm : moveRuleObj s id _ .top false with
               | none => exact List.Perm.refl _
               | some res => exact moveObj_physIds hwf hm
 
@@ -456,25 +456,25 @@ theorem applyEquipmentWear_meta (s : GameState) (id : ObjId) :
     | some c =>
       dsimp only
       split
-      · cases hm : moveObj s id _ .top false with
+      · cases hm : moveRuleObj s id _ .top false with
         | none => exact ⟨rfl, rfl⟩
         | some res => exact moveObj_config_rollback hm
       · split
         · have hm1 := updateSingleObject_meta s id (fun obj => obj.addCounterVal .minusOneDefense 1)
           split
-          · cases hm : moveObj _ id _ .top false with
+          · cases hm : moveRuleObj _ id _ .top false with
             | none => exact hm1
             | some res =>
               have h2 := moveObj_config_rollback hm
               exact ⟨h2.1.trans hm1.1, h2.2.trans hm1.2⟩
-          · cases hm : moveObj _ id _ .top false with
+          · cases hm : moveRuleObj _ id _ .top false with
             | none => exact hm1
             | some res =>
               have h2 := moveObj_config_rollback hm
               exact ⟨h2.1.trans hm1.1, h2.2.trans hm1.2⟩
         · split
           · have hm1 := updateSingleObject_meta s id (fun obj => obj.addCounterVal .minusOneDefense 1)
-            cases hm : moveObj _ id _ .top false with
+            cases hm : moveRuleObj _ id _ .top false with
             | none => exact hm1
             | some res =>
               have h2 := moveObj_config_rollback hm
@@ -482,12 +482,12 @@ theorem applyEquipmentWear_meta (s : GameState) (id : ObjId) :
           · split
             · have hm1 := updateSingleObject_meta s id
                 (fun obj => obj.addCounterVal .minusOneDefense (clampNonNeg ((objEffectiveDefense s id).getD 0)))
-              cases hm : moveObj _ id _ .top false with
+              cases hm : moveRuleObj _ id _ .top false with
               | none => exact hm1
               | some res =>
                 have h2 := moveObj_config_rollback hm
                 exact ⟨h2.1.trans hm1.1, h2.2.trans hm1.2⟩
-            · cases hm : moveObj s id _ .top false with
+            · cases hm : moveRuleObj s id _ .top false with
               | none => exact ⟨rfl, rfl⟩
               | some res => exact moveObj_config_rollback hm
 
@@ -503,18 +503,18 @@ def closeChainObj (s : GameState) (id : ObjId) : GameState × List Event :=
       match s.cardDefOf? id with
       | some c =>
         if c.isWeapon then
-          match moveObj s id (.player o.owner .weapon) .top false with
+          match moveRuleObj s id (.player o.owner .weapon) .top false with
           | some (s1, id') => (s1, [.moved id id' .combatChain (.player o.owner .weapon)])
           | none => (s, [])
         else if c.isEquipment then
           applyEquipmentWear s id
         else
-          match moveObj s id (.player o.owner .graveyard) .top false with
-          | some (s1, id') => (s1, [.moved id id' .combatChain (.player o.owner .graveyard)])
+          match moveRuleObj s id (.player o.owner .graveyard) .top false with
+          | some (s1, id') => (s1, ruleMoveEvents s id id' .combatChain (.player o.owner .graveyard))
           | none => (s, [])
       | none =>
-        match moveObj s id (.player o.owner .graveyard) .top false with
-        | some (s1, id') => (s1, [.moved id id' .combatChain (.player o.owner .graveyard)])
+        match moveRuleObj s id (.player o.owner .graveyard) .top false with
+        | some (s1, id') => (s1, ruleMoveEvents s id id' .combatChain (.player o.owner .graveyard))
         | none => (s, [])
 
 /-- Clean up a list of objects from `Zone.combatChain`. -/
@@ -548,18 +548,18 @@ theorem closeChainObj_wf {s : GameState} (hwf : s.WF) (id : ObjId) :
       cases s.cardDefOf? id with
       | none =>
         dsimp only
-        cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+        cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
         | none => exact hwf
         | some res => exact moveObj_wf hwf hm
       | some c =>
         dsimp only
         split
-        · cases hm : moveObj s id _ .top false with
+        · cases hm : moveRuleObj s id _ .top false with
           | none => exact hwf
           | some res => exact moveObj_wf hwf hm
         · split
           · exact applyEquipmentWear_wf hwf id
-          · cases hm : moveObj s id _ .top false with
+          · cases hm : moveRuleObj s id _ .top false with
             | none => exact hwf
             | some res => exact moveObj_wf hwf hm
 
@@ -578,18 +578,18 @@ theorem closeChainObj_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (id
       cases s.cardDefOf? id with
       | none =>
         dsimp only
-        cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+        cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
         | none => exact hok
         | some res => exact moveObj_ownerOk hwf hok hm
       | some c =>
         dsimp only
         split
-        · cases hm : moveObj s id _ .top false with
+        · cases hm : moveRuleObj s id _ .top false with
           | none => exact hok
           | some res => exact moveObj_ownerOk hwf hok hm
         · split
           · exact applyEquipmentWear_ownerOk hwf hok id
-          · cases hm : moveObj s id _ .top false with
+          · cases hm : moveRuleObj s id _ .top false with
             | none => exact hok
             | some res => exact moveObj_ownerOk hwf hok hm
 
@@ -608,18 +608,18 @@ theorem closeChainObj_physIds {s : GameState} (hwf : s.WF) (id : ObjId) :
       cases s.cardDefOf? id with
       | none =>
         dsimp only
-        cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+        cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
         | none => exact List.Perm.refl _
         | some res => exact moveObj_physIds hwf hm
       | some c =>
         dsimp only
         split
-        · cases hm : moveObj s id _ .top false with
+        · cases hm : moveRuleObj s id _ .top false with
           | none => exact List.Perm.refl _
           | some res => exact moveObj_physIds hwf hm
         · split
           · exact applyEquipmentWear_physIds hwf id
-          · cases hm : moveObj s id _ .top false with
+          · cases hm : moveRuleObj s id _ .top false with
             | none => exact List.Perm.refl _
             | some res => exact moveObj_physIds hwf hm
 
@@ -639,18 +639,18 @@ theorem closeChainObj_meta (s : GameState) (id : ObjId) :
       cases s.cardDefOf? id with
       | none =>
         dsimp only
-        cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+        cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
         | none => exact ⟨rfl, rfl⟩
         | some res => exact moveObj_config_rollback hm
       | some c =>
         dsimp only
         split
-        · cases hm : moveObj s id _ .top false with
+        · cases hm : moveRuleObj s id _ .top false with
           | none => exact ⟨rfl, rfl⟩
           | some res => exact moveObj_config_rollback hm
         · split
           · exact applyEquipmentWear_meta s id
-          · cases hm : moveObj s id _ .top false with
+          · cases hm : moveRuleObj s id _ .top false with
             | none => exact ⟨rfl, rfl⟩
             | some res => exact moveObj_config_rollback hm
 

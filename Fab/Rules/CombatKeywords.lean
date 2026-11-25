@@ -73,8 +73,8 @@ def destroyObjToGraveyard (s : GameState) (id : ObjId) : GameState × List Event
     if o.kind.phys?.isNone then
       (removeNonPhysObj s id, [])
     else
-      match moveObj s id (.player o.owner .graveyard) .top false with
-      | some (s1, id') => (s1, [.moved id id' srcZ (.player o.owner .graveyard)])
+      match moveRuleObj s id (.player o.owner .graveyard) .top false with
+      | some (s1, id') => (s1, ruleMoveEvents s id id' srcZ (.player o.owner .graveyard))
       | none => (s, [])
   | _, _ => (s, [])
 
@@ -97,7 +97,7 @@ theorem destroyObjToGraveyard_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
       · have hm := removeNonPhysObj_meta s id
         exact ⟨removeNonPhysObj_wf hwf id, removeNonPhysObj_ownerOk hok id,
                removeNonPhysObj_physIds hwf id, hm.1, hm.2⟩
-      · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+      · cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
         | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
         | some res =>
           have hmeta := moveObj_config_rollback hm
@@ -125,10 +125,10 @@ theorem destroyObjToGraveyard_ttr (s : GameState) (id : ObjId) :
           cases s.obj? id with
           | none => exact ⟨rfl, rfl, rfl⟩
           | some _ => dsimp only; split <;> exact ⟨rfl, rfl, rfl⟩
-      · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+      · cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
         | none => exact ⟨rfl, rfl, rfl⟩
         | some res =>
-          unfold moveObj at hm
+          unfold moveRuleObj moveObj at hm
           split at hm
           · dsimp only at hm
             split at hm

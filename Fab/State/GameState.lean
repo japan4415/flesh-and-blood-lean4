@@ -300,6 +300,21 @@ def cardDefOf? (s : GameState) (id : ObjId) : Option CardDef :=
     | none => none
     | some cid => s.cards.find? cid
 
+/-- Look up the `CardFace` of an object in `s.cards` (front or back based on `faceState`). -/
+def objectFace? (s : GameState) (id : ObjId) : Option CardFace :=
+  match s.obj? id with
+  | none => none
+  | some o =>
+    match o.kind.cardId? with
+    | none => none
+    | some cid =>
+      match s.cards.find? cid with
+      | none => none
+      | some def_ =>
+        match o.faceState with
+        | .front => some def_.front
+        | .back => def_.back
+
 /-- Current turn-scoped asset pool of player `p` (CR 1.14.2). -/
 def poolOf (s : GameState) (p : PlayerId) : AssetPool :=
   s.pools.getD p.n AssetPool.empty

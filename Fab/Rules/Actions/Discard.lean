@@ -16,10 +16,10 @@ namespace Fab
 def discardOne (s : GameState) (p : PlayerId) (id : ObjId) :
     Option (GameState × ObjId × List Event) :=
   if id ∈ s.zone (.player p .hand) then
-    match moveObj s id (.player p .graveyard) .top false with
+    match moveRuleObj s id (.player p .graveyard) .top false with
     | none => none
     | some (s', id') =>
-      some (s', id', [.moved id id' (.player p .hand) (.player p .graveyard), .discarded p id'])
+      some (s', id', ruleMoveEvents s id id' (.player p .hand) (.player p .graveyard) ++ [.discarded p id'])
   else
     none
 
@@ -28,7 +28,7 @@ theorem discardOne_wf {s s' : GameState} {p : PlayerId} {id id' : ObjId} {es : L
     (hwf : s.WF) (h : discardOne s p id = some (s', id', es)) : s'.WF := by
   unfold discardOne at h
   split at h
-  · cases hm : moveObj s id (.player p .graveyard) .top false with
+  · cases hm : moveRuleObj s id (.player p .graveyard) .top false with
     | none => rw [hm] at h; cases h
     | some res =>
       obtain ⟨s1, id1⟩ := res
@@ -43,7 +43,7 @@ theorem discardOne_physIds {s s' : GameState} {p : PlayerId} {id id' : ObjId} {e
     (hwf : s.WF) (h : discardOne s p id = some (s', id', es)) : s'.physIds.Perm s.physIds := by
   unfold discardOne at h
   split at h
-  · cases hm : moveObj s id (.player p .graveyard) .top false with
+  · cases hm : moveRuleObj s id (.player p .graveyard) .top false with
     | none => rw [hm] at h; cases h
     | some res =>
       obtain ⟨s1, id1⟩ := res
@@ -58,7 +58,7 @@ theorem discardOne_ownerOk {s s' : GameState} {p : PlayerId} {id id' : ObjId} {e
     (hwf : s.WF) (hok : s.OwnerOk) (h : discardOne s p id = some (s', id', es)) : s'.OwnerOk := by
   unfold discardOne at h
   split at h
-  · cases hm : moveObj s id (.player p .graveyard) .top false with
+  · cases hm : moveRuleObj s id (.player p .graveyard) .top false with
     | none => rw [hm] at h; cases h
     | some res =>
       obtain ⟨s1, id1⟩ := res

@@ -2493,6 +2493,77 @@ meta def checkLordOfWind : Option Bool := do
 
 #guard checkLordOfWind == some true
 
+/-- A Drone going to the graveyard returns face down to its owner's deck instead. -/
+meta def checkDroneOfBrutality (cid : CardId) (pitch power : Nat) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let hand := Zone.player player .hand
+  let grave := Zone.player player .graveyard
+  let defenderGrave := Zone.player opponent .graveyard
+  let deck := Zone.player player .deck
+  let defenderDeck := Zone.player opponent .deck
+  let funded := m5Base.setPool player { actionPoints := 1, resources := 2 }
+  let card ← funded.cards.find? cid
+  let (withAttack, attack) ← cPlace funded player .hand cid
+  let (withDefender, defender) ← cPlace withAttack opponent .hand cid
+  let (withHero, rhinar) ← cPlace withDefender player .hero ⟨"WTR_001"⟩
+  let (withTop, top) ← cPlace withHero player .deck ⟨"WTR_203_R"⟩
+  let (base, defenderTop) ← cPlace withTop opponent .deck ⟨"WTR_203_R"⟩
+  let (discarded, discardId, discardEvents) ← discardOne base player attack
+  let discardTriggers := queueDiscardTriggers discarded discardEvents
+  let attacking ← cSteps base
+    (⟨.player player, .playCard attack⟩ :: (passBoth ++ passBoth))
+  let fighting ← cSteps attacking ([⟨.player opponent, .defendCard defender⟩, ⟨.player opponent, .defendDone⟩] ++
+    passBoth ++ passBoth ++ passBoth)
+  let chainAttack ← (fighting.combat.bind CombatChain.activeLink?).bind (·.attack)
+  let chainDefender ← (fighting.combat.bind CombatChain.activeLink?).bind (·.defending.head?)
+  let closing ← cSteps fighting [⟨.player player, .pass⟩]
+  let (closed, closeEvents) ← (step 64 closing ⟨.player opponent, .pass⟩).toOption
+  let attackBottom ← (closed.zone deck).getLast?
+  let defenderBottom ← (closed.zone defenderDeck).getLast?
+  let (banishedState, banished) ← cPlace base player .banished cid true
+  let (redirected, redirectEvents, _) := execPrim banishedState player banished []
+    (.moveCard .self_ .graveyard .top false)
+  let redirectId ← (redirected.zone deck).getLast?
+  let (onStack, layer) ← addObject base .stack
+    { kind := .card ⟨base.nextId⟩ cid, owner := player, controller := player, timestamp := ⟨0⟩ } .top
+  let (cleared, clearEvents) ← microStep { onStack with pending := [.finishResolve layer] }
+  let clearId ← (cleared.zone deck).getLast?
+  let silence : ContinuousEffect :=
+    { id := onStack.nextTimestamp, source := layer, controller := opponent, target := .obj layer
+      op := .loseAllAbilities, duration := .thisTurn, timestamp := ⟨onStack.nextTimestamp⟩ }
+  let (silenced, _) := destroyObjToGraveyard { onStack with activeEffects := [silence] } layer
+  let silencedId ← (silenced.zone grave).head?
+  let (staysInGraveyard, sameGraveEvents, _) :=
+    execPrim { silenced with activeEffects := [] } player silencedId [] (.moveCard .self_ .graveyard .top false)
+  let stolen := updateSingleObject onStack layer fun obj => { obj with controller := opponent }
+  let (notRedirected, _) := destroyObjToGraveyard stolen layer
+  let isDrone (s : GameState) (id : ObjId) := (s.cardDefOf? id).map (·.id) == some cid
+  let faceDown (s : GameState) (id : ObjId) := (s.obj? id).any (·.faceDown)
+  pure (card.status == .full && card.front.pitch == some pitch &&
+    card.front.cost.map (·.resources) == some 2 && card.front.power == some power &&
+    card.front.defense == some 2 && power > 2 && fighting.lifeOf opponent == 40 - Int.ofNat (power - 2) &&
+    discarded.zone hand == [] && discarded.zone grave == [] && discarded.zone deck == [top, discardId] &&
+    discardId != attack && isDrone discarded discardId && faceDown discarded discardId &&
+    discardEvents == [.madePublic player attack cid, .moved attack discardId hand deck, .discarded player discardId] &&
+    (discardTriggers.pendingTriggers.map (·.source)) == (if power ≥ 6 then [rhinar] else []) &&
+    closed.combat.isNone && closed.zone grave == [] && closed.zone defenderGrave == [] &&
+    closed.zone deck == [top, attackBottom] && closed.zone defenderDeck == [defenderTop, defenderBottom] &&
+    isDrone closed attackBottom && isDrone closed defenderBottom &&
+    faceDown closed attackBottom && faceDown closed defenderBottom &&
+    closeEvents.contains (.moved chainAttack attackBottom .combatChain deck) &&
+    closeEvents.contains (.moved chainDefender defenderBottom .combatChain defenderDeck) &&
+    redirected.zone deck == [top, redirectId] && isDrone redirected redirectId && faceDown redirected redirectId &&
+    redirectEvents == [.madePublic player banished cid,
+      .moved banished redirectId (.player player .banished) deck] &&
+    cleared.zone deck == [top, clearId] && cleared.zone grave == [] && (cleared.zone .stack).isEmpty &&
+    clearEvents == [.moved layer clearId .stack deck] && isDrone cleared clearId && faceDown cleared clearId &&
+    silenced.zone deck == [top] && (silenced.zone grave).any (isDrone silenced) &&
+    staysInGraveyard.zone grave == [silencedId] && sameGraveEvents.isEmpty &&
+    notRedirected.zone deck == [top] && (notRedirected.zone grave).any (isDrone notRedirected))
+
+#guard checkDroneOfBrutality ⟨"WTR_164_R"⟩ 1 6 == some true
+
 /-- Dawnblade's second hit and its counter retention both use the whole turn, across chains. -/
 meta def checkDawnblade : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
