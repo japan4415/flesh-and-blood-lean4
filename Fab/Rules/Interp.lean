@@ -1903,6 +1903,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       { s with activeEffects := s.activeEffects ++ [effect], nextTimestamp := s.nextTimestamp + 1 }
     | none => s
   | .thisTurn, _ | .thisCombatChain, _ =>
+    let weaponTarget := (s.layerMeta.get? src.n).bind (·.weaponTarget)
     let op? : Option EffectOp :=
       match mod with
       | .addPower d => some (.addPower (evalNumExpr s ctrl env d))
@@ -1915,6 +1916,8 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | .grantTrigger trigger cond body =>
         match scope with
         | .nextAttack _ => some (.grantAttackAbility (.triggered trigger false none cond { body := body }))
+        | .obj (.slot 0) =>
+          weaponTarget.map (fun _ => .grantAttackAbility (.triggered trigger false none cond { body := body }))
         | _ => none
       | .conditionalPower (.defendedByFewerNonEquip limit) bonus =>
         match scope with
@@ -1940,6 +1943,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
           .objects (s.zone (.player (evalPlayerRef s ctrl player) .hero))
         | .allMatching player filter, _ => .matchingCard (evalPlayerRef s ctrl player) filter
         | .paidAttack id, _ => .obj id
+        | .obj (.slot 0), _ => (weaponTarget.map EffectTarget.obj).getD (.objects [])
         | .arenaObjectsOfType player kind, _ =>
           let affected := evalPlayerRef s ctrl player
           let arena := (allZones s.playerCount).filter Zone.isArena

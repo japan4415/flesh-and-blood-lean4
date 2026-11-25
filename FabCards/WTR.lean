@@ -761,16 +761,16 @@ def WTR_118_B : CardDef :=
             [ .grant (.obj (.slot 0)) (.grantKeyword .goAgain) .thisChainLink
             , .ifThen .defendedFromHandThisLink (.prim (.draw .controller (.const 1))) .nop ] }) with status := .full }
 
-/-- Steelblade Supremacy (drafted IR). -/
+/-- Steelblade Supremacy. -/
 def WTR_119_R : CardDef :=
-  draftCard WTR_119_R_meta []
+  { draftCard WTR_119_R_meta []
     (some
       { targets := [{ kind := .weapon .controller }]
         body := .seqL
           [ .grant (.obj (.slot 0)) (.addPower (.const 2)) .thisTurn
           , .grant (.obj (.slot 0))
               (.grantTrigger .onHit none (.prim (.draw .controller (.const 1))))
-              .thisTurn ] })
+              .thisTurn ] }) with status := .full }
 
 /-- Rout. -/
 def WTR_120_R : CardDef :=

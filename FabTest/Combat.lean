@@ -2127,6 +2127,74 @@ meta def checkDorinthea (cid : CardId) (life : Nat) : Option Bool := do
 
 #guard checkDorinthea ⟨"WTR_114"⟩ 20 == some true
 
+/-- Steelblade Supremacy chooses a controlled weapon and draws on each of its hits this turn. -/
+meta def checkSteelbladeSupremacy : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let hand := Zone.player player .hand
+  let deck := Zone.player player .deck
+  let grave := Zone.player player .graveyard
+  let cid : CardId := ⟨"WTR_119_R"⟩
+  let funded := m5Base.setPool player { actionPoints := 2, resources := 3 }
+  let card ← funded.cards.find? cid
+  let (withHero, hero) ← cPlace funded player .hero ⟨"WTR_113"⟩
+  let (withCard, supremacy) ← cPlace withHero player .hand cid
+  let (withEnemy, enemy) ← cPlace withCard opponent .weapon ⟨"WTR_040"⟩
+  let (armed, sword) ← cPlace withEnemy player .weapon ⟨"WTR_115"⟩
+  let (withDeck, _) ← cPlace armed player .deck ⟨"WTR_188_R"⟩
+  let (ready, _) ← cPlace withDeck player .deck ⟨"WTR_203_R"⟩
+  let play : Action := ⟨.player player, .playCard supremacy⟩
+  let choose (id : ObjId) : Action := ⟨.player player, .pickWeaponTarget id⟩
+  let offered ← cSteps ready [play]
+  let cancelled ← cSteps offered [⟨.player player, .cancelPlay⟩]
+  let (paid, events) ← (step 64 offered (choose sword)).toOption
+  let layer ← (paid.zone .stack).head?
+  let swordTop ← cSteps paid passBoth
+  let (removed, _) ← moveObj paid sword grave
+  let invalid ← cSteps removed passBoth
+  let swing : Action := ⟨.player player, .attackWeapon sword⟩
+  let finish := [⟨.player opponent, .defendDone⟩] ++ passBoth ++ passBoth
+  let enter (s : GameState) := cSteps s (swing :: (passBoth ++ passBoth))
+  let link (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let drawTrigger (s : GameState) := s.pendingTriggers.find? fun t =>
+    t.source == sword && t.effect == .prim (.draw .controller (.const 1))
+  let pick t : Action := ⟨.player player, .pickTrigger t⟩
+  let start : Action := ⟨.player player, .pickTriggerStart player⟩
+  let defending ← enter swordTop
+  let shielded := (execPrim defending opponent ⟨0⟩ []
+    (.preventNextDamage .controller (.const 10) .thisTurn)).1
+  let blocked ← cSteps shielded finish
+  let firstHit ← cSteps defending finish
+  let heroTrigger ← firstHit.pendingTriggers.find? (·.source == hero)
+  let firstDraw ← drawTrigger firstHit
+  let drewOnce ← cSteps firstHit ([start, pick heroTrigger.id, pick firstDraw.id] ++ passBoth)
+  let allowsSecond ← cSteps drewOnce (passBoth ++ [⟨.player player, .pickMay true⟩] ++ passBoth)
+  let secondDefending ← enter allowsSecond
+  let secondHit ← cSteps secondDefending finish
+  let secondDraw ← drawTrigger secondHit
+  let swordTrigger ← secondHit.pendingTriggers.find? (·.id != secondDraw.id)
+  let drewTwice ← cSteps secondHit ([start, pick swordTrigger.id, pick secondDraw.id] ++ passBoth ++ passBoth)
+  let (expired, _) ← (advance 64 { drewTwice with pending := [.endTurnFinish] } []).toOption
+  let handCards (s : GameState) := (s.zone hand).filterMap fun id =>
+    (s.cardDefOf? id).map (·.id.val)
+  pure (card.status == .full && card.specializations == ["Dorinthea"] && card.front.defense == some 3 &&
+    card.front.pitch == some 1 && !(legalActionsFor player withEnemy).contains play &&
+    (legalActionsFor player offered).contains (choose sword) &&
+    !(legalActionsFor player offered).contains (choose enemy) &&
+    (step 64 offered (choose enemy)).toOption.isNone && decide (cancelled = ready) &&
+    events.contains (.targetedWeapon layer sword) && (paid.poolOf player).resources == 2 &&
+    (swordTop.poolOf player).actionPoints == 2 && objEffectivePower swordTop sword == some 5 &&
+    objEffectivePower swordTop enemy == some 4 && invalid.activeEffects.isEmpty &&
+    (invalid.poolOf player).actionPoints == 2 && (link blocked).map (·.damageDealt) == some 0 &&
+    blocked.pendingTriggers.isEmpty && (link firstHit).map (·.damageDealt) == some 5 &&
+    firstHit.pendingTriggers.length == 2 && handCards drewOnce == ["WTR_203_R"] &&
+    (link secondHit).map (·.damageDealt) == some 5 && secondHit.pendingTriggers.length == 2 &&
+    handCards drewTwice == ["WTR_188_R", "WTR_203_R"] && (drewTwice.zone deck).isEmpty &&
+    objEffectivePower drewTwice sword == some 6 && objEffectivePower expired sword == some 4 &&
+    expired.activeEffects.isEmpty)
+
+#guard checkSteelbladeSupremacy == some true
+
 /-- Dawnblade's second hit and its counter retention both use the whole turn, across chains. -/
 meta def checkDawnblade : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

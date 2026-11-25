@@ -51,6 +51,10 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     q = p ∧ hero ∈ s.turnOrder
   | .choosePlayHero p _ _ _ _ :: _, .player q, .cancelPlay =>
     q = p
+  | .choosePlayWeapon p _ _ _ _ candidates :: _, .player q, .pickWeaponTarget id =>
+    q = p ∧ id ∈ candidates
+  | .choosePlayWeapon p _ _ _ _ _ :: _, .player q, .cancelPlay =>
+    q = p
   | .choosePitch p _ _ _ _ :: _, .player q, .pitchCard id =>
     q = p ∧ canPitchCard s p id = true
   | .choosePitch p _ _ _ _ :: _, .player q, .cancelPlay =>
@@ -99,6 +103,7 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     | none => canDecl = true
   | _, _, _ => False
 
+set_option maxHeartbeats 400000 in
 instance decidableLegalFrame (s : GameState) (a : Action) : Decidable (LegalFrame s a) := by
   unfold LegalFrame
   cases s.pending with

@@ -79,6 +79,8 @@ inductive ActionKind where
   | pickMode (idx : Nat)
   /-- Declare a hero target for the card currently being played (CR 5.1.4a). -/
   | pickHeroTarget (hero : PlayerId)
+  /-- Declare the weapon targeted by a card being played (CR 5.1.4a). -/
+  | pickWeaponTarget (id : ObjId)
   /-- Pitch card `id` from hand to pay an asset cost during `choosePitch` (CR 1.14.3, 5.1.6). -/
   | pitchCard (id : ObjId)
   /-- Cancel and roll back an in-progress card play to the pre-play snapshot (CR 5.1.1). -/
@@ -189,6 +191,9 @@ inductive Frame where
   /-- Player decision: declare a hero target for a card before paying for it (CR 5.1.4a). -/
   | choosePlayHero (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
       (cost : AssetCost)
+  /-- Player decision: choose the card-layer's weapon target before paying (CR 5.1.4a). -/
+  | choosePlayWeapon (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
+      (cost : AssetCost) (candidates : List ObjId)
   /-- Work frame: calculate/pay asset costs for `layerId`, prompting pitch or rolling back (CR 5.1.5, 5.1.6). -/
   | playPayCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
       (cost : AssetCost)

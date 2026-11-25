@@ -61,6 +61,8 @@ structure LayerInfo where
   heroTarget : Option PlayerId := none
   /-- Attack declared in target slot 0 before paying for a card-layer (CR 5.1.4a). -/
   attackTarget : Option ObjId := none
+  /-- Weapon declared in target slot 0 before paying for a card-layer (CR 5.1.4a). -/
+  weaponTarget : Option ObjId := none
   /-- Target and its filter saved before paying for an activated layer (CR 5.2.2b). -/
   activationTarget : Option (TargetSpec × ObjId) := none
   /-- Activation awaiting the payment of assets and effect-costs (CR 5.2.2b). -/
