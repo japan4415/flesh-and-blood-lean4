@@ -2675,6 +2675,68 @@ meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool :=
 #guard checkWhelmingGustwave ⟨"WTR_111_Y"⟩ 2 == some true
 #guard checkWhelmingGustwave ⟨"WTR_112_B"⟩ 1 == some true
 
+/-- A Mugenshi: RELEASE combo hit lets the player choose how many Lords of Wind to reveal. -/
+meta def checkMugenshiRelease : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_083_Y"⟩
+  let lordCid : CardId := ⟨"WTR_081_B"⟩
+  let deck := Zone.player attacker .deck
+  let hand := Zone.player attacker .hand
+  let base := m5Base.setPool attacker { actionPoints := 2, resources := 3 }
+  let card ← base.cards.find? cid
+  let (withGust, gust) ← cPlace base attacker .hand ⟨"WTR_110_R"⟩
+  let (withRelease, release) ← cPlace withGust attacker .hand cid
+  let (withLord, lord) ← cPlace withRelease attacker .deck lordCid
+  let (withTwo, otherLord) ← cPlace withLord attacker .deck lordCid
+  let (withOther, other) ← cPlace withTwo attacker .deck ⟨"WTR_188_R"⟩
+  let (withBlock, firstBlock) ← cPlace withOther defender .hand ⟨"WTR_048_R"⟩
+  let (ready, secondBlock) ← cPlace withBlock defender .hand ⟨"WTR_049_Y"⟩
+  let enter (id : ObjId) : List Action := ⟨.player attacker, .playCard id⟩ :: (passBoth ++ passBoth)
+  let toDamage := ⟨.player defender, .defendDone⟩ :: (passBoth ++ passBoth)
+  let choice (id : ObjId) : Action := ⟨.player attacker, .pickShuffleCard (some id)⟩
+  let done : Action := ⟨.player attacker, .pickShuffleCard none⟩
+  let shuffle (s : GameState) : Action := ⟨.chance, .shuffleOrder (s.zone deck).reverse⟩
+  let first ← cSteps ready (enter gust ++ toDamage ++ passBoth)
+  let defending ← cSteps first (enter release)
+  let hit ← cSteps defending toDamage
+  let link ← hit.combat.bind CombatChain.activeLink?
+  let trigger ← hit.pendingTriggers.head?
+  let picking ← cSteps hit ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let chosen ← cSteps picking [choice lord]
+  let (committed, events) ← (step 64 chosen done).toOption
+  let moved ← (committed.zone hand).head?
+  let one ← cSteps committed [shuffle committed]
+  let completed ← cSteps one passBoth
+  let both ← cSteps picking [choice otherLord, choice lord, done]
+  let all ← cSteps both [shuffle both]
+  let declined ← cSteps picking [done]
+  let noCards ← cSteps declined [shuffle declined]
+  let blocked ← cSteps defending ([⟨.player defender, .defendCard firstBlock⟩,
+    ⟨.player defender, .defendCard secondBlock⟩] ++ toDamage ++ passBoth)
+  let standalone ← cSteps ready (enter release ++ toDamage ++ passBoth)
+  pure (card.status == .full && card.front.keywords.contains (.specialization "Katsu") &&
+    card.front.pitch == some 2 && card.front.defense == some 3 &&
+    link.powerBonus == 1 && link.damageDealt == 5 &&
+    (view attacker picking).selectionChoices == [(otherLord, lordCid), (lord, lordCid)] &&
+    (view defender picking).selectionChoices == [] &&
+    (step 64 picking (choice other)).toOption.isNone &&
+    events == [.revealed attacker lord lordCid, .moved lord moved deck hand] &&
+    committed.pending.head? == some (.chanceShuffle deck) &&
+    one.zone hand == [moved] && (one.cardDefOf? moved).map (·.id) == some lordCid &&
+    one.zone deck == [otherLord, other] && (completed.poolOf attacker).actionPoints == 1 &&
+    all.zone deck == [other] &&
+    (all.zone hand).map (fun id => (all.cardDefOf? id).map (·.id)) == [some lordCid, some lordCid] &&
+    declined.pending.head? == some (.chanceShuffle deck) &&
+    noCards.zone deck == (picking.zone deck).reverse && noCards.zone hand == [] &&
+    (blocked.poolOf attacker).actionPoints == 1 && blocked.pendingTriggers.isEmpty &&
+    blocked.lifeOf defender == first.lifeOf defender && blocked.zone deck == ready.zone deck &&
+    (standalone.poolOf attacker).actionPoints == 1 && standalone.pendingTriggers.isEmpty &&
+    standalone.lifeOf defender == 36 && standalone.zone deck == ready.zone deck)
+
+#guard checkMugenshiRelease == some true
+
 -- 6. Weapon Attack-Proxy + Weapon Identical `ObjId` Return + LKI Go Again (CR 1.4.3, 3.5.4b):
 --    P0 attacks with Harmonized Kodachi (1{p}, cost 1{r}) via `.attackWeapon` -> creates proxy ->
 --    deals 1 damage (40 -> 39) -> Close Step removes proxy and returns Kodachi to `.weapon`
