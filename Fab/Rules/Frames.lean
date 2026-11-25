@@ -414,8 +414,10 @@ def nextActionSurcharge (s : GameState) (p : PlayerId) : Nat :=
     | _ => total) 0
 
 /-- Apply the announcing player's first-action and next-attack cost modifiers (CR 5.1.7). -/
-def modifiedCardPlayCost (s : GameState) (p : PlayerId) (card : CardDef) : AssetCost :=
-  let base := cardPlayCost card
+def modifiedCardPlayCost (s : GameState) (p : PlayerId) (card : CardDef)
+    (additionalResources : Nat := 0) : AssetCost :=
+  let printed := cardPlayCost card
+  let base := { printed with resources := printed.resources + additionalResources }
   if card.front.hasType .action then
     let delta := s.activeEffects.foldl (fun total effect =>
       match effect.target with
@@ -449,12 +451,30 @@ def cardResolveEffect (c : CardDef) (modeIdx : Option Nat) : Effect :=
       | none => ed.body
     | none => ed.body
 
+/-- Matching targets in the controller's graveyard (CR 1.8.5d). -/
+def graveyardTargetChoices (s : GameState) (p : PlayerId) (filter : CardFilter) : List ObjId :=
+  (s.zone (.player p .graveyard)).filter fun id =>
+    (s.objectFace? id).any (cardFaceMatches filter)
+
+/-- Before an attack joins the chain, Combo reads its last existing attack (CR 8.3.6). -/
+def playCostCondition (s : GameState) (p : PlayerId) (source : ObjId) (fromArsenal : Bool) :
+    Condition → Bool
+  | .prevChainLinkNamed name =>
+    (s.combat.bind CombatChain.activeLink?).any (fun link => link.attackLki.name == name)
+  | condition => evalCondition s p source fromArsenal condition
+
 /-- Declare supported optional costs before asset payment (CR 5.1.3, 5.1.6). -/
 def cardPaymentFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (cost : AssetCost) : Frame :=
   match (s.cardDefOf? layerId).bind (·.front.playEffect) with
   | some { extraCosts := [{ cost := .payResources extra, optional := true, cond := none }], .. } =>
     .chooseOptionalResources p layerId fromArsenal modeIdx cost extra
+  | some { extraCosts := [{ cost := .payX, optional := true, cond := cond }],
+           onPayX := some (filter, _), .. } =>
+    if cond.all (playCostCondition s p layerId fromArsenal) then
+      .chooseVariableResources p layerId fromArsenal modeIdx cost
+        (graveyardTargetChoices s p filter).length
+    else .playPayCost p layerId fromArsenal modeIdx cost
   | some { extraCosts := [{ cost := .banishFromGraveyard filter 1, optional := true, cond := none }], .. } =>
     let candidates := (s.zone (.player p .graveyard)).filter fun id =>
       (s.objectFace? id).any (cardFaceMatches filter)
@@ -921,6 +941,24 @@ def paidWeaponActivation? (s : GameState) (layerId : ObjId) : Option (ObjId × N
     return (source, index)
   | _ => none
 
+/-- Create the on-play trigger after the variable additional cost has been paid (CR 5.1.10, 6.6.5). -/
+def variablePaymentTrigger (s : GameState) (p : PlayerId) (source : ObjId) (fromArsenal : Bool) :
+    Option PendingTrigger := do
+  let info ← s.layerMeta.get? source.n
+  let amount ← info.variableResources
+  let defn ← (s.objectFace? source).bind (·.playEffect)
+  let (filter, body) ← defn.onPayX
+  if amount ≤ (graveyardTargetChoices s p filter).length then
+    some
+      { id := 0
+        source := source
+        sourceLki := captureLki s source p
+        controller := p
+        fromArsenal := fromArsenal
+        effect := body.bindPlayedAttack source
+        graveyardTargets := some (amount, filter) }
+  else none
+
 /-- Finalize a paid layer, then stack triggers queued during play and return priority (CR 5.1.10, 6.6.6). -/
 def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (rest : List Frame) (discarded : Option CardFace := none) : GameState :=
@@ -941,8 +979,9 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       heroTarget := (s.layerMeta.get? layerId.n).bind (·.heroTarget)
       attackTarget := (s.layerMeta.get? layerId.n).bind (·.attackTarget)
       weaponTarget := (s.layerMeta.get? layerId.n).bind (·.weaponTarget)
+      variableResources := (s.layerMeta.get? layerId.n).bind (·.variableResources)
       additionalCostPaid := (s.layerMeta.get? layerId.n).any
-        (fun info => info.payAdditionalResources || info.additionalCostPaid)
+        (fun info => info.payAdditionalResources || info.additionalCostPaid || info.variableResources.isSome)
       discardedForPlay := discarded
       attackAbilities :=
         (modeOnAttack.map fun body => Ability.triggered .onAttack false none none { body := body }).toList
@@ -960,7 +999,8 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       else remainingEffects
     | none => remainingEffects
   let s := { s with layerMeta := s.layerMeta.insert layerId.n updatedInfo }
-  let newTriggers := playedCardTriggers s layerId p fromArsenal ++ arenaAttackPlayTriggers s layerId p
+  let newTriggers := playedCardTriggers s layerId p fromArsenal ++
+    (variablePaymentTrigger s p layerId fromArsenal).toList ++ arenaAttackPlayTriggers s layerId p
   let triggers := newTriggers.zipIdx.map fun (trigger, index) =>
     { trigger with id := s.nextTimestamp + index }
   let pendingTriggers := s.pendingTriggers ++ triggers
@@ -1166,6 +1206,39 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
       nextTimestamp := moved.1.nextTimestamp + permissions.length },
     revealed ++ events ++ banished.map (fun id => .banished p id false))
 
+/-- Add a triggered layer with its declared targets, then continue trigger ordering (CR 6.6.6). -/
+def stackPendingTrigger (s : GameState) (p : PlayerId) (trig : PendingTrigger)
+    (hero : Option PlayerId) (equipment : Option ObjId) (graveyard : List ObjId)
+    (rem : List PlayerId) (rest : List Frame) : Option (GameState × List Event) := do
+  let layerObj : Object :=
+    { kind := .layer trig.source (some trig.sourceLki) trig.abilityIdx true
+      owner := p
+      controller := p
+      timestamp := ⟨s.nextTimestamp⟩ }
+  let (s1, lid) ← addObject s .stack layerObj .top
+  let remTrigs := s1.pendingTriggers.filter (fun t => t.id != trig.id)
+  let info : LayerInfo :=
+    { controller := p
+      fromArsenal := trig.fromArsenal
+      triggerEffect := some (trig.declaredEffect hero equipment)
+      triggerEquipment := trig.equipmentTargetPlayer.bind fun player => equipment.map (player, ·)
+      triggerGraveyard := trig.graveyardTargets.map fun (_, filter) => (filter, graveyard) }
+  let s2 := { s1 with pendingTriggers := remTrigs, layerMeta := s1.layerMeta.insert lid.n info }
+  let events := (hero.map (.targetedHero lid)).toList ++ (equipment.map (.targetedEquipment lid)).toList ++
+    graveyard.map (.targetedGraveyardCard lid)
+  some ({ s2 with pending := nextTriggerFrame s2 (p :: rem) ++ rest }, events)
+
+/-- Recheck each declared graveyard target and shuffle only if some remain (CR 1.8.9, 5.3.4b). -/
+def withGraveyardTargetShuffle (s : GameState) (info : LayerInfo) (effect : Effect) : Effect :=
+  match info.triggerGraveyard with
+  | none => effect
+  | some (filter, targets) =>
+    let eligible := graveyardTargetChoices s info.controller filter
+    let remaining := targets.filter eligible.contains
+    if remaining.isEmpty then effect
+    else .seqL (remaining.map (fun id => .prim (.moveCard (.declared id) .deck .bottom false)) ++
+      [.prim (.shuffleZone .controller .deck), effect])
+
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
   match s.pending, a.actor, a.kind with
@@ -1368,6 +1441,19 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       none
   | .chooseOptionalResources p _ _ _ _ _ :: rest, .player q, .cancelPlay =>
     if p = q then some (rollbackPlay s rest, []) else none
+  | .chooseVariableResources p layerId fromArsenal modeIdx cost limit :: rest, .player q,
+      .pickVariableResources amount =>
+    if p = q ∧ amount.all (· ≤ limit) = true then
+      let info := s.layerMeta.getD layerId.n { controller := p }
+      let total := match amount, s.cardDefOf? layerId with
+        | some x, some card => modifiedCardPlayCost s p card x
+        | _, _ => cost
+      some ({ s with
+        layerMeta := s.layerMeta.insert layerId.n { info with variableResources := amount }
+        pending := .playPayCost p layerId fromArsenal modeIdx total :: rest }, [])
+    else none
+  | .chooseVariableResources p _ _ _ _ _ :: rest, .player q, .cancelPlay =>
+    if p = q then some (rollbackPlay s rest, []) else none
   | .chooseGraveyardCost p layerId fromArsenal modeIdx cost candidates :: rest, .player q,
       .pickGraveyardCost choice =>
     if p = q ∧ choice.all candidates.contains = true then
@@ -1495,31 +1581,23 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       match s.pendingTriggers.find? (fun t => t.matchesDeclaration s tid p hero equipment) with
       | none => none
       | some trig =>
-        let layerObj : Object :=
-          { kind := .layer trig.source (some trig.sourceLki) trig.abilityIdx true
-            owner := p
-            controller := p
-            timestamp := ⟨s.nextTimestamp⟩ }
-        match addObject s .stack layerObj .top with
-        | none => none
-        | some (s1, lid) =>
-          let remTrigs := s1.pendingTriggers.filter (fun t => t.id != tid)
-          let info : LayerInfo :=
-            { controller := p
-              fromArsenal := trig.fromArsenal
-              modeIdx := none
-              goAgain := false
-              triggerEffect := some (trig.declaredEffect hero equipment)
-              triggerEquipment := trig.equipmentTargetPlayer.bind fun player =>
-                equipment.map (fun id => (player, id)) }
-          let s2 := { s1 with
-            pendingTriggers := remTrigs
-            layerMeta := s1.layerMeta.insert lid.n info }
-          let nextF := nextTriggerFrame s2 (p :: rem)
-          let events := (hero.map (.targetedHero lid)).toList ++ (equipment.map (.targetedEquipment lid)).toList
-          some ({ s2 with pending := nextF ++ rest }, events)
+        match trig.graveyardTargets with
+        | some (remaining + 1, filter) =>
+          let candidates := graveyardTargetChoices s p filter
+          some ({ s with pending := .chooseTriggerGraveyard p rem trig (remaining + 1) candidates [] :: rest }, [])
+        | _ => stackPendingTrigger s p trig hero equipment [] rem rest
     else
       none
+  | .chooseTriggerGraveyard p rem trig remaining candidates selected :: rest, .player q,
+      .pickTriggerGraveyardCard id =>
+    if p = q ∧ id ∈ candidates then
+      if 1 < remaining then
+        let next := Frame.chooseTriggerGraveyard p rem trig (remaining - 1)
+          (candidates.erase id) (id :: selected)
+        some ({ s with pending := next :: rest }, [])
+      else
+        stackPendingTrigger s p trig none none (id :: selected).reverse rem rest
+    else none
   | .chooseReplacement aff _ cands canDecl :: rest, .player q, .pickReplacement choice =>
     let validChoice : Bool :=
       match choice with
@@ -1686,7 +1764,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
             .nop
           else
             match info.triggerEffect with
-            | some teff => teff
+            | some teff => withGraveyardTargetShuffle s info teff
             | none => cardLayerEffect s topId info
         some ({ s with
                   pending := .run info.controller (resolvingSource s topId) info.fromArsenal [] [eff] ::

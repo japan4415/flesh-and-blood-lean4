@@ -42,6 +42,8 @@ structure PendingTrigger where
   effect : Effect := .nop
   /-- Controller of the equipment this trigger must target, when required. -/
   equipmentTargetPlayer : Option PlayerId := none
+  /-- Number and filter of graveyard cards to target before the trigger is stacked. -/
+  graveyardTargets : Option (Nat × CardFilter) := none
 deriving DecidableEq, Repr
 
 /-- The hero declarations available when stacking a pending trigger. -/

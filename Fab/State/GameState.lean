@@ -69,6 +69,8 @@ structure LayerInfo where
   activationPayment : Option ActivationPayment := none
   /-- Whether to include the optional resources when paying for this layer (CR 5.1.5). -/
   payAdditionalResources : Bool := false
+  /-- Declared X for the selected variable additional cost (including X = 0). -/
+  variableResources : Option Nat := none
   /-- Selected graveyard card, held until the play pays its assets (CR 5.1.6, 5.1.9). -/
   graveyardCost : Option ObjId := none
   /-- Whether the optional additional cost has actually been paid (CR 5.1.9). -/
@@ -87,6 +89,8 @@ structure LayerInfo where
   attackAbilities : List Ability := []
   /-- Optional explicit effect body for triggered/activated ability layers (CR 6.6). -/
   triggerEffect : Option Effect := none
+  /-- Filter and targets of a triggered graveyard shuffle (CR 6.6.6a). -/
+  triggerGraveyard : Option (CardFilter × List ObjId) := none
   /-- Controller and equipment declared on a trigger, rechecked on resolution (CR 1.8.9). -/
   triggerEquipment : Option (PlayerId × ObjId) := none
 deriving DecidableEq, Repr

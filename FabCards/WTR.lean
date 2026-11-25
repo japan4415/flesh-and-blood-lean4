@@ -536,21 +536,14 @@ def WTR_080 : CardDef :=
           { targets := [{ kind := .attackAction, filter := comboFilter }]
             body := .grant (.obj (.slot 0)) (.addPower (.const 1)) .thisTurn } ] with status := .full }
 
-/-- Lord of Wind (drafted IR — exercises Combo-gated optional `{x}` cost and `NumExpr.xValue`). -/
+/-- Lord of Wind. -/
 def WTR_081_B : CardDef :=
-  draftCard WTR_081_B_meta []
-    (some
-      { extraCosts :=
-          [ { cost := .payX
-              optional := true
-              cond := some (.prevChainLinkNamed "Mugenshi: RELEASE") } ]
-        body := .ifThen .additionalCostPaid
-          (.seqL
-            [ .prim (.shuffleZoneIntoDeck .controller .graveyard
-                { nameIn := ["Surging Strike", "Whelming Gustwave", "Mugenshi: RELEASE"] }
-                none false)
-            , .grant .self_ (.addPower .xValue) .thisChainLink ])
-          .nop })
+  { draftCard WTR_081_B_meta []
+      (some
+        { extraCosts := [{ cost := .payX, optional := true, cond := some (.prevChainLinkNamed "Mugenshi: RELEASE") }]
+          onPayX := some
+            ( { nameIn := ["Surging Strike", "Whelming Gustwave", "Mugenshi: RELEASE"] }
+            , .grant (.obj .currentAttack) (.addPower .xValue) .thisChainLink ) }) with status := .full }
 
 /-- Ancestral Empowerment. -/
 def WTR_082_R : CardDef :=

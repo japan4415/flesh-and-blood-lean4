@@ -36,6 +36,8 @@ inductive Event where
   | targetedWeapon (layer target : ObjId)
   /-- The given triggered layer declared an equipment as a target (CR 6.6.6a). -/
   | targetedEquipment (layer target : ObjId)
+  /-- The given triggered layer declared a graveyard card as a target (CR 6.6.6a). -/
+  | targetedGraveyardCard (layer target : ObjId)
   /-- `amount` damage of kind `kind` (physical or arcane) was dealt to `target`. -/
   | damageDealt (target : PlayerId) (kind : DamageKind) (amount : Nat)
   /-- Player `player` gained `amount` life. -/

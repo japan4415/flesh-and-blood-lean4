@@ -28,7 +28,8 @@ open FabCards
   | none => false
 
 #guard match wtrDB.find? ⟨"WTR_081_B"⟩ with
-  | some c => c.front.name == "Lord of Wind" && c.front.keywords.contains .combo && c.status == .drafted
+  | some c => c.front.name == "Lord of Wind" && c.front.keywords.contains .combo && c.status == .full &&
+      c.front.playEffect.any (fun effect => hasXCost effect.extraCosts && effect.onPayX.isSome)
   | none => false
 
 #guard match wtrDB.find? ⟨"WTR_115"⟩ with

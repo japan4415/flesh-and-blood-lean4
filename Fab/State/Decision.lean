@@ -5,6 +5,7 @@ public import Fab.State.Combat
 public import Fab.Core.Cost
 public import Fab.Core.Property
 public import Fab.Card.IR.Effect
+public import Fab.Rules.Triggers
 
 /-!
 # Actors, actions, and continuation frames
@@ -87,6 +88,8 @@ inductive ActionKind where
   | cancelPlay
   /-- Answer an optional `"you may ..."` effect choice (I18). -/
   | pickMay (choice : Bool)
+  /-- Declare X for a variable additional cost, or decline it (CR 5.1.3). -/
+  | pickVariableResources (amount : Option Nat)
   /-- Chance provides a 6-sided die result (`1 ≤ roll ≤ 6`). -/
   | die6Roll (roll : Nat)
   /-- Pick a card from hand to place into the deck (e.g. Sink Below). -/
@@ -123,6 +126,8 @@ inductive ActionKind where
   | pickTriggerStart (start : PlayerId)
   /-- Player picks a pending trigger to stack and declares its required target (CR 6.6.6). -/
   | pickTrigger (trigId : Nat) (hero : Option PlayerId := none) (equipment : Option ObjId := none)
+  /-- Add a graveyard target to the selected triggered layer (CR 6.6.6a). -/
+  | pickTriggerGraveyardCard (id : ObjId)
   /-- Affected player chooses an optional/competing replacement effect ID or declines (CR 6.5.1). -/
   | pickReplacement (choice : Option Nat)
 deriving DecidableEq, Repr
@@ -209,6 +214,9 @@ inductive Frame where
   /-- Player decision: accept an optional additional resource cost or waive it (CR 5.1.5). -/
   | chooseOptionalResources (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
       (modeIdx : Option Nat) (cost : AssetCost) (extra : Nat)
+  /-- Player decision: declare X for an optional additional cost (CR 5.1.3a). -/
+  | chooseVariableResources (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
+      (modeIdx : Option Nat) (cost : AssetCost) (limit : Nat)
   /-- Player decision: declare an optional banish cost before paying assets (CR 5.1.3, 5.1.6). -/
   | chooseGraveyardCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
       (modeIdx : Option Nat) (cost : AssetCost) (candidates : List ObjId)
@@ -270,6 +278,9 @@ inductive Frame where
   /-- Player decision: player `p` picks one of their pending triggers to stack, then passes clockwise
   to `remainingPlayers` (CR 6.6.6b). -/
   | chooseTriggerOrder (p : PlayerId) (remainingPlayers : List PlayerId)
+  /-- Player decision: declare exactly the required graveyard targets for the chosen trigger. -/
+  | chooseTriggerGraveyard (p : PlayerId) (remainingPlayers : List PlayerId) (trigger : PendingTrigger)
+      (remaining : Nat) (candidates selected : List ObjId)
   /-- Player decision: affected player selects a replacement effect ID (or `none` if optional)
   at `stage` (CR 6.5.1). -/
   | chooseReplacement (affected : PlayerId) (stage : ReplacementStage) (candidates : List Nat)

@@ -69,9 +69,12 @@ def lookupVar (env : List (VarId × Int)) (v : VarId) : Int :=
   | none => 0
 
 /-- Evaluate a `NumExpr` in the current state and lexical environment. -/
-def evalNumExpr (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int)) : NumExpr → Int
+def evalNumExpr (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
+    (value : NumExpr) (source : Option ObjId := none) : Int :=
+  match value with
   | .const n => n
-  | .xValue => 0
+  | .xValue =>
+    Int.ofNat ((source.bind fun id => (s.layerMeta.get? id.n).bind (·.variableResources)).getD 0)
   | .varVal v => lookupVar env v
   | .handCount p =>
     let target := evalPlayerRef s ctrl p
@@ -1051,34 +1054,34 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
   match p with
   | .draw pref n =>
     let target := evalPlayerRef s ctrl pref
-    let cnt := clampNonNeg (evalNumExpr s ctrl env n)
+    let cnt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     (s, [], [.draw target cnt])
   | .gainLife pref n =>
     let target := evalPlayerRef s ctrl pref
-    let amt := clampNonNeg (evalNumExpr s ctrl env n)
+    let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     let events := if amt = 0 then [] else [.lifeGained target amt]
     (s.setLife target (s.lifeOf target + Int.ofNat amt), events, [])
   | .loseLife pref n =>
     let target := evalPlayerRef s ctrl pref
-    let amt := clampNonNeg (evalNumExpr s ctrl env n)
+    let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     let s1 := checkHeroDefeat (s.setLife target (s.lifeOf target - Int.ofNat amt))
     (s1, [], [])
   | .dealDamage kind pref n =>
     let target := evalPlayerRef s ctrl pref
-    let amt := clampNonNeg (evalNumExpr s ctrl env n)
+    let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     let (s1, es) := applyDamageWithPrevention s target kind amt
     (s1, es, [])
   | .gainAP pref n =>
     let target := evalPlayerRef s ctrl pref
-    let amt := clampNonNeg (evalNumExpr s ctrl env n)
+    let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     (s.setPool target ((s.poolOf target).addActionPoints amt), [], [])
   | .gainResource pref n =>
     let target := evalPlayerRef s ctrl pref
-    let amt := clampNonNeg (evalNumExpr s ctrl env n)
+    let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     (s.setPool target ((s.poolOf target).addResources amt), [], [])
   | .gainChi pref n =>
     let target := evalPlayerRef s ctrl pref
-    let amt := clampNonNeg (evalNumExpr s ctrl env n)
+    let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     (s.setPool target ((s.poolOf target).addChi amt), [], [])
   | .opt pref n =>
     let target := evalPlayerRef s ctrl pref
@@ -1135,7 +1138,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     match evalObjRef src oref with
     | none => (s, [], [])
     | some oid =>
-      let amt := clampNonNeg (evalNumExpr s ctrl env n)
+      let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
       (updateSingleObject s oid (fun o => o.addCounterVal k amt), [], [])
   | .removeAllCounters oref k =>
     match evalObjRef src oref with
@@ -1144,7 +1147,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
       (updateSingleObject s oid (fun o => o.clearCounterVal k), [], [])
   | .discardRandom pref n =>
     let target := evalPlayerRef s ctrl pref
-    let cnt := clampNonNeg (evalNumExpr s ctrl env n)
+    let cnt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     let hand := Zone.player target .hand
     if 0 < cnt ∧ cnt < (s.zone hand).length then
       (s, [], [.chanceShuffle hand, .run target src false [] [.prim (.discardHandPrefix cnt)]])
@@ -1156,7 +1159,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     (s1, es, [])
   | .discardChoice pref f n =>
     let target := evalPlayerRef s ctrl pref
-    let cnt := clampNonNeg (evalNumExpr s ctrl env n)
+    let cnt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     let matching := (s.zone (.player target .hand)).filter fun id =>
       match s.objectFace? id with
       | some face => cardFaceMatches f face
@@ -1247,7 +1250,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         (s, revealed, [])
   | .preventNextDamage pref n _ =>
     let target := evalPlayerRef s ctrl pref
-    let amt := clampNonNeg (evalNumExpr s ctrl env n)
+    let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     if amt = 0 then
       (s, [], [])
     else
@@ -1314,7 +1317,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
   | loseLife pref n =>
     unfold execPrim; dsimp only
     let s1 := s.setLife (evalPlayerRef s ctrl pref)
-      (s.lifeOf (evalPlayerRef s ctrl pref) - Int.ofNat (clampNonNeg (evalNumExpr s ctrl env n)))
+      (s.lifeOf (evalPlayerRef s ctrl pref) - Int.ofNat (clampNonNeg (evalNumExpr s ctrl env n (some src))))
     have hwf1 : s1.WF := GameState.WF.congr hwf rfl rfl rfl rfl
     have hok1 : s1.OwnerOk := GameState.OwnerOk.congr hok rfl rfl
     have hm := checkHeroDefeat_config_rollback s1
@@ -1322,7 +1325,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
            by rw [checkHeroDefeat_physIds]; exact List.Perm.refl _, hm.1, hm.2⟩
   | dealDamage kind pref n =>
     exact applyDamageWithPrevention_inv hwf hok (evalPlayerRef s ctrl pref) kind
-      (clampNonNeg (evalNumExpr s ctrl env n))
+      (clampNonNeg (evalNumExpr s ctrl env n (some src)))
   | createToken pref tokId n =>
     have hm := createTokens_meta (evalPlayerRef s ctrl pref) tokId n s
     exact ⟨createTokens_wf _ _ _ hwf, createTokens_ownerOk _ _ _ hwf hok,
@@ -1406,7 +1409,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     cases evalObjRef src oref with
     | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     | some oid =>
-      have hm := updateSingleObject_meta s oid (fun o => o.addCounterVal k (clampNonNeg (evalNumExpr s ctrl env n)))
+      have hm := updateSingleObject_meta s oid (fun o => o.addCounterVal k (clampNonNeg (evalNumExpr s ctrl env n (some src))))
       exact ⟨updateSingleObject_wf hwf oid _,
              updateSingleObject_ownerOk hok oid (fun o => Object.addCounterVal_owner o k _),
              by rw [updateSingleObject_physIds s oid (fun o => Object.addCounterVal_kind o k _)],
@@ -1560,7 +1563,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     exact checkHeroDefeat_ttr_core _
   | dealDamage kind pref n =>
     exact applyDamageWithPrevention_ttr s (evalPlayerRef s ctrl pref) kind
-      (clampNonNeg (evalNumExpr s ctrl env n))
+      (clampNonNeg (evalNumExpr s ctrl env n (some src)))
   | createToken pref tokId n =>
     have hc : ∀ (k : Nat) (st : GameState),
         (createTokens st (evalPlayerRef s ctrl pref) tokId k).turn = st.turn ∧
@@ -1672,7 +1675,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     · exact ⟨rfl, rfl, id⟩
     · have h := discardManyObjs_ttr (evalPlayerRef s ctrl pref)
         ((s.zone (.player (evalPlayerRef s ctrl pref) .hand)).take
-          (clampNonNeg (evalNumExpr s ctrl env n))) s
+          (clampNonNeg (evalNumExpr s ctrl env n (some src)))) s
       exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
   | discardHandPrefix cnt =>
     have h := discardManyObjs_ttr ctrl ((s.zone (.player ctrl .hand)).take cnt) s
@@ -1685,7 +1688,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
       have h := discardManyObjs_ttr (evalPlayerRef s ctrl pref)
         (((s.zone (.player (evalPlayerRef s ctrl pref) .hand)).filter fun id =>
             match s.objectFace? id with | some face => cardFaceMatches f face | none => false).take
-          (clampNonNeg (evalNumExpr s ctrl env n))) s
+          (clampNonNeg (evalNumExpr s ctrl env n (some src)))) s
       exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
   | intimidate pref =>
     unfold execPrim; dsimp only
@@ -1795,7 +1798,7 @@ def modifyPendingAction (s : GameState) (ctrl : PlayerId) (src : ObjId)
     let bindsAttack := dur == .thisChainLink || (dur == .thisTurn && !scope.isSelf)
     match isAttack, bindsAttack, dur, mod with
     | true, true, _, .addPower d =>
-      some (target, { info with attackPowerBonus := info.attackPowerBonus + evalNumExpr s ctrl env d })
+      some (target, { info with attackPowerBonus := info.attackPowerBonus + evalNumExpr s ctrl env d (some src) })
     | true, true, _, .grantKeyword kw =>
       if kw == .goAgain && !layerCanGainGoAgain s target info.controller then some (target, info)
       else some (target, { info with attackKeywords := insertUnique kw info.attackKeywords })
@@ -1817,7 +1820,7 @@ def defenseReactionGrant (s : GameState) (ctrl : PlayerId) (src : ObjId)
              source := src
              controller := ctrl
              target := .obj src
-             op := .addDefense (evalNumExpr s ctrl env delta)
+             op := .addDefense (evalNumExpr s ctrl env delta (some src))
              duration := dur
              timestamp := ⟨s.nextTimestamp⟩ }
 
@@ -1858,8 +1861,8 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .obj (.slot _) => targetSlotOk
         | _ => false
       if !targetSlotOk then link else match mod with
-      | .addPower d => { link with powerBonus := link.powerBonus + evalNumExpr s ctrl env d }
-      | .addDefense d => { link with defenseBonus := link.defenseBonus + evalNumExpr s ctrl env d }
+      | .addPower d => { link with powerBonus := link.powerBonus + evalNumExpr s ctrl env d (some src) }
+      | .addDefense d => { link with defenseBonus := link.defenseBonus + evalNumExpr s ctrl env d (some src) }
       | .grantKeyword kw =>
         if scope.isSelf && !targetsAttack then link
         else if kw == .goAgain then
@@ -1891,7 +1894,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         some (affected, .objects (s.zone (.player affected .hero)), .loseAllAbilities, false)
       | .firstAttackNextTurn player, .addPower delta =>
         let affected := evalPlayerRef s ctrl player
-        some (affected, .nextAttackBy affected, .addPower (evalNumExpr s ctrl env delta), true)
+        some (affected, .nextAttackBy affected, .addPower (evalNumExpr s ctrl env delta (some src)), true)
       | .firstActionNextTurn player, .modifyCost delta =>
         if 0 < delta then
           let affected := evalPlayerRef s ctrl player
@@ -1911,8 +1914,8 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
     let weaponTarget := (s.layerMeta.get? src.n).bind (·.weaponTarget)
     let op? : Option EffectOp :=
       match mod with
-      | .addPower d => some (.addPower (evalNumExpr s ctrl env d))
-      | .addDefense d => some (.addDefense (evalNumExpr s ctrl env d))
+      | .addPower d => some (.addPower (evalNumExpr s ctrl env d (some src)))
+      | .addDefense d => some (.addDefense (evalNumExpr s ctrl env d (some src)))
       | .addIntellect d => some (.addIntellect d)
       | .additionalWeaponAttack => some .allowWeaponAttack
       | .modifyCost d =>

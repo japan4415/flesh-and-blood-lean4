@@ -964,6 +964,23 @@ private theorem confirmShuffleCards_ttr (s : GameState) (p : PlayerId) (selected
     (if search.isSome then .top else .bottom) false selected.reverse s
   exact ⟨ht, htour, hr⟩
 
+private theorem stackPendingTrigger_turn_tournament_result
+    {s s' : GameState} {p : PlayerId} {trig : PendingTrigger} {hero : Option PlayerId}
+    {equipment : Option ObjId} {targets : List ObjId} {rem : List PlayerId}
+    {rest : List Frame} {es : List Event}
+    (h : stackPendingTrigger s p trig hero equipment targets rem rest = some (s', es)) :
+    s'.turn = s.turn ∧ s'.tournament = s.tournament ∧ s'.result = s.result := by
+  unfold stackPendingTrigger at h
+  simp only [bind, Option.bind] at h
+  split at h
+  · cases h
+  · rename_i added ha
+    rcases added with ⟨stacked, lid⟩
+    simp only [Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, -⟩ := h
+    obtain ⟨hturn, htournament, hresult⟩ := addObject_turn_tournament_result ha
+    exact ⟨hturn, htournament, hresult⟩
+
 /-- Helper: `applyFrame` preserves `turn`, `tournament`, and `result`. -/
 theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : List Event}
     (h : applyFrame s a = some (s', es)) :
@@ -1103,6 +1120,17 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       unfold rollbackPlay; cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
     · cases h
+  · -- chooseVariableResources pickVariableResources
+    split at h
+    · cases h
+      exact ⟨rfl, rfl, rfl⟩
+    · cases h
+  · -- chooseVariableResources cancelPlay
+    split at h
+    · cases h
+      unfold rollbackPlay
+      cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
+    · cases h
   · -- chooseGraveyardCost pickGraveyardCost
     split at h
     · cases h
@@ -1223,10 +1251,15 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
       · dsimp only at h
         split at h
         · cases h
-        · rename_i _ _ ha
-          simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-          have ha' := addObject_turn_tournament_result ha
-          exact ⟨ha'.1, ha'.2.1, ha'.2.2⟩
+          exact ⟨rfl, rfl, rfl⟩
+        · exact stackPendingTrigger_turn_tournament_result h
+    · cases h
+  · -- chooseTriggerGraveyard
+    split at h
+    · split at h
+      · cases h
+        exact ⟨rfl, rfl, rfl⟩
+      · exact stackPendingTrigger_turn_tournament_result h
     · cases h
   · -- chooseReplacement
     dsimp only at h

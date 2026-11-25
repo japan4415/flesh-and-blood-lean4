@@ -195,6 +195,7 @@ def EffectDef.wfBool (ed : EffectDef) (inheritedHasX : Bool := false) : Bool :=
   ed.extraCosts.all (fun ec => match ec.cond with | none => true | some c => c.wfBool numSlots) &&
   ed.targets.all (TargetSpec.wfBool numSlots) &&
   ed.body.wfBool numSlots [] hasX &&
+  ed.onPayX.all (fun (_, body) => hasX && body.wfBool 0 [] true) &&
   ed.modes.all (fun m => m.wfBool hasX)
 
 /-- Static well-formedness check for `Ability`. -/
