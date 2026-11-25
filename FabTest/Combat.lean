@@ -1681,6 +1681,46 @@ meta def checkEnergyPotion : Option Bool := do
 
 #guard checkEnergyPotion == some true
 
+/-- Potion of Strength boosts exactly the next attack this turn and refunds its AP. -/
+meta def checkPotionOfStrength (useWeapon : Bool) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_171_B"⟩
+  let arena := Zone.player player .permanent
+  let grave := Zone.player player .graveyard
+  let base : GameState := { m5Base with pending := m5Base.pending ++ [.beginTurn] }
+  let withAssets := base.setPool player { actionPoints := 2, resources := 1 }
+  let card ← withAssets.cards.find? cid
+  let (withPotion, item) ← cPlace withAssets player .hand cid
+  let (withWeapon, weapon) ← cPlace withPotion player .weapon ⟨"WTR_078"⟩
+  let (withAttack, attack) ← cPlace withWeapon player .hand ⟨"WTR_098_R"⟩
+  let (ready, instant) ← cPlace withAttack player .hand ⟨"WTR_173_R"⟩
+  let play id : Action := ⟨.player player, .playCard id⟩
+  let attackAction : Action := if useWeapon then ⟨.player player, .attackWeapon weapon⟩ else play attack
+  let installed ← cSteps ready (play item :: passBoth)
+  let source ← (installed.zone arena).head?
+  let activate : Action := ⟨.player player, .activateAbility source 0⟩
+  let paid ← cSteps installed [activate]
+  let spent ← (paid.zone grave).head?
+  let buffed ← cSteps paid passBoth
+  let afterInstant ← cSteps buffed (play instant :: passBoth)
+  let defending ← cSteps afterInstant ([attackAction] ++ passBoth ++ passBoth)
+  let link ← defending.combat.bind CombatChain.activeLink?
+  let afterHit ← cSteps defending
+    ([⟨.player opponent, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth)
+  let passedTurn ← cSteps buffed (passBoth ++ [⟨.player player, .arsenalSkip⟩])
+  pure (card.status == .full && card.front.pitch == some 3 &&
+    (installed.poolOf player).actionPoints == 1 && (paid.poolOf player).actionPoints == 0 &&
+    paid.zone arena == [] && (paid.cardDefOf? spent).map (·.id) == some cid &&
+    paid.activeEffects.isEmpty && (buffed.poolOf player).actionPoints == 1 &&
+    buffed.activeEffects.length == 1 && afterInstant.activeEffects == buffed.activeEffects &&
+    defending.activeEffects.isEmpty && link.powerBonus == 2 &&
+    afterHit.lifeOf opponent == (if useWeapon then 37 else 35) &&
+    passedTurn.active == some opponent && passedTurn.activeEffects.isEmpty)
+
+#guard checkPotionOfStrength false == some true
+#guard checkPotionOfStrength true == some true
+
 /-- Timesnap Potion destroys itself as an activation cost and grants AP only on resolution. -/
 meta def checkTimesnapPotion : Option Bool := do
   let player : PlayerId := ⟨0⟩
