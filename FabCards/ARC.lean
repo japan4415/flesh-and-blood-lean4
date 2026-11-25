@@ -294,12 +294,21 @@ def ARC_037_B : CardDef :=
             { body := .prim (.opt .controller 1) } ] }
     status := .full }
 
+/-- The arsenal activation shared by the adult and young Azalea heroes. -/
+def azaleaArsenalAbility : Ability :=
+  .activated .action true { actionPoints := 1 } [] none true
+    { body := .prim (.cycleArsenal .controller .arrow .dominate) }
+
 /-- Azalea, Ace in the Hole (ARC038). -/
 def ARC_038 : CardDef :=
   { Meta.ARC_038_meta with
-    front := { Meta.ARC_038_meta.front with
-      abilities := [ .activated .action true { actionPoints := 1 } [] none true
-        { body := .prim (.cycleArsenal .controller .arrow .dominate) } ] }
+    front := { Meta.ARC_038_meta.front with abilities := [azaleaArsenalAbility] }
+    status := .full }
+
+/-- Azalea (ARC039). -/
+def ARC_039 : CardDef :=
+  { Meta.ARC_039_meta with
+    front := { Meta.ARC_039_meta.front with abilities := [azaleaArsenalAbility] }
     status := .full }
 
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
@@ -310,7 +319,7 @@ def arcCards : List CardDef :=
    ARC_023_R, ARC_024_Y, ARC_025_B,
    ARC_026_R, ARC_027_Y, ARC_028_B,
    ARC_029_R, ARC_030_Y, ARC_031_B,
-   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R, ARC_037_B, ARC_038]
+   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R, ARC_037_B, ARC_038, ARC_039]
 
 end FabCards.ARC
 
