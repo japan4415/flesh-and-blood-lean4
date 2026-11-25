@@ -93,6 +93,8 @@ inductive ActionKind where
   | pickShuffleCard (choice : Option ObjId)
   /-- Choose a card from hand to pay an additional cost (CR 5.1.9). -/
   | pickHandCostCard (id : ObjId)
+  /-- Choose a graveyard card to banish as a play cost, or decline the optional cost (CR 5.1.3). -/
+  | pickGraveyardCost (choice : Option ObjId)
   /-- Opt choice: put the looked-at top card of deck on top (`true`) or bottom (`false`) (CR 8.5.22). -/
   | optPick (putOnTop : Bool)
   /-- End Phase: put card `id` from hand face-down into an empty arsenal (CR 4.4.3b). -/
@@ -198,6 +200,9 @@ inductive Frame where
   /-- Player decision: accept an optional additional resource cost or waive it (CR 5.1.5). -/
   | chooseOptionalResources (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
       (modeIdx : Option Nat) (cost : AssetCost) (extra : Nat)
+  /-- Player decision: declare an optional banish cost before paying assets (CR 5.1.3, 5.1.6). -/
+  | chooseGraveyardCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
+      (modeIdx : Option Nat) (cost : AssetCost) (candidates : List ObjId)
   /-- Player decision: pay the additional cost by choosing a card from hand (CR 5.1.9). -/
   | chooseHandCardCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
       (modeIdx : Option Nat) (cost : HandCardCost)

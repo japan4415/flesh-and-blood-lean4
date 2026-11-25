@@ -92,6 +92,9 @@ def legalFrameActions (s : GameState) : List Action :=
       [⟨.player p, .cancelPlay⟩]
   | .chooseOptionalResources p _ _ _ _ _ :: _ =>
     [⟨.player p, .pickMay true⟩, ⟨.player p, .pickMay false⟩, ⟨.player p, .cancelPlay⟩]
+  | .chooseGraveyardCost p _ _ _ _ candidates :: _ =>
+    [⟨.player p, .pickGraveyardCost none⟩, ⟨.player p, .cancelPlay⟩] ++
+      candidates.map fun id => ⟨.player p, .pickGraveyardCost (some id)⟩
   | .chooseHandCardCost p _ _ _ cost :: _ =>
     (((s.zone (.player p .hand)).filter (canPickHandCostCard s p cost)).map fun id =>
       ⟨.player p, .pickHandCostCard id⟩) ++ [⟨.player p, .cancelPlay⟩]
