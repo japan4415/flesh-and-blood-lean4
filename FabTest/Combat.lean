@@ -577,6 +577,73 @@ meta def checkNaturesPathPilgrimage (cid : CardId) (pitch bonus : Nat) (fromArse
 #guard checkNaturesPathPilgrimage ⟨"WTR_149_B"⟩ 3 1 false == some true
 #guard checkNaturesPathPilgrimage ⟨"WTR_149_B"⟩ 3 1 true == some true
 
+/-- Stroke draws under Reprise, then accepts a card for either end of the deck. -/
+meta def checkStrokeOfForesight (cid : CardId) (pitch bonus : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player attacker .hand
+  let deck := Zone.player attacker .deck
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let initial := m5Base.setPool attacker { actionPoints := 1, resources := 2 }
+  let card ← initial.cards.find? cid
+  let (withWeapon, weapon) ← cPlace initial attacker .weapon ⟨"WTR_078"⟩
+  let (withReaction, reaction) ← cPlace withWeapon attacker origin cid fromArsenal
+  let (withBlock, block) ← cPlace withReaction defender .hand ⟨"WTR_203_R"⟩
+  let (withReserve, reserve) ← cPlace withBlock attacker .hand ⟨"WTR_205_B"⟩
+  let (withBottom, bottom) ← cPlace withReserve attacker .deck ⟨"WTR_190_B"⟩
+  let (withMiddle, middle) ← cPlace withBottom attacker .deck ⟨"WTR_189_Y"⟩
+  let (ready, top) ← cPlace withMiddle attacker .deck ⟨"WTR_188_R"⟩
+  let swing : Action := ⟨.player attacker, .attackWeapon weapon⟩
+  let cast : Action := ⟨.player attacker, .playCard reaction⟩
+  let defend : Action := ⟨.player defender, .defendCard block⟩
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let pick index : Action := ⟨.player attacker, .pickMode index⟩
+  let pickCard id : Action := ⟨.player attacker, .handToDeckPick id⟩
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let defendStep (s : GameState) := cSteps s (swing :: (passBoth ++ passBoth))
+  let enter := done :: passBoth
+  let defending ← defendStep ready
+  let noReprise ← cSteps defending (enter ++ (cast :: passBoth))
+  let reprising ← cSteps defending (defend :: enter)
+  let paid ← cSteps reprising [cast]
+  let passed ← cSteps paid [⟨.player attacker, .pass⟩]
+  let (prompt, decisions) ← (step 64 passed ⟨.player defender, .pass⟩).toOption
+  let drawn ← (prompt.zone hand).head?
+  let topChoice ← cSteps prompt [pick 0]
+  let bottomChoice ← cSteps prompt [pick 1]
+  let (putTop, topEvents) ← (step 64 topChoice (pickCard reserve)).toOption
+  let (putBottom, bottomEvents) ← (step 64 bottomChoice (pickCard drawn)).toOption
+  let newTop ← (putTop.zone deck).head?
+  let newBottom ← (putBottom.zone deck).getLast?
+  let emptyDefending ← defendStep withBlock
+  let emptyResult ← cSteps emptyDefending (defend :: (enter ++ (cast :: passBoth)))
+  let reserveDefense ← defendStep withReserve
+  let emptyDeckPrompt ← cSteps reserveDefense (defend :: (enter ++ (cast :: passBoth)))
+  let putOnly ← cSteps emptyDeckPrompt [pick 1, pickCard reserve]
+  let link ← active putTop
+  let otherLink ← active noReprise
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    (paid.poolOf attacker).resources == 0 && (paid.poolOf attacker).actionPoints == 0 &&
+    paid.zone deck == [top, middle, bottom] && paid.zone hand == [reserve] &&
+    noReprise.zone deck == paid.zone deck && noReprise.zone hand == [reserve] &&
+    linkAttackPower noReprise otherLink == 1 + bonus && linkAttackPower putTop link == 1 + bonus &&
+    decisions == [.moved top drawn deck hand, .drawn attacker drawn] &&
+    (prompt.cardDefOf? drawn).map (·.id) == some ⟨"WTR_188_R"⟩ && prompt.zone hand == [drawn, reserve] &&
+    (legalActionsFor attacker prompt).contains (pick 0) && (legalActionsFor attacker prompt).contains (pick 1) &&
+    topChoice.pending.head? == some (.chooseHandToDeck attacker .top) &&
+    bottomChoice.pending.head? == some (.chooseHandToDeck attacker .bottom) &&
+    (step 64 topChoice (pickCard block)).toOption.isNone &&
+    topEvents.head? == some (.moved reserve newTop hand deck) &&
+    bottomEvents.head? == some (.moved drawn newBottom hand deck) &&
+    putTop.zone deck == [newTop, middle, bottom] && putTop.zone hand == [drawn] &&
+    putBottom.zone deck == [middle, bottom, newBottom] && putBottom.zone hand == [reserve] &&
+    emptyResult.zone hand == [] && emptyResult.zone deck == [] && emptyResult.zone .stack == [] &&
+    putOnly.zone hand == [] && (putOnly.zone deck).length == 1)
+
+#guard checkStrokeOfForesight ⟨"WTR_138_R"⟩ 1 3 false == some true
+#guard checkStrokeOfForesight ⟨"WTR_138_R"⟩ 1 3 true == some true
+
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
 --    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!
