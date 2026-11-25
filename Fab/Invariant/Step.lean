@@ -661,17 +661,29 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
   · -- playPayCost
     split at h
     · rename_i s1 hspend
-      simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       obtain ⟨hp1, _⟩ := spendAssetCost_preserves hwf hok hrb hspend
-      exact ⟨GameState.WF.congr hp1.wf rfl rfl rfl rfl,
-             GameState.OwnerOk.congr hp1.ownerOk rfl rfl,
-             GameState.RollbackOk.of_none rfl,
-             hp1.physIds, hp1.config⟩
+      dsimp only at h
+      split at h
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact ⟨GameState.WF.congr hp1.wf rfl rfl rfl rfl,
+               GameState.OwnerOk.congr hp1.ownerOk rfl rfl,
+               GameState.RollbackOk.of_none rfl,
+               hp1.physIds, hp1.config⟩
+      · split at h
+        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          exact hp1.trans (sameBoard_preserves hp1.wf hp1.ownerOk hp1.rollbackOk rfl rfl rfl rfl rfl)
+        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          exact rollbackPlay_preserves hwf hok hrb _
     · split at h
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact rollbackPlay_preserves hwf hok hrb _
+  · -- finishPlay
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
+           GameState.OwnerOk.congr hok rfl rfl,
+           GameState.RollbackOk.of_none rfl, List.Perm.refl _, rfl⟩
   · -- resolveStack
     split at h
     · split at h <;>
@@ -1429,7 +1441,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
           · cases hcontra
           · split at hdecl <;> simp at hdecl
     | revealLoadouts | chanceShuffle _ | openingDraws | draw _ _ | beginTurn
-    | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _ | resolveStack
+    | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _ | finishPlay _ _ _ _ | resolveStack
     | finishResolve _ | combatStep _ _ | gameStateProcess | run _ _ _ _ _
     | chanceDie6 _ _ _ _ _ _ _ | optStep _ _ | endPhaseStart _ | endPhaseArsenal _ | returnPitch _
     | endTurnCleanup _ | flushTriggers =>
@@ -1929,7 +1941,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
     | revealLoadouts | openingDraws | draw _ _ | beginTurn | startPhaseWork _
-    | actionPhaseStart _ | playPayCost _ _ _ _ _ | resolveStack | finishResolve _
+    | actionPhaseStart _ | playPayCost _ _ _ _ _ | finishPlay _ _ _ _ | resolveStack | finishResolve _
     | combatStep _ _ | gameStateProcess | run _ _ _ _ _ | optStep _ _
     | endPhaseStart _ | endPhaseArsenal _ | returnPitch _ | endTurnCleanup _ | flushTriggers =>
       cases actor <;> cases kind <;> exact False.elim hlf
@@ -1980,8 +1992,11 @@ theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
   | playPayCost _ _ _ _ _ =>
     dsimp only
     split
-    · rfl
+    · split
+      · rfl
+      · split <;> rfl
     · split <;> rfl
+  | finishPlay _ _ _ _ => rfl
   | resolveStack =>
     dsimp only
     split

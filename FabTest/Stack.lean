@@ -140,6 +140,69 @@ meta def runSteps (s : GameState) : List Action → Option GameState
   | some b => b
   | none => false
 
+/-- Pay Wrecker Romp's random discard after pitching and before granting priority. -/
+meta def checkWreckerRomp (cid : CardId) (pitch power : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let zone := Zone.player player
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m4BaseState.setPool player { actionPoints := 1, resources := 2 }
+  let card ← funded.cards.find? cid
+  let (empty, romp) ← placeCard funded player origin cid fromArsenal
+  let play : Action := ⟨.player player, .playCard romp⟩
+  let (rejected, rejectedEvents) ← (step 64 empty play).toOption
+  let unfunded := empty.setPool player { actionPoints := 1 }
+  let (one, payer) ← placeCard unfunded player .hand ⟨"WTR_205_B"⟩
+  let pitchPayer : Action := ⟨.player player, .pitchCard payer⟩
+  let afterPitchFailure ← runSteps one [play, pitchPayer]
+  let (two, first) ← placeCard one player .hand ⟨"WTR_203_R"⟩
+  let paidSingle ← runSteps two [play, pitchPayer]
+  let (three, second) ← placeCard two player .hand ⟨"WTR_204_Y"⟩
+  let buffed := applyChainLinkMod three player romp []
+    (.nextAttack CardFilter.any) (.addPower (.const 2)) .thisTurn
+  let askedPitch ← runSteps buffed [play]
+  let cancelled ← runSteps askedPitch [⟨.player player, .cancelPlay⟩]
+  let (paying, pitchEvents) ← (step 64 askedPitch pitchPayer).toOption
+  let attackLayer ← (paying.zone .stack).head?
+  let pitched ← (paying.zone (zone .pitch)).head?
+  let choose := fun order => (⟨.chance, .shuffleOrder order⟩ : Action)
+  let reject := fun action => (step 64 paying action).toOption.isNone
+  let (played, firstEvents) ← (step 64 paying (choose [first, second])).toOption
+  let (other, secondEvents) ← (step 64 paying (choose [second, first])).toOption
+  let discardOk := fun (s : GameState) (events : List Event) picked left => do
+    let discarded ← (s.zone (zone .graveyard)).head?
+    pure (s.zone (zone .hand) == [left] && s.zone (zone .graveyard) == [discarded] &&
+      (s.obj? discarded).map (·.kind) == (three.obj? picked).map (·.kind) &&
+      events == [.moved picked discarded (zone .hand) (zone .graveyard),
+        .discarded player discarded] &&
+      s.playRollback.isNone && s.activeEffects.isEmpty && s.pending == buffed.pending &&
+      (s.layerMeta.get? attackLayer.n).map (·.fromArsenal) == some fromArsenal &&
+      (s.layerMeta.get? attackLayer.n).map (·.attackPowerBonus) == some 2)
+  let firstCorrect ← discardOk played firstEvents first second
+  let secondCorrect ← discardOk other secondEvents second first
+  let pass := [⟨.player player, .pass⟩, ⟨.player opponent, .pass⟩]
+  let finish := [⟨.player opponent, .defendDone⟩] ++ pass ++ pass
+  let hit ← runSteps played (pass ++ pass ++ finish)
+  let link ← hit.combat.bind CombatChain.activeLink?
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    decide (rejected = empty) && decide (afterPitchFailure = one) &&
+    !rejectedEvents.any (fun | .discarded _ _ => true | _ => false) &&
+    (paidSingle.zone (zone .hand)).isEmpty && (paidSingle.zone (zone .graveyard)).length == 1 &&
+    paidSingle.pending == buffed.pending && decide (cancelled = buffed) &&
+    paying.pending.head? == some (.chanceShuffle (zone .hand)) &&
+    (paying.poolOf player).actionPoints == 0 && (paying.poolOf player).resources == 1 &&
+    paying.zone (zone .hand) == [second, first] && (paying.zone (zone .graveyard)).isEmpty &&
+    pitchEvents.contains (.pitched player pitched 3 0) &&
+    paying.activeEffects == buffed.activeEffects &&
+    paying.playRollback.isSome && reject (choose [first, first]) &&
+    reject ⟨.player player, .cancelPlay⟩ && reject ⟨.player opponent, .pass⟩ &&
+    firstCorrect && secondCorrect &&
+    hit.lifeOf opponent == 40 - Int.ofNat (power + 2) && link.damageDealt == power + 2)
+
+#guard checkWreckerRomp ⟨"WTR_029_R"⟩ 1 8 false == some true
+#guard checkWreckerRomp ⟨"WTR_029_R"⟩ 1 8 true == some true
+
 -- 5. Playing face-down card from Arsenal (CR 3.2.2) triggers `playedFromArsenal` on Tome of Fyendal:
 --    Tome starts face-down in Arsenal, P0 has 1 floating {r}, 1 card in hand & 2 in deck.
 --    Playing Tome draws 2 (hand = 3), then `playedFromArsenal` gains 3 life (40 -> 43)!
