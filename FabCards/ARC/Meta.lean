@@ -149,6 +149,7 @@ def ARC_009_Y_meta : CardDef :=
         color := some .yellow
         pitch := some 2
         cost := some { actionPoints := 1, resources := 0 }
+        xCostFactor := 2
         defense := some 3
         keywords := [.specialization "Dash"] }
     sets := [.arc]

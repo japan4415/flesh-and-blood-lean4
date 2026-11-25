@@ -96,9 +96,10 @@ def legalFrameActions (s : GameState) : List Action :=
     (pitchableCards s p).map fun id => ⟨.player p, .pitchCard id⟩
   | .chooseOptionalPlayCost p _ _ _ _ _ :: _ =>
     [⟨.player p, .pickMay true⟩, ⟨.player p, .pickMay false⟩, ⟨.player p, .cancelPlay⟩]
-  | .chooseVariableResources p _ _ _ _ limit :: _ =>
-    [⟨.player p, .pickVariableResources none⟩, ⟨.player p, .cancelPlay⟩] ++
-      (List.range (limit + 1)).map fun x => ⟨.player p, .pickVariableResources (some x)⟩
+  | .chooseVariableResources p _ _ _ _ limit optional :: _ =>
+    (if optional then [⟨.player p, .pickVariableResources none⟩] else []) ++
+      (⟨.player p, .cancelPlay⟩ ::
+        (List.range (limit + 1)).map fun x => ⟨.player p, .pickVariableResources (some x)⟩)
   | .chooseGraveyardCost p _ _ _ _ candidates :: _ =>
     [⟨.player p, .pickGraveyardCost none⟩, ⟨.player p, .cancelPlay⟩] ++
       candidates.map fun id => ⟨.player p, .pickGraveyardCost (some id)⟩

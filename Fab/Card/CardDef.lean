@@ -67,6 +67,8 @@ structure CardFace where
   pitchAsset : PitchAsset := .resource
   /-- Printed asset-cost (CR 2.2, 1.14.2). -/
   cost : Option AssetCost := none
+  /-- Multiplier for the X chosen for this card's printed resource cost (CR 5.1.3a). -/
+  xCostFactor : Nat := 0
   /-- Printed power `{p}` (CR 2.7). -/
   power : Option Int := none
   /-- Printed defense `{d}` (CR 2.3). -/

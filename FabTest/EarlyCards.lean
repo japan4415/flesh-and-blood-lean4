@@ -666,6 +666,70 @@ meta def maximumVelocityScenario : Option Bool := do
 
 #guard maximumVelocityScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC009").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Spark of Genius" && card.status == .full &&
+    card.front.xCostFactor == 2 && card.specializations == ["Dash"])
+
+meta def sparkOfGeniusScenario (x : Nat) (boosted : Bool) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let hand := Zone.player p .hand
+  let permanent := Zone.player p .permanent
+  let item : CardDef :=
+    { id := ⟨"Spark test item"⟩
+      front :=
+        { name := "Spark test item"
+          supertypes := [.class_ .mechanologist]
+          types := [.action]
+          subtypes := [.item]
+          cost := some { actionPoints := 1, resources := 2 } } }
+  let wrong :=
+    { item with
+      id := ⟨"Spark generic item"⟩
+      front := { item.front with name := "Spark generic item", supertypes := [.generic] } }
+  let cards : CardDB := ⟨item :: wrong :: throughArcDB.cards⟩
+  let base := { earlyBase.setPool p { actionPoints := 2, resources := 1 } with
+    cards, boostsThisTurn := if boosted then [p] else [] }
+  let (tail, _) ← earlyPlace base p deck "WTR_203_R"
+  let (withGeneric, genericItem) ← earlyPlace tail p deck wrong.id.val
+  let (withTwo, itemTwo) ← earlyPlace withGeneric p deck item.id.val
+  let (withZero, itemZero) ← earlyPlace withTwo p deck "ARC_007_B"
+  let (withPitch, blue) ← earlyPlace withZero p hand "WTR_100_B"
+  let (ready, spark) ← earlyPlace withPitch p hand "ARC_009_Y"
+  let choose (value : Option Nat) : Action := ⟨.player p, .pickVariableResources value⟩
+  let pick (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let play ← earlySteps ready [⟨.player p, .playCard spark⟩]
+  let .chooseVariableResources _ _ _ _ _ 2 false :: _ := play.pending | none
+  let .chooseVariableResources _ _ _ _ _ 0 false :: _ := (view q play).pending | none
+  let paying ← earlySteps play [choose (some x)]
+  let paid ← if x == 0 then some paying else earlySteps paying [⟨.player p, .pitchCard blue⟩]
+  let search ← earlySteps paid earlyPass
+  let wanted := if x == 0 then itemZero else itemTwo
+  let wrongCost := if x == 0 then itemTwo else itemZero
+  let invalidOptions := (earlySteps search [pick (some wrongCost)]).isNone &&
+    (earlySteps search [pick (some genericItem)]).isNone
+  let selected ← earlySteps search [pick (some wanted), pick none]
+  let chosen ← (selected.zone permanent).head?
+  let shuffled ← earlySteps selected [⟨.chance, .shuffleOrder ((selected.zone deck).reverse)⟩]
+  let miss ← earlySteps search [pick none]
+  let missed ← earlySteps miss [⟨.chance, .shuffleOrder ((miss.zone deck).reverse)⟩]
+  let expectedId := if x == 0 then ⟨"ARC_007_B"⟩ else item.id
+  pure ((earlySteps play [choose none]).isNone && (earlySteps play [choose (some 3)]).isNone &&
+    (paid.poolOf p).resources == (if x == 0 then 1 else 0) && invalidOptions &&
+    (selected.zone hand).length == (if x == 0 then 1 else 0) &&
+    (view p search).selectionChoices.map Prod.fst == [wanted] &&
+    (view q search).selectionChoices.isEmpty &&
+    (shuffled.cardDefOf? chosen).any (fun card => card.id == expectedId) &&
+    (shuffled.obj? chosen).any (fun obj => obj.counterCount .steam == (if x == 0 then 2 else 0)) &&
+    (shuffled.zone deck).length == (if boosted then 2 else 3) &&
+    (shuffled.zone hand).length == (if x == 0 then 1 else 0) + (if boosted then 1 else 0) &&
+    missed.zone permanent == [] &&
+    (missed.zone deck).length == (if boosted then 3 else 4))
+
+#guard sparkOfGeniusScenario 0 false == some true
+#guard sparkOfGeniusScenario 2 true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

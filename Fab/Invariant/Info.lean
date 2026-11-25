@@ -137,6 +137,8 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
         if p == q then frame else .chooseOpt q ⟨0⟩
       | .chooseReplacement q stage _ canDecline =>
         if p == q then frame else .chooseReplacement q stage [] canDecline
+      | .chooseVariableResources q layer arsenal mode cost _ false =>
+        if p == q then frame else .chooseVariableResources q layer arsenal mode cost 0 false
       | _ => frame
     pendingTriggers := s.pendingTriggers
     selectionChoices := selectionChoices }
@@ -590,7 +592,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                 intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
               rw [hnil, hnil]
           | choosePlayWeapon _ _ _ _ _ _ | chooseOptionalPlayCost _ _ _ _ _ _ => rfl
-          | chooseGraveyardCost _ _ _ _ _ _ | chooseVariableResources _ _ _ _ _ _ => rfl
+          | chooseGraveyardCost _ _ _ _ _ _ | chooseVariableResources _ _ _ _ _ _ _ => rfl
           | chooseHandCardCost q _ _ _ cost =>
             dsimp only
             by_cases hqp : q = p
