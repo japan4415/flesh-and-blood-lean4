@@ -147,6 +147,8 @@ structure HiddenEquiv (p : PlayerId) (s1 s2 : GameState) : Prop where
   combat : s1.combat = s2.combat
   /-- Same tournament state. -/
   tournament : s1.tournament = s2.tournament
+  /-- Same public history of this turn's limited activations. -/
+  activatedThisTurn : s1.activatedThisTurn = s2.activatedThisTurn
   /-- Same active continuous effects. -/
   activeEffects : s1.activeEffects = s2.activeEffects
   /-- Same pending triggers. -/
@@ -239,7 +241,7 @@ theorem HiddenEquiv.canAttackWithWeapon_eq {p : PlayerId} {s1 s2 : GameState}
   have hw : s1.zone (.player p .weapon) = s2.zone (.player p .weapon) := h.visibleZones _ rfl
   have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
   unfold canAttackWithWeapon
-  rw [h.combat, h.phase, h.active, hs, hp, hw, (h.cardDef_face wid).1]
+  rw [h.combat, h.phase, h.active, hs, hp, hw, (h.cardDef_face wid).1, h.activatedThisTurn]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canDefendWith s link p id`. -/
 theorem HiddenEquiv.canDefendWith_eq {p : PlayerId} {s1 s2 : GameState}
@@ -482,7 +484,8 @@ theorem reorder_deck_noninterference {s : GameState} (p q : PlayerId) {l : List 
   have heq : HiddenEquiv p (s.reorder (.player q .deck) l) s :=
     { config := rfl, cards := rfl, objects := rfl, pools := rfl, heroLife := rfl,
       turn := rfl, active := rfl, pending := rfl, turnOrder := rfl, phase := rfl,
-      result := rfl, combat := rfl, tournament := rfl, activeEffects := rfl,
+      result := rfl, combat := rfl, tournament := rfl,
+      activatedThisTurn := rfl, activeEffects := rfl,
       pendingTriggers := rfl,
       visibleZones := fun z hns => by
         have hne : z ≠ .player q .deck := by
@@ -521,7 +524,8 @@ theorem opp_hand_noninterference {s : GameState} {p q : PlayerId} (hne : q ≠ p
   exact
     { config := rfl, cards := rfl, objects := rfl, pools := rfl, heroLife := rfl,
       turn := rfl, active := rfl, pending := rfl, turnOrder := rfl, phase := rfl,
-      result := rfl, combat := rfl, tournament := rfl, activeEffects := rfl,
+      result := rfl, combat := rfl, tournament := rfl,
+      activatedThisTurn := rfl, activeEffects := rfl,
       pendingTriggers := rfl,
       visibleZones := fun z hns => by
         have hnez : z ≠ .player q .hand := by

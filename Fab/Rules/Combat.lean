@@ -42,6 +42,19 @@ def captureLki (s : GameState) (id : ObjId) (fallbackOwner : PlayerId) : LkiSnap
           minusDefenseCounters := o.minusDefenseCounters,
           plusPowerCounters := o.plusPowerCounters }
 
+/-- Apply the active weapon's self-scoped static power to its live characteristics (CR 1.4.3a). -/
+def weaponStaticPower (s : GameState) (source : ObjId) (chars : DerivedChars) (power : Int) : Int :=
+  if (s.obj? source).any (·.faceDown) || chars.abilitiesLost || chars.powerLocked then power
+  else
+    let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+    abilities.foldl (fun total ability =>
+      match ability with
+      | .static_ cond scope (.addPower amount) =>
+        if scope.isSelf && (cond.map (evalCondition s chars.controller source false)).getD true then
+          total + evalNumExpr s chars.controller [] amount
+        else total
+      | _ => total) power
+
 /-- Effective power `{p}` of an object on the board via the 8-stage continuous-effect evaluator
 (including `+1{p}` counters) (CR 2.7, 6.3.2). -/
 def objEffectivePower (s : GameState) (id : ObjId) : Option Int :=
@@ -50,11 +63,16 @@ def objEffectivePower (s : GameState) (id : ObjId) : Option Int :=
   | some o =>
     match o.kind with
     | .attackProxy source (some lki) =>
-      ((s.characteristics source).bind (·.power)).orElse fun _ =>
-        lki.power.map (· + Int.ofNat lki.plusPowerCounters)
+      let live := do
+        let chars ← s.characteristics source
+        let power ← chars.power
+        return weaponStaticPower s source chars power
+      live.orElse fun _ => lki.power.map (· + Int.ofNat lki.plusPowerCounters)
     | _ => do
       let chars ← s.characteristics id
       let power ← chars.power
+      if (s.locate id).any (fun | .player _ .weapon => true | _ => false) then
+        return weaponStaticPower s id chars power
       if o.faceDown || chars.abilitiesLost || chars.powerLocked || s.locate id != some .combatChain then
         return power
       let link := s.combat.bind fun chain => chain.links.find? (·.attack == some id)
@@ -176,15 +194,24 @@ def canDefendWith (s : GameState) (link : ChainLink) (p : PlayerId) (id : ObjId)
         else
           true
 
-/-- Extract the resource cost of a weapon's primary `weaponAttack` activated ability (defaulting
-to `{ actionPoints := 1 }` if none is explicitly defined). -/
+/-- Read the index, use limit and cost of the weapon's attack ability (CR 5.2.2, 8.3.1). -/
+def weaponAttackSpec? (c : CardDef) : Option (Nat × Bool × AssetCost) :=
+  c.front.abilities.zipIdx.findSome? fun (ability, index) =>
+    match ability with
+    | .activated .action once cost _ _ _ ed =>
+      if ed.body == .prim .weaponAttack then
+        some (index, once, { cost with actionPoints := max cost.actionPoints 1 })
+      else none
+    | _ => none
+
+/-- Read the weapon's attack cost, falling back to the standard action point. -/
 def weaponAttackCost (c : CardDef) : AssetCost :=
-  match c.front.abilities.find? fun
-    | .activated .action _ _ _ _ _ ed => ed.body == .prim .weaponAttack
-    | _ => false with
-  | some (.activated _ _ cost _ _ _ _) =>
-    { cost with actionPoints := max cost.actionPoints 1 }
-  | _ => { actionPoints := 1 }
+  ((weaponAttackSpec? c).map fun (_, _, cost) => cost).getD { actionPoints := 1 }
+
+/-- The ability index that a successful activation uses up for this turn. -/
+def limitedWeaponAttackIndex? (c : CardDef) : Option Nat := do
+  let (index, once, _) ← weaponAttackSpec? c
+  if once then some index else none
 
 /-- Whether player `p` may activate a weapon attack with `weaponId` while holding priority
 (CR 1.4.3, 7.1, 7.6): must be `p`'s Action Phase, empty stack, combat chain either closed or in
@@ -201,7 +228,9 @@ def canAttackWithWeapon (s : GameState) (p : PlayerId) (weaponId : ObjId) : Bool
   1 ≤ (s.poolOf p).actionPoints &&
   (weaponId ∈ s.zone (.player p .weapon)) &&
   match s.cardDefOf? weaponId with
-  | some c => c.isWeapon
+  | some c =>
+    c.isWeapon &&
+      !((limitedWeaponAttackIndex? c).any fun index => s.activatedThisTurn.contains (weaponId, index))
   | none => false
 
 /-- Return an Arena equipment card `id` from `Zone.combatChain` during Close Step (CR 7.7),

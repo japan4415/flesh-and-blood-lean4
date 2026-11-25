@@ -1143,6 +1143,54 @@ meta def checkSeismicSurge : Option Bool := do
 
 #guard checkSeismicSurge == some true
 
+/-- Anothos tracks its own activation, and its proxy sees cards pitched during the reaction step. -/
+meta def checkAnothos : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_040"⟩
+  let card ← m5Base.cards.find? cid
+  let funded := m5Base.setPool player { actionPoints := 2, resources := 3 }
+  let (armed, weapon) ← cPlace funded player .weapon cid
+  let (withCheap, _) ← cPlace armed player .pitch ⟨"WTR_203_R"⟩
+  let (withQualifying, _) ← cPlace withCheap player .pitch ⟨"WTR_189_Y"⟩
+  let (withReaction, overpower) ← cPlace withQualifying player .hand ⟨"WTR_123_R"⟩
+  let (ready, pitchCard) ← cPlace withReaction player .hand ⟨"WTR_190_B"⟩
+  let (twoQualifying, _) ← cPlace ready player .pitch ⟨"WTR_188_R"⟩
+  let swing : Action := ⟨.player player, .attackWeapon weapon⟩
+  let cast : Action := ⟨.player player, .playCard overpower⟩
+  let defendDone : Action := ⟨.player defender, .defendDone⟩
+  let beginAttack (s : GameState) := cSteps s (swing :: (passBoth ++ passBoth))
+  let power (s : GameState) := (s.combat.bind CombatChain.activeLink?).map (linkAttackPower s)
+  let damage (s : GameState) := (s.combat.bind CombatChain.activeLink?).map (·.damageDealt)
+  let poor := ready.setPool player { actionPoints := 2 }
+  let choosing ← cSteps poor [swing]
+  let cancelled ← cSteps choosing [⟨.player player, .cancelPlay⟩]
+  let normal ← beginAttack ready
+  let boosted ← beginAttack twoQualifying
+  let normalHit ← cSteps normal (defendDone :: (passBoth ++ passBoth ++ passBoth))
+  let boostHit ← cSteps boosted (defendDone :: (passBoth ++ passBoth ++ passBoth))
+  let reaction ← cSteps normal (defendDone :: passBoth)
+  let paying ← cSteps reaction [cast]
+  let paid ← cSteps paying [⟨.player player, .pitchCard pitchCard⟩]
+  let overpowerHit ← cSteps paid (passBoth ++ passBoth)
+  let closed ← cSteps normalHit passBoth
+  let refunded := closed.setPool player { actionPoints := 1, resources := 3 }
+  let (reset, _) ← microStep { closed with pending := [.endTurnCleanup player] }
+  let nextTurn := (reset.setPool player { actionPoints := 1, resources := 3 })
+  let nextTurn := { nextTurn with pending := [.priority player 0] }
+  pure (card.status == .full && card.front.power == some 4 &&
+    objEffectivePower ready weapon == some 4 && objEffectivePower twoQualifying weapon == some 6 &&
+    decide (cancelled = poor) && choosing.activatedThisTurn.isEmpty &&
+    normal.activatedThisTurn == [(weapon, 0)] &&
+    (normal.poolOf player).actionPoints == 1 && (normal.poolOf player).resources == 0 &&
+    power normal == some 4 && damage normalHit == some 4 &&
+    power boosted == some 6 && damage boostHit == some 6 &&
+    power paid == some 6 && damage overpowerHit == some 10 &&
+    !(legalActionsFor player refunded).contains swing && (step 64 refunded swing).toOption.isNone &&
+    reset.activatedThisTurn.isEmpty && (legalActionsFor player nextTurn).contains swing)
+
+#guard checkAnothos == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
