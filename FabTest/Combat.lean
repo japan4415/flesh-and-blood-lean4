@@ -1016,6 +1016,98 @@ meta def checkUnmovableAgainstDominate (fromArsenal : Bool) : Option Bool := do
 #guard checkUnmovableAgainstDominate false == some true
 #guard checkUnmovableAgainstDominate true == some true
 
+/-- Shunt deals one point of generic damage as it resolves against a weapon. -/
+meta def checkSteelbladeShunt (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := (m5Base.setPool attacker { actionPoints := 1, resources := 4 }).setPool defender
+    { resources := 1 }
+  let card ← funded.cards.find? cid
+  let (withReaction, reaction) ← cPlace funded defender origin cid fromArsenal
+  let (equipped, weapon) ← cPlace withReaction attacker .weapon ⟨"WTR_115"⟩
+  let (ready, attackCard) ← cPlace equipped attacker .hand ⟨"WTR_188_R"⟩
+  let activeLink := fun (s : GameState) => s.combat.bind CombatChain.activeLink?
+  let toDefend := passBoth ++ passBoth
+  let toOffer := [⟨.player defender, .defendDone⟩] ++ passBoth ++ [⟨.player attacker, .pass⟩]
+  let play : Action := ⟨.player defender, .playCard reaction⟩
+  let resolve := fun (s : GameState) => do
+    let passed ← cSteps s [⟨.player defender, .pass⟩]
+    (step 64 passed ⟨.player attacker, .pass⟩).toOption
+  let defending ← cSteps ready (⟨.player attacker, .attackWeapon weapon⟩ :: toDefend)
+  let offered ← cSteps defending toOffer
+  let paid ← cSteps offered [play]
+  let paidLink ← activeLink paid
+  let (resolved, events) ← resolve paid
+  let link ← activeLink resolved
+  let defendingCard ← link.defending.head?
+  let shuntDamage : Event := .damageDealt attacker .generic 1
+  let damageOutput ← cSteps resolved passBoth
+  let closed ← cSteps damageOutput (passBoth ++ passBoth)
+  let grave := closed.zone (.player defender .graveyard)
+  let (lethal, lethalEvents) ← resolve (paid.setLife attacker 1)
+  let (shielded, _, _) := execPrim paid attacker ⟨0⟩ []
+    (.preventNextDamage .controller (.const 1) .thisTurn)
+  let (prevented, preventedEvents) ← resolve shielded
+  let (cardDefense, cardEvents) ←
+    (cSteps ready (⟨.player attacker, .playCard attackCard⟩ :: (toDefend ++ toOffer ++ [play]))).bind resolve
+  let cardLink ← activeLink cardDefense
+  let cardDamage ← cSteps cardDefense passBoth
+  let nonweapon ← ready.objectFace? attackCard
+  let changeType : ContinuousEffect :=
+    { id := paid.nextTimestamp, timestamp := ⟨paid.nextTimestamp⟩, source := weapon,
+      controller := attacker, target := .obj weapon, duration := .thisChainLink, op := .copyFace nonweapon }
+  let (nonweaponDefense, nonweaponEvents) ← resolve { paid with activeEffects := [changeType] }
+  pure (card.status == .full && card.front.pitch == some pitch &&
+    card.front.defense == some (Int.ofNat defense) &&
+    (step 64 defending ⟨.player defender, .defendCard reaction⟩).toOption.isNone &&
+    (paid.poolOf defender).resources == 0 && paid.lifeOf attacker == 40 && paidLink.defending.isEmpty &&
+    resolved.combat.map (·.step) == some .reaction && link.attackSource == some weapon &&
+    resolved.lifeOf attacker == 39 && resolved.lifeOf defender == 40 &&
+    events.countP (· == shuntDamage) == 1 && link.defending == [defendingCard] &&
+    (resolved.cardDefOf? defendingCard).map (·.id) == some cid &&
+    linkTotalDefense resolved link == defense &&
+    link.defendedFromHandCount == (if fromArsenal then 0 else 1) &&
+    damageOutput.lifeOf defender == 40 && closed.combat.isNone &&
+    grave.map (fun id => (closed.cardDefOf? id).map (·.id)) == [some cid] &&
+    lethal.lifeOf attacker == 0 && lethal.lifeOf defender == 40 &&
+    lethal.result == some (.won [defender]) && (legalActions lethal).isEmpty &&
+    lethalEvents.countP (· == shuntDamage) == 1 &&
+    prevented.lifeOf attacker == 40 && !preventedEvents.contains shuntDamage &&
+    (activeLink prevented).map (linkTotalDefense prevented) == some defense &&
+    cardDefense.lifeOf attacker == 40 && !cardEvents.contains shuntDamage &&
+    linkTotalDefense cardDefense cardLink == defense &&
+    cardDamage.lifeOf defender == 40 - Int.ofNat (7 - defense) &&
+    nonweaponDefense.lifeOf attacker == 40 && !nonweaponEvents.contains shuntDamage &&
+    (activeLink nonweaponDefense).map (linkTotalDefense nonweaponDefense) == some defense)
+
+#guard checkSteelbladeShunt ⟨"WTR_126_R"⟩ 1 6 false == some true
+#guard checkSteelbladeShunt ⟨"WTR_126_R"⟩ 1 6 true == some true
+
+-- The first reaction on the stack fails to resolve if another reaction has already defended Dominate.
+#guard (do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := (m5Base.setPool attacker { actionPoints := 1, resources := 1 }).setPool defender
+    { resources := 1 }
+  let (withWeapon, weapon) ← cPlace funded attacker .weapon ⟨"WTR_115"⟩
+  let (withShunt, shunt) ← cPlace withWeapon defender .hand ⟨"WTR_126_R"⟩
+  let (ready, sink) ← cPlace withShunt defender .hand ⟨"WTR_217_B"⟩
+  let defending ← cSteps ready ([⟨.player attacker, .attackWeapon weapon⟩] ++ passBoth ++ passBoth)
+  let combat := defending.combat.map fun cc =>
+    cc.updateActiveLink fun link => { link with grantedKeywords := [.dominate] }
+  let dominated := { defending with combat := combat }
+  let stacked ← cSteps dominated ([⟨.player defender, .defendDone⟩] ++ passBoth ++
+    [⟨.player attacker, .pass⟩, ⟨.player defender, .playCard shunt⟩, ⟨.player defender, .playCard sink⟩])
+  let upperResolved ← cSteps stacked [⟨.player defender, .pass⟩, ⟨.player attacker, .pass⟩]
+  let resolved ← cSteps upperResolved passBoth
+  let link ← resolved.combat.bind CombatChain.activeLink?
+  let grave := resolved.zone (.player defender .graveyard)
+  pure (resolved.lifeOf attacker == 40 && linkTotalDefense resolved link == 2 &&
+    grave.map (fun id => (resolved.cardDefOf? id).map (·.id)) == [some ⟨"WTR_126_R"⟩]) :
+    Option Bool) == some true
+
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
