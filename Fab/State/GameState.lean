@@ -67,6 +67,8 @@ structure LayerInfo where
   activationPayment : Option ActivationPayment := none
   /-- Whether to include the optional resources when paying for this layer (CR 5.1.5). -/
   payAdditionalResources : Bool := false
+  /-- Selected graveyard card, held until the play pays its assets (CR 5.1.6, 5.1.9). -/
+  graveyardCost : Option ObjId := none
   /-- Whether the optional additional cost has actually been paid (CR 5.1.9). -/
   additionalCostPaid : Bool := false
   /-- Face of the last card discarded to pay for this layer (CR 5.1.9). -/

@@ -58,6 +58,10 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
   | .chooseOptionalResources p _ _ _ _ _ :: _, .player q, .pickMay _
   | .chooseOptionalResources p _ _ _ _ _ :: _, .player q, .cancelPlay =>
     q = p
+  | .chooseGraveyardCost p _ _ _ _ candidates :: _, .player q, .pickGraveyardCost choice =>
+    q = p ∧ choice.all candidates.contains = true
+  | .chooseGraveyardCost p _ _ _ _ _ :: _, .player q, .cancelPlay =>
+    q = p
   | .chooseHandCardCost p _ _ _ cost :: _, .player q, .pickHandCostCard id =>
     q = p ∧ canPickHandCostCard s p cost id = true
   | .chooseHandCardCost p _ _ _ _ :: _, .player q, .cancelPlay =>

@@ -660,20 +660,34 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
           cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
       · split at h
         · split at h
-          · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-            exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
-          · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          · split at h
+            · rename_i moved id hm
+              cases h
+              have hmove := moveObj_ttr_core hm
+              exact timeLimitBounded_of_eq hb (hmove.1.trans hs1.1) (hmove.2.1.trans hs1.2.1)
+                (fun hr => (hmove.2.2.trans hs1.2.2) ▸ hr)
+            · cases h
+              unfold rollbackPlay
+              cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
+          · cases h
             unfold rollbackPlay
             cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
         · split at h
-          · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-            exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
           · split at h
             · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
               exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
             · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
               unfold rollbackPlay
               cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
+          · split at h
+            · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+              exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
+            · split at h
+              · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+                exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
+              · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+                unfold rollbackPlay
+                cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
     · split at h
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact timeLimitBounded_of_eq hb rfl rfl id
@@ -1077,6 +1091,17 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
     split at h
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       unfold rollbackPlay; cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
+    · cases h
+  · -- chooseGraveyardCost pickGraveyardCost
+    split at h
+    · cases h
+      exact ⟨rfl, rfl, rfl⟩
+    · cases h
+  · -- chooseGraveyardCost cancelPlay
+    split at h
+    · cases h
+      unfold rollbackPlay
+      cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
     · cases h
   · -- chooseHandCardCost pickHandCostCard
     split at h

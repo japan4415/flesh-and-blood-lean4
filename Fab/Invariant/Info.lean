@@ -538,6 +538,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                 intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
               rw [hnil, hnil]
           | chooseOptionalResources _ _ _ _ _ _ => rfl
+          | chooseGraveyardCost _ _ _ _ _ _ => rfl
           | chooseHandCardCost q _ _ _ cost =>
             dsimp only
             by_cases hqp : q = p

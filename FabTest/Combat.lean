@@ -4149,6 +4149,61 @@ meta def checkRout : Option Bool := do
 
 #guard checkRout == some true
 
+/-- Optional graveyard costs bind a specific public card before pitching and pay only on success. -/
+meta def checkNimbleStrike (cid : CardId) (pitch power : Nat) (fromArsenal : Bool) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let graveyard := Zone.player player .graveyard
+  let banished := Zone.player player .banished
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let card ← m5Base.cards.find? cid
+  let (withStrike, strike) ← cPlace m5Base player origin cid fromArsenal
+  let (withDiscard, inHand) ← cPlace withStrike player .hand ⟨"WTR_220_B"⟩
+  let (withOpposing, opposing) ← cPlace withDiscard opponent .graveyard ⟨"WTR_218_R"⟩
+  let (withWrong, wrong) ← cPlace withOpposing player .graveyard ⟨"WTR_188_R"⟩
+  let (withFirst, first) ← cPlace withWrong player .graveyard ⟨"WTR_218_R"⟩
+  let (ready, second) ← cPlace withFirst player .graveyard ⟨"WTR_219_Y"⟩
+  let (withPitch, pitchId) ← cPlace ready player .hand ⟨"WTR_205_B"⟩
+  let play : Action := ⟨.player player, .playCard strike⟩
+  let pick (choice : Option ObjId) : Action := ⟨.player player, .pickGraveyardCost choice⟩
+  let cancel : Action := ⟨.player player, .cancelPlay⟩
+  let funded (s : GameState) := s.setPool player { actionPoints := 1, resources := 1 }
+  let decision ← cSteps withPitch [play]
+  let atPitch ← cSteps decision [pick (some first)]
+  let rolledBack ← cSteps atPitch [cancel]
+  let (cannotPay, _) ← moveObj ready inHand (.player player .deck) .top false
+  let failed ← cSteps cannotPay [play, pick (some first)]
+  let declined ← cSteps (funded ready) [play, pick none]
+  let noChoice ← cSteps (funded withWrong) [play]
+  let (paid, events) ← (step 64 atPitch ⟨.player player, .pitchCard pitchId⟩).toOption
+  let paidId ← (paid.zone banished).head?
+  let effectAttack (s : GameState) := cSteps s (passBoth ++ passBoth ++ [⟨.player opponent, .defendDone⟩] ++
+    passBoth ++ passBoth ++ passBoth)
+  let paidDamage ← effectAttack paid
+  let declinedDamage ← effectAttack declined
+  let noChoiceDamage ← effectAttack noChoice
+  let link ← paidDamage.combat.bind CombatChain.activeLink?
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 2 &&
+    (legalActionsFor player decision).contains (pick (some first)) &&
+    (legalActionsFor player decision).contains (pick (some second)) &&
+    (step 64 decision (pick (some wrong))).toOption.isNone &&
+    (step 64 decision (pick (some inHand))).toOption.isNone &&
+    (step 64 decision (pick (some opposing))).toOption.isNone &&
+    atPitch.zone graveyard == ready.zone graveyard && (atPitch.zone banished).isEmpty &&
+    decide (rolledBack = withPitch) && decide (failed = cannotPay) && paid.zone graveyard == [second, wrong] &&
+    events.contains (.moved first paidId graveyard banished) && events.contains (.banished player paidId false) &&
+    (paid.cardDefOf? paidId).map (·.id) == some ⟨"WTR_218_R"⟩ &&
+    (paid.poolOf player).resources == 2 && link.additionalCostPaid && link.powerBonus == 1 &&
+    link.damageDealt == power + 1 && linkHasKeyword paidDamage link .goAgain &&
+    (paidDamage.poolOf player).actionPoints == 1 &&
+    declined.zone graveyard == ready.zone graveyard && (declined.zone banished).isEmpty &&
+    (declinedDamage.poolOf player).actionPoints == 0 && (noChoiceDamage.poolOf player).actionPoints == 0 &&
+    declinedDamage.lifeOf opponent == 40 - Int.ofNat power &&
+    noChoiceDamage.lifeOf opponent == 40 - Int.ofNat power)
+
+#guard checkNimbleStrike ⟨"WTR_185_R"⟩ 1 4 false == some true
+#guard checkNimbleStrike ⟨"WTR_185_R"⟩ 1 4 true == some true
+
 /-- Shunt deals one point of generic damage as it resolves against a weapon. -/
 meta def checkSteelbladeShunt (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool) :
     Option Bool := do

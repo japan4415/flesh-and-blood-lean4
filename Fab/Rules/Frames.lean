@@ -414,12 +414,17 @@ def cardResolveEffect (c : CardDef) (modeIdx : Option Nat) : Effect :=
       | none => ed.body
     | none => ed.body
 
-/-- Offer an optional resource cost once targets have been declared (CR 5.1.5). -/
+/-- Declare supported optional costs before asset payment (CR 5.1.3, 5.1.6). -/
 def cardPaymentFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (cost : AssetCost) : Frame :=
   match (s.cardDefOf? layerId).bind (·.front.playEffect) with
   | some { extraCosts := [{ cost := .payResources extra, optional := true, cond := none }], .. } =>
     .chooseOptionalResources p layerId fromArsenal modeIdx cost extra
+  | some { extraCosts := [{ cost := .banishFromGraveyard filter 1, optional := true, cond := none }], .. } =>
+    let candidates := (s.zone (.player p .graveyard)).filter fun id =>
+      (s.objectFace? id).any (cardFaceMatches filter)
+    if candidates.isEmpty then .playPayCost p layerId fromArsenal modeIdx cost
+    else .chooseGraveyardCost p layerId fromArsenal modeIdx cost candidates
   | _ => .playPayCost p layerId fromArsenal modeIdx cost
 
 /-- Select target declaration or cost payment after any required mode has been chosen (CR 5.1.4a). -/
@@ -879,7 +884,8 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       modeIdx := modeIdx
       heroTarget := (s.layerMeta.get? layerId.n).bind (·.heroTarget)
       attackTarget := (s.layerMeta.get? layerId.n).bind (·.attackTarget)
-      additionalCostPaid := (s.layerMeta.get? layerId.n).any (·.payAdditionalResources)
+      additionalCostPaid := (s.layerMeta.get? layerId.n).any
+        (fun info => info.payAdditionalResources || info.additionalCostPaid)
       discardedForPlay := discarded
       attackAbilities :=
         (modeOnAttack.map fun body => Ability.triggered .onAttack false none none { body := body }).toList
@@ -1269,6 +1275,16 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       none
   | .chooseOptionalResources p _ _ _ _ _ :: rest, .player q, .cancelPlay =>
     if p = q then some (rollbackPlay s rest, []) else none
+  | .chooseGraveyardCost p layerId fromArsenal modeIdx cost candidates :: rest, .player q,
+      .pickGraveyardCost choice =>
+    if p = q ∧ choice.all candidates.contains = true then
+      let info := s.layerMeta.getD layerId.n { controller := p }
+      some ({ s with
+        layerMeta := s.layerMeta.insert layerId.n { info with graveyardCost := choice }
+        pending := .playPayCost p layerId fromArsenal modeIdx cost :: rest }, [])
+    else none
+  | .chooseGraveyardCost p _ _ _ _ _ :: rest, .player q, .cancelPlay =>
+    if p = q then some (rollbackPlay s rest, []) else none
   | .chooseHandCardCost p layerId fromArsenal modeIdx cost :: rest, .player q, .pickHandCostCard id =>
     if p = q ∧ canPickHandCostCard s p cost id = true then
       match cost with
@@ -1512,6 +1528,19 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         match finishPaidActivation s1 p layerId payment rest with
         | some finished => some finished
         | none => some (rollbackPlay s rest, [])
+      else if let some selected := (s.layerMeta.get? layerId.n).bind (·.graveyardCost) then
+        let graveyard := Zone.player p .graveyard
+        let banished := Zone.player p .banished
+        if s1.locate selected == some graveyard then
+          match moveObj s1 selected banished .top false with
+          | some (moved, id) =>
+            let info := moved.layerMeta.getD layerId.n { controller := p }
+            let layerMeta := moved.layerMeta.insert layerId.n { info with additionalCostPaid := true }
+            let paid := { moved with layerMeta := layerMeta }
+            some (finishPaidPlay paid p layerId fromArsenal modeIdx rest,
+              [.moved selected id graveyard banished, .banished p id false])
+          | none => some (rollbackPlay s rest, [])
+        else some (rollbackPlay s rest, [])
       else
       match cardPlayHandCost? s layerId with
       | some handCost =>

@@ -94,6 +94,7 @@ theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : O
     {fromArsenal : Bool} {modeIdx : Option Nat} {cost : AssetCost} {rest : List Frame}
     (hp : s.pending = .playPayCost p layerId fromArsenal modeIdx cost :: rest)
     (hcard : (s.layerMeta.get? layerId.n).bind (·.activationPayment) = none)
+    (hgrave : (s.layerMeta.get? layerId.n).bind (·.graveyardCost) = none)
     (hpay : (s.poolOf p).canPay cost) (hhand : cardPlayHandCost? s layerId = none)
     (hdiscard : cardPlayRandomDiscardCost s layerId = 0) :
     ∃ s' es, microStep s = some (s', es) ∧
@@ -124,7 +125,7 @@ theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : O
   rw [hp]
   dsimp only
   rw [hspend]
-  simp only [hcard, hhand, hdiscard, ↓reduceIte]
+  simp only [hcard, hgrave, hhand, hdiscard, ↓reduceIte]
   refine ⟨_, [], rfl, ?_, rfl, ?_, ?_⟩
   · unfold finishPaidPlay
     dsimp only
@@ -245,6 +246,9 @@ theorem progress_m4_decisions {s : GameState} (hres : s.result = none) :
     (∀ p lid fa mi cost extra rest,
       s.pending = .chooseOptionalResources p lid fa mi cost extra :: rest →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
+    (∀ p lid fa mi cost candidates rest,
+      s.pending = .chooseGraveyardCost p lid fa mi cost candidates :: rest →
+      ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ p lid fa mi cost rest, s.pending = .chooseHandCardCost p lid fa mi cost :: rest →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ ctrl src fa env b i rest, s.pending = .chooseMay ctrl src fa env b i :: rest →
@@ -259,7 +263,7 @@ theorem progress_m4_decisions {s : GameState} (hres : s.result = none) :
     (∀ ctrl src fa env bv br ct rest,
       s.pending = .chanceDie6 ctrl src fa env bv br ct :: rest →
       ∃ a, Legal s a ∧ a.actor = .chance) := by
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro p lid fa mc cost rest hp
     refine ⟨⟨.player p, .cancelPlay⟩, ?_, by simp⟩
     rw [legalActions_iff]
@@ -270,6 +274,10 @@ theorem progress_m4_decisions {s : GameState} (hres : s.result = none) :
     exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩
   · intro p lid fa mi cost extra rest hp
     refine ⟨⟨.player p, .pickMay false⟩, ?_, by simp⟩
+    rw [legalActions_iff]
+    exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩
+  · intro p lid fa mi cost candidates rest hp
+    refine ⟨⟨.player p, .pickGraveyardCost none⟩, ?_, by simp⟩
     rw [legalActions_iff]
     exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩
   · intro p lid fa mi cost rest hp
