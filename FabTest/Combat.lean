@@ -734,6 +734,58 @@ meta def checkBreakneckBattery (cid : CardId) (pitch power : Nat) (fromArsenal :
 #guard checkBreakneckBattery ⟨"WTR_013_B"⟩ 3 4 false == some true
 #guard checkBreakneckBattery ⟨"WTR_013_B"⟩ 3 4 true == some true
 
+/-- Savage Feast stacks its conditional draw when it attacks and before defense. -/
+meta def checkSavageFeast (cid : CardId) (pitch power : Nat) (fromArsenal : Bool) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player attacker .hand
+  let deck := Zone.player attacker .deck
+  let grave := Zone.player attacker .graveyard
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 1 }
+  let card ← funded.cards.find? cid
+  let (withFeast, feast) ← cPlace funded attacker origin cid fromArsenal
+  let (withHigh, high) ← cPlace withFeast attacker .hand ⟨"WTR_189_Y"⟩
+  let (withLow, low) ← cPlace withHigh attacker .hand ⟨"WTR_190_B"⟩
+  let (withBottom, bottom) ← cPlace withLow attacker .deck ⟨"WTR_204_Y"⟩
+  let (ready, top) ← cPlace withBottom attacker .deck ⟨"WTR_203_R"⟩
+  let paying ← cSteps ready [⟨.player attacker, .playCard feast⟩]
+  let layer ← (paying.zone .stack).head?
+  let paidHigh ← cSteps paying [⟨.chance, .shuffleOrder [high, low]⟩]
+  let paidLow ← cSteps paying [⟨.chance, .shuffleOrder [low, high]⟩]
+  let highDiscard ← (paidHigh.zone grave).head?
+  let (movedHigh, _) ← moveObj paidHigh highDiscard (.player attacker .banished) .top false
+  let (otherDiscard, _, _) := execPrim paidLow attacker layer [] (.discardHandPrefix 1)
+  let highAttack ← cSteps movedHigh passBoth
+  let highLink ← highAttack.combat.bind CombatChain.activeLink?
+  let lowAttack ← cSteps otherDiscard passBoth
+  let trigger ← highAttack.pendingTriggers.head?
+  let stacked ← cSteps highAttack [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩, ⟨.player attacker, .pass⟩]
+  let (drawn, events) ← (step 64 stacked ⟨.player defender, .pass⟩).toOption
+  let drawnId ← (drawn.zone hand).head?
+  let finish := passBoth ++ [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let highHit ← cSteps drawn finish
+  let lowHit ← cSteps lowAttack finish
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    paying.pending.head? == some (.chanceShuffle hand) &&
+    (paying.poolOf attacker).actionPoints == 0 && (paying.poolOf attacker).resources == 0 &&
+    paidHigh.zone hand == [low] && paidLow.zone hand == [high] &&
+    paidHigh.pendingTriggers.isEmpty && paidLow.pendingTriggers.isEmpty &&
+    highAttack.combat.map (·.step) == some .attack && lowAttack.combat.map (·.step) == some .attack &&
+    highAttack.pendingTriggers.length == 1 && lowAttack.pendingTriggers.isEmpty &&
+    trigger.fromArsenal == fromArsenal && some trigger.source == highLink.attack &&
+    highAttack.zone deck == [top, bottom] && stacked.zone deck == [top, bottom] &&
+    drawn.zone deck == [bottom] && drawn.zone hand == [drawnId, low] &&
+    (drawn.obj? drawnId).map (·.kind) == (ready.obj? top).map (·.kind) &&
+    events.countP (· == .drawn attacker drawnId) == 1 &&
+    highHit.zone deck == [bottom] && lowHit.zone deck == [top, bottom] &&
+    highHit.lifeOf defender == 40 - Int.ofNat power && lowHit.lifeOf defender == highHit.lifeOf defender &&
+    (highHit.poolOf attacker).actionPoints == 0 && (lowHit.poolOf attacker).actionPoints == 0)
+
+#guard checkSavageFeast ⟨"WTR_014_R"⟩ 1 6 false == some true
+#guard checkSavageFeast ⟨"WTR_014_R"⟩ 1 6 true == some true
+
 /-- A weapon gets Go Again only when its granted hit trigger resolves. -/
 meta def checkWarriorsValor (cid : CardId) (pitch bonus : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
