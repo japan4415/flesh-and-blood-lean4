@@ -267,6 +267,7 @@ meta def checkGoAgainAttack (cid : CardId) (cost power : Nat) : Option Bool := d
 #guard checkGoAgainAttack ⟨"WTR_102_Y"⟩ 1 3 == some true
 #guard checkGoAgainAttack ⟨"WTR_103_B"⟩ 1 2 == some true
 #guard checkGoAgainAttack ⟨"WTR_098_R"⟩ 0 3 == some true
+#guard checkGoAgainAttack ⟨"WTR_099_Y"⟩ 0 2 == some true
 
 /-- Run Snatch's hit, full block, and full prevention cases through the combat engine. -/
 meta def checkSnatch (cid : CardId) (power : Nat) : Option Bool := do
