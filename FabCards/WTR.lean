@@ -189,8 +189,8 @@ def awakeningBellow (base : CardDef) (bonus : Int) : CardDef :=
 
 /-- Awakening Bellow Red. -/
 def WTR_032_R : CardDef := { awakeningBellow WTR_032_R_meta 3 with status := .full }
-/-- Awakening Bellow Yellow (drafted IR). -/
-def WTR_033_Y : CardDef := awakeningBellow WTR_033_Y_meta 2
+/-- Awakening Bellow Yellow. -/
+def WTR_033_Y : CardDef := { awakeningBellow WTR_033_Y_meta 2 with status := .full }
 /-- Awakening Bellow Blue (drafted IR). -/
 def WTR_034_B : CardDef := awakeningBellow WTR_034_B_meta 1
 
