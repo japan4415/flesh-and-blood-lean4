@@ -413,6 +413,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
           | chooseReplacement _ _ _ _ => rfl
           | chanceFirstPlayer | revealLoadouts | chanceShuffle _ | openingDraws | draw _ _
           | beginTurn | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _
+          | finishPlay _ _ _ _
           | resolveStack | finishResolve _ | combatStep _ _ | gameStateProcess | run _ _ _ _ _
           | chanceDie6 _ _ _ _ _ _ _ | optStep _ _ | endPhaseStart _ | endPhaseArsenal _ | returnPitch _
           | endTurnCleanup _ | flushTriggers => rfl

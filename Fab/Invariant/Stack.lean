@@ -85,14 +85,15 @@ theorem playCard_pushes_stack_top {s s1 sOut : GameState} {p : PlayerId} {passCo
         simp [GameState.zone, GameState.setZone, Pos.insert, Zone.normalize]
   · cases hm
 
-/-- **I9** (priority retention & no over-pitching): when `p`'s pool can already pay `cost`,
+/-- **I9** (priority retention & no over-pitching): when `p`'s pool can already pay `cost`
+and the layer has no random-discard cost,
 `playPayCost` spends the cost immediately without prompting `choosePitch`, clears `playRollback`,
 and retains priority for `p` with `passCount = 0` after any on-play triggers are stacked
 (CR 1.14.3b, 5.1.1i, 6.6.6). -/
 theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : ObjId}
     {fromArsenal : Bool} {modeIdx : Option Nat} {cost : AssetCost} {rest : List Frame}
     (hp : s.pending = .playPayCost p layerId fromArsenal modeIdx cost :: rest)
-    (hpay : (s.poolOf p).canPay cost) :
+    (hpay : (s.poolOf p).canPay cost) (hdiscard : cardPlayRandomDiscardCost s layerId = 0) :
     ∃ s' es, microStep s = some (s', es) ∧
       (s'.pending = .priority p 0 :: rest ∨ s'.pending = .flushTriggers :: .priority p 0 :: rest) ∧
       s'.playRollback = none ∧
@@ -121,9 +122,11 @@ theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : O
   rw [hp]
   dsimp only
   rw [hspend]
-  dsimp only
+  simp only [hdiscard, ↓reduceIte]
   refine ⟨_, [], rfl, ?_, rfl, ?_, ?_⟩
-  · split <;> simp
+  · unfold finishPaidPlay
+    dsimp only
+    split <;> simp
   · change ((s.setPool p pool').poolOf p).actionPoints + cost.actionPoints = _
     rw [GameState.poolOf_setPool_self]
     exact hacc.1

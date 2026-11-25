@@ -540,6 +540,37 @@ def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo
         | _ => (layer, effect :: rest)
       else (layer, effect :: rest)) (info, [])
 
+/-- Read a single unconditional, mandatory random-discard cost (CR 5.1.8, 5.1.9). -/
+def cardPlayRandomDiscardCost (s : GameState) (layerId : ObjId) : Nat :=
+  match (s.cardDefOf? layerId).bind (·.front.playEffect) with
+  | some { extraCosts := [{ cost := .discardRandom count, optional := false, cond := none }], .. } =>
+    count
+  | _ => 0
+
+/-- Finalize a paid layer, then stack its play triggers and return priority (CR 5.1.10, 6.6.6). -/
+def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
+    (modeIdx : Option Nat) (rest : List Frame) : GameState :=
+  let hasGoAgain :=
+    match s.cardDefOf? layerId with
+    | some c => c.front.keywords.contains .goAgain && !c.front.hasSubtype .attack
+    | none => false
+  let info : LayerInfo :=
+    { controller := p
+      fromArsenal := fromArsenal
+      modeIdx := modeIdx
+      heroTarget := (s.layerMeta.get? layerId.n).bind (·.heroTarget)
+      goAgain := hasGoAgain }
+  let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
+  let triggers := playedCardTriggers s layerId p fromArsenal
+  let flush := if triggers.isEmpty then [] else [.flushTriggers]
+  { s with
+    layerMeta := s.layerMeta.insert layerId.n updatedInfo
+    activeEffects := remainingEffects
+    playRollback := none
+    pendingTriggers := s.pendingTriggers ++ triggers
+    nextTimestamp := s.nextTimestamp + triggers.length
+    pending := flush ++ (.priority p 0 :: rest) }
+
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
   match s.pending, a.actor, a.kind with
@@ -875,32 +906,23 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .playPayCost p layerId fromArsenal modeIdx cost :: rest =>
     match spendAssetCost s p cost with
     | some s1 =>
-      let hasGoAgain :=
-        match s1.cardDefOf? layerId with
-        | some c => c.front.keywords.contains .goAgain && !c.front.hasSubtype .attack
-        | none => false
-      let info : LayerInfo :=
-        { controller := p
-          fromArsenal := fromArsenal
-          modeIdx := modeIdx
-          heroTarget := (s1.layerMeta.get? layerId.n).bind (·.heroTarget)
-          goAgain := hasGoAgain }
-      let (updatedInfo, remainingEffects) := consumeNextAttackEffects s1 layerId info
-      let triggers := playedCardTriggers s1 layerId p fromArsenal
-      let flush := if triggers.isEmpty then [] else [.flushTriggers]
-      some ({ s1 with
-                layerMeta := s1.layerMeta.insert layerId.n updatedInfo
-                activeEffects := remainingEffects
-                playRollback := none
-                pendingTriggers := s1.pendingTriggers ++ triggers
-                nextTimestamp := s1.nextTimestamp + triggers.length
-                pending := flush ++ (.priority p 0 :: rest) },
-            [])
+      let count := cardPlayRandomDiscardCost s layerId
+      if count = 0 then
+        some (finishPaidPlay s1 p layerId fromArsenal modeIdx rest, [])
+      else if count ≤ (s1.zone (.player p .hand)).length then
+        let discard := Effect.prim (.discardRandom .controller (.const (Int.ofNat count)))
+        let next := [.run p layerId fromArsenal [] [discard],
+          .finishPlay p layerId fromArsenal modeIdx]
+        some ({ s1 with pending := next ++ rest }, [])
+      else
+        some (rollbackPlay s rest, [])
     | none =>
       if canPitchForCost s p cost then
         some ({ s with pending := .choosePitch p layerId fromArsenal modeIdx cost :: rest }, [])
       else
         some (rollbackPlay s rest, [])
+  | .finishPlay p layerId fromArsenal modeIdx :: rest =>
+    some (finishPaidPlay s p layerId fromArsenal modeIdx rest, [])
   | .resolveStack :: rest =>
     match s.zone .stack with
     | topId :: _ =>

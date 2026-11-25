@@ -599,15 +599,26 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
   · -- playPayCost
     split at h
     · rename_i s1 hsp
-      simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       have hs1 := spendAssetCost_ttr hsp
-      exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
+      dsimp only at h
+      split at h
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
+      · split at h
+        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
+        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          unfold rollbackPlay
+          cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
     · split at h
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact timeLimitBounded_of_eq hb rfl rfl id
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         unfold rollbackPlay
         cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
+  · -- finishPlay
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact timeLimitBounded_of_eq hb rfl rfl id
   · -- resolveStack
     split at h
     · split at h <;>
