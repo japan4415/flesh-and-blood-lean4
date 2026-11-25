@@ -851,17 +851,20 @@ def hitWeapon? (s : GameState) (link : ChainLink) : Option ObjId := do
   let source ← link.attackSource
   if (s.characteristics source).any (·.types.contains .weapon) then some source else none
 
+/-- Abilities granted to this exact attack card or weapon by a continuous effect. -/
+def grantedAttackAbilities (s : GameState) (source : ObjId) : List Ability :=
+  s.activeEffects.filterMap fun effect =>
+    match effect.target, effect.op with
+    | .obj id, .grantAttackAbility ability => if id == source then some ability else none
+    | _, _ => none
+
 /-- Collect hit triggers on the source weapon, including exact per-turn hit ordinals (CR 6.6.5d). -/
 def weaponHitTriggers (s : GameState) (link : ChainLink) : List (PendingTrigger × Bool) :=
   match hitWeapon? s link with
   | some source =>
     if (s.obj? source).any (·.faceDown) || (s.characteristics source).any (·.abilitiesLost) then [] else
       let printed := ((s.objectFace? source).map (·.abilities)).getD []
-      let granted := s.activeEffects.filterMap fun effect =>
-        match effect.target, effect.op with
-        | .obj id, .grantAttackAbility ability => if id == source then some ability else none
-        | _, _ => none
-      let abilities := printed ++ granted
+      let abilities := printed ++ grantedAttackAbilities s source
       let count := s.weaponHitsThisTurn.count source
       matchingCardTriggers s source link.attacker false abilities
         (fun trigger cond =>
@@ -875,7 +878,8 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
   | none => []
   | some source =>
     let printed := ((s.objectFace? source).map (·.abilities)).getD []
-    let triggers := collectCardTriggers s source link.attacker false (printed ++ link.grantedAbilities)
+    let abilities := printed ++ link.grantedAbilities ++ grantedAttackAbilities s source
+    let triggers := collectCardTriggers s source link.attacker false abilities
       (damageRecipient := some link.defender) fun trigger cond =>
         let matchesEvent := match trigger with
           | .onHit | .onHitHero => link.hit
@@ -1188,12 +1192,12 @@ def activationResolution? (s : GameState) (effect : EffectDef) (target : Option 
   match effect.targets, target, effect.body with
   | [], none, body => some (body, none)
   | [spec], some id, .grant (.obj (.slot 0)) mod duration =>
-    if (duration == .thisTurn || duration == .thisChainLink) &&
-        spec.minCount == 1 && spec.maxCount == some 1 && matchesActivationTarget s spec id then
-      match mod with
-      | .addPower _ | .grantKeyword _ =>
-        some (.grant (.paidAttack id) mod duration, some (spec, id))
-      | _ => none
+    let supported := match mod with
+      | .addPower _ | .grantKeyword _ => duration == .thisTurn || duration == .thisChainLink
+      | .grantTrigger .onHit _ _ => spec.kind == .attackAction && duration == .thisCombatChain
+      | _ => false
+    if supported && spec.minCount == 1 && spec.maxCount == some 1 && matchesActivationTarget s spec id then
+      some (.grant (.paidAttack id) mod duration, some (spec, id))
     else none
   | _, _, _ => none
 

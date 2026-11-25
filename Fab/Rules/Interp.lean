@@ -1936,7 +1936,8 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | .grantKeyword kw => some (.grantKeyword kw)
       | .grantTrigger trigger cond body =>
         match scope with
-        | .nextAttack _ => some (.grantAttackAbility (.triggered trigger false none cond { body := body }))
+        | .nextAttack _ | .paidAttack _ =>
+          some (.grantAttackAbility (.triggered trigger false none cond { body := body }))
         | .obj (.slot 0) =>
           weaponTarget.map (fun _ => .grantAttackAbility (.triggered trigger false none cond { body := body }))
         | _ => none

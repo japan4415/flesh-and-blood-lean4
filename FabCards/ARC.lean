@@ -165,11 +165,24 @@ def ARC_017_Y : CardDef :=
             { body := .grant .self_ (.grantKeyword (.arcaneBarrier 2)) .thisTurn } ] }
     status := .full }
 
+/-- Cognition Nodes (ARC018). -/
+def ARC_018_B : CardDef :=
+  { Meta.ARC_018_B_meta with
+    front := { Meta.ARC_018_B_meta.front with
+      abilities :=
+        [ loadSteamAbility
+        , .activated .attackReaction true {} [{ cost := .removeCounters .steam 1 }] none false
+            { targets := [{ kind := .attackAction }]
+              body := .grant (.obj (.slot 0))
+                (.grantTrigger .onHit none (.prim (.moveCard .self_ .deck .bottom true)))
+                .thisCombatChain } ] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
    ARC_008_R, ARC_009_Y, ARC_010_R, ARC_011_R, ARC_012_Y, ARC_013_B, ARC_014_R, ARC_015_Y,
-   ARC_016_B, ARC_017_Y]
+   ARC_016_B, ARC_017_Y, ARC_018_B]
 
 end FabCards.ARC
 
