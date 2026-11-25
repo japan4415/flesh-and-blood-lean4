@@ -176,6 +176,8 @@ inductive EffectOp where
   | divPower (divisor : Nat)
   /-- Stage 8 (add): add `delta` to power `{p}` (CR 6.3.2h). -/
   | addPower (delta : Int)
+  /-- Stage 8: add power to the next attack while below the non-equipment defender limit (CR 6.3.2h). -/
+  | addPowerIfFewerDefenders (limit : Nat) (delta : Int)
   /-- Stage 8 (sub): subtract `delta` from power `{p}` (CR 6.3.2h). -/
   | subPower (delta : Nat)
   /-- Stage 8 (add): add `delta` to defense `{d}` (CR 6.3.2h). -/
@@ -201,7 +203,7 @@ def EffectOp.stage : EffectOp → EffectStage
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .stage7BaseNumeric
   | .lockPower | .mulPower _ | .divPower _ | .addPower _ | .subPower _
   | .addDefense _ | .subDefense _ | .addCostRes _ | .subCostRes _
-  | .addIntellect _ => .stage8ModNumeric
+  | .addIntellect _ | .addPowerIfFewerDefenders _ _ => .stage8ModNumeric
 
 /-- Which sub-stage within its stage an `EffectOp` belongs to (CR 6.3.3). -/
 def EffectOp.subStage : EffectOp → SubStage
@@ -210,7 +212,8 @@ def EffectOp.subStage : EffectOp → SubStage
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .set
   | .mulPower _ | .divPower _ => .mulDiv
   | .addType _ | .addSubtype _ | .addSupertype _ | .grantKeyword _ | .grantAttackAbility _
-  | .addPower _ | .addDefense _ | .addCostRes _ | .addIntellect _ => .add
+  | .addPower _ | .addDefense _ | .addCostRes _ | .addIntellect _
+  | .addPowerIfFewerDefenders _ _ => .add
   | .loseKeyword _ | .loseAllAbilities | .subPower _ | .subDefense _ | .subCostRes _ => .sub
 
 /-- Helper: append an element to a list only if not already present. -/
@@ -264,6 +267,7 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
   | .addPower d =>
     if c.powerLocked then c
     else { c with power := c.power.map (· + d) }
+  | .addPowerIfFewerDefenders _ _ => c
   | .subPower d =>
     if c.powerLocked then c
     else { c with power := c.power.map (· - Int.ofNat d) }

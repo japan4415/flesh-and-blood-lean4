@@ -68,6 +68,8 @@ structure ChainLink where
   discardedForPlay : Option CardFace := none
   /-- Temporary power `{p}` modifier granted to this chain link (Attack Reactions, Combo buffs). -/
   powerBonus : Int := 0
+  /-- Power bonuses and their exclusive limits on non-equipment defenders. -/
+  powerForFewerDefenders : List (Nat × Int) := []
   /-- Temporary defense `{d}` modifier granted to this chain link. -/
   defenseBonus : Int := 0
   /-- Factor applied to this link's damage to the defending hero before prevention. -/

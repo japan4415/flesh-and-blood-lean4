@@ -213,7 +213,12 @@ theorem Object.clearCounterVal_owner (o : Object) (k : CounterKind) :
     (o.clearCounterVal k).owner = o.owner := by
   cases k <;> rfl
 
-/-- Evaluate a syntactic `Condition` in the current game state. -/
+/-- Count live defenders whose current type does not include Equipment (CR 7.0.5). -/
+def nonEquipmentDefenderCount (s : GameState) (link : ChainLink) : Nat :=
+  link.defending.countP fun id =>
+    s.locate id == some .combatChain && !(s.characteristics id).any (·.types.contains .equipment)
+
+/-- Evaluate an IR condition in the current game state. -/
 def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal : Bool) :
     Condition → Bool
   | .always => true
@@ -246,12 +251,7 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     | none => false
   | .defendedByFewerNonEquip n =>
     match s.combat.bind CombatChain.activeLink? with
-    | some cur =>
-      let nonEq := (cur.defending.filter fun id =>
-        match s.objectFace? id with
-        | some face => !face.hasType .equipment
-        | none => true).length
-      decide (nonEq < n)
+    | some cur => decide (nonEquipmentDefenderCount s cur < n)
     | none => false
   | .additionalCostPaid => false
   | .lastDiscardedMatches filter =>
@@ -1848,6 +1848,10 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         match scope with
         | .nextAttack _ => some (.grantAttackAbility (.triggered trigger false none cond { body := body }))
         | _ => none
+      | .conditionalPower (.defendedByFewerNonEquip limit) bonus =>
+        match scope with
+        | .nextAttack _ => some (.addPowerIfFewerDefenders limit bonus)
+        | _ => none
       | _ => none
     match op? with
     | some op =>
@@ -1855,7 +1859,8 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .nextCardPlayed filter, .addPower _ => .nextAttackCard filter
         | .nextAttack filter, .addPower _
         | .nextAttack filter, .grantKeyword _
-        | .nextAttack filter, .grantAttackAbility _ => .nextAttack filter
+        | .nextAttack filter, .grantAttackAbility _
+        | .nextAttack filter, .addPowerIfFewerDefenders _ _ => .nextAttack filter
         | _, _ => .matching (ctrl := some ctrl)
       let eff : ContinuousEffect :=
         { id := s.nextTimestamp
@@ -1887,10 +1892,7 @@ theorem applyChainLinkMod_fields (s : GameState) (ctrl : PlayerId) (src : ObjId)
     · cases dur <;> cases s.combat <;>
       first
       | exact ⟨rfl, rfl, rfl, rfl, rfl⟩
-      | (dsimp only; cases mod <;>
-          first
-          | exact ⟨rfl, rfl, rfl, rfl, rfl⟩
-          | (dsimp only; split <;> exact ⟨rfl, rfl, rfl, rfl, rfl⟩))
+      | (dsimp only; split <;> exact ⟨rfl, rfl, rfl, rfl, rfl⟩)
 
 /-- Execute a single step of `Frame.run ctrl src fromArsenal env todo :: rest` (CR 1.7, 6.0).
 Always succeeds (total), never returning `none`. -/

@@ -387,8 +387,7 @@ theorem interpRunStep_ttr (s : GameState) (ctrl : PlayerId) (src : ObjId)
         · cases dur <;> cases s.combat <;>
           first
           | exact ⟨rfl, rfl, id⟩
-          | (dsimp only; cases mod <;>
-              first | exact ⟨rfl, rfl, id⟩ | (dsimp only; split <;> exact ⟨rfl, rfl, id⟩))
+          | (dsimp only; split <;> exact ⟨rfl, rfl, id⟩)
     | chooseOne _ =>
       unfold interpRunStep; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
     | prim p =>

@@ -45,6 +45,8 @@ structure LayerInfo where
   goAgain : Bool := false
   /-- Power granted to an attack before it enters the combat chain. -/
   attackPowerBonus : Int := 0
+  /-- Power bonuses and their exclusive limits on non-equipment defenders. -/
+  attackPowerForFewerDefenders : List (Nat × Int) := []
   /-- Keywords granted to an attack before it enters the combat chain. -/
   attackKeywords : List KeywordInst := []
   /-- Triggered abilities granted to an attack before it enters the combat chain. -/
