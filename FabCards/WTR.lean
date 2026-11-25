@@ -701,8 +701,8 @@ def sigilOfSolace (base : CardDef) (amount : Int) : CardDef :=
   draftCard base []
     (some { body := .prim (.gainLife .controller (.const amount)) })
 
-/-- Sigil of Solace Red (drafted IR). -/
-def WTR_173_R : CardDef := sigilOfSolace WTR_173_R_meta 3
+/-- Sigil of Solace Red. -/
+def WTR_173_R : CardDef := { sigilOfSolace WTR_173_R_meta 3 with status := .full }
 /-- Sigil of Solace Yellow (drafted IR). -/
 def WTR_174_Y : CardDef := sigilOfSolace WTR_174_Y_meta 2
 /-- Sigil of Solace Blue (drafted IR). -/

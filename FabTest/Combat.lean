@@ -311,6 +311,30 @@ meta def checkSnatch (cid : CardId) (power : Nat) : Option Bool := do
 #guard checkSnatch ⟨"WTR_168_Y"⟩ 3 == some true
 #guard checkSnatch ⟨"WTR_169_B"⟩ 2 == some true
 
+/-- Resolve Sigil of Solace from hand on the opponent's turn without spending an action point. -/
+meta def checkSigilOfSolace (cid : CardId) (amount : Nat) : Option Bool := do
+  let active : PlayerId := ⟨0⟩
+  let caster : PlayerId := ⟨1⟩
+  let card ← m5Base.cards.find? cid
+  let (ready, sigil) ← cPlace m5Base caster .hand cid
+  let priority ← cSteps ready [⟨.player active, .pass⟩]
+  let stacked ← cSteps priority [⟨.player caster, .playCard sigil⟩]
+  let layer ← (stacked.zone .stack).head?
+  let passed ← cSteps stacked [⟨.player caster, .pass⟩]
+  let (resolved, events) ← (step 64 passed ⟨.player active, .pass⟩).toOption
+  let graveyard := Zone.player caster .graveyard
+  let discarded ← (resolved.zone graveyard).head?
+  pure (card.status == .full && stacked.zone .stack == [layer] &&
+    stacked.zone (.player caster .hand) == [] &&
+    stacked.lifeOf caster == 40 && passed.lifeOf caster == 40 &&
+    resolved.lifeOf caster == 40 + Int.ofNat amount && resolved.lifeOf active == 40 &&
+    resolved.active == some active && resolved.poolOf caster == ready.poolOf caster &&
+    resolved.zone .stack == [] && resolved.zone graveyard == [discarded] &&
+    (resolved.cardDefOf? discarded).map (·.id) == some cid &&
+    events.countP (· == .moved layer discarded .stack graveyard) == 1)
+
+#guard checkSigilOfSolace ⟨"WTR_173_R"⟩ 3 == some true
+
 /-- Check Disable's damage threshold and the arsenal move after its trigger resolves. -/
 meta def checkDisable (cid : CardId) (power : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
