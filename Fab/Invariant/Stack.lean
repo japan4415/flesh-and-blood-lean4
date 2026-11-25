@@ -86,14 +86,15 @@ theorem playCard_pushes_stack_top {s s1 sOut : GameState} {p : PlayerId} {passCo
   · cases hm
 
 /-- **I9** (priority retention & no over-pitching): when `p`'s pool can already pay `cost`
-and the layer has no random-discard cost,
+and the layer has neither a chosen hand-card cost nor a random-discard cost,
 `playPayCost` spends the cost immediately without prompting `choosePitch`, clears `playRollback`,
 and retains priority for `p` with `passCount = 0` after any on-play triggers are stacked
 (CR 1.14.3b, 5.1.1i, 6.6.6). -/
 theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : ObjId}
     {fromArsenal : Bool} {modeIdx : Option Nat} {cost : AssetCost} {rest : List Frame}
     (hp : s.pending = .playPayCost p layerId fromArsenal modeIdx cost :: rest)
-    (hpay : (s.poolOf p).canPay cost) (hdiscard : cardPlayRandomDiscardCost s layerId = 0) :
+    (hpay : (s.poolOf p).canPay cost) (hhand : cardPlayHandCost? s layerId = none)
+    (hdiscard : cardPlayRandomDiscardCost s layerId = 0) :
     ∃ s' es, microStep s = some (s', es) ∧
       (s'.pending = .priority p 0 :: rest ∨ s'.pending = .flushTriggers :: .priority p 0 :: rest) ∧
       s'.playRollback = none ∧
@@ -122,7 +123,7 @@ theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : O
   rw [hp]
   dsimp only
   rw [hspend]
-  simp only [hdiscard, ↓reduceIte]
+  simp only [hhand, hdiscard, ↓reduceIte]
   refine ⟨_, [], rfl, ?_, rfl, ?_, ?_⟩
   · unfold finishPaidPlay
     dsimp only
@@ -233,6 +234,8 @@ theorem progress_m4_decisions {s : GameState} (hres : s.result = none) :
     (∀ p lid fa mi cost extra rest,
       s.pending = .chooseOptionalResources p lid fa mi cost extra :: rest →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
+    (∀ p lid fa mi cost rest, s.pending = .chooseHandCardCost p lid fa mi cost :: rest →
+      ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ ctrl src fa env b i rest, s.pending = .chooseMay ctrl src fa env b i :: rest →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ ctrl src fa env m ms rest, s.pending = .chooseModal ctrl src fa env (m :: ms) :: rest →
@@ -245,7 +248,7 @@ theorem progress_m4_decisions {s : GameState} (hres : s.result = none) :
     (∀ ctrl src fa env bv br ct rest,
       s.pending = .chanceDie6 ctrl src fa env bv br ct :: rest →
       ∃ a, Legal s a ∧ a.actor = .chance) := by
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro p lid fa mc cost rest hp
     refine ⟨⟨.player p, .cancelPlay⟩, ?_, by simp⟩
     rw [legalActions_iff]
@@ -256,6 +259,10 @@ theorem progress_m4_decisions {s : GameState} (hres : s.result = none) :
     exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩
   · intro p lid fa mi cost extra rest hp
     refine ⟨⟨.player p, .pickMay false⟩, ?_, by simp⟩
+    rw [legalActions_iff]
+    exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩
+  · intro p lid fa mi cost rest hp
+    refine ⟨⟨.player p, .cancelPlay⟩, ?_, by simp⟩
     rw [legalActions_iff]
     exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩
   · intro ctrl src fa env b i rest hp

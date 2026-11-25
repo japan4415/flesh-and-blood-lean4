@@ -398,6 +398,26 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                 intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
               rw [hnil, hnil]
           | chooseOptionalResources _ _ _ _ _ _ => rfl
+          | chooseHandCardCost q _ _ _ cost =>
+            dsimp only
+            by_cases hqp : q = p
+            · subst hqp
+              have hh := h.visibleZones (.player q .hand) (by simp [Zone.isSecretTo])
+              have hf : canPickHandCostCard s1 q cost = canPickHandCostCard s2 q cost := by
+                funext id
+                cases cost with
+                | bottomDeck => simp [canPickHandCostCard, hh]
+                | reveal filter =>
+                  simp [canPickHandCostCard, revealCostCard?, hh,
+                    (h.cardDef_face id).1, (h.cardDef_face id).2]
+              rw [hh, hf]
+            · have hne : (Actor.player q == Actor.player p) = false := by simp [hqp]
+              simp only [List.filter_append, List.filter_cons, List.filter_nil, hne]
+              have hnil : ∀ (l : List ObjId),
+                  List.filter (fun a => a.actor == Actor.player p)
+                    (l.map fun id => Action.mk (.player q) (.pickHandCostCard id)) = [] := by
+                intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
+              rw [hnil, hnil]
           | chooseMay _ _ _ _ _ _ => rfl
           | chooseModal _ _ _ _ _ => rfl
           | chooseHandToDeck q _ =>

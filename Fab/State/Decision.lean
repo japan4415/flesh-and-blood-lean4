@@ -87,6 +87,8 @@ inductive ActionKind where
   | die6Roll (roll : Nat)
   /-- Pick a card from hand to place into the deck (e.g. Sink Below). -/
   | handToDeckPick (id : ObjId)
+  /-- Choose a card from hand to pay an additional cost (CR 5.1.9). -/
+  | pickHandCostCard (id : ObjId)
   /-- Opt choice: put the looked-at top card of deck on top (`true`) or bottom (`false`) (CR 8.5.22). -/
   | optPick (putOnTop : Bool)
   /-- End Phase: put card `id` from hand face-down into an empty arsenal (CR 4.4.3b). -/
@@ -121,6 +123,14 @@ structure Action where
   actor : Actor
   /-- What action is performed. -/
   kind : ActionKind
+deriving DecidableEq, Repr
+
+/-- Additional cost paid by choosing a card in hand (CR 5.1.9). -/
+inductive HandCardCost where
+  /-- Place the chosen card on the bottom of the deck. -/
+  | bottomDeck
+  /-- Reveal the chosen card and keep it in hand. -/
+  | reveal (filter : CardFilter)
 deriving DecidableEq, Repr
 
 /-- Continuation stack frame: either a decision frame waiting for `step`, or a work frame
@@ -168,6 +178,9 @@ inductive Frame where
   /-- Player decision: accept an optional additional resource cost or waive it (CR 5.1.5). -/
   | chooseOptionalResources (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
       (modeIdx : Option Nat) (cost : AssetCost) (extra : Nat)
+  /-- Player decision: pay the additional cost by choosing a card from hand (CR 5.1.9). -/
+  | chooseHandCardCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
+      (modeIdx : Option Nat) (cost : HandCardCost)
   /-- Work frame: begin resolving the top layer of the stack LIFO (CR 5.3). -/
   | resolveStack
   /-- Work frame: finish resolving `layerId` (Go Again +1 AP, move to graveyard/arena, priority to active) (CR 5.3.4, 5.3.5). -/

@@ -90,6 +90,9 @@ def legalFrameActions (s : GameState) : List Action :=
       [⟨.player p, .cancelPlay⟩]
   | .chooseOptionalResources p _ _ _ _ _ :: _ =>
     [⟨.player p, .pickMay true⟩, ⟨.player p, .pickMay false⟩, ⟨.player p, .cancelPlay⟩]
+  | .chooseHandCardCost p _ _ _ cost :: _ =>
+    (((s.zone (.player p .hand)).filter (canPickHandCostCard s p cost)).map fun id =>
+      ⟨.player p, .pickHandCostCard id⟩) ++ [⟨.player p, .cancelPlay⟩]
   | .chooseMay ctrl _ _ _ _ _ :: _ =>
     [⟨.player ctrl, .pickMay true⟩, ⟨.player ctrl, .pickMay false⟩]
   | .chooseModal ctrl _ _ _ modes :: _ =>
