@@ -4252,6 +4252,7 @@ meta def checkRegurgitatingSlog (cid : CardId) (pitch power : Nat) : Option Bool
     paidLink.damageDealt == power - 3 && plainLink.damageDealt == power - 6)
 
 #guard checkRegurgitatingSlog ⟨"WTR_197_R"⟩ 1 6 == some true
+#guard checkRegurgitatingSlog ⟨"WTR_198_Y"⟩ 2 5 == some true
 
 /-- Shunt deals one point of generic damage as it resolves against a weapon. -/
 meta def checkSteelbladeShunt (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool) :
