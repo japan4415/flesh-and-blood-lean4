@@ -28,6 +28,8 @@ inductive Event where
   | banished (owner : PlayerId) (obj : ObjId) (faceDown : Bool)
   /-- The given layer declared a hero as a target (CR 6.6.6a). -/
   | targetedHero (layer : ObjId) (target : PlayerId)
+  /-- The given layer declared an attack as a target (CR 5.1.4a). -/
+  | targetedAttack (layer target : ObjId)
   /-- `amount` damage of kind `kind` (physical or arcane) was dealt to `target`. -/
   | damageDealt (target : PlayerId) (kind : DamageKind) (amount : Nat)
   /-- Player `player` gained `amount` life. -/

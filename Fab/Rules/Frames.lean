@@ -278,6 +278,23 @@ def canLinkTakeDefenseReaction (s : GameState) (link : ChainLink) (p : PlayerId)
   link.defender == p &&
     !(fromHand && linkHasKeyword s link .dominate && 1 ≤ link.defendedFromHandCount)
 
+/-- A card or selected mode with a required single-attack target needs a matching active attack. -/
+def hasRequiredAttackTarget (s : GameState) (card : CardDef) (modeIdx : Option Nat) : Bool :=
+  match singleAttackTargetSpec card modeIdx with
+  | none => true
+  | some spec =>
+    (s.combat.bind CombatChain.activeLink?).any fun link => (matchingActiveAttack s link spec).isSome
+
+/-- A printed play mode is available when its required attack target can be declared. -/
+def canPickCardMode (s : GameState) (layerId : ObjId) (idx : Nat) : Bool :=
+  ((s.cardDefOf? layerId).map fun card => hasRequiredAttackTarget s card (some idx)).getD true
+
+/-- An attack reaction with modes must have at least one available mode before it can be played. -/
+def attackReactionCanTarget (s : GameState) (card : CardDef) : Bool :=
+  let modeCount := (card.front.playEffect.map (·.modes.length)).getD 0
+  if modeCount = 0 then hasRequiredAttackTarget s card none
+  else (List.range modeCount).any fun idx => hasRequiredAttackTarget s card (some idx)
+
 /-- Whether player `p` may announce playing card `id` from hand or arsenal while holding priority
 (CR 5.1.1, 4.3, 3.2.2, 7.1, 7.4, 7.6).
 - Instants: playable anytime on priority.
@@ -311,7 +328,7 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
         | some cc =>
           cc.step == .reaction &&
           match cc.activeLink? with
-          | some link => link.attacker == p
+          | some link => link.attacker == p && attackReactionCanTarget s c
           | none => false
         | none => false
       else if c.front.hasType .defenseReaction then
@@ -385,6 +402,20 @@ def cardPlayTargetFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromAr
       .choosePlayHero p layerId fromArsenal modeIdx cost
     else
       pay
+
+/-- Bind the unique attack target before payment. Hero targets use their existing choice frame. -/
+def cardAttackTarget? (s : GameState) (layerId : ObjId) (modeIdx : Option Nat) : Option ObjId := do
+  let card ← s.cardDefOf? layerId
+  let spec ← singleAttackTargetSpec card modeIdx
+  let link ← s.combat.bind CombatChain.activeLink?
+  matchingActiveAttack s link spec
+
+/-- Record an automatically declared attack target in the layer's metadata. -/
+def layerMetaWithAttackTarget (s : GameState) (p : PlayerId) (layerId : ObjId)
+    (target : Option ObjId) : Std.ExtTreeMap Nat LayerInfo :=
+  match target with
+  | none => s.layerMeta
+  | some attack => s.layerMeta.insert layerId.n { controller := p, attackTarget := some attack }
 
 /-- Read the card-layer's resolution effect with its declared hero target bound. -/
 def cardLayerEffect (s : GameState) (layerId : ObjId) (info : LayerInfo) : Effect :=
@@ -567,6 +598,7 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       fromArsenal := fromArsenal
       modeIdx := modeIdx
       heroTarget := (s.layerMeta.get? layerId.n).bind (·.heroTarget)
+      attackTarget := (s.layerMeta.get? layerId.n).bind (·.attackTarget)
       discardedForPlay := discarded
       goAgain := hasGoAgain }
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
@@ -653,13 +685,17 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       match moveObj s id .stack .top false with
       | none => none
       | some (s1, layerId) =>
+        let target := if 0 < modes then none else cardAttackTarget? s1 layerId none
         let nextFrame :=
           if 0 < modes then
             Frame.chooseMode p layerId fromArsenal modes cost
           else
             cardPlayTargetFrame s1 p layerId fromArsenal none cost
-        some ({ s1 with playRollback := some snap, pending := nextFrame :: rest' },
-              [.moved id layerId srcZone .stack])
+        some ({ s1 with
+                  playRollback := some snap
+                  layerMeta := layerMetaWithAttackTarget s1 p layerId target
+                  pending := nextFrame :: rest' },
+              [.moved id layerId srcZone .stack] ++ (target.map (.targetedAttack layerId)).toList)
     else
       none
   | .priority p _ :: rest, .player q, .attackWeapon wid =>
@@ -708,8 +744,12 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
     else
       none
   | .chooseMode p layerId fromArsenal modeCount cost :: rest, .player q, .pickMode idx =>
-    if p = q ∧ idx < modeCount then
-      some ({ s with pending := cardPlayTargetFrame s p layerId fromArsenal (some idx) cost :: rest }, [])
+    if p = q ∧ idx < modeCount ∧ canPickCardMode s layerId idx = true then
+      let target := cardAttackTarget? s layerId (some idx)
+      some ({ s with
+                layerMeta := layerMetaWithAttackTarget s p layerId target
+                pending := cardPlayTargetFrame s p layerId fromArsenal (some idx) cost :: rest },
+            (target.map (.targetedAttack layerId)).toList)
     else
       none
   | .chooseMode p _ _ _ _ :: rest, .player q, .cancelPlay =>

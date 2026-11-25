@@ -1244,7 +1244,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
               cases hcontra
           · cases hcontra
     | chooseMode p _ _ modeCount _ =>
-      cases actor <;> cases kind <;> simp [Actor.isPlayer]
+      cases actor <;> cases kind <;> simp [Actor.isPlayer, List.mem_filter]
       all_goals grind
     | choosePlayHero p _ _ _ _ =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer]
@@ -1697,8 +1697,8 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
       | player q =>
         cases kind with
         | pickMode idx =>
-          obtain ⟨rfl, hlt⟩ := hlf
-          simp [hlt]
+          obtain ⟨rfl, hlt, hcan⟩ := hlf
+          simp [hlt, hcan]
         | cancelPlay =>
           subst hlf
           simp
