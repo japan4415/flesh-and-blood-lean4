@@ -376,6 +376,60 @@ meta def tekloPlasmaPistolScenario : Option Bool := do
 
 #guard tekloPlasmaPistolScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC004").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Teklo Foundry Heart" && card.status == .full)
+
+meta def foundryHeartScenario (deckCards : List String) (matchCount : Nat) (mechBoost : Bool) :
+    Option Bool := do
+  let p := earlyAttacker
+  let deck := Zone.player p .deck
+  let banished := Zone.player p .banished
+  let fixture : CardDef :=
+    { id := ⟨"Boost fixture"⟩
+      front :=
+        { name := "Boost fixture"
+          supertypes := [.class_ .mechanologist]
+          types := [.action]
+          subtypes := [.attack]
+          cost := some { actionPoints := 1 }
+          power := some 3
+          keywords := [.boost] } }
+  let cards : CardDB := ⟨fixture :: ARC.Meta.ARC_007_B_meta :: throughArcDB.cards⟩
+  let (equipped, heart) ← earlyPlace { earlyBase with cards } p (.player p .chest) "ARC_004"
+  let deckReady ← deckCards.reverse.foldlM
+    (fun s name => (earlyPlace s p deck name).map Prod.fst) equipped
+  let (ready, attack) ← earlyPlace deckReady p (.player p .hand) fixture.id.val
+  let use : Action := ⟨.player p, .activateAbility heart 0 none⟩
+  let declare : Action := ⟨.player p, .playCard attack⟩
+  let (withoutDeck, anotherAttack) ← earlyPlace equipped p (.player p .hand) fixture.id.val
+  let paidWithoutBoost ← earlySteps withoutDeck [⟨.player p, .playCard anotherAttack⟩]
+  let choose ← earlySteps ready [declare]
+  let cancelled ← earlySteps choose [⟨.player p, .cancelPlay⟩]
+  let declined ← earlySteps choose [⟨.player p, .pickMay false⟩]
+  let (paid, events) ← (step 64 choose ⟨.player p, .pickMay true⟩).toOption
+  let defended ← earlySteps paid (earlyPass ++ earlyPass)
+  let link ← defended.combat.bind CombatChain.activeLink?
+  let hit ← earlyDamage defended
+  let closed ← earlySteps hit (earlyPass ++ earlyPass)
+  let result ← earlySteps closed (use :: earlyPass)
+  pure ((earlySteps ready [use]).isNone &&
+    (earlySteps paidWithoutBoost [⟨.player p, .pickMay true⟩]).isNone &&
+    paidWithoutBoost.zone banished == [] && paidWithoutBoost.boostsThisTurn == [] &&
+    cancelled.zone deck == ready.zone deck && !cancelled.boostsThisTurn.contains p &&
+    declined.zone deck == ready.zone deck && !declined.boostsThisTurn.contains p &&
+    paid.boostsThisTurn == [p] && events.contains (.boosted p) &&
+    (paid.zone deck).length == deckCards.length - 1 &&
+    (paid.zone banished).length == 1 &&
+    linkHasKeyword defended link .goAgain == mechBoost &&
+    (earlySteps hit [use]).isNone && (earlySteps result [use]).isNone &&
+    result.zone deck == [] && (result.zone banished).length == deckCards.length &&
+    (result.poolOf p).resources == 7 + matchCount &&
+    (result.poolOf p).actionPoints == (closed.poolOf p).actionPoints)
+
+#guard foundryHeartScenario ["WTR_191_R", "ARC_007_B", "WTR_203_R"] 1 false == some true
+#guard foundryHeartScenario ["ARC_007_B", "ARC_007_B", "ARC_007_B"] 2 true == some true
+#guard foundryHeartScenario ["WTR_191_R"] 0 false == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

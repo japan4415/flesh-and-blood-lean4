@@ -136,7 +136,7 @@ def Effect.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Effect →
   | .rollDie6 bindVar branches cont =>
     let env' := bindVar :: env
     branches.wfBool numSlots env' hasX && cont.wfBool numSlots env' hasX
-  | .bindRevealTopCount p _ _ bindVar cont =>
+  | .bindRevealTopCount p _ _ bindVar cont | .bindBanishTopCount p _ _ bindVar cont =>
     p.wfBool numSlots && cont.wfBool numSlots (bindVar :: env) hasX
   | .discardTopOfHand p _ ifMatches otherwise =>
     p.wfBool numSlots && ifMatches.wfBool numSlots env hasX && otherwise.wfBool numSlots env hasX

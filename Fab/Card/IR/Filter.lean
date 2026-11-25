@@ -274,6 +274,8 @@ inductive Condition where
   | sourceCounterLt (k : CounterKind) (n : Nat)
   /-- Controller has charged their hero's soul this turn (MON: Light Warrior). -/
   | chargedThisTurn
+  /-- Controller has paid the optional boost cost at least n times this turn (CR 8.3.9). -/
+  | boostedThisTurn (n : Nat)
   /-- Controller has banished a card with `≥ 6{p}` this turn (MON: Levia / Shadow Brute). -/
   | banishedSixPowerThisTurn
   /-- Source card was played from the banished zone (MON: Shadow / Chane). -/

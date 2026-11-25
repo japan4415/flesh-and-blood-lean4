@@ -126,16 +126,38 @@ theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : O
   dsimp only
   rw [hspend]
   simp only [hcard, hgrave, hhand, hdiscard, ↓reduceIte]
-  refine ⟨_, [], rfl, ?_, rfl, ?_, ?_⟩
-  · unfold finishPaidPlay
-    dsimp only
-    split <;> split <;> first | exact Or.inl rfl | exact Or.inr rfl
-  · change ((s.setPool p pool').poolOf p).actionPoints + cost.actionPoints = _
-    rw [GameState.poolOf_setPool_self]
-    exact hacc.1
-  · change ((s.setPool p pool').poolOf p).totalEnergy + (cost.resources + cost.chi) = _
-    rw [GameState.poolOf_setPool_self]
-    exact hacc.2
+  have hpriority (empty : Bool) :
+      (if empty then [] else [Frame.flushTriggers]) ++ (.priority p 0 :: rest) =
+        .priority p 0 :: rest ∨
+      (if empty then [] else [Frame.flushTriggers]) ++ (.priority p 0 :: rest) =
+        .flushTriggers :: .priority p 0 :: rest := by
+    cases empty <;> first | exact Or.inl rfl | exact Or.inr rfl
+  split
+  · let paid := finishBoostedPlay (s.setPool p pool') p layerId fromArsenal modeIdx rest
+    have hboostPool :
+        (applyBoost (s.setPool p pool') p false).1.poolOf p = (s.setPool p pool').poolOf p := by
+      simp only [GameState.poolOf, applyBoost_pools]
+    refine ⟨paid.1, paid.2, rfl, ?_, rfl, ?_, ?_⟩
+    · unfold paid finishBoostedPlay finishPaidPlay
+      dsimp only
+      exact hpriority _
+    · change ((applyBoost (s.setPool p pool') p false).1.poolOf p).actionPoints + cost.actionPoints = _
+      rw [hboostPool, GameState.poolOf_setPool_self]
+      exact hacc.1
+    · change ((applyBoost (s.setPool p pool') p false).1.poolOf p).totalEnergy +
+        (cost.resources + cost.chi) = _
+      rw [hboostPool, GameState.poolOf_setPool_self]
+      exact hacc.2
+  · refine ⟨_, [], rfl, ?_, rfl, ?_, ?_⟩
+    · unfold finishPaidPlay
+      dsimp only
+      exact hpriority _
+    · change ((s.setPool p pool').poolOf p).actionPoints + cost.actionPoints = _
+      rw [GameState.poolOf_setPool_self]
+      exact hacc.1
+    · change ((s.setPool p pool').poolOf p).totalEnergy + (cost.resources + cost.chi) = _
+      rw [GameState.poolOf_setPool_self]
+      exact hacc.2
 
 /-- **I9** (Stack LIFO resolution): `resolveStack` resolves a non-attack head layer `topId` of
 `s.zone .stack` before any layer beneath it (CR 5.3). -/
@@ -244,7 +266,7 @@ theorem progress_m4_decisions {s : GameState} (hres : s.result = none) :
     (∀ p lid fa mi cost rest, s.pending = .choosePitch p lid fa mi cost :: rest →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ p lid fa mi cost extra rest,
-      s.pending = .chooseOptionalResources p lid fa mi cost extra :: rest →
+      s.pending = .chooseOptionalPlayCost p lid fa mi cost extra :: rest →
       ∃ a ∈ legalActions s, a.kind ≠ .concede) ∧
     (∀ p lid fa mi cost limit rest,
       s.pending = .chooseVariableResources p lid fa mi cost limit :: rest →

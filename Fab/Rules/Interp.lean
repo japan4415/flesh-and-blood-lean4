@@ -282,6 +282,7 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     | none => false
   | .sourceNotHitThisTurn => !s.weaponHitsThisTurn.contains src
   | .chargedThisTurn => s.chargedThisTurn.contains ctrl
+  | .boostedThisTurn n => decide (n ≤ s.boostsThisTurn.count ctrl)
   | .banishedSixPowerThisTurn => s.banishedSixPowerThisTurn.contains ctrl
   | .playedFromBanished =>
     match s.locate src with
@@ -2052,6 +2053,16 @@ def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     ({ s with
         pending := .run ctrl src fromArsenal ((bindVar, Int.ofNat matched) :: env) [cont] ::
           .run ctrl src fromArsenal env more :: rest }, revealed)
+  | .bindBanishTopCount pref n filter bindVar cont :: more =>
+    let player := evalPlayerRef s ctrl pref
+    let top := (s.zone (.player player .deck)).take n
+    let (banished, events) := banishManyObjs s player false top
+    let matched := events.countP fun
+      | .banished _ id false => (banished.objectFace? id).any (cardFaceMatches filter)
+      | _ => false
+    ({ banished with
+        pending := .run ctrl src fromArsenal ((bindVar, Int.ofNat matched) :: env) [cont] ::
+          .run ctrl src fromArsenal env more :: rest }, events)
   | .discardTopOfHand pref filter ifMatches otherwise :: more =>
     let player := evalPlayerRef s ctrl pref
     let (discarded, events) := discardManyObjs s player ((s.zone (.player player .hand)).take 1)
@@ -2078,6 +2089,10 @@ theorem interpRunStep_wf {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : 
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact GameState.WF.congr hwf rfl rfl rfl rfl
+    | bindBanishTopCount pref n _ _ _ =>
+      let target := evalPlayerRef s ctrl pref
+      have h := banishManyObjs_inv target false ((s.zone (.player target .deck)).take n) hwf hok
+      exact GameState.WF.congr h.1 rfl rfl rfl rfl
     | discardTopOfHand pref _ _ _ =>
       exact GameState.WF.congr (discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok).1 rfl rfl rfl rfl
     | grant scope mod dur =>
@@ -2102,6 +2117,10 @@ theorem interpRunStep_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact GameState.OwnerOk.congr hok rfl rfl
+    | bindBanishTopCount pref n _ _ _ =>
+      let target := evalPlayerRef s ctrl pref
+      have h := banishManyObjs_inv target false ((s.zone (.player target .deck)).take n) hwf hok
+      exact GameState.OwnerOk.congr h.2.1 rfl rfl
     | discardTopOfHand pref _ _ _ =>
       exact GameState.OwnerOk.congr (discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok).2.1 rfl rfl
     | grant scope mod dur =>
@@ -2127,6 +2146,10 @@ theorem interpRunStep_physIds {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact List.Perm.refl _
+    | bindBanishTopCount pref n _ _ _ =>
+      let target := evalPlayerRef s ctrl pref
+      have h := banishManyObjs_inv target false ((s.zone (.player target .deck)).take n) hwf hok
+      exact h.2.2.1
     | discardTopOfHand pref _ _ _ =>
       exact (discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok).2.2.1
     | grant scope mod dur =>
@@ -2156,6 +2179,10 @@ theorem interpRunStep_meta {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl 
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact ⟨rfl, rfl⟩
+    | bindBanishTopCount pref n _ _ _ =>
+      let target := evalPlayerRef s ctrl pref
+      have h := banishManyObjs_inv target false ((s.zone (.player target .deck)).take n) hwf hok
+      exact h.2.2.2
     | discardTopOfHand pref _ _ _ =>
       exact (discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok).2.2.2
     | grant scope mod dur =>

@@ -186,6 +186,8 @@ structure HiddenEquiv (p : PlayerId) (s1 s2 : GameState) : Prop where
   combat : s1.combat = s2.combat
   /-- Same public weapon hit history. -/
   weaponHitsThisTurn : s1.weaponHitsThisTurn = s2.weaponHitsThisTurn
+  /-- Same public history of paid boost costs this turn. -/
+  boostsThisTurn : s1.boostsThisTurn = s2.boostsThisTurn
   /-- Same tournament state. -/
   tournament : s1.tournament = s2.tournament
   /-- Same public history of this turn's limited activations. -/
@@ -426,9 +428,11 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
     cases condition with
     | none => rfl
     | some condition =>
-      cases condition <;> try rfl
-      simp only [activationConditionMet, hasWeaponHitThisTurn,
-        h.weaponHitsThisTurn, h.characteristics_eq]
+      cases condition <;>
+        first
+        | rfl
+        | simp only [activationConditionMet, hasWeaponHitThisTurn,
+            h.weaponHitsThisTurn, h.characteristics_eq, h.boostsThisTurn]
   have hplan (id : ObjId) (index : Nat) (target : Option ObjId) :
       activationPlan? s1 p id index target = activationPlan? s2 p id index target := by
     have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
@@ -583,7 +587,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                     (l.map fun id => Action.mk (.player q) (.pitchCard id)) = [] := by
                 intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
               rw [hnil, hnil]
-          | choosePlayWeapon _ _ _ _ _ _ | chooseOptionalResources _ _ _ _ _ _ => rfl
+          | choosePlayWeapon _ _ _ _ _ _ | chooseOptionalPlayCost _ _ _ _ _ _ => rfl
           | chooseGraveyardCost _ _ _ _ _ _ | chooseVariableResources _ _ _ _ _ _ => rfl
           | chooseHandCardCost q _ _ _ cost =>
             dsimp only
@@ -670,7 +674,7 @@ theorem reorder_deck_noninterference {s : GameState} (p q : PlayerId) {l : List 
     { config := rfl, cards := rfl, objects := rfl, pools := rfl, heroLife := rfl,
       turn := rfl, active := rfl, pending := rfl, turnOrder := rfl, phase := rfl,
       result := rfl, combat := rfl, weaponHitsThisTurn := rfl, tournament := rfl,
-      activatedThisTurn := rfl, activeEffects := rfl,
+      activatedThisTurn := rfl, activeEffects := rfl, boostsThisTurn := rfl,
       pendingTriggers := rfl,
       visibleZones := fun z hns => by
         have hne : z ≠ .player q .deck := by
@@ -720,7 +724,7 @@ theorem opp_hand_noninterference {s : GameState} {p q : PlayerId} (hne : q ≠ p
     { config := rfl, cards := rfl, objects := rfl, pools := rfl, heroLife := rfl,
       turn := rfl, active := rfl, pending := rfl, turnOrder := rfl, phase := rfl,
       result := rfl, combat := rfl, weaponHitsThisTurn := rfl, tournament := rfl,
-      activatedThisTurn := rfl, activeEffects := rfl,
+      activatedThisTurn := rfl, activeEffects := rfl, boostsThisTurn := rfl,
       pendingTriggers := rfl,
       visibleZones := fun z hns => by
         have hnez : z ≠ .player q .hand := by
