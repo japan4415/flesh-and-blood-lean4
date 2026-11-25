@@ -175,8 +175,8 @@ def packHunt (base : CardDef) : CardDef :=
 def WTR_023_R : CardDef := { packHunt WTR_023_R_meta with status := .full }
 /-- Pack Hunt Yellow. -/
 def WTR_024_Y : CardDef := { packHunt WTR_024_Y_meta with status := .full }
-/-- Pack Hunt Blue (drafted IR). -/
-def WTR_025_B : CardDef := packHunt WTR_025_B_meta
+/-- Pack Hunt Blue. -/
+def WTR_025_B : CardDef := { packHunt WTR_025_B_meta with status := .full }
 
 /-- Shared 3-color helper for Awakening Bellow (intimidate + next Brute attack +3/+2/+1). -/
 def awakeningBellow (base : CardDef) (bonus : Int) : CardDef :=
