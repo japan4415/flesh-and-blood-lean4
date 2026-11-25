@@ -475,8 +475,8 @@ def WTR_105_Y : CardDef := { risingKneeThrust WTR_105_Y_meta with status := .ful
 /-- Rising Knee Thrust Blue. -/
 def WTR_106_B : CardDef := { risingKneeThrust WTR_106_B_meta with status := .full }
 
-/-- Surging Strike Red (vanilla Go Again, drafted IR). -/
-def WTR_107_R : CardDef := draftVanilla WTR_107_R_meta
+/-- Surging Strike Red, whose printed Go Again is handled by combat resolution. -/
+def WTR_107_R : CardDef := { WTR_107_R_meta with status := .full }
 /-- Surging Strike Yellow (vanilla Go Again, drafted IR). -/
 def WTR_108_Y : CardDef := draftVanilla WTR_108_Y_meta
 /-- Surging Strike Blue (vanilla Go Again, drafted IR). -/
