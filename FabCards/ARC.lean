@@ -32,6 +32,12 @@ def ARC_002 : CardDef :=
     front := { Meta.ARC_002_meta.front with abilities := [dashSetupAbility] }
     status := .full }
 
+/-- An action that loads a steam counter only when its source is empty. -/
+def loadSteamAbility : Ability :=
+  .activated .action false { actionPoints := 1, resources := 1 } [] none true
+    { body := .ifThen (.sourceCounterLt .steam 1)
+        (.prim (.addCounter .self_ .steam (.const 1))) .nop }
+
 /-- Teklo Plasma Pistol (ARC003). -/
 def ARC_003 : CardDef :=
   { Meta.ARC_003_meta with
@@ -39,9 +45,7 @@ def ARC_003 : CardDef :=
       abilities :=
         [ .activated .action false { actionPoints := 1 } [{ cost := .removeCounters .steam 1 }] none false
             { body := .prim .weaponAttack }
-        , .activated .action false { actionPoints := 1, resources := 1 } [] none true
-            { body := .ifThen (.sourceCounterLt .steam 1)
-                (.prim (.addCounter .self_ .steam (.const 1))) .nop } ] }
+        , loadSteamAbility ] }
     status := .full }
 
 /-- Teklo Foundry Heart (ARC004). -/
@@ -109,9 +113,7 @@ def ARC_010_R : CardDef :=
   { Meta.ARC_010_R_meta with
     front := { Meta.ARC_010_R_meta.front with
       abilities :=
-        [ .activated .action false { actionPoints := 1, resources := 1 } [] none true
-            { body := .ifThen (.sourceCounterLt .steam 1)
-                (.prim (.addCounter .self_ .steam (.const 1))) .nop }
+        [ loadSteamAbility
         , .activated .attackReaction true {} [{ cost := .removeCounters .steam 1 }] none false
             { targets :=
                 [{ kind := .weaponAttack
@@ -152,10 +154,22 @@ def ARC_015_Y : CardDef := { pourTheMold Meta.ARC_015_Y_meta 1 with status := .f
 /-- Pour the Mold (ARC016). -/
 def ARC_016_B : CardDef := { pourTheMold Meta.ARC_016_B_meta 2 with status := .full }
 
+/-- Aether Sink (ARC017). -/
+def ARC_017_Y : CardDef :=
+  { Meta.ARC_017_Y_meta with
+    front := { Meta.ARC_017_Y_meta.front with
+      entryCounters := [(.steam, 1)]
+      abilities :=
+        [ loadSteamAbility
+        , .activated .instant false {} [{ cost := .removeCounters .steam 1 }] none false
+            { body := .grant .self_ (.grantKeyword (.arcaneBarrier 2)) .thisTurn } ] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
-   ARC_008_R, ARC_009_Y, ARC_010_R, ARC_011_R, ARC_012_Y, ARC_013_B, ARC_014_R, ARC_015_Y, ARC_016_B]
+   ARC_008_R, ARC_009_Y, ARC_010_R, ARC_011_R, ARC_012_Y, ARC_013_B, ARC_014_R, ARC_015_Y,
+   ARC_016_B, ARC_017_Y]
 
 end FabCards.ARC
 

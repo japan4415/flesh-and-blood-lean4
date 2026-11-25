@@ -900,6 +900,64 @@ meta def pourTheMoldCostScenario (moldId : String) (maxCost : Nat) : Option Bool
 #guard (earlyPrintingCardId? "ARC016").map (·.val) == some "ARC_016_B"
 #guard pourTheMoldCostScenario "ARC_016_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC017").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Aether Sink" && card.status == .full)
+
+meta def aetherSinkScenario : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let arena := Zone.player p .permanent
+  let damage (name : String) (amount : Int) : CardDef :=
+    { id := ⟨name⟩
+      front :=
+        { name
+          types := [.instant]
+          cost := some {}
+          playEffect := some { body := .prim (.dealDamage .arcane .controller (.const amount)) } } }
+  let large := damage "Aether Sink damage 5 fixture" 5
+  let small := damage "Aether Sink damage 1 fixture" 1
+  let cards : CardDB := ⟨large :: small :: throughArcDB.cards⟩
+  let (base, potion) ← earlyPlace { earlyBase with cards } p arena "WTR_170_B"
+  let (withBig, bigDamage) ← earlyPlace base p hand large.id.val
+  let (withSmall, smallDamage) ← earlyPlace withBig p hand small.id.val
+  let (ready, item) ← earlyPlace withSmall p hand "ARC_017_Y"
+  let play (id : ObjId) : List Action := ⟨.player p, .playCard id⟩ :: earlyPass
+  let installed ← earlySteps ready (play item)
+  let sink ← (installed.zone arena).head?
+  let steam (s : GameState) := (s.obj? sink).map (·.counterCount .steam)
+  let load : List Action := ⟨.player p, .activateAbility sink 0 none⟩ :: earlyPass
+  let activate : Action := ⟨.player p, .activateAbility sink 1 none⟩
+  let select (id : Nat) : Action := ⟨.player p, .pickReplacement (some id)⟩
+  let loaded ← earlySteps installed load
+  let announced ← earlySteps loaded [activate]
+  let used ← earlySteps announced earlyPass
+  let reloaded ← earlySteps used load
+  let twice ← earlySteps reloaded (activate :: earlyPass)
+  let offered ← earlySteps twice (play bigDamage)
+  let .chooseReplacement _ .prevention [first, second] true :: _ := offered.pending | none
+  let firstPaid ← earlySteps offered [select first]
+  let .chooseReplacement _ .prevention [remaining] true :: _ := firstPaid.pending | none
+  let prevented ← earlySteps firstPaid [select second]
+  let minorHit ← earlySteps twice (play smallDamage)
+  let .chooseReplacement _ .prevention [minorBarrier, _] true :: _ := minorHit.pending | none
+  let minorPaid ← earlySteps minorHit [select minorBarrier]
+  let (expired, _) ← (advance 64 { twice with pending := [.endTurnCleanup p] } []).toOption
+  pure (steam installed == some 1 && steam loaded == some 1 &&
+    (loaded.poolOf p).resources + 1 == (installed.poolOf p).resources &&
+    steam announced == some 0 && (arcaneBarrierEffects announced p).isEmpty &&
+    (earlySteps used [activate]).isNone && steam reloaded == some 1 &&
+    steam twice == some 0 && first != second && remaining == second &&
+    (arcaneBarrierEffects twice p).map (·.source) == [sink, sink] &&
+    (twice.characteristics potion).all (fun c => !c.keywords.contains (.arcaneBarrier 2)) &&
+    (earlySteps firstPaid [select first]).isNone &&
+    prevented.lifeOf p + 1 == twice.lifeOf p &&
+    (prevented.poolOf p).resources + 4 == (twice.poolOf p).resources &&
+    minorPaid.lifeOf p == twice.lifeOf p &&
+    (minorPaid.poolOf p).resources + 2 == (twice.poolOf p).resources &&
+    (arcaneBarrierEffects expired p).isEmpty)
+
+#guard aetherSinkScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

@@ -1958,6 +1958,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .nextDefend filter, .addDefense _ => .nextDefend filter
         | .allAttacks filter, .addPower _ => .allAttacks filter
         | .self_, .addPower _ | .obj .self_, .addPower _ => .obj src
+        | .self_, .grantKeyword _ | .obj .self_, .grantKeyword _ => .obj src
         | .obj .currentAttack, .allowWeaponAttack =>
           (((s.combat.bind CombatChain.activeLink?).bind (·.attackSource)).map EffectTarget.obj).getD (.objects [])
         | .hero player, .addIntellect _ =>
