@@ -93,8 +93,20 @@ def IRA_011_B : CardDef :=
     sets := [⟨"IRA"⟩]
     status := .full }
 
+/-- Springboard Somersault. -/
+def IRA_012_Y : CardDef :=
+  { id := ⟨"IRA_012_Y"⟩
+    front :=
+      { name := "Springboard Somersault", supertypes := [.generic], types := [.defenseReaction]
+        color := some .yellow, pitch := some 2, cost := some {}, defense := some 2
+        playEffect := some
+          { body := .ifThen .playedFromArsenal
+              (.grant .self_ (.addDefense (.const 2)) .thisChainLink) .nop } }
+    sets := [⟨"IRA"⟩]
+    status := .full }
+
 /-- Logical cards first published in the Ira Welcome Deck. -/
-def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y, IRA_005_Y, IRA_006_R, IRA_007_R, IRA_010_B, IRA_011_B]
+def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y, IRA_005_Y, IRA_006_R, IRA_007_R, IRA_010_B, IRA_011_B, IRA_012_Y]
 
 end IRA
 end FabCards
