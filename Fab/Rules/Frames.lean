@@ -671,13 +671,18 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
   | none => []
   | some source =>
     let printed := ((s.objectFace? source).map (·.abilities)).getD []
-    collectCardTriggers s source link.attacker false (printed ++ link.grantedAbilities)
+    let triggers := collectCardTriggers s source link.attacker false (printed ++ link.grantedAbilities)
       (damageRecipient := some link.defender) fun trigger cond =>
         let matchesEvent := match trigger with
           | .onHit => link.hit
           | .onCrush => crushTriggered link
           | _ => false
         matchesEvent && (cond.map (evalCondition s link.attacker source false)).getD true
+    triggers.map fun trigger =>
+      match trigger.effect with
+      | .grant (.hero .defendingHero) mod dur =>
+        { trigger with effect := .grant (.hero (.seated link.defender)) mod dur }
+      | _ => trigger
 
 /-- Collect the card's own on-play triggers once its costs have been paid (CR 5.1, 6.6.5). -/
 def playedCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
@@ -1400,7 +1405,7 @@ def applyAction (s : GameState) (a : Action) : Option (GameState × List Event) 
 
 /-- Stack installed and delayed end-phase triggers before the rest of the phase (CR 4.4.2). -/
 def beginEndPhase (s : GameState) (tp : PlayerId) (rest : List Frame) : GameState :=
-  let phaseState := { s with phase := .endPhase }
+  let phaseState := { s.expireEffects .thisActionPhase with phase := .endPhase }
   let queued := queueCardTriggers phaseState (installedCardTriggers phaseState tp (· == .onStartOfEndPhase))
   let selected := s.delayedTriggers.partition fun trigger => trigger.watchPhase == .endPhase
   let delayed := selected.1.map fun trigger =>
@@ -1412,8 +1417,7 @@ def beginEndPhase (s : GameState) (tp : PlayerId) (rest : List Frame) : GameStat
       effect := trigger.effect : PendingTrigger }
   let pendingTriggers := queued.pendingTriggers ++ delayed
   let triggerFrames := if pendingTriggers.isEmpty then [] else [.flushTriggers, .resolveStack]
-  { s with
-    phase := .endPhase
+  { phaseState with
     nextTimestamp := queued.nextTimestamp
     triggeredThisTurn := queued.triggeredThisTurn
     delayedTriggers := selected.2
@@ -1460,7 +1464,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let triggers := if queued.pendingTriggers.isEmpty then [] else [.flushTriggers, .resolveStack]
     some ({ queued with pending := triggers ++ rest }, [])
   | .actionPhaseStart tp :: rest =>
-    let s1 := { s with phase := .actionPhase }
+    let s1 := { s.startActionPhaseEffects tp with phase := .actionPhase }
     let triggers := (controlledPermanentTriggers s1 tp .onStartOfActionPhase).zipIdx.map
       fun (trigger, index) => { trigger with id := s1.nextTimestamp + index }
     let s2 := s1.setPool tp ((s.poolOf tp).addActionPoints 1)

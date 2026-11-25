@@ -530,6 +530,18 @@ def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
 def expireEffects (s : GameState) (dur : Duration) : GameState :=
   { s with activeEffects := s.activeEffects.filter fun e => e.duration != dur }
 
+/-- Start restrictions scheduled for this player's action phase (CR 4.3). -/
+def startActionPhaseEffects (s : GameState) (p : PlayerId) : GameState :=
+  { s with activeEffects := s.activeEffects.map fun e =>
+      if e.duration == .nextActionPhase && e.target == .player p then
+        { e with duration := .thisActionPhase }
+      else e }
+
+/-- Whether the active action phase currently restricts this player's actions (CR 4.3). -/
+def hasActionPhaseEffect (s : GameState) (p : PlayerId) (op : EffectOp) : Bool :=
+  s.phase == .actionPhase && s.active == some p &&
+    s.activeEffects.any (fun e => e.duration == .thisActionPhase && e.target == .player p && e.op == op)
+
 /-- Restoring a snapshot taken from `s` (when `s.playRollback = none`) returns the exact state `s`. -/
 theorem restore_snapshot {s : GameState} (h : s.playRollback = none) :
     s.restore s.snapshot = s := by

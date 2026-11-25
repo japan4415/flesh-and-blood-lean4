@@ -164,6 +164,8 @@ inductive EffectOp where
   | loseKeyword (kw : KeywordInst)
   /-- Stage 6: lose all abilities and keywords (CR 6.3.2f). -/
   | loseAllAbilities
+  /-- Player restriction checked when a draw would occur (CR 8.5.6). -/
+  | cantDrawCards
   /-- Stage 7: set base power `{p}` to `v` (CR 6.3.2g). -/
   | setBasePower (v : Int)
   /-- Stage 7: set base defense `{d}` to `v` (CR 6.3.2g). -/
@@ -201,7 +203,8 @@ def EffectOp.stage : EffectOp → EffectStage
   | .setName _ | .setColor _ => .stage3NameColorText
   | .addType _ | .addSubtype _ | .setSubtypes _ => .stage4TypeSubtype
   | .addSupertype _ => .stage5Supertype
-  | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .loseKeyword _ | .loseAllAbilities => .stage6Ability
+  | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .loseKeyword _ | .loseAllAbilities
+  | .cantDrawCards => .stage6Ability
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .stage7BaseNumeric
   | .lockPower | .mulPower _ | .divPower _ | .addPower _ | .subPower _
   | .addDefense _ | .subDefense _ | .addCostRes _ | .subCostRes _
@@ -209,7 +212,7 @@ def EffectOp.stage : EffectOp → EffectStage
 
 /-- Which sub-stage within its stage an `EffectOp` belongs to (CR 6.3.3). -/
 def EffectOp.subStage : EffectOp → SubStage
-  | .lockPower => .restrict
+  | .lockPower | .cantDrawCards => .restrict
   | .copyFace _ | .setController _ | .setName _ | .setColor _ | .setSubtypes _
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .set
   | .mulPower _ | .divPower _ => .mulDiv
@@ -249,7 +252,7 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
   | .setSubtypes sts => { c with subtypes := sts }
   | .addSupertype st => { c with supertypes := insertUnique st c.supertypes }
   | .grantKeyword kw => { c with keywords := insertUnique kw c.keywords }
-  | .grantAttackAbility _ | .allowWeaponAttack => c
+  | .grantAttackAbility _ | .allowWeaponAttack | .cantDrawCards => c
   | .loseKeyword kw => { c with keywords := c.keywords.filter (· != kw) }
   | .loseAllAbilities => { c with keywords := [], abilitiesLost := true }
   | .setBasePower v => { c with basePower := some v, power := some v }
@@ -283,6 +286,8 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
 inductive EffectTarget where
   /-- Applies specifically to object `id`. -/
   | obj (id : ObjId)
+  /-- Restricts the specified player rather than altering an object's characteristics. -/
+  | player (p : PlayerId)
   /-- Applies to each object selected when the effect was generated (CR 6.2.2c). -/
   | objects (ids : List ObjId)
   /-- Applies to any object whose derived characteristics satisfy `reqType`/`reqSubtype`/
@@ -311,7 +316,7 @@ def EffectTarget.matches (t : EffectTarget) (c : DerivedChars) (id : ObjId) : Bo
   match t with
   | .obj tid => tid == id
   | .objects ids => ids.contains id
-  | .nextAttackCard _ | .nextAttack _ | .nextDefend _ | .allAttacks _ => false
+  | .player _ | .nextAttackCard _ | .nextAttack _ | .nextDefend _ | .allAttacks _ => false
   | .matchingCard controller filter =>
     c.controller == controller && !filter.isWeaponAttack &&
       cardFaceMatches filter {

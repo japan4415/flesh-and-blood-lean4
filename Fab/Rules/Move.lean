@@ -650,6 +650,21 @@ theorem moveObj_arena_preserves {s s' : GameState} {id id' : ObjId} {src dst : Z
       obtain ⟨rfl, rfl⟩ := h
       exact ⟨rfl, rfl⟩
 
+/-- Helper: `moveObj` preserves `config` and `playRollback`. -/
+theorem moveObj_config_rollback {s s' : GameState} {id id' : ObjId} {dst : Zone} {pos : Pos}
+    {fd : Bool} (h : moveObj s id dst pos fd = some (s', id')) :
+    s'.config = s.config ∧ s'.playRollback = s.playRollback := by
+  unfold moveObj at h
+  split at h
+  · dsimp only at h
+    split at h
+    · cases h
+    · split at h <;>
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        exact ⟨rfl, rfl⟩
+  · cases h
+
 end Fab
 
 end

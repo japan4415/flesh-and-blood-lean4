@@ -323,11 +323,12 @@ def WTR_044_R : CardDef :=
     [ .triggered (.onDealDamage 4 true) false none none
         { body := .grant (.playerActionsAndAttacks .defendingHero) .cantGainGoAgain .nextActionPhase } ]
 
-/-- Cranial Crush (drafted IR). -/
+/-- Cranial Crush. -/
 def WTR_045_B : CardDef :=
-  draftCard WTR_045_B_meta
-    [ .triggered (.onDealDamage 4 true) false none none
-        { body := .grant (.hero .defendingHero) .cantDrawCards .nextActionPhase } ]
+  { draftCard WTR_045_B_meta
+      [ .triggered .onCrush false none none
+          { body := .grant (.hero .defendingHero) .cantDrawCards .nextActionPhase } ]
+    with status := .full }
 
 /-- Forged for War. -/
 def WTR_046_Y : CardDef :=

@@ -4486,6 +4486,62 @@ meta def checkCripplingCrush : Option Bool := do
 
 #guard checkCripplingCrush == some true
 
+/-- Cranial Crush suppresses only draws during the damaged player's next action phase. -/
+meta def checkCranialCrush : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_045_B"⟩
+  let deck := Zone.player defender .deck
+  let hand := Zone.player defender .hand
+  let base := m5Base.setPool attacker { actionPoints := 1, resources := 6 }
+  let card ← base.cards.find? cid
+  let (withAttack, attack) ← cPlace { base with pending := base.pending ++ [.beginTurn] } attacker .hand cid
+  let (withTome, tome) ← cPlace withAttack defender .arsenal ⟨"WTR_160_Y"⟩ true
+  let (withPitch, pitch) ← cPlace withTome defender .hand ⟨"WTR_205_B"⟩
+  let (withDeck, _) ← (List.replicate 7 ⟨"WTR_048_R"⟩).foldlM
+    (fun (s, _) cardId => cPlace s defender .deck cardId) (withPitch, pitch)
+  let (ready, _) ← (List.replicate 5 ⟨"WTR_203_R"⟩).foldlM
+    (fun (s, _) cardId => cPlace s attacker .deck cardId) (withDeck, attack)
+  let defend ← cSteps ready (⟨.player attacker, .playCard attack⟩ :: (passBoth ++ passBoth))
+  let finish := ⟨.player defender, .defendDone⟩ :: (passBoth ++ passBoth)
+  let prevent (damage : Nat) :=
+    (execPrim defend defender ⟨0⟩ [] (.preventNextDamage .controller (.const damage) .thisTurn)).1
+  let hit ← cSteps (prevent 4) finish
+  let short ← cSteps (prevent 5) finish
+  let trigger ← hit.pendingTriggers.head?
+  let link ← hit.combat.bind CombatChain.activeLink?
+  let stacked ← cSteps hit [⟨.player attacker, .pickTriggerStart attacker⟩, ⟨.player attacker, .pickTrigger trigger.id⟩]
+  let waiting ← cSteps stacked passBoth
+  let restricted ← cSteps waiting (List.replicate 3 passBoth).flatten
+  let play : Action := ⟨.player defender, .playCard tome⟩
+  let paid ← cSteps restricted [play, ⟨.player defender, .pitchCard pitch⟩, ⟨.player defender, .pass⟩]
+  let (tomed, tomeEvents) ← (step 64 paid ⟨.player attacker, .pass⟩).toOption
+  let pitched ← (tomed.zone (.player defender .pitch)).head?
+  let afterTurn ← cSteps tomed (passBoth.reverse ++ [⟨.player defender, .arsenalSkip⟩,
+    ⟨.player defender, .pitchReturnPick pitched⟩])
+  let later ← cSteps afterTurn (passBoth ++ [⟨.player attacker, .arsenalSkip⟩])
+  let top ← (restricted.zone deck).head?
+  let (movedDirectly, _) ← moveObj restricted top hand .top false
+  let affects (s : GameState) (p : PlayerId) := s.hasActionPhaseEffect p .cantDrawCards
+  let another := (attackDamageTriggers hit { link with defender := ⟨3⟩ }).head?
+  pure (card.status == .full && card.front.pitch == some 3 && card.front.defense == some 3 &&
+    hit.lifeOf defender == 36 && short.lifeOf defender == 37 && short.pendingTriggers.isEmpty &&
+    another.map (·.effect) ==
+      some (.grant (.hero (.seated ⟨3⟩)) .cantDrawCards .nextActionPhase) &&
+    waiting.activeEffects.map (fun e => (e.target, e.duration)) == [(.player defender, .nextActionPhase)] &&
+    !affects waiting defender && (drawOne waiting defender).2.any (fun e => match e with | .drawn _ _ => true | _ => false) &&
+    restricted.active == some defender && affects restricted defender && !affects restricted attacker &&
+    (restricted.zone hand).length == 4 && (drawOne restricted defender).2 == [] &&
+    (drawOne restricted attacker).2.any (fun e => match e with | .drawn _ _ => true | _ => false) &&
+    (movedDirectly.zone hand).length == 5 &&
+    (legalActionsFor defender restricted).contains play && tomed.zone deck == restricted.zone deck &&
+    (tomed.zone hand).length == 3 && tomed.lifeOf defender == 39 && tomeEvents.contains (.lifeGained defender 3) &&
+    !tomeEvents.any (fun e => match e with | .drawn _ _ => true | _ => false) &&
+    afterTurn.activeEffects.isEmpty && (afterTurn.zone hand).length == 4 &&
+    later.active == some defender && !affects later defender && (drawOne later defender).2.length == 2)
+
+#guard checkCranialCrush == some true
+
 /-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
 meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
     (keywords : List KeywordInst := []) : Option Bool := do

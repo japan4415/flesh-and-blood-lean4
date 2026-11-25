@@ -712,18 +712,6 @@ private theorem beginEndPhase_preserves {s : GameState} (hwf : s.WF) (hok : s.Ow
     StepPreserves s (beginEndPhase s player rest) :=
   sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
 
-/-- Helper: `drawOne` preserves `config` and `playRollback`. -/
-theorem drawOne_meta (s : GameState) (p : PlayerId) :
-    (drawOne s p).1.config = s.config ∧ (drawOne s p).1.playRollback = s.playRollback := by
-  unfold drawOne
-  cases s.zone (.player p .deck) with
-  | nil => exact ⟨rfl, rfl⟩
-  | cons id _ =>
-    dsimp only
-    cases hm : moveObj s id (.player p .hand) .top false with
-    | none => exact ⟨rfl, rfl⟩
-    | some res => exact moveObj_config_rollback hm
-
 /-- `gspRun` followed by setting `pending` preserves `StepPreserves`. -/
 theorem gspRun_pending_preserves {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
     (hrb : s.RollbackOk) (newPending : List Frame) :

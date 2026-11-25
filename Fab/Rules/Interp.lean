@@ -448,21 +448,6 @@ theorem updateSingleObject_meta (s : GameState) (target : ObjId) (f : Object →
   unfold updateSingleObject
   cases s.objects[target.n]? <;> exact ⟨rfl, rfl⟩
 
-/-- Helper: `moveObj` preserves `config` and `playRollback`. -/
-theorem moveObj_config_rollback {s s' : GameState} {id id' : ObjId} {dst : Zone} {pos : Pos}
-    {fd : Bool} (h : moveObj s id dst pos fd = some (s', id')) :
-    s'.config = s.config ∧ s'.playRollback = s.playRollback := by
-  unfold moveObj at h
-  split at h
-  · dsimp only at h
-    split at h
-    · cases h
-    · split at h <;>
-      · simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        exact ⟨rfl, rfl⟩
-  · cases h
-
 /-- Helper: `moveObj` preserves `turn`, `tournament`, and `result`. -/
 theorem moveObj_ttr_core {s s' : GameState} {id id' : ObjId} {dst : Zone} {pos : Pos}
     {fd : Bool} (h : moveObj s id dst pos fd = some (s', id')) :
@@ -1852,6 +1837,15 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         else link
       | _ => link
     { s with combat := some cc' }
+  | .nextActionPhase, _ =>
+    match scope, mod with
+    | .hero player, .cantDrawCards =>
+      let effect : ContinuousEffect :=
+        { id := s.nextTimestamp, source := src, controller := ctrl
+          target := .player (evalPlayerRef s ctrl player), op := .cantDrawCards
+          duration := .nextActionPhase, timestamp := ⟨s.nextTimestamp⟩ }
+      { s with activeEffects := s.activeEffects ++ [effect], nextTimestamp := s.nextTimestamp + 1 }
+    | _, _ => s
   | .thisTurn, _ | .thisCombatChain, _ =>
     let op? : Option EffectOp :=
       match mod with
