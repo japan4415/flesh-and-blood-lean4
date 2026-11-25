@@ -78,6 +78,7 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .weaponAttack => true
   | .draw p n => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .discardRandom p n => p.wfBool numSlots && n.wfBool numSlots env hasX
+  | .discardHandPrefix _ => true
   | .discardChoice p _ n => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .dealDamage _ p n => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .gainLife p n => p.wfBool numSlots && n.wfBool numSlots env hasX

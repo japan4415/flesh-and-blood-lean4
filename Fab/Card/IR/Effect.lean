@@ -139,6 +139,8 @@ inductive Prim where
   | draw (p : PlayerRef) (n : NumExpr)
   /-- Player `p` discards `n` random cards from hand. -/
   | discardRandom (p : PlayerRef) (n : NumExpr)
+  /-- Discard the first `n` cards of the controller's hand after a chance permutation. -/
+  | discardHandPrefix (n : Nat)
   /-- Player `p` chooses and discards `n` cards matching `f` from hand. -/
   | discardChoice (p : PlayerRef) (f : CardFilter) (n : NumExpr)
   /-- Deal `n` damage of kind `kind` to player `p`'s hero (CR 7.5, 8.5.3). -/

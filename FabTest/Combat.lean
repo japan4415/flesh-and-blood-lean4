@@ -385,6 +385,54 @@ meta def checkDisable (cid : CardId) (power : Nat) : Option Bool := do
 #guard checkDisable ⟨"WTR_049_Y"⟩ 8 == some true
 #guard checkDisable ⟨"WTR_050_B"⟩ 7 == some true
 
+/-- Resolve Crippling Crush with different chance outcomes and with fewer than two cards. -/
+meta def checkCripplingCrush : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_043_R"⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 7 }
+  let card ← funded.cards.find? cid
+  let bravo ← funded.cards.find? ⟨"WTR_038"⟩
+  let (withHero, _) ← cPlace funded attacker .hero bravo.id
+  let (withAttack, attack) ← cPlace withHero attacker .hand cid
+  let (shortHand, first) ← cPlace withAttack defender .hand ⟨"WTR_203_R"⟩
+  let (twoCards, second) ← cPlace shortHand defender .hand ⟨"WTR_204_Y"⟩
+  let (threeCards, third) ← cPlace twoCards defender .hand ⟨"WTR_205_B"⟩
+  let play := [⟨.player attacker, .playCard attack⟩] ++ passBoth ++ passBoth
+  let damage := fun (s : GameState) (prevent : Int) => do
+    let defense ← cSteps s play
+    let (shielded, _, _) := execPrim defense defender ⟨0⟩ []
+      (.preventNextDamage .controller (.const prevent) .thisTurn)
+    cSteps shielded ([⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth)
+  let resolveCrush := fun (s : GameState) => do
+    let trigger ← s.pendingTriggers.head?
+    cSteps s ([⟨.player attacker, .pickTriggerStart attacker⟩,
+      ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let crushed ← damage threeCards 7
+  let belowThreshold ← damage threeCards 8
+  let chance ← resolveCrush crushed
+  let hand := Zone.player defender .hand
+  let graveyard := Zone.player defender .graveyard
+  let shuffle := fun ids => (⟨.chance, .shuffleOrder ids⟩ : Action)
+  let (resolved, events) ← (step 64 chance (shuffle [first, third, second])).toOption
+  let other ← cSteps chance [shuffle [second, first, third]]
+  let shortCrushed ← damage shortHand 7
+  let shortResolved ← resolveCrush shortCrushed
+  let discarded := resolved.zone graveyard
+  pure (card.status == .full && decide (CardAllowedForHero funded.cards bravo cid) &&
+    crushed.lifeOf defender == 36 && crushed.pendingTriggers.length == 1 &&
+    belowThreshold.lifeOf defender == 37 && belowThreshold.pendingTriggers.isEmpty &&
+    belowThreshold.zone hand == threeCards.zone hand &&
+    chance.pending.head? == some (.chanceShuffle hand) &&
+    chance.zone hand == threeCards.zone hand && chance.zone graveyard == [] &&
+    (step 64 chance (shuffle [first, first, third])).toOption.isNone &&
+    resolved.zone hand == [second] && other.zone hand == [third] &&
+    discarded.length == 2 && discarded.all (fun id => events.contains (.discarded defender id)) &&
+    (resolved.zone .stack).isEmpty && (shortResolved.zone .stack).isEmpty &&
+    shortResolved.zone hand == [] && (shortResolved.zone graveyard).length == 1)
+
+#guard checkCripplingCrush == some true
+
 /-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
 meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
     (keywords : List KeywordInst := []) : Option Bool := do
