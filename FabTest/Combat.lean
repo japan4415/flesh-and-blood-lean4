@@ -731,6 +731,8 @@ meta def checkBreakneckBattery (cid : CardId) (pitch power : Nat) (fromArsenal :
 #guard checkBreakneckBattery ⟨"WTR_011_R"⟩ 1 6 true == some true
 #guard checkBreakneckBattery ⟨"WTR_012_Y"⟩ 2 5 false == some true
 #guard checkBreakneckBattery ⟨"WTR_012_Y"⟩ 2 5 true == some true
+#guard checkBreakneckBattery ⟨"WTR_013_B"⟩ 3 4 false == some true
+#guard checkBreakneckBattery ⟨"WTR_013_B"⟩ 3 4 true == some true
 
 /-- A weapon gets Go Again only when its granted hit trigger resolves. -/
 meta def checkWarriorsValor (cid : CardId) (pitch bonus : Nat) : Option Bool := do

@@ -149,8 +149,8 @@ def breakneckBattery (base : CardDef) : CardDef :=
 def WTR_011_R : CardDef := { breakneckBattery WTR_011_R_meta with status := .full }
 /-- Breakneck Battery Yellow. -/
 def WTR_012_Y : CardDef := { breakneckBattery WTR_012_Y_meta with status := .full }
-/-- Breakneck Battery Blue (drafted IR). -/
-def WTR_013_B : CardDef := breakneckBattery WTR_013_B_meta
+/-- Breakneck Battery Blue. -/
+def WTR_013_B : CardDef := { breakneckBattery WTR_013_B_meta with status := .full }
 
 /-- Shared 3-color helper for Barraging Beatdown (+4/+3/+2 if <2 non-equip defenders). -/
 def barragingBeatdown (base : CardDef) (bonus : Int) : CardDef :=
