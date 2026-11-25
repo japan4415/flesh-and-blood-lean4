@@ -291,7 +291,7 @@ meta def eyeOfOphidiaScenario : Option Bool := do
 
 #guard eyeOfOphidiaScenario == some true
 
-meta def adultDashSetupScenario : Option Bool := do
+meta def dashSetupScenario (hero : String) (format : Format) (deckSize : Nat) : Option Bool := do
   let player := earlyAttacker
   let opponent := earlyDefender
   let permanent := Zone.player player .permanent
@@ -310,10 +310,11 @@ meta def adultDashSetupScenario : Option Bool := do
     { earlyBase with
       cards
       phase := .setup
+      config := { earlyBase.config with format }
       pending := [.chooseLoadout player, .revealLoadouts] }
-  let (hero, _) ← earlyPlace setup player (.player player .hero) "ARC_001"
-  let loaded ← (List.range 59).foldlM
-    (fun s _ => (earlyPlace s player deck "WTR_203_R").map Prod.fst) hero
+  let (withHero, _) ← earlyPlace setup player (.player player .hero) hero
+  let loaded ← (List.range (deckSize - 1)).foldlM
+    (fun s _ => (earlyPlace s player deck "WTR_203_R").map Prod.fst) withHero
   let (withExpensive, wrong) ← earlyPlace loaded player inventory "Dash-test-expensive"
   let (ready, allowed) ← earlyPlace withExpensive player inventory "Dash-test-item"
   let selected ← earlySteps ready [⟨.player player, .loadoutEquip allowed⟩]
@@ -322,10 +323,11 @@ meta def adultDashSetupScenario : Option Bool := do
   pure (!loadoutCanFinish ready player && loadoutCanFinish selected player &&
     loadoutEquipDest? ready player wrong == none && (selected.obj? id).any (·.faceDown) &&
     viewZone opponent selected permanent == .countOnly 0 &&
-    viewZone opponent selected deck == .countOnly 60 &&
-    (revealed.obj? id).any (fun obj => !obj.faceDown) && (revealed.zone deck).length == 59)
+    viewZone opponent selected deck == .countOnly deckSize &&
+    (revealed.obj? id).any (fun obj => !obj.faceDown) && (revealed.zone deck).length == deckSize - 1)
 
-#guard adultDashSetupScenario == some true
+#guard dashSetupScenario "ARC_001" .classicConstructed 60 == some true
+#guard dashSetupScenario "ARC_002" .blitz 40 == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>

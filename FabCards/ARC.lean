@@ -26,8 +26,14 @@ def ARC_001 : CardDef :=
     front := { Meta.ARC_001_meta.front with abilities := [dashSetupAbility] }
     status := .full }
 
+/-- Dash (ARC002). -/
+def ARC_002 : CardDef :=
+  { Meta.ARC_002_meta with
+    front := { Meta.ARC_002_meta.front with abilities := [dashSetupAbility] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
-def arcCards : List CardDef := [ARC_000_B, ARC_001]
+def arcCards : List CardDef := [ARC_000_B, ARC_001, ARC_002]
 
 end FabCards.ARC
 
