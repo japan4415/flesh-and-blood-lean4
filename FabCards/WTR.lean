@@ -406,8 +406,8 @@ def flusterFist (base : CardDef) : CardDef :=
 
 /-- Fluster Fist Red. -/
 def WTR_086_R : CardDef := { flusterFist WTR_086_R_meta with status := .full }
-/-- Fluster Fist Yellow (drafted IR). -/
-def WTR_087_Y : CardDef := flusterFist WTR_087_Y_meta
+/-- Fluster Fist Yellow. -/
+def WTR_087_Y : CardDef := { flusterFist WTR_087_Y_meta with status := .full }
 /-- Fluster Fist Blue (drafted IR). -/
 def WTR_088_B : CardDef := flusterFist WTR_088_B_meta
 
