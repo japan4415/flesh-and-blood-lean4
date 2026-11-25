@@ -54,6 +54,8 @@ def CombatStep.allSteps : List CombatStep :=
 structure ChainLink where
   /-- One-based link ordinal within this combat chain. -/
   linkId : LinkId
+  /-- One-based attack ordinal for the attacking player within the turn. -/
+  turnAttackOrdinal : Nat := 0
   /-- Attacking player. -/
   attacker : PlayerId
   /-- Defending hero's player. -/
