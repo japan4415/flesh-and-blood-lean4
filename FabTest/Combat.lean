@@ -354,6 +354,76 @@ meta def checkRazorReflex (cid : CardId) (pitch bonus : Nat) (fromArsenal : Bool
 #guard checkRazorReflex ⟨"WTR_211_B"⟩ 3 1 false == some true
 #guard checkRazorReflex ⟨"WTR_211_B"⟩ 3 1 true == some true
 
+/-- A weapon reaction checks hand defense on the current link, including later reactions. -/
+meta def checkWeaponReprise (cid : CardId) (pitch cost baseBonus repriseBonus : Nat)
+    (glint fromArsenal : Bool) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let deck := Zone.player attacker .deck
+  let hand := Zone.player attacker .hand
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 1 + cost }
+  let card ← funded.cards.find? cid
+  let (withTop, top) ← cPlace funded attacker .deck ⟨"WTR_188_R"⟩
+  let (withSword, sword) ← cPlace withTop attacker .weapon ⟨"WTR_115"⟩
+  let (withReaction, reaction) ← cPlace withSword attacker origin cid fromArsenal
+  let (withNinja, ninja) ← cPlace withReaction attacker .hand ⟨"WTR_098_R"⟩
+  let (withArmor, armor) ← cPlace withNinja defender .chest ⟨"WTR_041"⟩
+  let (withBlock, block) ← cPlace withArmor defender .hand ⟨"WTR_203_R"⟩
+  let play p id : Action := ⟨.player p, .playCard id⟩
+  let swing : Action := ⟨.player attacker, .attackWeapon sword⟩
+  let defend id : Action := ⟨.player defender, .defendCard id⟩
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let beginning := passBoth ++ passBoth
+  let enter := done :: passBoth
+  let cast := play attacker reaction
+  let defense ← cSteps withBlock (swing :: beginning)
+  let unblocked ← cSteps defense enter
+  let equipment ← cSteps defense (defend armor :: enter)
+  let handBlock ← cSteps defense (defend block :: enter)
+  let cardAttack ← cSteps withBlock (play attacker ninja :: (beginning ++ enter))
+  let resolve (s : GameState) := cSteps s (cast :: passBoth)
+  let bare ← resolve unblocked
+  let armored ← resolve equipment
+  let blocked ← resolve handBlock
+  let delayed (arsenal : Bool) := do
+    let zone : ZoneKind := if arsenal then .arsenal else .hand
+    let (ready, sink) ← cPlace withArmor defender zone ⟨"WTR_215_R"⟩ arsenal
+    let reacting ← cSteps ready (swing :: (beginning ++ enter))
+    let ourLayer ← cSteps reacting [cast]
+    let response ← cSteps ourLayer [⟨.player attacker, .pass⟩, play defender sink,
+      ⟨.player defender, .pass⟩, ⟨.player attacker, .pass⟩]
+    cSteps response passBoth
+  let lateHand ← delayed false
+  let lateArsenal ← delayed true
+  let yields (s : GameState) (reprise : Bool) := do
+    let link ← active s
+    let finished ← cSteps s (passBoth ++ passBoth)
+    let damage ← active finished
+    let expectDamage := (3 + (if reprise then repriseBonus else baseBonus)) - linkTotalDefense s link
+    let drawn := glint && reprise
+    pure (linkAttackPower s link == 3 + (if reprise then repriseBonus else baseBonus) &&
+      (link.defendedFromHandCount > 0) == reprise && linkHasKeyword s link .goAgain == glint &&
+      (s.poolOf attacker).resources == 0 && (s.poolOf attacker).actionPoints == 0 &&
+      (if drawn then (s.zone deck).isEmpty &&
+          ((s.zone hand).head?.bind s.cardDefOf?).map (·.id) == some ⟨"WTR_188_R"⟩
+        else s.zone deck == [top] && s.zone hand == [ninja]) &&
+      damage.damageDealt == expectDamage &&
+      (finished.poolOf attacker).actionPoints == (if glint then 1 else 0))
+  let bareOk ← yields bare false
+  let armorOk ← yields armored false
+  let handOk ← yields blocked true
+  let lateHandOk ← yields lateHand true
+  let lateArsenalOk ← yields lateArsenal false
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    !(legalActionsFor attacker cardAttack).contains cast &&
+    (step 64 cardAttack cast).toOption.isNone &&
+    bareOk && armorOk && handOk && lateHandOk && lateArsenalOk)
+
+#guard checkWeaponReprise ⟨"WTR_118_B"⟩ 3 0 0 0 true false == some true
+#guard checkWeaponReprise ⟨"WTR_118_B"⟩ 3 0 0 0 true true == some true
+
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
 --    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!

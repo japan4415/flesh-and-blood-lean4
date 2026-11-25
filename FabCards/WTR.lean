@@ -606,14 +606,14 @@ def WTR_117 : CardDef :=
         { body := .may (.prim (.destroy .self_))
             (.grant (.obj .currentAttack) (.grantKeyword .goAgain) .thisChainLink) } ]
 
-/-- Glint the Quicksilver (drafted IR). -/
+/-- Glint the Quicksilver. -/
 def WTR_118_B : CardDef :=
-  draftCard WTR_118_B_meta []
-    (some
-      { targets := [targetWeaponAttack]
-        body := .seqL
-          [ .grant (.obj (.slot 0)) (.grantKeyword .goAgain) .thisChainLink
-          , .ifThen .defendedFromHandThisLink (.prim (.draw .controller (.const 1))) .nop ] })
+  { draftCard WTR_118_B_meta []
+      (some
+        { targets := [targetWeaponAttack]
+          body := .seqL
+            [ .grant (.obj (.slot 0)) (.grantKeyword .goAgain) .thisChainLink
+            , .ifThen .defendedFromHandThisLink (.prim (.draw .controller (.const 1))) .nop ] }) with status := .full }
 
 /-- Steelblade Supremacy (drafted IR). -/
 def WTR_119_R : CardDef :=
