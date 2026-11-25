@@ -213,3 +213,14 @@ meta def springboardScenario : Option Bool := do
 #guard wtrDB.cards.length == 226
 #guard IRA.iraCards.length == 10
 #guard throughWtrDB.cards.length == 236 && throughWtrDB.cards.all (·.status == .full)
+
+#guard ([ ("BVO", 29), ("TEA", 30), ("KSU", 30), ("RNR", 31) ] : List (String × Nat)).all
+  (fun (setCode, count) => (List.range count).all fun index =>
+    let number := String.ofList ((toString (index + 1)).toList.leftpad 3 '0')
+    ((earlyPrintingCardId? (setCode ++ number)).bind throughWtrDB.find?).any (·.status == .full))
+
+#guard ["BVO015", "KSU021", "RNR022", "TEA019"].all
+  (fun number => earlyPrintingCardId? number == some ⟨"IRA_012_Y"⟩)
+#guard earlyPrintingCardId? "KSU028" == some ⟨"IRA_011_B"⟩
+#guard earlyPrintingCardId? "KSU003" == earlyPrintingCardId? "KSU004"
+#guard earlyPrintingCardId? "KSU031" == none
