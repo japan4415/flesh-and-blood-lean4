@@ -620,8 +620,8 @@ def WTR_154 : CardDef :=
         { targets := [{ kind := .attackAction, filter := { maxCost := some 1 } }]
           body := .grant (.obj (.slot 0)) (.grantKeyword .goAgain) .thisChainLink } ]
 
-/-- Ironrot Helm (keyword-only Blade Break, drafted IR). -/
-def WTR_155 : CardDef := draftVanilla WTR_155_meta
+/-- Ironrot Helm, with Blade Break applied when the combat chain closes. -/
+def WTR_155 : CardDef := { WTR_155_meta with status := .full }
 /-- Ironrot Plate (keyword-only Blade Break, drafted IR). -/
 def WTR_156 : CardDef := draftVanilla WTR_156_meta
 /-- Ironrot Gauntlet (keyword-only Blade Break, drafted IR). -/
