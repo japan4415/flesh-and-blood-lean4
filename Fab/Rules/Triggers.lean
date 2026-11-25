@@ -36,6 +36,8 @@ structure PendingTrigger where
   controller : PlayerId
   /-- Ability index on the source card. -/
   abilityIdx : Nat := 0
+  /-- Whether the card that created an on-play trigger was played from arsenal. -/
+  fromArsenal : Bool := false
   /-- Effect body executed when this triggered-layer resolves. -/
   effect : Effect := .nop
 deriving DecidableEq, Repr

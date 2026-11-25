@@ -226,8 +226,7 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     | some z => (s.zone z).isEmpty
     | none => false
   | .lessLifeThanOpponent =>
-    let opp := evalPlayerRef s ctrl .opposingHero
-    s.lifeOf ctrl < s.lifeOf opp
+    (allPlayers s.playerCount).any fun opp => opp != ctrl && s.lifeOf ctrl < s.lifeOf opp
   | .sourceCounterLt k n =>
     match s.obj? src with
     | some o => o.counterCount k < n
@@ -1725,12 +1724,30 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
           match s.objectFace? id with | some face => cardFaceMatches f face | none => false).take n) s
     exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
 
-/-- Apply a continuous modification from `Effect.grant`: updates the active `ChainLink` directly
-for `.thisChainLink` combat buffs, and registers a `ContinuousEffect` in `s.activeEffects` for
-turn- and chain-scoped continuous effects (CR 6.2-6.3, 7.4). -/
+/-- Apply a self-grant to an attack card that is still a paid layer on the stack. -/
+def modifyPendingAttack (s : GameState) (ctrl : PlayerId) (src : ObjId)
+    (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) :
+    Option LayerInfo := do
+  let selfGrant := match scope with
+    | .self_ | .obj .self_ => true
+    | _ => false
+  if dur != .thisChainLink || !selfGrant || s.locate src != some .stack then none else
+    let card ← s.cardDefOf? src
+    if !card.front.hasType .action || !card.front.hasSubtype .attack then none else
+      let info ← s.layerMeta.get? src.n
+      match mod with
+      | .addPower d =>
+        some { info with attackPowerBonus := info.attackPowerBonus + evalNumExpr s ctrl env d }
+      | .grantKeyword kw => some { info with attackKeywords := kw :: info.attackKeywords }
+      | _ => none
+
+/-- Apply combat buffs to a pending attack card or the active `ChainLink`, and register
+turn- and chain-scoped continuous effects in `s.activeEffects` (CR 6.2-6.3, 7.4). -/
 def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) : GameState :=
-  match dur, s.combat with
+  if let some info := modifyPendingAttack s ctrl src env scope mod dur then
+    { s with layerMeta := s.layerMeta.insert src.n info }
+  else match dur, s.combat with
   | .thisChainLink, some cc =>
     let cc' := cc.updateActiveLink fun link =>
       let targetsAttack := match scope with
@@ -1776,8 +1793,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
     | none => s
   | _, _ => s
 
-/-- `applyChainLinkMod` only updates `combat`/`activeEffects`/`nextTimestamp`, preserving board
-structure and `playRollback`. -/
+/-- `applyChainLinkMod` preserves the board structure and `playRollback`. -/
 theorem applyChainLinkMod_fields (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) :
     (applyChainLinkMod s ctrl src env scope mod dur).config = s.config ∧
@@ -1786,13 +1802,15 @@ theorem applyChainLinkMod_fields (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (applyChainLinkMod s ctrl src env scope mod dur).nextId = s.nextId ∧
     (applyChainLinkMod s ctrl src env scope mod dur).playRollback = s.playRollback := by
   unfold applyChainLinkMod
-  cases dur <;> cases s.combat <;>
-    first
-    | exact ⟨rfl, rfl, rfl, rfl, rfl⟩
-    | (dsimp only; cases mod <;>
-        first
-        | exact ⟨rfl, rfl, rfl, rfl, rfl⟩
-        | (dsimp only; split <;> exact ⟨rfl, rfl, rfl, rfl, rfl⟩))
+  split
+  · exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+  · cases dur <;> cases s.combat <;>
+      first
+      | exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+      | (dsimp only; cases mod <;>
+          first
+          | exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+          | (dsimp only; split <;> exact ⟨rfl, rfl, rfl, rfl, rfl⟩))
 
 /-- Execute a single step of `Frame.run ctrl src fromArsenal env todo :: rest` (CR 1.7, 6.0).
 Always succeeds (total), never returning `none`. -/

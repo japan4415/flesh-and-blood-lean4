@@ -39,6 +39,10 @@ structure LayerInfo where
   modeIdx : Option Nat := none
   /-- Whether this layer has Go Again on resolution (CR 5.3.4, 8.3.5). -/
   goAgain : Bool := false
+  /-- Power granted to an attack card before the card enters the combat chain. -/
+  attackPowerBonus : Int := 0
+  /-- Keywords granted to an attack card before the card enters the combat chain. -/
+  attackKeywords : List KeywordInst := []
   /-- Optional explicit effect body for triggered/activated ability layers (CR 6.6). -/
   triggerEffect : Option Effect := none
 deriving DecidableEq, Repr

@@ -399,8 +399,28 @@ def resolvingSource (s : GameState) (layer : ObjId) : ObjId :=
   | some (.layer src _ _ _) => src
   | _ => layer
 
-/-- Collect an attack's unconditional, untargeted hit and Crush triggers, including granted abilities
-(CR 7.5.3, 8.4.2). -/
+/-- Collect matching untargeted triggers that require no modes or additional costs (CR 6.6). -/
+def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId) (fromArsenal : Bool)
+    (abilities : List Ability) (matchesEvent : Trigger → Option Condition → Bool) :
+    List PendingTrigger :=
+  let triggers := abilities.zipIdx.filterMap fun (ability, abilityIdx) =>
+    match ability with
+    | .triggered trigger false none cond eff =>
+      if matchesEvent trigger cond && eff.targets.isEmpty && eff.modes.isEmpty &&
+          eff.extraCosts.isEmpty then
+        some ({
+          id := 0
+          source := source
+          sourceLki := captureLki s source controller
+          controller := controller
+          abilityIdx := abilityIdx
+          fromArsenal := fromArsenal
+          effect := eff.body } : PendingTrigger)
+      else none
+    | _ => none
+  triggers.zipIdx.map fun (trigger, idx) => { trigger with id := s.nextTimestamp + idx }
+
+/-- Collect an attack's unconditional hit and Crush triggers (CR 7.5.3, 8.4.2). -/
 def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigger :=
   match link.attack with
   | none => []
@@ -408,24 +428,20 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
     match s.objectFace? source with
     | none => []
     | some face =>
-      let triggers := (face.abilities ++ link.grantedAbilities).zipIdx.filterMap fun (ability, abilityIdx) =>
-        match ability with
-        | .triggered trigger false none none eff =>
-          let applies := match trigger with
-            | .onHit => link.hit
-            | .onCrush => crushTriggered link
-            | _ => false
-          if applies && eff.targets.isEmpty && eff.modes.isEmpty && eff.extraCosts.isEmpty then
-            some ({
-              id := 0
-              source := source
-              sourceLki := captureLki s source link.attacker
-              controller := link.attacker
-              abilityIdx := abilityIdx
-              effect := eff.body } : PendingTrigger)
-          else none
-        | _ => none
-      triggers.zipIdx.map fun (trigger, idx) => { trigger with id := s.nextTimestamp + idx }
+      collectCardTriggers s source link.attacker false (face.abilities ++ link.grantedAbilities)
+        fun trigger cond => cond.isNone && match trigger with
+          | .onHit => link.hit
+          | .onCrush => crushTriggered link
+          | _ => false
+
+/-- Collect the card's own on-play triggers once its costs have been paid (CR 5.1, 6.6.5). -/
+def playedCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
+    (fromArsenal : Bool) : List PendingTrigger :=
+  match s.objectFace? source with
+  | none => []
+  | some face =>
+    collectCardTriggers s source controller fromArsenal face.abilities fun trigger cond =>
+      trigger == .onPlay && (cond.map (evalCondition s controller source fromArsenal)).getD true
 
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
@@ -664,7 +680,7 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
           let remTrigs := s1.pendingTriggers.filter (fun t => t.id != tid)
           let info : LayerInfo :=
             { controller := p
-              fromArsenal := false
+              fromArsenal := trig.fromArsenal
               modeIdx := none
               goAgain := false
               triggerEffect := some trig.effect }
@@ -757,10 +773,14 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
           fromArsenal := fromArsenal
           modeIdx := modeIdx
           goAgain := hasGoAgain }
+      let triggers := playedCardTriggers s1 layerId p fromArsenal
+      let flush := if triggers.isEmpty then [] else [.flushTriggers]
       some ({ s1 with
                 layerMeta := s1.layerMeta.insert layerId.n info
                 playRollback := none
-                pending := .priority p 0 :: rest },
+                pendingTriggers := s1.pendingTriggers ++ triggers
+                nextTimestamp := s1.nextTimestamp + triggers.length
+                pending := flush ++ (.priority p 0 :: rest) },
             [])
     | none =>
       if canPitchForCost s p cost then
