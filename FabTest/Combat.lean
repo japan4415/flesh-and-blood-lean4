@@ -636,7 +636,7 @@ meta def checkAwakeningBellow (cid : CardId) (bonus : Int) (targeted : Bool := f
     ended.delayedTriggers.isEmpty && ended.activeEffects.isEmpty)
 
 #guard checkAwakeningBellow ⟨"WTR_032_R"⟩ 3 true == some true
-#guard checkAwakeningBellow ⟨"WTR_033_Y"⟩ 2 == some true
+#guard checkAwakeningBellow ⟨"WTR_033_Y"⟩ 2 true == some true
 #guard checkAwakeningBellow ⟨"WTR_034_B"⟩ 1 == some true
 
 /-- Play an attack with Intimidate and use the remaining hand card to defend. -/
