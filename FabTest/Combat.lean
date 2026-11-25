@@ -47,32 +47,40 @@ meta def cSteps (s : GameState) : List Action → Option GameState
 meta def passBoth : List Action :=
   [⟨.player ⟨0⟩, .pass⟩, ⟨.player ⟨1⟩, .pass⟩]
 
--- 1. Full 7-step Attack Action combat (CR 7.1-7.7):
---    P0 plays Wounding Blow Red (4{p}), P1 defends with 1 hand card (Wounding Blow Red, 3{d}) ->
---    Damage Step deals 1 damage (40 -> 39, hit = true) -> Close Step sends both cards to
---    respective graveyards and closes combat chain!
-#guard match (do
-    let (s1, wbAtk) ← cPlace m5Base ⟨0⟩ .hand ⟨"WTR_203_R"⟩
-    let (s2, wbDef) ← cPlace s1 ⟨1⟩ .hand ⟨"WTR_203_R"⟩
-    -- Layer Step -> Attack Step -> Defend Step (`defendPick P1`)
-    let sDef ← cSteps s2 ([⟨.player ⟨0⟩, .playCard wbAtk⟩] ++ passBoth ++ passBoth)
-    let onDefend := sDef.pending.head? == some (.defendPick ⟨1⟩)
-    -- P1 defends with wbDef, done -> Reaction Step -> Damage Step -> Resolution Step
-    let sRes ← cSteps sDef
-      ([⟨.player ⟨1⟩, .defendCard wbDef⟩, ⟨.player ⟨1⟩, .defendDone⟩] ++
-       passBoth ++ passBoth ++ passBoth)
-    let hitOk := sRes.lifeOf ⟨1⟩ == 39 &&
-      (sRes.combat.bind CombatChain.activeLink?).map (fun l => (l.hit, l.damageDealt)) == some (true, 1)
-    -- Pass Resolution Step -> Close Step -> back to Action Phase priority with combat closed
-    let sClosed ← cSteps sRes passBoth
-    pure (onDefend && hitOk &&
-      sClosed.combat == none &&
-      (sClosed.zone .combatChain).isEmpty &&
-      (sClosed.zone (.player ⟨0⟩ .graveyard)).length == 1 &&
-      (sClosed.zone (.player ⟨1⟩ .graveyard)).length == 1 &&
-      sClosed.physIds.length == 2)) with
-  | some b => b
-  | none => false
+-- 1. Full 7-step Attack Action combat (CR 7.1-7.7).
+/-- Check a plain attack card as a pitch, an attack, and a block on the combat chain. -/
+meta def checkPlainAttack (cid : CardId) (pitch cost power defense : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := cost + 1 }
+  let card ← funded.cards.find? cid
+  let (withAttack, attackId) ← cPlace funded attacker .hand cid
+  let (ready, blockId) ← cPlace withAttack defender .hand cid
+  let (pitched, pitchId, _) ← pitchOne withAttack attacker attackId
+  let defending ← cSteps ready ([⟨.player attacker, .playCard attackId⟩] ++ passBoth ++ passBoth)
+  let finishDefense := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let unblocked ← cSteps defending finishDefense
+  let blocked ← cSteps defending ([⟨.player defender, .defendCard blockId⟩] ++ finishDefense)
+  let closed ← cSteps blocked passBoth
+  let damage := power - defense
+  let attackGrave := closed.zone (.player attacker .graveyard)
+  let defenseGrave := closed.zone (.player defender .graveyard)
+  pure (card.status == .full && pitched.zone (.player attacker .pitch) == [pitchId] &&
+    (pitched.poolOf attacker).resources == cost + 1 + pitch &&
+    defending.pending.head? == some (.defendPick defender) &&
+    (defending.poolOf attacker).resources == 1 &&
+    unblocked.lifeOf defender == 40 - Int.ofNat power &&
+    blocked.lifeOf defender == 40 - Int.ofNat damage &&
+    (blocked.combat.bind CombatChain.activeLink?).map (fun l => (l.hit, l.damageDealt)) ==
+      some (damage != 0, damage) &&
+    (blocked.combat.bind CombatChain.activeLink?).map (linkTotalDefense blocked) == some defense &&
+    (blocked.poolOf attacker).actionPoints == 0 &&
+    closed.combat.isNone && (closed.zone .combatChain).isEmpty &&
+    attackGrave.map (fun id => (closed.cardDefOf? id).map (·.id)) == [some cid] &&
+    defenseGrave.map (fun id => (closed.cardDefOf? id).map (·.id)) == [some cid] &&
+    closed.physIds.length == 2)
+
+#guard checkPlainAttack ⟨"WTR_203_R"⟩ 1 0 4 3 == some true
 
 -- 2. Battleworn & Blade Break Equipment Wear + Identical `ObjId` Preservation (I11: CR 3.0.9, 7.7, 8.3.2, 8.3.3):
 --    P0 attacks with Wounding Blow Red (4{p}). P1 defends with Tectonic Plating (Chest, 2{d}, Battleworn)

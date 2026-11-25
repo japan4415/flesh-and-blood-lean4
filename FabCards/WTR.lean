@@ -728,8 +728,8 @@ def WTR_192_Y : CardDef := scarForAScar WTR_192_Y_meta
 /-- Scar for a Scar Blue (drafted IR). -/
 def WTR_193_B : CardDef := scarForAScar WTR_193_B_meta
 
-/-- Wounding Blow Red (vanilla, drafted IR). -/
-def WTR_203_R : CardDef := draftVanilla WTR_203_R_meta
+/-- Wounding Blow Red. -/
+def WTR_203_R : CardDef := { WTR_203_R_meta with status := .full }
 /-- Wounding Blow Yellow (vanilla, drafted IR). -/
 def WTR_204_Y : CardDef := draftVanilla WTR_204_Y_meta
 /-- Wounding Blow Blue (vanilla, drafted IR). -/
