@@ -187,8 +187,8 @@ def awakeningBellow (base : CardDef) (bonus : Int) : CardDef :=
               (.addPower (.const bonus))
               .thisTurn ] })
 
-/-- Awakening Bellow Red (drafted IR). -/
-def WTR_032_R : CardDef := awakeningBellow WTR_032_R_meta 3
+/-- Awakening Bellow Red. -/
+def WTR_032_R : CardDef := { awakeningBellow WTR_032_R_meta 3 with status := .full }
 /-- Awakening Bellow Yellow (drafted IR). -/
 def WTR_033_Y : CardDef := awakeningBellow WTR_033_Y_meta 2
 /-- Awakening Bellow Blue (drafted IR). -/

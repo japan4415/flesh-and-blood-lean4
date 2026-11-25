@@ -6,9 +6,9 @@ public import Fab.Invariant.Step
 # Stack, priority, rollback, and interpreter invariants (M4)
 
 Proves M4 theorems from `docs/roadmap.md`:
-- **I9** (Stack LIFO, priority retention, Go Again +1 AP on resolution):
+- **I9** (Stack LIFO, priority retention, automatic end-phase resolution):
   `playCard_pushes_stack_top`, `playPayCost_retains_priority`, `resolveStack_lifo`,
-  `finishResolve_goAgain_and_priority`
+  `finishResolve_continues_stack`
 - **I16** (Priority passing): `priority_pass_rotates`, `priority_all_passed_resolves_stack`,
   `priority_all_passed_ends_action_phase`
 - **I18** (Mandatory prompt on optional choices): `run_may_prompts`
@@ -148,14 +148,14 @@ theorem resolveStack_lifo {s : GameState} {topId : ObjId} {below : List ObjId}
   simp only [hna, Bool.false_eq_true, ↓reduceIte]
   exact ⟨_, _, _, rfl⟩
 
-/-- **I9** (Go Again + priority return to active player): `finishResolve` grants +1 AP when the
-layer has `goAgain = true` and always returns priority to the turn-player with `passCount = 0`
-(CR 5.3.4, 5.3.5). -/
-theorem finishResolve_returns_priority {s s' : GameState} {layerId : ObjId} {rest : List Frame}
+/-- **I9**: after a layer resolves, end-phase layers resolve automatically. Otherwise the
+turn-player regains priority with `passCount = 0` (CR 4.4.2, 5.3.5). -/
+theorem finishResolve_continues_stack {s s' : GameState} {layerId : ObjId} {rest : List Frame}
     {es : List Event}
     (hp : s.pending = .finishResolve layerId :: rest)
     (hm : microStep s = some (s', es)) :
-    s'.pending = .priority (s'.active.getD ⟨0⟩) 0 :: rest := by
+    s'.pending = (if s'.phase = .endPhase then .resolveStack else
+      .priority (s'.active.getD ⟨0⟩) 0) :: rest := by
   unfold microStep at hm
   rw [hp] at hm
   simp only [Option.some.injEq, Prod.mk.injEq] at hm

@@ -954,6 +954,86 @@ theorem applyDamageWithPrevention_ttr (s : GameState) (target : PlayerId)
         have hc := checkHeroDefeat_ttr_core sDmg
         exact ⟨hc.1.trans hd.1, hc.2.1.trans hd.2.1, fun hr => hd.2.2 ▸ hc.2.2 hr⟩
 
+/-- Banish the first card in a hand and schedule its return at the beginning of the end phase. -/
+def intimidateHandFront (s : GameState) (target : PlayerId) : GameState × List Event × List Frame :=
+  match s.zone (.player target .hand) with
+  | [] => (s, [], [])
+  | cid :: _ =>
+    match banishOne s cid true with
+    | none => (s, [], [])
+    | some (s1, banId, es) =>
+      let dt : DelayedTrigger :=
+        { id := s1.nextTimestamp
+          controller := target
+          source := banId
+          watchPhase := .endPhase
+          effect := .prim (.moveCard .self_ .hand .top false) }
+      ({ s1 with
+          delayedTriggers := s1.delayedTriggers ++ [dt]
+          nextTimestamp := s1.nextTimestamp + 1 }, es, [])
+
+/-- Intimidate preserves physical cards, ownership, board well-formedness, and rollback metadata. -/
+theorem intimidateHandFront_inv {s : GameState} (target : PlayerId) (hwf : s.WF) (hok : s.OwnerOk) :
+    (intimidateHandFront s target).1.WF ∧
+    (intimidateHandFront s target).1.OwnerOk ∧
+    (intimidateHandFront s target).1.physIds.Perm s.physIds ∧
+    (intimidateHandFront s target).1.config = s.config ∧
+    (intimidateHandFront s target).1.playRollback = s.playRollback := by
+  unfold intimidateHandFront
+  cases s.zone (.player target .hand) with
+  | nil => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | cons cid _ =>
+    dsimp only
+    cases hb : banishOne s cid true with
+    | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    | some res =>
+      obtain ⟨s1, banId, es1⟩ := res
+      dsimp only
+      have hmeta : s1.config = s.config ∧ s1.playRollback = s.playRollback := by
+        unfold banishOne at hb
+        split at hb
+        · rename_i src0 o0 _ _
+          dsimp only at hb
+          cases hm : moveObj s cid (Zone.player o0.owner .banished) .top true with
+          | none => rw [hm] at hb; cases hb
+          | some rm =>
+            obtain ⟨sm, idm⟩ := rm
+            rw [hm] at hb; simp only [Option.some.injEq, Prod.mk.injEq] at hb
+            obtain ⟨rfl, rfl, rfl⟩ := hb
+            exact moveObj_config_rollback hm
+        · cases hb
+      have hp := banishOne_physIds hwf hb
+      exact ⟨GameState.WF.congr (banishOne_wf hwf hb) rfl rfl rfl rfl,
+             GameState.OwnerOk.congr (banishOne_ownerOk hwf hok hb) rfl rfl,
+             hp, hmeta.1, hmeta.2⟩
+
+/-- Intimidate preserves turn, tournament state, and result. -/
+theorem intimidateHandFront_ttr (s : GameState) (target : PlayerId) :
+    (intimidateHandFront s target).1.turn = s.turn ∧
+    (intimidateHandFront s target).1.tournament = s.tournament ∧
+    ((intimidateHandFront s target).1.result = none → s.result = none) := by
+  unfold intimidateHandFront
+  cases s.zone (.player target .hand) with
+  | nil => exact ⟨rfl, rfl, id⟩
+  | cons cid _ =>
+    dsimp only
+    cases hb : banishOne s cid true with
+    | none => exact ⟨rfl, rfl, id⟩
+    | some res =>
+      obtain ⟨s1, _, _⟩ := res; dsimp only
+      unfold banishOne at hb; split at hb
+      · rename_i src0 o0 _ _
+        dsimp only at hb
+        cases hm : moveObj s cid (Zone.player o0.owner .banished) .top true with
+        | none => rw [hm] at hb; cases hb
+        | some rm =>
+          obtain ⟨sm, idm⟩ := rm
+          rw [hm] at hb; simp only [Option.some.injEq, Prod.mk.injEq] at hb
+          obtain ⟨rfl, rfl, rfl⟩ := hb
+          have h := moveObj_ttr_core hm
+          exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+      · cases hb
+
 /-- Execute a single atomic `Prim`, returning `(newState, emittedEvents, pushedFrames)`.
 Total by design: impossible instructions become no-ops (CR 1.0.1b). -/
 def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId × Int))
@@ -1074,21 +1154,11 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     (s1, es, [])
   | .intimidate pref =>
     let target := evalPlayerRef s ctrl pref
-    match s.zone (.player target .hand) with
-    | [] => (s, [], [])
-    | cid :: _ =>
-      match banishOne s cid true with
-      | none => (s, [], [])
-      | some (s1, banId, es) =>
-        let dt : DelayedTrigger :=
-          { id := s1.nextTimestamp
-            controller := target
-            source := banId
-            watchPhase := .endPhase
-            effect := .prim (.moveCard .self_ .hand .top false) }
-        ({ s1 with
-            delayedTriggers := s1.delayedTriggers ++ [dt]
-            nextTimestamp := s1.nextTimestamp + 1 }, es, [])
+    let hand := Zone.player target .hand
+    if 1 < (s.zone hand).length then
+      (s, [], [.chanceShuffle hand, .run target src false [] [.prim .intimidateHandFront]])
+    else intimidateHandFront s target
+  | .intimidateHandFront => intimidateHandFront s ctrl
   | .returnDefendingCardToHand f =>
     match s.combat.bind CombatChain.activeLink? with
     | none => (s, [], [])
@@ -1337,32 +1407,10 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     exact discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok
   | intimidate pref =>
     unfold execPrim; dsimp only
-    cases s.zone (.player (evalPlayerRef s ctrl pref) .hand) with
-    | nil => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-    | cons cid _ =>
-      dsimp only
-      cases hb : banishOne s cid true with
-      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-      | some res =>
-        obtain ⟨s1, banId, es1⟩ := res
-        dsimp only
-        have hmeta : s1.config = s.config ∧ s1.playRollback = s.playRollback := by
-          unfold banishOne at hb
-          split at hb
-          · rename_i src0 o0 _ _
-            dsimp only at hb
-            cases hm : moveObj s cid (Zone.player o0.owner .banished) .top true with
-            | none => rw [hm] at hb; cases hb
-            | some rm =>
-              obtain ⟨sm, idm⟩ := rm
-              rw [hm] at hb; simp only [Option.some.injEq, Prod.mk.injEq] at hb
-              obtain ⟨rfl, rfl, rfl⟩ := hb
-              exact moveObj_config_rollback hm
-          · cases hb
-        have hp := banishOne_physIds hwf hb
-        exact ⟨GameState.WF.congr (banishOne_wf hwf hb) rfl rfl rfl rfl,
-               GameState.OwnerOk.congr (banishOne_ownerOk hwf hok hb) rfl rfl,
-               hp, hmeta.1, hmeta.2⟩
+    split
+    · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    · exact intimidateHandFront_inv (evalPlayerRef s ctrl pref) hwf hok
+  | intimidateHandFront => exact intimidateHandFront_inv ctrl hwf hok
   | returnDefendingCardToHand f =>
     unfold execPrim; dsimp only
     cases s.combat.bind CombatChain.activeLink? with
@@ -1617,26 +1665,10 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
   | intimidate pref =>
     unfold execPrim; dsimp only
-    cases s.zone (.player (evalPlayerRef s ctrl pref) .hand) with
-    | nil => exact ⟨rfl, rfl, id⟩
-    | cons cid _ =>
-      dsimp only
-      cases hb : banishOne s cid true with
-      | none => exact ⟨rfl, rfl, id⟩
-      | some res =>
-        obtain ⟨s1, _, _⟩ := res; dsimp only
-        unfold banishOne at hb; split at hb
-        · rename_i src0 o0 _ _
-          dsimp only at hb
-          cases hm : moveObj s cid (Zone.player o0.owner .banished) .top true with
-          | none => rw [hm] at hb; cases hb
-          | some rm =>
-            obtain ⟨sm, idm⟩ := rm
-            rw [hm] at hb; simp only [Option.some.injEq, Prod.mk.injEq] at hb
-            obtain ⟨rfl, rfl, rfl⟩ := hb
-            have h := moveObj_ttr_core hm
-            exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
-        · cases hb
+    split
+    · exact ⟨rfl, rfl, id⟩
+    · exact intimidateHandFront_ttr s (evalPlayerRef s ctrl pref)
+  | intimidateHandFront => exact intimidateHandFront_ttr s ctrl
   | returnDefendingCardToHand f =>
     unfold execPrim; dsimp only
     cases s.combat.bind CombatChain.activeLink? with

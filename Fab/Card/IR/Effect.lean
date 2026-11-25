@@ -157,6 +157,8 @@ inductive Prim where
   | gainChi (p : PlayerRef) (n : NumExpr)
   /-- Target opposing player `p` is intimidated (random face-down banish until End Phase) (CR 8.5.10). -/
   | intimidate (p : PlayerRef)
+  /-- Banish the first card in the controller's hand after an Intimidate chance permutation. -/
+  | intimidateHandFront
   /-- Player `p` opts `n` (look at top `n` cards, put any on top or bottom) (CR 8.5.22). -/
   | opt (p : PlayerRef) (n : Nat)
   /-- Create `n` copies of token `tokenId` under player `p`'s control (CR 8.5.2). -/
