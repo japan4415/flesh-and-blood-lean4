@@ -126,3 +126,15 @@ meta def thornsScenario : Option Bool := do
   let link ← follow.combat.bind CombatChain.activeLink?
   pure (linkAttackPower follow link == 2)
 #guard thornsScenario == some true
+
+meta def tempoScenario : Option Bool := do
+  let p := earlyAttacker
+  let (ready, tempo) ← earlyPlace earlyBase p (.player p .hand) "IRA_006_R"
+  let hit ← (earlyAttack ready (.playCard tempo)).bind earlyDamage
+  let trigger ← hit.pendingTriggers.head?
+  let before ← hit.combat.bind CombatChain.activeLink?
+  let resolved ← earlySteps hit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let after ← resolved.combat.bind CombatChain.activeLink?
+  pure (!linkHasKeyword hit before .goAgain && linkHasKeyword resolved after .goAgain)
+#guard tempoScenario == some true
