@@ -634,12 +634,15 @@ def WTR_116 : CardDef :=
     [ .activated .action true { actionPoints := 1, resources := 1 } [] (some .weaponHitThisTurn) true
         { body := .grant (.nextAttack CardFilter.weaponAttack) (.addPower (.const 1)) .thisTurn } ]
 
-/-- Refraction Bolters (drafted IR). -/
+/-- Refraction Bolters. -/
 def WTR_117 : CardDef :=
-  draftCard WTR_117_meta
-    [ .triggered .onWeaponAttackHit false none none
-        { body := .may (.prim (.destroy .self_))
-            (.grant (.obj .currentAttack) (.grantKeyword .goAgain) .thisChainLink) } ]
+  { draftCard WTR_117_meta
+      [ .triggered .onWeaponAttackHit false none none
+          { body := .ifThen .sourceInArena
+              (.may (.prim (.destroy .self_))
+                (.ifThen (.not_ .sourceInArena)
+                  (.grant (.obj .currentAttack) (.grantKeyword .goAgain) .thisChainLink) .nop))
+              .nop } ] with status := .full }
 
 /-- Glint the Quicksilver. -/
 def WTR_118_B : CardDef :=

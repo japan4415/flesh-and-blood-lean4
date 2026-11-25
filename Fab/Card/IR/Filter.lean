@@ -260,6 +260,8 @@ inductive Condition where
   | defendingWeaponAttack
   /-- Source weapon has not hit this turn (Dawnblade). -/
   | sourceNotHitThisTurn
+  /-- The source is still an object in the arena (CR 3.0.5, 3.0.9). -/
+  | sourceInArena
   /-- Source has fewer than `n` counters of kind `k` (Fyendal's Spring Tunic). -/
   | sourceCounterLt (k : CounterKind) (n : Nat)
   /-- Controller has charged their hero's soul this turn (MON: Light Warrior). -/
