@@ -176,3 +176,21 @@ meta def pressScenario : Option Bool := do
   let link ← resolved.combat.bind CombatChain.activeLink?
   pure (linkAttackPower resolved link == 2 && (resolved.poolOf p).resources == 8)
 #guard pressScenario == some true
+
+meta def springboardScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let (ready, jab) ← earlyPlace earlyBase p (.player p .hand) "WTR_100_B"
+  let defendWith (zone : Zone) := do
+    let (s, reaction) ← earlyPlace ready q zone "IRA_012_Y"
+    let attacking ← earlyAttack s (.playCard jab)
+    let offered ← earlySteps attacking (⟨.player q, .defendDone⟩ :: earlyPass)
+    let resolved ← earlySteps offered
+      [⟨.player p, .pass⟩, ⟨.player q, .playCard reaction⟩,
+       ⟨.player q, .pass⟩, ⟨.player p, .pass⟩]
+    let link ← resolved.combat.bind CombatChain.activeLink?
+    pure (linkTotalDefense resolved link)
+  let hand ← defendWith (.player q .hand)
+  let arsenal ← defendWith (.player q .arsenal)
+  pure (hand == 2 && arsenal == 4)
+#guard springboardScenario == some true
