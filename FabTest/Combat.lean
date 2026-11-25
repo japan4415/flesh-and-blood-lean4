@@ -672,6 +672,7 @@ meta def checkNextWeaponBuff (cid : CardId) (pitch cost bonus : Nat) (givesGoAga
 #guard checkNextWeaponBuff ⟨"WTR_142_Y"⟩ 2 0 2 false == some true
 #guard checkNextWeaponBuff ⟨"WTR_143_B"⟩ 3 0 1 false == some true
 #guard checkNextWeaponBuff ⟨"WTR_144_R"⟩ 1 2 3 true == some true
+#guard checkNextWeaponBuff ⟨"WTR_145_Y"⟩ 2 2 2 true == some true
 
 -- A queued Go Again belongs to the weapon attack.
 #guard (do

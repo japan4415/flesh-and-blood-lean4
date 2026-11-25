@@ -620,6 +620,9 @@ def drivingBlade (base : CardDef) (bonus : Int) : CardDef :=
 /-- Driving Blade Red. -/
 def WTR_144_R : CardDef := { drivingBlade WTR_144_R_meta 3 with status := .full }
 
+/-- Driving Blade Yellow. -/
+def WTR_145_Y : CardDef := { drivingBlade WTR_145_Y_meta 2 with status := .full }
+
 /-! ## Generic Equipment, Attacks, Reactions, Instants, Items, Tokens (WTR150-WTR225) -/
 
 /-- Fyendal's Spring Tunic (drafted IR). -/
@@ -900,7 +903,7 @@ def draftedCards : List CardDef :=
   , WTR_104_R, WTR_105_Y, WTR_106_B
   , WTR_107_R, WTR_108_Y, WTR_109_B, WTR_110_R, WTR_111_Y, WTR_112_B
   , WTR_113, WTR_114, WTR_115, WTR_116, WTR_117, WTR_118_B, WTR_119_R, WTR_120_R
-  , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_141_R, WTR_142_Y, WTR_143_B, WTR_144_R
+  , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_141_R, WTR_142_Y, WTR_143_B, WTR_144_R, WTR_145_Y
   , WTR_150, WTR_151, WTR_154, WTR_155, WTR_156, WTR_157, WTR_158
   , WTR_159_R, WTR_160_Y, WTR_161_B, WTR_162_B, WTR_163_Y
   , WTR_164_R, WTR_165_Y, WTR_166_B, WTR_167_R, WTR_168_Y, WTR_169_B
