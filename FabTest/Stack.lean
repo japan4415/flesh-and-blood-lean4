@@ -140,17 +140,17 @@ meta def runSteps (s : GameState) : List Action → Option GameState
   | some b => b
   | none => false
 
-/-- Pay Wrecker Romp's random discard after pitching and before granting priority. -/
-meta def checkWreckerRomp (cid : CardId) (pitch power : Nat) (fromArsenal : Bool) :
+/-- Pay a mandatory random discard after pitching and before granting priority. -/
+meta def checkRandomDiscardAttack (cid : CardId) (pitch cost power : Nat) (fromArsenal : Bool) :
     Option Bool := do
   let player : PlayerId := ⟨0⟩
   let opponent : PlayerId := ⟨1⟩
   let zone := Zone.player player
   let origin : ZoneKind := if fromArsenal then .arsenal else .hand
-  let funded := m4BaseState.setPool player { actionPoints := 1, resources := 2 }
+  let funded := m4BaseState.setPool player { actionPoints := 1, resources := cost }
   let card ← funded.cards.find? cid
-  let (empty, romp) ← placeCard funded player origin cid fromArsenal
-  let play : Action := ⟨.player player, .playCard romp⟩
+  let (empty, attack) ← placeCard funded player origin cid fromArsenal
+  let play : Action := ⟨.player player, .playCard attack⟩
   let (rejected, rejectedEvents) ← (step 64 empty play).toOption
   let unfunded := empty.setPool player { actionPoints := 1 }
   let (one, payer) ← placeCard unfunded player .hand ⟨"WTR_205_B"⟩
@@ -159,7 +159,7 @@ meta def checkWreckerRomp (cid : CardId) (pitch power : Nat) (fromArsenal : Bool
   let (two, first) ← placeCard one player .hand ⟨"WTR_203_R"⟩
   let paidSingle ← runSteps two [play, pitchPayer]
   let (three, second) ← placeCard two player .hand ⟨"WTR_204_Y"⟩
-  let buffed := applyChainLinkMod three player romp []
+  let buffed := applyChainLinkMod three player attack []
     (.nextAttack CardFilter.any) (.addPower (.const 2)) .thisTurn
   let askedPitch ← runSteps buffed [play]
   let cancelled ← runSteps askedPitch [⟨.player player, .cancelPlay⟩]
@@ -191,7 +191,7 @@ meta def checkWreckerRomp (cid : CardId) (pitch power : Nat) (fromArsenal : Bool
     (paidSingle.zone (zone .hand)).isEmpty && (paidSingle.zone (zone .graveyard)).length == 1 &&
     paidSingle.pending == buffed.pending && decide (cancelled = buffed) &&
     paying.pending.head? == some (.chanceShuffle (zone .hand)) &&
-    (paying.poolOf player).actionPoints == 0 && (paying.poolOf player).resources == 1 &&
+    (paying.poolOf player).actionPoints == 0 && (paying.poolOf player).resources == 3 - cost &&
     paying.zone (zone .hand) == [second, first] && (paying.zone (zone .graveyard)).isEmpty &&
     pitchEvents.contains (.pitched player pitched 3 0) &&
     paying.activeEffects == buffed.activeEffects &&
@@ -200,12 +200,14 @@ meta def checkWreckerRomp (cid : CardId) (pitch power : Nat) (fromArsenal : Bool
     firstCorrect && secondCorrect &&
     hit.lifeOf opponent == 40 - Int.ofNat (power + 2) && link.damageDealt == power + 2)
 
-#guard checkWreckerRomp ⟨"WTR_029_R"⟩ 1 8 false == some true
-#guard checkWreckerRomp ⟨"WTR_029_R"⟩ 1 8 true == some true
-#guard checkWreckerRomp ⟨"WTR_030_Y"⟩ 2 7 false == some true
-#guard checkWreckerRomp ⟨"WTR_030_Y"⟩ 2 7 true == some true
-#guard checkWreckerRomp ⟨"WTR_031_B"⟩ 3 6 false == some true
-#guard checkWreckerRomp ⟨"WTR_031_B"⟩ 3 6 true == some true
+#guard checkRandomDiscardAttack ⟨"WTR_029_R"⟩ 1 2 8 false == some true
+#guard checkRandomDiscardAttack ⟨"WTR_029_R"⟩ 1 2 8 true == some true
+#guard checkRandomDiscardAttack ⟨"WTR_030_Y"⟩ 2 2 7 false == some true
+#guard checkRandomDiscardAttack ⟨"WTR_030_Y"⟩ 2 2 7 true == some true
+#guard checkRandomDiscardAttack ⟨"WTR_031_B"⟩ 3 2 6 false == some true
+#guard checkRandomDiscardAttack ⟨"WTR_031_B"⟩ 3 2 6 true == some true
+#guard checkRandomDiscardAttack ⟨"WTR_020_R"⟩ 1 1 7 false == some true
+#guard checkRandomDiscardAttack ⟨"WTR_020_R"⟩ 1 1 7 true == some true
 
 -- 5. Playing face-down card from Arsenal (CR 3.2.2) triggers `playedFromArsenal` on Tome of Fyendal:
 --    Tome starts face-down in Arsenal, P0 has 1 floating {r}, 1 card in hand & 2 in deck.
