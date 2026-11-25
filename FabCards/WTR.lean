@@ -59,11 +59,12 @@ def targetWeaponAttack : TargetSpec := { kind := .weaponAttack }
 
 /-! ## Generic Gem (WTR000) -/
 
-/-- Heart of Fyendal (drafted IR). -/
+/-- Heart of Fyendal. -/
 def WTR_000_B : CardDef :=
-  draftCard WTR_000_B_meta
-    [ .triggered .onPitch false none (some .lessLifeThanOpponent)
-        { body := .prim (.gainLife .controller (.const 1)) } ]
+  { draftCard WTR_000_B_meta
+      [ .triggered .onPitch false none none
+          { body := .ifThen .lessLifeThanOpponent
+              (.prim (.gainLife .controller (.const 1))) .nop } ] with status := .full }
 
 /-! ## Brute (WTR001-WTR037) -/
 

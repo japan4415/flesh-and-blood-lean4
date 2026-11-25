@@ -43,6 +43,65 @@ meta def runSteps (s : GameState) : List Action → Option GameState
     | .ok (s', _) => runSteps s' rest
     | .error _ => none
 
+/-- Heart's pitch trigger resolves above the paid attack and checks the current life totals. -/
+meta def checkHeartOfFyendal (life : Int) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let hand := Zone.player player .hand
+  let pitch := Zone.player player .pitch
+  let cid : CardId := ⟨"WTR_000_B"⟩
+  let base := m4BaseState.setLife player life
+  let card ← base.cards.find? cid
+  let (withAttack, attack) ← placeCard base player .hand ⟨"WTR_188_R"⟩
+  let (withHeart, heart) ← placeCard withAttack player .hand cid
+  let (withOwnSigil, ownSigil) ← placeCard withHeart player .hand ⟨"WTR_173_R"⟩
+  let (ready, opposingSigil) ← placeCard withOwnSigil opponent .hand ⟨"WTR_173_R"⟩
+  let passBoth := [⟨.player player, .pass⟩, ⟨.player opponent, .pass⟩]
+  let waiting ← runSteps ready [⟨.player player, .playCard attack⟩]
+  let (paid, events) ← (step 64 waiting ⟨.player player, .pitchCard heart⟩).toOption
+  let pitched ← (paid.zone pitch).head?
+  let paidLayer ← (paid.zone .stack).head?
+  let trigger ← paid.pendingTriggers.head?
+  let stacked ← runSteps paid [⟨.player player, .pickTriggerStart player⟩,
+    ⟨.player player, .pickTrigger trigger.id⟩]
+  let simple ← runSteps stacked passBoth
+  let responded ← runSteps stacked [⟨.player player, .pass⟩,
+    ⟨.player opponent, .playCard opposingSigil⟩, ⟨.player opponent, .pass⟩,
+    ⟨.player player, .pass⟩]
+  let afterOpposingSigil ← runSteps responded passBoth
+  let selfResponded ← runSteps stacked (⟨.player player, .playCard ownSigil⟩ :: passBoth)
+  let afterOwnSigil ← runSteps selfResponded passBoth
+  pure (card.status == .full && card.front.pitch == some 3 && card.isLegendary &&
+    decide (LegendaryLimitOk base.cards [cid]) && !decide (LegendaryLimitOk base.cards [cid, cid]) &&
+    !(legalActionsFor player ready).contains ⟨.player player, .playCard heart⟩ &&
+    paid.zone hand == [ownSigil] && events.contains (.pitched player pitched 3 0) &&
+    (paid.poolOf player).resources == 0 && (paid.poolOf player).actionPoints == 0 &&
+    trigger.source == pitched && paid.lifeOf player == life &&
+    (stacked.zone .stack).length == 2 && (stacked.zone .stack).getLast? == some paidLayer &&
+    simple.zone .stack == [paidLayer] &&
+    simple.lifeOf player == (if life < 40 then life + 1 else life) &&
+    afterOpposingSigil.lifeOf opponent == 43 && afterOpposingSigil.lifeOf player == life + 1 &&
+    afterOwnSigil.lifeOf player == life + 3)
+
+#guard checkHeartOfFyendal 39 == some true
+#guard checkHeartOfFyendal 40 == some true
+
+/-- Cancelling a play rolls back the pitch and its queued trigger. -/
+meta def heartPitchRollback : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let base := m4BaseState.setLife player 39
+  let (withAttack, attack) ← placeCard base player .hand ⟨"WTR_043_R"⟩
+  let (withReserve, _) ← placeCard withAttack player .hand ⟨"WTR_203_R"⟩
+  let (ready, heart) ← placeCard withReserve player .hand ⟨"WTR_000_B"⟩
+  let waiting ← runSteps ready [⟨.player player, .playCard attack⟩]
+  let partialPaid ← runSteps waiting [⟨.player player, .pitchCard heart⟩]
+  let cancelled ← runSteps partialPaid [⟨.player player, .cancelPlay⟩]
+  pure (partialPaid.pendingTriggers.length == 1 &&
+    (partialPaid.poolOf player).resources == 3 && partialPaid.lifeOf player == 39 &&
+    decide (cancelled = ready))
+
+#guard heartPitchRollback == some true
+
 -- 1. Stack LIFO & Instant response (CR 1.11, 5.1, 5.3):
 --    P0 plays Tome of Fyendal (Action, cost 1 {r}, draw 2), P0 retains priority, P0 passes ->
 --    P1 responds with Sigil of Solace Red (Instant, cost 0, gain 3 life) -> P1 retains priority ->

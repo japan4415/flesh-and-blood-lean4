@@ -18,9 +18,9 @@ open FabCards
 #guard decide wtrDB.WF
 
 -- 2. Representative cards across Gem, Brute, Guardian, Ninja, Warrior, Generic, and Tokens are
---    present in `wtrDB` with `.drafted` status and expected printed properties
+--    present in `wtrDB` with their expected status and printed properties
 #guard match wtrDB.find? ⟨"WTR_000_B"⟩ with
-  | some c => c.front.name == "Heart of Fyendal" && c.front.hasSubtype .gem && c.isLegendary && c.status == .drafted
+  | some c => c.front.name == "Heart of Fyendal" && c.front.hasSubtype .gem && c.isLegendary && c.status == .full
   | none => false
 
 #guard match wtrDB.find? ⟨"WTR_038"⟩ with
