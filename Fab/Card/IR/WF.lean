@@ -22,6 +22,7 @@ def PlayerRef.wfBool (numSlots : Nat) : PlayerRef → Bool
 /-- Check whether an `ObjRef` stays within `numSlots` target slots and bound variables `env`. -/
 def ObjRef.wfBool (numSlots : Nat) (env : List VarId) : ObjRef → Bool
   | .slot i => decide (i < numSlots)
+  | .declared _ => false
   | .var v => env.contains v
   | _ => true
 

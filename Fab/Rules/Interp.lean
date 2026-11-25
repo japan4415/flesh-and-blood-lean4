@@ -280,6 +280,7 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
 /-- Resolve an `ObjRef` to a concrete `ObjId` if available. -/
 def evalObjRef (src : ObjId) : ObjRef → Option ObjId
   | .self_ => some src
+  | .declared id => some id
   | _ => none
 
 /-- Create `n` copies of token `tokId` in `p`'s permanent zone (CR 8.5.2). -/

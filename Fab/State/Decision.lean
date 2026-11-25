@@ -115,8 +115,8 @@ inductive ActionKind where
   | judgeLoopDraw
   /-- Turn-player picks which seated player starts stacking simultaneous triggers (CR 6.6.6b). -/
   | pickTriggerStart (start : PlayerId)
-  /-- Player picks a pending trigger to stack and declares its hero target when required (CR 6.6.6). -/
-  | pickTrigger (trigId : Nat) (hero : Option PlayerId := none)
+  /-- Player picks a pending trigger to stack and declares its required target (CR 6.6.6). -/
+  | pickTrigger (trigId : Nat) (hero : Option PlayerId := none) (equipment : Option ObjId := none)
   /-- Affected player chooses an optional/competing replacement effect ID or declines (CR 6.5.1). -/
   | pickReplacement (choice : Option Nat)
 deriving DecidableEq, Repr

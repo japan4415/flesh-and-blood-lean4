@@ -4241,6 +4241,60 @@ meta def checkDisable (cid : CardId) (power : Nat) : Option Bool := do
 #guard checkDisable ⟨"WTR_049_Y"⟩ 8 == some true
 #guard checkDisable ⟨"WTR_050_B"⟩ 7 == some true
 
+/-- Buckling Blow targets equipment when Crush is stacked and rechecks it when resolving. -/
+meta def checkBucklingBlow (cid : CardId) (pitch power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let chest := Zone.player defender .chest
+  let grave := Zone.player defender .graveyard
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 4 }
+  let card ← funded.cards.find? cid
+  let (bare, attack) ← cPlace funded attacker .hand cid
+  let (ownArmor, own) ← cPlace bare attacker .head ⟨"WTR_155"⟩
+  let (withArmor, armor) ← cPlace ownArmor defender .chest ⟨"WTR_005"⟩
+  let (withHood, hood) ← cPlace withArmor defender .head ⟨"WTR_151"⟩
+  let (ready, hidden) ← cPlace withHood defender .arms ⟨"WTR_157"⟩ true
+  let enter := ⟨.player attacker, .playCard attack⟩ :: (passBoth ++ passBoth)
+  let hit := ⟨.player defender, .defendDone⟩ :: (passBoth ++ passBoth)
+  let defending ← cSteps ready (enter ++ [⟨.player defender, .defendCard armor⟩])
+  let prevent (n : Nat) :=
+    (execPrim defending defender ⟨0⟩ [] (.preventNextDamage .controller (.const n) .thisTurn)).1
+  let crushed ← cSteps (prevent (power - 5)) hit
+  let short ← cSteps (prevent (power - 4)) hit
+  let noTargets ← cSteps bare (enter ++ hit)
+  let trigger ← crushed.pendingTriggers.head?
+  let choosing ← cSteps crushed [⟨.player attacker, .pickTriggerStart attacker⟩]
+  let target (id : ObjId) : Action := ⟨.player attacker, .pickTrigger trigger.id none (some id)⟩
+  let (stacked, events) ← (step 64 choosing (target armor)).toOption
+  let layer ← (stacked.zone .stack).head?
+  let resolved ← cSteps stacked passBoth
+  let closed ← cSteps resolved (passBoth ++ passBoth)
+  let targetHood ← cSteps choosing [target hood]
+  let resolvedHood ← cSteps targetHood passBoth
+  let spentHood ← cSteps targetHood [⟨.player attacker, .pass⟩,
+    ⟨.player defender, .activateAbility hood 0⟩, ⟨.player defender, .pass⟩, ⟨.player attacker, .pass⟩]
+  let cancelled ← cSteps spentHood (⟨.chance, .shuffleOrder []⟩ :: passBoth)
+  let removed ← (cancelled.zone grave).head?
+  let counters (s : GameState) (id : ObjId) := (s.obj? id).map (·.minusDefenseCounters)
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    (defending.poolOf attacker).resources == 0 &&
+    crushed.lifeOf defender == 36 && short.lifeOf defender == 37 && short.pendingTriggers.isEmpty &&
+    noTargets.lifeOf defender == 40 - Int.ofNat power && noTargets.pendingTriggers.isEmpty &&
+    !(legalActionsFor attacker noTargets).any (fun a => match a.kind with | .pickTriggerStart _ => true | _ => false) &&
+    (choosing.zone .combatChain).contains armor && legalFrameActions choosing == [target armor, target hood] &&
+    (step 64 choosing (target own)).toOption.isNone && (step 64 choosing (target hidden)).toOption.isNone &&
+    (step 64 choosing ⟨.player attacker, .pickTrigger trigger.id⟩).toOption.isNone &&
+    (step 64 choosing ⟨.player defender, .pickTrigger trigger.id none (some armor)⟩).toOption.isNone &&
+    events == [.targetedEquipment layer armor] && counters stacked armor == some 0 &&
+    counters resolved armor == some 1 && counters resolved hood == some 0 &&
+    closed.zone chest == [armor] && counters closed armor == some 2 &&
+    counters resolvedHood hood == some 1 && counters resolvedHood armor == some 0 &&
+    (cancelled.cardDefOf? removed).map (·.id) == some ⟨"WTR_151"⟩ &&
+    counters cancelled removed == some 0 && counters cancelled armor == some 0 &&
+    (cancelled.zone .stack).isEmpty)
+
+#guard checkBucklingBlow ⟨"WTR_057_R"⟩ 1 8 == some true
+
 /-- Resolve Crippling Crush with different chance outcomes and with fewer than two cards. -/
 meta def checkCripplingCrush : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

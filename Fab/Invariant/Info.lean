@@ -278,6 +278,18 @@ private theorem HiddenEquiv.characteristics_eq {p : PlayerId} {s1 s2 : GameState
   unfold GameState.characteristics
   rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic]
 
+private theorem HiddenEquiv.triggerTargetChoices_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) (t : PendingTrigger) :
+    t.targetChoices s1 = t.targetChoices s2 := by
+  have htarget : equipmentControlledBy s1 = equipmentControlledBy s2 := by
+    funext player id
+    have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
+    simp only [equipmentControlledBy, ho, h.characteristics_eq]
+  unfold PendingTrigger.targetChoices
+  split
+  · rw [h.arenaContents_eq, htarget]
+  · rw [h.turnOrder]
+
 /-- The attack keywords used to check defense legality agree under `HiddenEquiv`. -/
 theorem HiddenEquiv.linkHasKeyword_eq_of_ne_goAgain {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) (link : ChainLink) (kw : KeywordInst) (hgo : kw ≠ .goAgain) :
@@ -578,7 +590,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
             rw [h.turnOrder]
           | chooseTriggerOrder _ _ =>
             dsimp only
-            rw [h.pendingTriggers, h.turnOrder]
+            simp only [h.pendingTriggers, h.triggerTargetChoices_eq]
           | chooseReplacement _ _ _ _ => rfl
           | chanceFirstPlayer | revealLoadouts | chanceShuffle _ | openingDraws | draw _ _
           | beginTurn | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _

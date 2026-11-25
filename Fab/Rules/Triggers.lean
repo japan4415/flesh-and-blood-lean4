@@ -40,6 +40,8 @@ structure PendingTrigger where
   fromArsenal : Bool := false
   /-- Effect body executed when this triggered-layer resolves. -/
   effect : Effect := .nop
+  /-- Controller of the equipment this trigger must target, when required. -/
+  equipmentTargetPlayer : Option PlayerId := none
 deriving DecidableEq, Repr
 
 /-- The hero declarations available when stacking a pending trigger. -/
@@ -49,14 +51,12 @@ def PendingTrigger.heroChoices (t : PendingTrigger) (players : List PlayerId) :
   | .prim (.intimidate (.ownerOfSlot 0)) => players.map some
   | _ => [none]
 
-/-- Match a declaration against a pending trigger and its target choices (CR 6.6.6a). -/
-def PendingTrigger.matchesDeclaration (t : PendingTrigger) (id : Nat) (p : PlayerId)
-    (target : Option PlayerId) (players : List PlayerId) : Bool :=
-  t.id == id && t.controller == p && (t.heroChoices players).contains target
-
-/-- Substitute the declared hero into a targeted Intimidate effect. -/
-def PendingTrigger.declaredEffect (t : PendingTrigger) (target : Option PlayerId) : Effect :=
-  (target.bind t.effect.bindIntimidateTarget).getD t.effect
+/-- Bind the declared target into the supported triggered effect. -/
+def PendingTrigger.declaredEffect (t : PendingTrigger) (hero : Option PlayerId)
+    (equipment : Option ObjId) : Effect :=
+  match t.effect, equipment with
+  | .prim (.addCounter (.slot 0) kind amount), some id => .prim (.addCounter (.declared id) kind amount)
+  | _, _ => (hero.bind t.effect.bindIntimidateTarget).getD t.effect
 
 /-- A delayed triggered ability waiting for a future phase/event even if its source leaves the
 arena (e.g. Intimidate returning banished cards at End Phase) (CR 6.6.3, 8.5.10). -/

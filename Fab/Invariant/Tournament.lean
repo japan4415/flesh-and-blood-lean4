@@ -889,6 +889,7 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
     exact timeLimitBounded_of_eq hb rfl rfl id
   · -- flushTriggers
+    dsimp only at h
     split at h <;>
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       exact timeLimitBounded_of_eq hb rfl rfl id

@@ -501,6 +501,29 @@ def spendAssetCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Option Ga
   | some pool' => some (s.setPool p pool')
   | none => none
 
+/-- Equipment characteristics checked for a requirement tied to a player (CR 1.8.5). -/
+def equipmentControlledBy (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
+  (s.obj? id).any (fun o => !o.faceDown) &&
+    (s.characteristics id).any (fun c => c.controller == p && c.types.contains .equipment)
+
+/-- A target must still be equipment in the arena controlled by the required player (CR 1.8.9, 3.1). -/
+def matchesTriggerEquipment (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
+  ((activationArenaZones s).flatMap s.zone).contains id && equipmentControlledBy s p id
+
+/-- Legal declarations for a pending trigger. Equipment defending on the chain is in the arena. -/
+def PendingTrigger.targetChoices (t : PendingTrigger) (s : GameState) :
+    List (Option PlayerId × Option ObjId) :=
+  match t.equipmentTargetPlayer with
+  | some p =>
+    ((activationArenaZones s).flatMap s.zone).filterMap fun id =>
+      if equipmentControlledBy s p id then some (none, some id) else none
+  | none => (t.heroChoices s.turnOrder).map fun p => (p, none)
+
+/-- Match a declaration against a trigger and its target choices (CR 6.6.6a). -/
+def PendingTrigger.matchesDeclaration (t : PendingTrigger) (s : GameState) (id : Nat) (p : PlayerId)
+    (hero : Option PlayerId) (equipment : Option ObjId) : Bool :=
+  t.id == id && t.controller == p && (t.targetChoices s).contains (hero, equipment)
+
 /-- Advance to the next player in `order` who still controls at least one pending triggered ability,
 returning `[.chooseTriggerOrder q rem]` or `[]` when all pending triggers are stacked (CR 6.6.6b). -/
 def nextTriggerFrame (s : GameState) : List PlayerId → List Frame
@@ -522,19 +545,24 @@ def resolvingSource (s : GameState) (layer : ObjId) : ObjId :=
   | _ => layer
 
 /-- Whether the engine supports the required declarations for a triggered effect (CR 6.6.6a). -/
-def supportsTriggerTargets (effect : EffectDef) : Bool :=
+def supportsTriggerTargets (effect : EffectDef) (damageRecipient : Option PlayerId := none) : Bool :=
   effect.targets.isEmpty ||
     (effect.targets == [{ kind := .hero }] &&
-      effect.body == .prim (.intimidate (.ownerOfSlot 0)))
+      effect.body == .prim (.intimidate (.ownerOfSlot 0))) ||
+    (damageRecipient.isSome && effect.targets == [{ kind := .equipment .defendingHero }] &&
+      match effect.body with
+      | .prim (.addCounter (.slot 0) _ _) => true
+      | _ => false)
 
 /-- Find matching triggers and their once-per-turn flags (CR 6.6). -/
 def matchingCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId) (fromArsenal : Bool)
     (abilities : List Ability) (matchesEvent : Trigger → Option Condition → Bool)
-    (matchesOrdinal : Option Nat → Bool := Option.isNone) : List (PendingTrigger × Bool) :=
+    (matchesOrdinal : Option Nat → Bool := Option.isNone) (damageRecipient : Option PlayerId := none) :
+    List (PendingTrigger × Bool) :=
   abilities.zipIdx.filterMap fun (ability, abilityIdx) =>
     match ability with
     | .triggered trigger once ordinal cond eff =>
-      if matchesOrdinal ordinal && matchesEvent trigger cond && supportsTriggerTargets eff && eff.modes.isEmpty &&
+      if matchesOrdinal ordinal && matchesEvent trigger cond && supportsTriggerTargets eff damageRecipient && eff.modes.isEmpty &&
           eff.extraCosts.isEmpty then
         some ({
           id := 0
@@ -543,15 +571,19 @@ def matchingCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId
           controller := controller
           abilityIdx := abilityIdx
           fromArsenal := fromArsenal
-          effect := eff.body }, once)
+          effect := eff.body
+          equipmentTargetPlayer := if eff.targets == [{ kind := .equipment .defendingHero }] then
+            damageRecipient else none }, once)
       else none
     | _ => none
 
 /-- Collect matching unrestricted triggers that require no modes or additional costs (CR 6.6). -/
 def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId) (fromArsenal : Bool)
-    (abilities : List Ability) (matchesEvent : Trigger → Option Condition → Bool) :
+    (abilities : List Ability) (matchesEvent : Trigger → Option Condition → Bool)
+    (damageRecipient : Option PlayerId := none) :
     List PendingTrigger :=
-  let triggers := (matchingCardTriggers s source controller fromArsenal abilities matchesEvent).filterMap
+  let triggers := (matchingCardTriggers s source controller fromArsenal abilities matchesEvent
+    (damageRecipient := damageRecipient)).filterMap
     fun (trigger, once) => if once then none else some trigger
   triggers.zipIdx.map fun (trigger, idx) => { trigger with id := s.nextTimestamp + idx }
 
@@ -636,7 +668,7 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
   | some source =>
     let printed := ((s.objectFace? source).map (·.abilities)).getD []
     collectCardTriggers s source link.attacker false (printed ++ link.grantedAbilities)
-      fun trigger cond =>
+      (damageRecipient := some link.defender) fun trigger cond =>
         let matchesEvent := match trigger with
           | .onHit => link.hit
           | .onCrush => crushTriggered link
@@ -1288,9 +1320,9 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       some ({ s with pending := nextTriggerFrame s order ++ rest }, [])
     else
       none
-  | .chooseTriggerOrder p rem :: rest, .player q, .pickTrigger tid target =>
+  | .chooseTriggerOrder p rem :: rest, .player q, .pickTrigger tid hero equipment =>
     if p = q then
-      match s.pendingTriggers.find? (fun t => t.matchesDeclaration tid p target s.turnOrder) with
+      match s.pendingTriggers.find? (fun t => t.matchesDeclaration s tid p hero equipment) with
       | none => none
       | some trig =>
         let layerObj : Object :=
@@ -1307,12 +1339,15 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
               fromArsenal := trig.fromArsenal
               modeIdx := none
               goAgain := false
-              triggerEffect := some (trig.declaredEffect target) }
+              triggerEffect := some (trig.declaredEffect hero equipment)
+              triggerEquipment := trig.equipmentTargetPlayer.bind fun player =>
+                equipment.map (fun id => (player, id)) }
           let s2 := { s1 with
             pendingTriggers := remTrigs
             layerMeta := s1.layerMeta.insert lid.n info }
           let nextF := nextTriggerFrame s2 (p :: rem)
-          some ({ s2 with pending := nextF ++ rest }, (target.map (.targetedHero lid)).toList)
+          let events := (hero.map (.targetedHero lid)).toList ++ (equipment.map (.targetedEquipment lid)).toList
+          some ({ s2 with pending := nextF ++ rest }, events)
     else
       none
   | .chooseReplacement aff _ cands canDecl :: rest, .player q, .pickReplacement choice =>
@@ -1461,7 +1496,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
           { controller := s.active.getD ⟨0⟩ }
         let eff :=
           if (isDefenseReactionLayer s topId && !canResolveDefenseReaction s info) ||
-              !(info.activationTarget.all fun (spec, target) => matchesActivationTarget s spec target) then
+              !(info.activationTarget.all fun (spec, target) => matchesActivationTarget s spec target) ||
+              !(info.triggerEquipment.all fun (player, target) => matchesTriggerEquipment s player target) then
             .nop
           else
             match info.triggerEffect with
@@ -1670,11 +1706,12 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .endTurnFinish :: rest =>
     some ({ s.expireEffects .thisTurn with pending := rest }, [])
   | .flushTriggers :: rest =>
-    if s.pendingTriggers.isEmpty then
-      some ({ s with pending := rest }, [])
+    let triggers := s.pendingTriggers.filter fun t => !(t.targetChoices s).isEmpty
+    if triggers.isEmpty then
+      some ({ s with pendingTriggers := [], pending := rest }, [])
     else
       let tp := s.active.getD ⟨0⟩
-      some ({ s with pending := .chooseTriggerStart tp :: rest }, [])
+      some ({ s with pendingTriggers := triggers, pending := .chooseTriggerStart tp :: rest }, [])
   | _ => none
 
 end Fab
