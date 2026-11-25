@@ -971,14 +971,18 @@ def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
     pending := .playPayCost p layerId false none plan.cost :: rest },
     plan.target.toList.map (fun declared => .targetedAttack layerId declared.2))
 
-/-- Move the confirmed selection together before shuffling and drawing (CR 8.5.20b). -/
+/-- Resolve a confirmed search or shuffle selection, then schedule shuffle and draw (CR 8.5.19, 8.5.20b). -/
 def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
-    (drawSame : Bool) (rest : List Frame) : GameState × List Event :=
+    (drawSame : Bool) (search : Option DeckSearchChoice) (rest : List Frame) : GameState × List Event :=
   let deck := Zone.player p .deck
-  let moved := moveManyObjs s selected.reverse deck .bottom false
+  let destination := (search.map (·.destination)).getD deck
+  let position := if search.isSome then Pos.top else Pos.bottom
+  let revealed := if search.any (·.reveal) then selected.reverse.filterMap (fun id =>
+    (s.cardDefOf? id).map (fun card => Event.revealed p id card.id)) else []
+  let moved := moveManyObjs s selected.reverse destination position false
   let events := moved.2
   let draw := if drawSame && !events.isEmpty then [.draw p events.length] else []
-  ({ moved.1 with pending := .chanceShuffle deck :: (draw ++ rest) }, events)
+  ({ moved.1 with pending := .chanceShuffle deck :: (draw ++ rest) }, revealed ++ events)
 
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
@@ -1222,16 +1226,19 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
         some ({ s1 with pending := rest }, [.moved id id' (.player p .hand) (.player p .deck)])
     else
       none
-  | .chooseShuffleCards p remaining candidates selected drawSame :: rest, .player q, .pickShuffleCard choice =>
+  | .chooseShuffleCards p remaining candidates selected drawSame search :: rest, .player q, .pickShuffleCard choice =>
     if p = q then
       match choice with
       | some id =>
         if 0 < remaining ∧ id ∈ candidates then
           let next := Frame.chooseShuffleCards p (remaining - 1)
-            (candidates.filter (· != id)) (id :: selected) drawSame
+            (candidates.filter (· != id)) (id :: selected) drawSame search
           some ({ s with pending := next :: rest }, [])
         else none
-      | none => some (confirmShuffleCards s p selected drawSame rest)
+      | none =>
+        if shuffleSelectionCanConfirm selected search then
+          some (confirmShuffleCards s p selected drawSame search rest)
+        else none
     else none
   | .chooseOpt p cardId :: rest, .player q, .optPick putOnTop =>
     if p = q then

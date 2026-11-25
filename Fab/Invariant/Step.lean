@@ -313,8 +313,11 @@ private theorem startActivation_preserves {s s' : GameState} {p : PlayerId}
 
 private theorem confirmShuffleCards_preserves {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
     (hrb : s.RollbackOk) (p : PlayerId) (selected : List ObjId) (drawSame : Bool)
-    (rest : List Frame) : StepPreserves s (confirmShuffleCards s p selected drawSame rest).1 := by
-  obtain ⟨hw, ho, hp, hc, hr⟩ := moveManyObjs_inv (.player p .deck) .bottom false selected.reverse hwf hok
+    (search : Option DeckSearchChoice) (rest : List Frame) :
+    StepPreserves s (confirmShuffleCards s p selected drawSame search rest).1 := by
+  obtain ⟨hw, ho, hp, hc, hr⟩ := moveManyObjs_inv
+    ((search.map (·.destination)).getD (.player p .deck))
+    (if search.isSome then .top else .bottom) false selected.reverse hwf hok
   unfold confirmShuffleCards
   exact ⟨GameState.WF.congr hw rfl rfl rfl rfl, GameState.OwnerOk.congr ho rfl rfl,
     GameState.RollbackOk.preserve hrb hc hr hp, hp, hc⟩
@@ -558,8 +561,10 @@ theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
         · cases h
           exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
         · cases h
-      · cases h
-        exact confirmShuffleCards_preserves hwf hok hrb _ _ _ _
+      · split at h
+        · cases h
+          exact confirmShuffleCards_preserves hwf hok hrb _ _ _ _ _
+        · cases h
     · cases h
   · -- chooseOpt optPick
     rename_i p cardId rest q putOnTop _ _ _
@@ -1474,9 +1479,13 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
     | chooseHandToDeck p _ =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer]
       grind
-    | chooseShuffleCards p remaining candidates _ _ =>
+    | chooseShuffleCards p remaining candidates selected _ search =>
       cases remaining <;> cases actor <;> cases kind <;> simp [Actor.isPlayer]
-      all_goals rename_i choice; cases choice <;> simp <;> grind
+      all_goals
+        rename_i choice
+        cases choice
+        · cases hc : shuffleSelectionCanConfirm selected search <;> simp_all
+        · simp <;> grind
     | chooseOpt p _ =>
       cases actor with
       | player q =>
@@ -2031,13 +2040,13 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
-    | chooseShuffleCards p remaining candidates selected drawSame =>
+    | chooseShuffleCards p remaining candidates selected drawSame search =>
       cases actor <;> cases kind <;> try exact False.elim hlf
       rename_i q choice
       obtain ⟨rfl, hchoice⟩ := hlf
       simp only [↓reduceIte]
       cases choice with
-      | none => rfl
+      | none => simp [hchoice]
       | some id => simp [hchoice]
     | chooseOpt p cardId =>
       cases actor with

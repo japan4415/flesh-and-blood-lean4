@@ -1180,7 +1180,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
             let cc' := s1.combat.map fun cc => cc.updateActiveLink fun l =>
               { l with defending := l.defending.filter (· != did) }
             ({ s1 with combat := cc' }, [.moved did id' .combatChain (.player o.owner .hand)], [])
-  | .searchDeck pref f maxCount dstRef _ _ =>
+  | .searchDeck pref f maxCount dstRef reveal _ =>
     let target := evalPlayerRef s ctrl pref
     match zoneOfRef target dstRef with
     | none => (s, [], [])
@@ -1189,9 +1189,11 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         match s.objectFace? id with
         | some face => cardFaceMatches f face
         | none => false
-      let picked := match maxCount with | some k => matching.take k | none => matching
-      let (s1, es) := moveManyObjs s picked dstZ .top false
-      (s1, es, [.chanceShuffle (.player target .deck)])
+      let limit := min (maxCount.getD matching.length) matching.length
+      let follow := if maxCount == some 0 || (s.zone (.player target .deck)).isEmpty then
+          [.chanceShuffle (.player target .deck)]
+        else [.chooseShuffleCards target limit matching [] false (some ⟨dstZ, reveal, f != CardFilter.any⟩)]
+      (s, [], follow)
   | .shuffleZoneIntoDeck pref srcRef f maxCount drawSame =>
     let target := evalPlayerRef s ctrl pref
     match zoneOfRef target srcRef with
@@ -1438,9 +1440,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-    | some dstZ =>
-      dsimp only
-      exact moveManyObjs_inv dstZ .top false _ hwf hok
+    | some _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | shuffleZoneIntoDeck pref srcRef f maxCount drawSame =>
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) srcRef with
@@ -1683,13 +1683,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨rfl, rfl, id⟩
-    | some dstZ =>
-      dsimp only
-      let matching := (s.zone (.player (evalPlayerRef s ctrl pref) .deck)).filter fun id =>
-        match s.objectFace? id with | some face => cardFaceMatches f face | none => false
-      let picked := match maxCount with | some k => matching.take k | none => matching
-      have h := moveManyObjs_ttr dstZ .top false picked s
-      exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+    | some _ => exact ⟨rfl, rfl, id⟩
   | shuffleZoneIntoDeck pref srcRef f maxCount _ =>
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) srcRef with

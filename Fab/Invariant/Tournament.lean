@@ -930,11 +930,13 @@ private theorem startActivation_turn_tournament_result {s s' : GameState} {p : P
   exact ⟨ht, htn, hr⟩
 
 private theorem confirmShuffleCards_ttr (s : GameState) (p : PlayerId) (selected : List ObjId)
-    (drawSame : Bool) (rest : List Frame) :
-    let moved := (confirmShuffleCards s p selected drawSame rest).1
+    (drawSame : Bool) (search : Option DeckSearchChoice) (rest : List Frame) :
+    let moved := (confirmShuffleCards s p selected drawSame search rest).1
     moved.turn = s.turn ∧ moved.tournament = s.tournament ∧ moved.result = s.result := by
   unfold confirmShuffleCards
-  obtain ⟨ht, htour, hr⟩ := moveManyObjs_ttr (.player p .deck) .bottom false selected.reverse s
+  obtain ⟨ht, htour, hr⟩ := moveManyObjs_ttr
+    ((search.map (·.destination)).getD (.player p .deck))
+    (if search.isSome then .top else .bottom) false selected.reverse s
   exact ⟨ht, htour, hr⟩
 
 /-- Helper: `applyFrame` preserves `turn`, `tournament`, and `result`. -/
@@ -1116,8 +1118,10 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
         · cases h
           exact ⟨rfl, rfl, rfl⟩
         · cases h
-      · cases h
-        exact confirmShuffleCards_ttr s _ _ _ _
+      · split at h
+        · cases h
+          exact confirmShuffleCards_ttr s _ _ _ _ _
+        · cases h
     · cases h
   · -- chooseOpt optPick
     split at h

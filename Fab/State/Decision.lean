@@ -137,6 +137,20 @@ inductive HandCardCost where
   | reveal (filter : CardFilter)
 deriving DecidableEq, Repr
 
+/-- Completion instructions for selecting cards while searching a deck (CR 8.5.19). -/
+structure DeckSearchChoice where
+  /-- Zone that receives the chosen cards before the deck is shuffled. -/
+  destination : Zone
+  /-- Whether to reveal the chosen cards before moving them. -/
+  reveal : Bool
+  /-- Whether the player may finish without selecting a card. -/
+  mayFail : Bool
+deriving DecidableEq, Repr
+
+/-- A filtered deck search may fail, while an unrestricted search must select a card if possible. -/
+def shuffleSelectionCanConfirm (selected : List ObjId) (search : Option DeckSearchChoice) : Bool :=
+  search.all (fun choice => choice.mayFail || !selected.isEmpty)
+
 /-- Continuation stack frame: either a decision frame waiting for `step`, or a work frame
 advanced automatically by `microStep` (design.md §6.2). -/
 inductive Frame where
@@ -212,7 +226,7 @@ inductive Frame where
   | chooseHandToDeck (p : PlayerId) (pos : DeckPos)
   /-- Player selects cards for a single shuffle effect. Cards move when the selection is confirmed. -/
   | chooseShuffleCards (p : PlayerId) (remaining : Nat) (candidates selected : List ObjId)
-      (drawSame : Bool)
+      (drawSame : Bool) (search : Option DeckSearchChoice := none)
   /-- Work frame: perform `n` remaining steps of `Opt` for player `p` (CR 8.5.22). -/
   | optStep (p : PlayerId) (n : Nat)
   /-- Player decision: put the looked-at top card of `p`'s deck on top or bottom (CR 8.5.22). -/

@@ -6,8 +6,8 @@ public import Fab.Invariant.Step
 # Hidden Information Non-Interference (I10)
 
 Formalizes player observation `view p s` and proves **I10** (Hidden Information Non-Interference):
-- Every player's Deck including Pitch deck-bottom return order (CR 4.4.3c) is hidden — only its
-  length is observable.
+- Every player's Deck including Pitch deck-bottom return order (CR 4.4.3c) is normally
+  count-only. While searching a deck, the searching player may see its contents (CR 8.5.19).
 - Every opponent `q ≠ p`'s Hand, Inventory, and face-down Arsenal / Banished / Cloaked Equipment
   cards are hidden from player `p`.
 - `legalActionsFor p s` (the set of legal actions available to player `p`) depends **strictly** on
@@ -45,10 +45,16 @@ def Zone.isCountOnlyFor (p : PlayerId) : Zone → Bool
   | .player q .inventory => q != p
   | _ => false
 
+/-- The search decision gives only its player temporary access to the deck (CR 8.5.19). -/
+def deckSearchVisible (p : PlayerId) (s : GameState) (z : Zone) : Bool :=
+  match s.pending with
+  | .chooseShuffleCards q _ _ _ _ (some _) :: _ => p == q && z == .player q .deck
+  | _ => false
+
 /-- Project one zone `z` into observer `p`'s `VisibleZone` (CR 3.0). -/
 def viewZone (p : PlayerId) (s : GameState) (z : Zone) : VisibleZone :=
   let ids := s.zone z
-  if z.isCountOnlyFor p then
+  if z.isCountOnlyFor p && !deckSearchVisible p s z then
     .countOnly ids.length
   else
     .entries (ids.map fun id =>
@@ -79,14 +85,21 @@ structure PlayerView where
   combat : Option CombatChain
   /-- Tournament clock & ID offer state. -/
   tournament : TournamentState
-  /-- Pending continuation frames. -/
+  /-- Pending continuation frames, with other players' private selections masked. -/
   pending : List Frame
   /-- Pending triggers. -/
   pendingTriggers : List PendingTrigger
+  /-- Card identities for the current player's eligible shuffle or search selections. -/
+  selectionChoices : List (ObjId × CardId)
 deriving DecidableEq, Repr
 
 /-- Compute observer `p`'s observable view `view p s` of `GameState` `s` (**I10**). -/
 def view (p : PlayerId) (s : GameState) : PlayerView :=
+  let selectionChoices := match s.pending with
+    | .chooseShuffleCards q _ candidates _ _ _ :: _ =>
+      if p == q then candidates.filterMap (fun id => (s.cardDefOf? id).map (fun card => (id, card.id)))
+      else []
+    | _ => []
   { config := s.config
     zones := (allZones s.playerCount).map fun z => (z, viewZone p s z)
     pools := s.pools
@@ -98,8 +111,13 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
     result := s.result
     combat := s.combat
     tournament := s.tournament
-    pending := s.pending
-    pendingTriggers := s.pendingTriggers }
+    pending := s.pending.map fun frame =>
+      match frame with
+      | .chooseShuffleCards q _ _ _ drawSame search =>
+        if p == q then frame else .chooseShuffleCards q 0 [] [] drawSame search
+      | _ => frame
+    pendingTriggers := s.pendingTriggers
+    selectionChoices := selectionChoices }
 
 /-- All legal actions belonging to player `p` in state `s`. -/
 def legalActionsFor (p : PlayerId) (s : GameState) : List Action :=
@@ -523,7 +541,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                     (l.map fun id => Action.mk (.player q) (.handToDeckPick id)) = [] := by
                 intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
               rw [hnil, hnil]
-          | chooseShuffleCards _ _ _ _ _ | chooseOpt _ _ => rfl
+          | chooseShuffleCards _ _ _ _ _ _ | chooseOpt _ _ => rfl
           | chooseArsenal tp =>
             dsimp only
             by_cases htp : tp = p
@@ -564,10 +582,10 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
   · rfl
 
 /-- **I10 Corollary (Pitch Deck-Bottom Order Secrecy)** (CR 4.4.3c):
-Reordering ANY player `q`'s deck into any permutation `l` (including `p`'s own deck after Pitch
-return!) leaves BOTH `view p s` AND `legalActionsFor p s` completely unchanged. -/
+Reordering a deck that the observer is not currently searching leaves both their view
+and legal actions unchanged. -/
 theorem reorder_deck_noninterference {s : GameState} (p q : PlayerId) {l : List ObjId}
-    (hperm : l.Perm (s.zone (.player q .deck))) :
+    (hperm : l.Perm (s.zone (.player q .deck))) (hhidden : deckSearchVisible p s (.player q .deck) = false) :
     view p (s.reorder (.player q .deck) l) = view p s ∧
     legalActionsFor p (s.reorder (.player q .deck) l) = legalActionsFor p s := by
   have hlen : l.length = (s.zone (.player q .deck)).length := hperm.length_eq
@@ -593,6 +611,7 @@ theorem reorder_deck_noninterference {s : GameState} (p q : PlayerId) {l : List 
           rw [GameState.zone_setZone_ne s hne l] }
   constructor
   · unfold view
+    dsimp only
     congr 1
     apply List.map_congr_left
     intro z _
@@ -600,7 +619,9 @@ theorem reorder_deck_noninterference {s : GameState} (p q : PlayerId) {l : List 
     unfold viewZone
     by_cases hzd : z = .player q .deck
     · subst hzd
-      simp [Zone.isCountOnlyFor, GameState.reorder, GameState.zone_setZone_self, hlen]
+      have hsearch : deckSearchVisible p (s.setZone (.player q .deck) l) (.player q .deck) =
+          deckSearchVisible p s (.player q .deck) := rfl
+      simp [Zone.isCountOnlyFor, hsearch, hhidden, GameState.reorder, GameState.zone_setZone_self, hlen]
     · simp only [GameState.reorder, GameState.zone_setZone_ne s hzd l]
       rfl
   · exact hiddenEquiv_legalActionsFor_eq heq
