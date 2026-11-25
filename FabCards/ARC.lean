@@ -230,6 +230,9 @@ def ARC_029_R : CardDef := { Meta.ARC_029_R_meta with status := .full }
 /-- Zipper Hit (ARC030). -/
 def ARC_030_Y : CardDef := { Meta.ARC_030_Y_meta with status := .full }
 
+/-- Zipper Hit (ARC031). -/
+def ARC_031_B : CardDef := { Meta.ARC_031_B_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -237,7 +240,7 @@ def arcCards : List CardDef :=
    ARC_016_B, ARC_017_Y, ARC_018_B, ARC_019_R, ARC_020_R, ARC_021_Y, ARC_022_B,
    ARC_023_R, ARC_024_Y, ARC_025_B,
    ARC_026_R, ARC_027_Y, ARC_028_B,
-   ARC_029_R, ARC_030_Y]
+   ARC_029_R, ARC_030_Y, ARC_031_B]
 
 end FabCards.ARC
 
