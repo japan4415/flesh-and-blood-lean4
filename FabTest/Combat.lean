@@ -1143,6 +1143,67 @@ meta def checkSeismicSurge : Option Bool := do
 
 #guard checkSeismicSurge == some true
 
+/-- Bravo grants Dominate to every cost-3-or-more attack action card played that turn. -/
+meta def checkBravoAbility (cid : CardId) (life : Int) (young : Bool) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let card ← m5Base.cards.find? cid
+  let (withHero, source) ← cPlace m5Base player .hero cid
+  let (withWeapon, weapon) ← cPlace withHero player .weapon ⟨"WTR_040"⟩
+  let (withReserve, red1) ← cPlace withWeapon player .hand ⟨"WTR_203_R"⟩
+  let (withPitch, red2) ← cPlace withReserve player .hand ⟨"WTR_203_R"⟩
+  let (withCheap, cheap) ← cPlace withPitch player .hand ⟨"WTR_107_R"⟩
+  let (withFirst, first) ← cPlace withCheap player .hand ⟨"WTR_188_R"⟩
+  let (withSecond, second) ← cPlace withFirst player .hand ⟨"WTR_188_R"⟩
+  let (withBlock, block1) ← cPlace withSecond opponent .hand ⟨"WTR_203_R"⟩
+  let (withBlocks, block2) ← cPlace withBlock opponent .hand ⟨"WTR_203_R"⟩
+  let (ready, opposingAttack) ← cPlace withBlocks opponent .hand ⟨"WTR_188_R"⟩
+  let activate : Action := ⟨.player player, .activateAbility source 0⟩
+  let pitch id : Action := ⟨.player player, .pitchCard id⟩
+  let play id : Action := ⟨.player player, .playCard id⟩
+  let block id : Action := ⟨.player opponent, .defendCard id⟩
+  let finish : Action := ⟨.player opponent, .defendDone⟩
+  let defend (state : GameState) (action : Action) := cSteps state (action :: (passBoth ++ passBoth))
+  let finishLink (state : GameState) := cSteps state (finish :: (passBoth ++ passBoth ++ passBoth))
+  let dominates (s : GameState) :=
+    (s.combat.bind CombatChain.activeLink?).any fun link => linkHasKeyword s link .dominate
+  let hasDominate (s : GameState) (id : ObjId) :=
+    (s.characteristics id).any (fun chars => chars.keywords.contains .dominate)
+  let declaring ← cSteps ready [activate]
+  let onePitch ← cSteps declaring [pitch red1]
+  let cancelled ← cSteps onePitch [⟨.player player, .cancelPlay⟩]
+  let paidByPitch ← cSteps onePitch [pitch red2]
+  let fromPitch ← cSteps paidByPitch passBoth
+  let funded := ready.setPool player { actionPoints := 4, resources := 12 }
+  let paid ← cSteps funded [activate]
+  let buffed ← cSteps paid passBoth
+  let weaponDefend ← defend buffed ⟨.player player, .attackWeapon weapon⟩
+  let cheapDefend ← defend buffed (play cheap)
+  let firstDefend ← defend buffed (play first)
+  let blocked ← cSteps firstDefend [block block1]
+  let afterFirst ← finishLink blocked
+  let secondDefend ← defend afterFirst (play second)
+  let expired ← cSteps buffed (passBoth ++ [⟨.player player, .arsenalSkip⟩])
+  pure (card.status == .full && card.front.life == some life && card.front.intellect == some 4 &&
+    card.front.hasSubtype .young == young &&
+    (legalActionsFor player declaring).contains (pitch red1) &&
+    (legalActionsFor player onePitch).contains (pitch red2) && decide (cancelled = ready) &&
+    (paidByPitch.poolOf player).actionPoints == 0 && (paidByPitch.poolOf player).resources == 0 &&
+    (paidByPitch.zone (.player player .pitch)).length == 2 &&
+    (fromPitch.poolOf player).actionPoints == 1 && fromPitch.activeEffects.length == 1 &&
+    (paid.poolOf player).actionPoints == 3 && (paid.poolOf player).resources == 10 &&
+    paid.activeEffects.isEmpty && (buffed.poolOf player).actionPoints == 4 &&
+    buffed.activeEffects.length == 1 &&
+    hasDominate buffed first && hasDominate buffed second &&
+    !hasDominate paid first && !hasDominate buffed opposingAttack &&
+    !(dominates weaponDefend) && !(dominates cheapDefend) &&
+    dominates firstDefend && dominates secondDefend &&
+    !(legalActionsFor opponent blocked).contains (block block2) &&
+    firstDefend.activeEffects == buffed.activeEffects && secondDefend.activeEffects == buffed.activeEffects &&
+    expired.activeEffects.isEmpty)
+
+#guard checkBravoAbility ⟨"WTR_038"⟩ 40 false == some true
+
 /-- Helm of Isen's Peak raises only its hero's intellect for that turn's refill. -/
 meta def checkHelmOfIsensPeak : Option Bool := do
   let player : PlayerId := ⟨0⟩

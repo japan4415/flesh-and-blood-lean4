@@ -274,8 +274,8 @@ def bravoAbility : List Ability :=
           (.grantKeyword .dominate)
           .thisTurn } ]
 
-/-- Bravo, Showstopper (drafted IR). -/
-def WTR_038 : CardDef := draftCard WTR_038_meta bravoAbility
+/-- Bravo, Showstopper. -/
+def WTR_038 : CardDef := { draftCard WTR_038_meta bravoAbility with status := .full }
 
 /-- Bravo (Young, drafted IR). -/
 def WTR_039 : CardDef := draftCard WTR_039_meta bravoAbility

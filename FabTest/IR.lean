@@ -24,7 +24,7 @@ open FabCards
   | none => false
 
 #guard match wtrDB.find? ⟨"WTR_038"⟩ with
-  | some c => c.front.name == "Bravo, Showstopper" && c.isAdultHero && c.front.life == some 40 && c.status == .drafted
+  | some c => c.front.name == "Bravo, Showstopper" && c.isAdultHero && c.front.life == some 40 && c.status == .full
   | none => false
 
 #guard match wtrDB.find? ⟨"WTR_081_B"⟩ with
