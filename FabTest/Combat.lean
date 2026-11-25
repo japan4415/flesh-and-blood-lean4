@@ -4796,6 +4796,7 @@ meta def checkCartilageCrush (cid : CardId) (pitch power : Nat) : Option Bool :=
     tax lowered == 0 && resources lowered == 0 && later.active == some defender && tax later == 0)
 
 #guard checkCartilageCrush ⟨"WTR_060_R"⟩ 1 7 == some true
+#guard checkCartilageCrush ⟨"WTR_061_Y"⟩ 2 6 == some true
 
 /-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
 meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
