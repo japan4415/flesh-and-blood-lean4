@@ -538,6 +538,12 @@ def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
 def expireEffects (s : GameState) (dur : Duration) : GameState :=
   { s with activeEffects := s.activeEffects.filter fun e => e.duration != dur }
 
+/-- Expire effects that finish with this turn, after the end-phase refill (CR 4.4.4). -/
+def finishTurnEffects (s : GameState) : GameState :=
+  { s with activeEffects := s.activeEffects.filter fun e =>
+      e.duration != .thisTurn &&
+        !(e.endAfterTurnOf.any fun (p, createdTurn) => s.active == some p && decide (createdTurn < s.turn)) }
+
 /-- Start restrictions scheduled for this player's action phase (CR 4.3). -/
 def startActionPhaseEffects (s : GameState) (p : PlayerId) : GameState :=
   { s with activeEffects := s.activeEffects.map fun e =>

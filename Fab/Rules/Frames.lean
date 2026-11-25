@@ -1731,7 +1731,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let draws := endPhaseDrawFrames s2 tp
     some ({ s2 with pending := draws ++ [.endTurnFinish] ++ rest }, [])
   | .endTurnFinish :: rest =>
-    some ({ s.expireEffects .thisTurn with pending := rest }, [])
+    some ({ s.finishTurnEffects with pending := rest }, [])
   | .flushTriggers :: rest =>
     let triggers := s.pendingTriggers.filter fun t => !(t.targetChoices s).isEmpty
     if triggers.isEmpty then
