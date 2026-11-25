@@ -85,6 +85,7 @@ meta def checkPlainAttack (cid : CardId) (pitch cost power defense : Nat) : Opti
 #guard checkPlainAttack ⟨"WTR_205_B"⟩ 3 0 2 3 == some true
 #guard checkPlainAttack ⟨"WTR_188_R"⟩ 1 3 7 3 == some true
 #guard checkPlainAttack ⟨"WTR_189_Y"⟩ 2 3 6 3 == some true
+#guard checkPlainAttack ⟨"WTR_190_B"⟩ 3 3 5 3 == some true
 
 -- 2. Battleworn & Blade Break Equipment Wear + Identical `ObjId` Preservation (I11: CR 3.0.9, 7.7, 8.3.2, 8.3.3):
 --    P0 attacks with Wounding Blow Red (4{p}). P1 defends with Tectonic Plating (Chest, 2{d}, Battleworn)
