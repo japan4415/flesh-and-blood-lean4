@@ -501,13 +501,16 @@ def WTR_075 : CardDef :=
 
 /-- Shared Katsu hero ability: first attack action hit each turn → may discard cost 0 to tutor Combo. -/
 def katsuAbility : List Ability :=
+  let zeroCost : CardFilter := { maxCost := some 0 }
   [ .triggered .onAttackActionHit false (some 1) none
-      { body := .may
-          (.prim (.discardChoice .controller { maxCost := some 0 } (.const 1)))
-          (.prim (.searchDeck .controller comboFilter (some 1) .banished false (some .thisTurn))) } ]
+      { body := .ifThen (.zoneCountGe .controller .hand zeroCost 1)
+          (.may
+            (.prim (.discardChoice .controller zeroCost (.const 1)))
+            (.prim (.searchDeck .controller comboFilter (some 1) .banished true (some .thisTurn))))
+          .nop } ]
 
-/-- Katsu, the Wanderer (drafted IR). -/
-def WTR_076 : CardDef := draftCard WTR_076_meta katsuAbility
+/-- Katsu, the Wanderer. -/
+def WTR_076 : CardDef := { draftCard WTR_076_meta katsuAbility with status := .full }
 
 /-- Katsu (Young, drafted IR). -/
 def WTR_077 : CardDef := draftCard WTR_077_meta katsuAbility

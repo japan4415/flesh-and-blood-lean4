@@ -649,13 +649,14 @@ def collectCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId)
   triggers.zipIdx.map fun (trigger, idx) => { trigger with id := s.nextTimestamp + idx }
 
 /-- Collect relevant abilities on installed arena objects under the player's control (CR 1.7.4, 3.0.14b). -/
-def installedCardTriggers (s : GameState) (p : PlayerId) (matchesEvent : Trigger → Bool) :
+def installedCardTriggers (s : GameState) (p : PlayerId) (matchesEvent : Trigger → Bool)
+    (matchesOrdinal : Option Nat → Bool := Option.isNone) :
     List (PendingTrigger × Bool) :=
   ((installedArenaZones s).flatMap s.zone).flatMap fun source =>
     if (s.characteristics source).any (fun c => c.controller == p && !c.abilitiesLost) &&
         (s.obj? source).any (fun obj => !obj.faceDown) then
       let abilities := ((s.objectFace? source).map (·.abilities)).getD []
-      matchingCardTriggers s source p false abilities fun event cond =>
+      matchingCardTriggers s source p false abilities (matchesOrdinal := matchesOrdinal) fun event cond =>
         matchesEvent event && (cond.map (evalCondition s p source false)).getD true
     else []
 
@@ -690,6 +691,13 @@ def queueDiscardTriggers (s : GameState) (events : List Event) : GameState :=
     | .discarded p id => discardEventTriggers s p id
     | _ => [])
 
+/-- The controller credited with an attack action card's hit (CR 7.5.3). -/
+def attackActionHitController? (s : GameState) (link : ChainLink) : Option PlayerId := do
+  if !link.hit || link.attackSource.isSome then none else
+    let attack ← link.attack.bind s.characteristics
+    if attack.types.contains .action && attack.subtypes.contains .attack then
+      some attack.controller else none
+
 /-- Find installed arena abilities triggered by a successful attack (CR 7.5.3). -/
 def installedHitTriggers (s : GameState) (link : ChainLink) : List (PendingTrigger × Bool) :=
   let source := link.attackSource.or link.attack
@@ -698,9 +706,11 @@ def installedHitTriggers (s : GameState) (link : ChainLink) : List (PendingTrigg
     let isAction := link.attackSource.isNone && attack.types.contains .action && attack.subtypes.contains .attack
     let isWeapon := link.attackSource.isSome && attack.types.contains .weapon
     let streak := ((s.combat.map fun chain => chain.links.takeWhile (·.hit)).getD []).length
-    installedCardTriggers s attack.controller fun
+    let count := s.attackActionHitsThisTurn.count attack.controller
+    installedCardTriggers s attack.controller (matchesOrdinal := fun ordinal => ordinal.all (· == count)) fun
       | .onConsecutiveHitLink minLink => isAction && minLink ≤ streak
       | .onWeaponAttackHit => isWeapon
+      | .onAttackActionHit => isAction
       | _ => false
   | none => []
 
@@ -1789,9 +1799,11 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         let damagedLink := { link with hit := isHit, damageDealt := finalDmg }
         let cc' := { cc with step := .damage }.updateActiveLink fun _ => damagedLink
         let weaponHit := if isHit then hitWeapon? s2 damagedLink else none
+        let cardHit := attackActionHitController? s2 damagedLink
         let withDamage := { s2 with
           combat := some cc'
-          weaponHitsThisTurn := weaponHit.toList ++ s2.weaponHitsThisTurn }
+          weaponHitsThisTurn := weaponHit.toList ++ s2.weaponHitsThisTurn
+          attackActionHitsThisTurn := cardHit.toList ++ s2.attackActionHitsThisTurn }
         let damageTriggers := if isHit && withDamage.result.isNone then
           (attackDamageTriggers withDamage damagedLink).map (fun trigger => (trigger, false)) ++
             installedHitTriggers withDamage damagedLink ++ weaponHitTriggers withDamage damagedLink
@@ -1873,6 +1885,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       banishedSixPowerThisTurn := []
       activatedThisTurn := []
       weaponHitsThisTurn := []
+      attackActionHitsThisTurn := []
       triggeredThisTurn := [] }
     let draws := endPhaseDrawFrames s2 tp
     some ({ s2 with pending := draws ++ [.endTurnFinish] ++ rest }, [])
