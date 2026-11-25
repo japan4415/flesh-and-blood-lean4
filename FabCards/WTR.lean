@@ -814,6 +814,8 @@ def nextAttackCardPower (base : CardDef) (filter : CardFilter) (bonus : Int) : C
 
 /-- Nimblism Red. -/
 def WTR_218_R : CardDef := { nextAttackCardPower WTR_218_R_meta { maxCost := some 1 } 3 with status := .full }
+/-- Nimblism Yellow. -/
+def WTR_219_Y : CardDef := { nextAttackCardPower WTR_219_Y_meta { maxCost := some 1 } 2 with status := .full }
 
 /-- Quicken Token (drafted IR). -/
 def WTR_225 : CardDef :=
@@ -849,7 +851,8 @@ def draftedCards : List CardDef :=
   , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_200_R, WTR_201_Y, WTR_202_B
   , WTR_203_R, WTR_204_Y, WTR_205_B
   , WTR_206_R, WTR_207_Y, WTR_208_B, WTR_209_R, WTR_210_Y, WTR_211_B
-  , WTR_215_R, WTR_216_Y, WTR_217_B, WTR_218_R, WTR_225 ]
+  , WTR_215_R, WTR_216_Y, WTR_217_B
+  , WTR_218_R, WTR_219_Y, WTR_225 ]
 
 /-- Complete list of all 226 WTR logical cards with drafted IR overrides applied. -/
 def wtrCards : List CardDef :=

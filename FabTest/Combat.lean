@@ -522,6 +522,7 @@ meta def checkNextAttackCardPower (cid : CardId) (cost bonus : Nat) (lowCost : B
     ended.activeEffects.isEmpty && (ended.poolOf attacker).actionPoints == 0)
 
 #guard checkNextAttackCardPower ⟨"WTR_218_R"⟩ 0 3 true == some true
+#guard checkNextAttackCardPower ⟨"WTR_219_Y"⟩ 0 2 true == some true
 
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
