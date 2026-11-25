@@ -30,8 +30,9 @@ meta def p1 : PlayerId := ⟨1⟩
 meta def innerChiBack : CardFace :=
   { name := "Inner Chi"
     supertypes := [.talent .mystic]
-    types := [.instant]
+    types := [.resource]
     pitch := some 3
+    pitchAsset := .chi
     color := some .blue }
 
 meta def transcendDef : CardDef :=
@@ -159,9 +160,15 @@ meta def doubleFaceAndMeldTest : Bool :=
     let trOk :=
       match transcendCard s1 trId with
       | some (s2, handId, _) =>
-        handId ∈ s2.zone (.player p0 .hand) &&
-        (s2.obj? handId).map (·.faceState) == some .back &&
-        (s2.objectFace? handId).map (·.name) == some "Inner Chi"
+        match pitchOne s2 p0 handId with
+        | some (s3, pitchId, events) =>
+          handId ∈ s2.zone (.player p0 .hand) &&
+          (s2.obj? handId).map (·.faceState) == some .back &&
+          (s2.objectFace? handId).map (·.name) == some "Inner Chi" &&
+          s3.zone (.player p0 .pitch) == [pitchId] &&
+          events.countP (· == .pitched p0 pitchId 0 3) == 1 &&
+          (s3.poolOf p0).chi == 3 && (s3.poolOf p0).resources == 0
+        | none => false
       | none => false
     -- Transform flips in place preserving ObjId
     let sTf := transformObject s1 trId

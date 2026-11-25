@@ -87,6 +87,35 @@ meta def checkPlainAttack (cid : CardId) (pitch cost power defense : Nat) : Opti
 #guard checkPlainAttack ⟨"WTR_189_Y"⟩ 2 3 6 3 == some true
 #guard checkPlainAttack ⟨"WTR_190_B"⟩ 3 3 5 3 == some true
 
+/-- Use Cracked Baubles in Limited loadouts and in their pitch-only combat role. -/
+meta def checkCrackedBauble : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_224_Y"⟩
+  let hero : CardId := ⟨"WTR_039"⟩
+  let deck := List.replicate 30 cid
+  let pool : DeckList := { hero := hero, pool := deck }
+  let loadout : Loadout := { hero := hero, deck := deck }
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 1 }
+  let card ← funded.cards.find? cid
+  let (withBauble, bauble) ← cPlace funded attacker .hand cid
+  let (withAttack, attack) ← cPlace withBauble attacker .hand ⟨"WTR_188_R"⟩
+  let (ready, defenderBauble) ← cPlace withAttack defender .hand cid
+  let choosing ← cSteps ready [⟨.player attacker, .playCard attack⟩]
+  let (paid, events) ← (step 64 choosing ⟨.player attacker, .pitchCard bauble⟩).toOption
+  let pitched ← (paid.zone (.player attacker .pitch)).head?
+  let defending ← cSteps paid (passBoth ++ passBoth)
+  pure (card.status == .full && card.isDeckCard && card.front.subtypes == [.gem] &&
+    decide (CoreDeckValid wtrDB pool) && decide (LoadoutValid wtrDB .sealed pool loadout) &&
+    decide (LoadoutValid wtrDB .draft pool loadout) &&
+    (step 64 ready ⟨.player attacker, .playCard bauble⟩).toOption.isNone &&
+    (step 64 defending ⟨.player defender, .defendCard defenderBauble⟩).toOption.isNone &&
+    events.countP (· == .pitched attacker pitched 2 0) == 1 &&
+    (paid.cardDefOf? pitched).map (·.id) == some cid &&
+    (paid.poolOf attacker).resources == 0 && (paid.poolOf attacker).actionPoints == 0)
+
+#guard checkCrackedBauble == some true
+
 /-- Check Ironrot equipment loadout, defense, and Blade Break on chain close. -/
 meta def checkIronrot (cid : CardId) (slot : ZoneKind) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

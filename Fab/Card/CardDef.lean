@@ -34,6 +34,14 @@ inductive ImplStatus where
   | full
 deriving DecidableEq, Repr, Hashable
 
+/-- Asset shown by the card's printed pitch symbols (CR 2.8.2). -/
+inductive PitchAsset where
+  /-- Generic resource points. -/
+  | resource
+  /-- Chi points. -/
+  | chi
+deriving DecidableEq, Repr
+
 /-- One face of a card (front face, back face of a double-faced card, or right half of a split
 card) (CR 2.0-2.16). -/
 structure CardFace where
@@ -49,6 +57,8 @@ structure CardFace where
   color : Option ColorStrip := none
   /-- Printed pitch value `{p}` (CR 2.8). `none` means the card cannot be pitched. -/
   pitch : Option Nat := none
+  /-- Which asset is gained when this face is pitched (CR 2.8.2). -/
+  pitchAsset : PitchAsset := .resource
   /-- Printed asset-cost (CR 2.2, 1.14.2). -/
   cost : Option AssetCost := none
   /-- Printed power `{p}` (CR 2.7). -/
