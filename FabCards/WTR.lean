@@ -705,8 +705,8 @@ def sigilOfSolace (base : CardDef) (amount : Int) : CardDef :=
 def WTR_173_R : CardDef := { sigilOfSolace WTR_173_R_meta 3 with status := .full }
 /-- Sigil of Solace Yellow. -/
 def WTR_174_Y : CardDef := { sigilOfSolace WTR_174_Y_meta 2 with status := .full }
-/-- Sigil of Solace Blue (drafted IR). -/
-def WTR_175_B : CardDef := sigilOfSolace WTR_175_B_meta 1
+/-- Sigil of Solace Blue. -/
+def WTR_175_B : CardDef := { sigilOfSolace WTR_175_B_meta 1 with status := .full }
 
 /-- Raging Onslaught Red. -/
 def WTR_188_R : CardDef := { WTR_188_R_meta with status := .full }
