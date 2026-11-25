@@ -32,6 +32,15 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     q = p
   | .priority p _ :: _, .player q, .playCard id =>
     q = p ∧ canPlayCard s p id = true
+  | .priority p _ :: _, .player q, .attackWeapon wid =>
+    q = p ∧ canAttackWithWeapon s p wid = true
+  | .defendPick defender :: _, .player q, .defendCard id =>
+    q = defender ∧
+    match s.combat.bind CombatChain.activeLink? with
+    | some link => canDefendWith s link defender id = true
+    | none => False
+  | .defendPick defender :: _, .player q, .defendDone =>
+    q = defender
   | .chooseMode p _ _ modeCount _ :: _, .player q, .pickMode idx =>
     q = p ∧ idx < modeCount
   | .chooseMode p _ _ _ _ :: _, .player q, .cancelPlay =>
@@ -63,7 +72,8 @@ instance decidableLegalFrame (s : GameState) (a : Action) : Decidable (LegalFram
   cases s.pending with
   | nil => exact isFalse id
   | cons f rest =>
-    cases f <;> cases a.actor <;> cases a.kind <;> infer_instance
+    cases f <;> cases a.actor <;> cases a.kind <;>
+      first | infer_instance | (dsimp only; cases s.combat.bind CombatChain.activeLink? <;> infer_instance)
 
 /-- Legality of conceding: in a 1v1 game, any seated player may concede at any time while the
 game is ongoing (CR 4.5). -/

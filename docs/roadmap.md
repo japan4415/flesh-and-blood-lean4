@@ -217,6 +217,15 @@ FaB ルールの中核マイルストーン。
 - **L5**: 戦闘ダメージ計算（CR 7.5）の独立関係仕様との一致。
 - `defendPick` と戦闘関連フレームの **I6**。
 
+**M5 実装の記録（2026-11-25）: 完了**
+- 戦闘状態・ステップ・チェーンリンク: `Fab/State/Combat.lean`（7 ステップ `CombatStep`、`ChainLink`、`CombatChain`、`activeLink?` / `prevLink?` / `updateActiveLink`）、`Fab/State/Decision.lean`（`attackWeapon` / `defendCard` / `defendDone`、`combatStep` / `defendPick` / `gameStateProcess`）、`Fab/State/GameState.lean`（`combat` フィールド＋`BoardSnapshot` 巻き戻し統合＋`cardDefOf?`）。
+- Game State Process（CR 1.10.2）: `Fab/Rules/Add.lean`（`removeNonPhysObj` + WF/OwnerOk/I1 証明）、`Fab/Rules/Gsp.lean`（`isStrayNonPhys` / `nonArenaNonPhys` / `isDeadAlly` / `deadAllies` / `Settled` / `gspMeasure` / `gspStep` / `gspLoop` / `gspRun`）。重み付き辞書式測度 `gspMeasure` による停止性 **I12a**（`gspStep_measure_lt`, `gspLoop_fixed_point`, `gspRun_fixed_point`）および **I17**（`settled_of_gspStep_none`）を証明。
+- Combat Chain 規則・Attack-Proxy・LKI・装備摩耗・L5: `Fab/Rules/Combat.lean`（`captureLki`, `objEffectivePower`, `objEffectiveDefense`, `linkAttackPower`, `linkTotalDefense`, `calcCombatDamage`, `didCombatHit`, `CombatDamageSpec` + `combatDamage_matches_spec` + `CombatDamageSpec.unique` (**L5**), `linkHasKeyword`, `canDefendWith`（Dominate/Overpower フック）, `canAttackWithWeapon`, `applyEquipmentWear`（Battleworn / Blade Break / Temper / Guardwell / 通常復帰）, `closeCombatChainStep`, `removeStaleProxies`, `enterAttackStep` と全保存定理）。
+- 効果解釈器・フレーム統合: `Fab/Rules/Interp.lean`（`NumExpr.chainHits`、戦闘条件 `prevChainLinkNamed` / `defendedFromHandThisLink` / `defendedByFewerNonEquip` / `weaponHitThisTurn` / `defendingWeaponAttack` / `sourceNotHitThisTurn`、`.thisChainLink` バフ反映 `applyChainLinkMod`、L4 保存定理維持）、`Fab/Rules/Frames.lean`（7 ステップ遷移、Link 2+ 連続攻撃、Defense Reaction の `defending` 参加＋GSP、Attack Reaction プレイ許可）、`Fab/Spec/Legal.lean`・`Fab/Engine/Step.lean`。
+- 不変条件・定理群: `Fab/Invariant/Step.lean`（`StepPreserves` の全 M5 分岐、`legalFrameActions_iff` **I6**、`applyFrame_isSome` / `microStep_isSome`）、`Fab/Invariant/Combat.lean`（**I11**: `combatStep_chain_order`, `resolutionStep_grants_goAgain_lki`, `battleworn_preserves_objId`, `bladeBreak_destroys`, `dominate_blocks_second_hand_card`, `overpower_blocks_second_action`；**I12a+I17**: `gameStateProcess_fixed_point`；**I5**: `progress_defendPick`）。
+- テスト: `FabTest/Combat.lean`（WTR 実カードによる 7 シナリオ: 7 ステップ戦闘、Battleworn 同一 `ObjId` 復帰＋Blade Break 破壊、Reaction Step Attack/Defense Reaction、Dominate 制限、Ninja Combo 連続 Chain Link *Surging Strike* → *Whelming Gustwave*、武器 Attack-Proxy＋LKI Go Again、GSP `Settled`）。
+- 検証: `./scripts/verify.sh` 全 5 項目通過（129 jobs、警告 0、`sorry` 0、標準 3 公理のみ、`gen_lean --check` WTR 226 枚一致、`cr_citations.py` 47 files / 670 citations / 180 distinct rules / malformed: 0）。
+
 ---
 
 ### M5b: 大会ルール（TRP: 時間切れ・Bo1 マッチ・合意引き分け）

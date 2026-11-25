@@ -74,7 +74,10 @@ def evalNumExpr (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int)) : 
   | .handCount p =>
     let target := evalPlayerRef s ctrl p
     Int.ofNat (s.zone (.player target .hand)).length
-  | .chainHits => 0
+  | .chainHits =>
+    match s.combat with
+    | some cc => Int.ofNat (cc.links.filter (·.hit)).length
+    | none => 0
   | .halfRoundDown v =>
     let raw := lookupVar env v
     if raw ≤ 0 then 0 else Int.ofNat (raw.toNat / 2)
@@ -225,15 +228,38 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
   | .and_ a b => evalCondition s ctrl src fromArsenal a && evalCondition s ctrl src fromArsenal b
   | .or_ a b => evalCondition s ctrl src fromArsenal a || evalCondition s ctrl src fromArsenal b
   | .not_ c => !evalCondition s ctrl src fromArsenal c
-  -- Combat chain and additional-cost conditions are populated in M5/M6
-  | .prevChainLinkNamed _ => false
-  | .defendedFromHandThisLink => false
-  | .defendedByFewerNonEquip _ => false
+  -- Combat chain conditions read the active/previous ChainLink (CR 3.5.4, 8.3.6, 8.3.8)
+  | .prevChainLinkNamed name =>
+    match s.combat.bind CombatChain.prevLink? with
+    | some prev => prev.attackLki.name == name
+    | none => false
+  | .defendedFromHandThisLink =>
+    match s.combat.bind CombatChain.activeLink? with
+    | some cur => decide (0 < cur.defendedFromHandCount)
+    | none => false
+  | .defendedByFewerNonEquip n =>
+    match s.combat.bind CombatChain.activeLink? with
+    | some cur =>
+      let nonEq := (cur.defending.filter fun id =>
+        match s.objectFace? id with
+        | some face => !face.hasType .equipment
+        | none => true).length
+      decide (nonEq < n)
+    | none => false
   | .additionalCostPaid => false
   | .lastDiscardedMatches _ => false
-  | .weaponHitThisTurn => false
-  | .defendingWeaponAttack => false
-  | .sourceNotHitThisTurn => false
+  | .weaponHitThisTurn =>
+    match s.combat with
+    | some cc => cc.links.any fun l => l.hit && l.attackSource.isSome
+    | none => false
+  | .defendingWeaponAttack =>
+    match s.combat.bind CombatChain.activeLink? with
+    | some cur => cur.attackSource.isSome
+    | none => false
+  | .sourceNotHitThisTurn =>
+    match s.combat with
+    | some cc => !(cc.links.any fun l => l.hit && l.attackSource == some src)
+    | none => true
 
 /-- Resolve an `ObjRef` to a concrete `ObjId` if available. -/
 def evalObjRef (src : ObjId) : ObjRef → Option ObjId
@@ -880,6 +906,32 @@ theorem execPrim_meta (s : GameState) (ctrl : PlayerId) (src : ObjId)
     | none => exact ⟨rfl, rfl⟩
     | some oid => exact updateSingleObject_meta s oid _
 
+/-- Apply a `.thisChainLink` continuous modification directly to the active `ChainLink` if a
+combat chain is open (CR 6.2, 7.4). -/
+def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
+    (mod : ContinuousMod) (dur : Duration) : GameState :=
+  match dur, s.combat with
+  | .thisChainLink, some cc =>
+    let cc' := cc.updateActiveLink fun link =>
+      match mod with
+      | .addPower d => { link with powerBonus := link.powerBonus + evalNumExpr s ctrl env d }
+      | .addDefense d => { link with defenseBonus := link.defenseBonus + evalNumExpr s ctrl env d }
+      | .grantKeyword kw => { link with grantedKeywords := kw :: link.grantedKeywords }
+      | _ => link
+    { s with combat := some cc' }
+  | _, _ => s
+
+/-- `applyChainLinkMod` only updates `combat`, preserving board structure and `playRollback`. -/
+theorem applyChainLinkMod_fields (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
+    (mod : ContinuousMod) (dur : Duration) :
+    (applyChainLinkMod s ctrl env mod dur).config = s.config ∧
+    (applyChainLinkMod s ctrl env mod dur).objects = s.objects ∧
+    (applyChainLinkMod s ctrl env mod dur).zones = s.zones ∧
+    (applyChainLinkMod s ctrl env mod dur).nextId = s.nextId ∧
+    (applyChainLinkMod s ctrl env mod dur).playRollback = s.playRollback := by
+  unfold applyChainLinkMod
+  cases dur <;> cases s.combat <;> exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+
 /-- Execute a single step of `Frame.run ctrl src fromArsenal env todo :: rest` (CR 1.7, 6.0).
 Always succeeds (total), never returning `none`. -/
 def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal : Bool)
@@ -923,8 +975,9 @@ def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     ({ s with
         pending := .run ctrl src fromArsenal ((bindVar, Int.ofNat matched) :: env) [cont] ::
           .run ctrl src fromArsenal env more :: rest }, [])
-  | .grant _ _ _ :: more =>
-    ({ s with pending := .run ctrl src fromArsenal env more :: rest }, [])
+  | .grant _ mod dur :: more =>
+    let s1 := applyChainLinkMod s ctrl env mod dur
+    ({ s1 with pending := .run ctrl src fromArsenal env more :: rest }, [])
   | .custom _ _ :: more =>
     ({ s with pending := .run ctrl src fromArsenal env more :: rest }, [])
 
@@ -937,8 +990,11 @@ theorem interpRunStep_wf {s : GameState} (hwf : s.WF) (ctrl : PlayerId) (src : O
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | grant _ _ _ | custom _ _ =>
+    | custom _ _ =>
       exact GameState.WF.congr hwf rfl rfl rfl rfl
+    | grant _ mod dur =>
+      have hf := applyChainLinkMod_fields s ctrl env mod dur
+      exact GameState.WF.congr hwf hf.1 hf.2.1 hf.2.2.1 hf.2.2.2.1
     | chooseOne modes =>
       unfold interpRunStep; dsimp only
       split <;> exact GameState.WF.congr hwf rfl rfl rfl rfl
@@ -956,8 +1012,11 @@ theorem interpRunStep_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | grant _ _ _ | custom _ _ =>
+    | custom _ _ =>
       exact GameState.OwnerOk.congr hok rfl rfl
+    | grant _ mod dur =>
+      have hf := applyChainLinkMod_fields s ctrl env mod dur
+      exact GameState.OwnerOk.congr hok hf.2.1 hf.2.2.1
     | chooseOne modes =>
       unfold interpRunStep; dsimp only
       split <;> exact GameState.OwnerOk.congr hok rfl rfl
@@ -975,8 +1034,15 @@ theorem interpRunStep_physIds {s : GameState} (hwf : s.WF) (ctrl : PlayerId) (sr
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | grant _ _ _ | custom _ _ =>
+    | custom _ _ =>
       exact List.Perm.refl _
+    | grant scope mod dur =>
+      have hf := applyChainLinkMod_fields s ctrl env mod dur
+      have hp : (interpRunStep s ctrl src fromArsenal env (.grant scope mod dur :: more) rest).1.physIds =
+          s.physIds := by
+        unfold interpRunStep GameState.physIds GameState.zoneIds GameState.playerCount GameState.zone GameState.obj?
+        simp only [hf.1, hf.2.1, hf.2.2.1]
+      rw [hp]
     | chooseOne modes =>
       unfold interpRunStep; dsimp only
       split <;> exact List.Perm.refl _
@@ -994,8 +1060,11 @@ theorem interpRunStep_meta (s : GameState) (ctrl : PlayerId) (src : ObjId) (from
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | grant _ _ _ | custom _ _ =>
+    | custom _ _ =>
       exact ⟨rfl, rfl⟩
+    | grant _ mod dur =>
+      have hf := applyChainLinkMod_fields s ctrl env mod dur
+      exact ⟨hf.1, hf.2.2.2.2⟩
     | chooseOne modes =>
       unfold interpRunStep; dsimp only
       split <;> exact ⟨rfl, rfl⟩

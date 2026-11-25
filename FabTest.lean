@@ -12,6 +12,7 @@ public import FabTest.Setup
 public import FabTest.Turn
 public import FabTest.IR
 public import FabTest.Stack
+public import FabTest.Combat
 
 /-!
 # FabTest

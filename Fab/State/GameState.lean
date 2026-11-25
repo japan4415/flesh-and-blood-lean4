@@ -56,9 +56,11 @@ structure BoardSnapshot where
   pending : List Frame
   /-- Saved stack layer metadata. -/
   layerMeta : Std.ExtTreeMap Nat LayerInfo
+  /-- Saved combat chain state. -/
+  combat : Option CombatChain := none
 deriving DecidableEq, Repr
 
-/-- Complete state of a Flesh and Blood game (M2-M4 core; combat chain state is added in M5). -/
+/-- Complete state of a Flesh and Blood game (M2-M5 core). -/
 structure GameState where
   /-- Fixed ruleset, format, mode, and ban list (design.md §6.1). -/
   config : GameConfig
@@ -92,6 +94,8 @@ structure GameState where
   layerMeta : Std.ExtTreeMap Nat LayerInfo := ∅
   /-- Saved pre-play snapshot while playing a card, used for play rollback (CR 5.1.1). -/
   playRollback : Option BoardSnapshot := none
+  /-- Active Combat Chain state when a combat chain is open, `none` when closed (CR 3.5, 7.0). -/
+  combat : Option CombatChain := none
 deriving DecidableEq, Repr
 
 /-- List of every valid zone in an `n`-player game (CR 3.0). -/
@@ -164,6 +168,15 @@ def setZone (s : GameState) (z : Zone) (l : List ObjId) : GameState :=
 /-- Look up an object's attributes by `ObjId`. -/
 def obj? (s : GameState) (id : ObjId) : Option Object :=
   s.objects[id.n]?
+
+/-- Look up the `CardDef` of an object in `s.cards`. -/
+def cardDefOf? (s : GameState) (id : ObjId) : Option CardDef :=
+  match s.obj? id with
+  | none => none
+  | some o =>
+    match o.kind.cardId? with
+    | none => none
+    | some cid => s.cards.find? cid
 
 /-- Current turn-scoped asset pool of player `p` (CR 1.14.2). -/
 def poolOf (s : GameState) (p : PlayerId) : AssetPool :=
@@ -324,7 +337,8 @@ def snapshot (s : GameState) : BoardSnapshot :=
     nextId := s.nextId
     nextTimestamp := s.nextTimestamp
     pending := s.pending
-    layerMeta := s.layerMeta }
+    layerMeta := s.layerMeta
+    combat := s.combat }
 
 /-- Restore a saved `BoardSnapshot` and clear `playRollback` (CR 5.1.1). -/
 def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
@@ -337,6 +351,7 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     nextTimestamp := snap.nextTimestamp
     pending := snap.pending
     layerMeta := snap.layerMeta
+    combat := snap.combat
     playRollback := none }
 
 /-- Restoring a snapshot taken from `s` (when `s.playRollback = none`) returns the exact state `s`. -/

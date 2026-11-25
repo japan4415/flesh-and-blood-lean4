@@ -129,12 +129,13 @@ theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : O
     rw [GameState.poolOf_setPool_self]
     exact hacc.2
 
-/-- **I9** (Stack LIFO resolution): `resolveStack` always resolves the head `topId` of `s.zone .stack`
-before any layer beneath it (CR 5.3). -/
+/-- **I9** (Stack LIFO resolution): `resolveStack` resolves a non-attack head layer `topId` of
+`s.zone .stack` before any layer beneath it (CR 5.3). -/
 theorem resolveStack_lifo {s : GameState} {topId : ObjId} {below : List ObjId}
     {rest : List Frame}
     (hp : s.pending = .resolveStack :: rest)
-    (hstack : s.zone .stack = topId :: below) :
+    (hstack : s.zone .stack = topId :: below)
+    (hna : isAttackLayer s topId = false) :
     ∃ ctrl fa eff,
       microStep s = some ({ s with
         pending := .run ctrl topId fa [] [eff] :: .finishResolve topId :: rest }, []) := by
@@ -142,6 +143,7 @@ theorem resolveStack_lifo {s : GameState} {topId : ObjId} {below : List ObjId}
   rw [hp]
   dsimp only
   rw [hstack]
+  simp only [hna, Bool.false_eq_true, ↓reduceIte]
   exact ⟨_, _, _, rfl⟩
 
 /-- **I9** (Go Again + priority return to active player): `finishResolve` grants +1 AP when the
