@@ -424,6 +424,9 @@ def WTR_101_R : CardDef := { WTR_101_R_meta with status := .full }
 /-- Leg Tap Yellow, whose printed Go Again is handled by combat resolution. -/
 def WTR_102_Y : CardDef := { WTR_102_Y_meta with status := .full }
 
+/-- Leg Tap Blue, whose printed Go Again is handled by combat resolution. -/
+def WTR_103_B : CardDef := { WTR_103_B_meta with status := .full }
+
 /-- Surging Strike Red (vanilla Go Again, drafted IR). -/
 def WTR_107_R : CardDef := draftVanilla WTR_107_R_meta
 /-- Surging Strike Yellow (vanilla Go Again, drafted IR). -/
@@ -764,6 +767,7 @@ def draftedCards : List CardDef :=
   , WTR_054_R, WTR_055_Y, WTR_056_B, WTR_057_R, WTR_058_Y, WTR_059_B, WTR_075
   , WTR_076, WTR_077, WTR_078, WTR_079, WTR_080, WTR_081_B, WTR_082_R, WTR_084_Y, WTR_085_R
   , WTR_086_R, WTR_087_Y, WTR_088_B, WTR_098_R, WTR_099_Y, WTR_100_B, WTR_101_R, WTR_102_Y
+  , WTR_103_B
   , WTR_107_R, WTR_108_Y, WTR_109_B, WTR_110_R, WTR_111_Y, WTR_112_B
   , WTR_113, WTR_114, WTR_115, WTR_116, WTR_117, WTR_118_B, WTR_119_R, WTR_120_R
   , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_141_R, WTR_142_Y, WTR_143_B
