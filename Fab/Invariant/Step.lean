@@ -124,11 +124,42 @@ theorem mem_inventory_of_loadoutCanAddDeck {s : GameState} {p : PlayerId} {id : 
   · assumption
   · cases h
 
+/-- Helper: `canAttackWithWeapon` implies `wid` is in `p`'s weapon zone. -/
+theorem mem_weapon_of_canAttackWithWeapon {s : GameState} {p : PlayerId} {wid : ObjId}
+    (h : canAttackWithWeapon s p wid = true) :
+    wid ∈ s.zone (.player p .weapon) := by
+  unfold canAttackWithWeapon at h
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at h
+  exact h.1.2
+
+/-- Helper: `canDefendWith` implies `id` is in `defendCandidateIds s p`. -/
+theorem mem_defendCandidates_of_canDefendWith {s : GameState} {link : ChainLink}
+    {p : PlayerId} {id : ObjId} (h : canDefendWith s link p id = true) :
+    id ∈ defendCandidateIds s p := by
+  unfold canDefendWith at h
+  split at h
+  · cases h
+  · dsimp only at h
+    split at h
+    · cases h
+    · rename_i hnot
+      simp only [Bool.not_eq_true', Bool.or_eq_false_iff, not_and,
+        Bool.not_eq_false] at hnot
+      unfold defendCandidateIds
+      rw [List.mem_append]
+      by_cases hh : id ∈ s.zone (.player p .hand)
+      · exact Or.inl hh
+      · right
+        have hfalse : decide (id ∈ s.zone (.player p .hand)) = false := by simp [hh]
+        have heq := hnot hfalse
+        simpa [decide_eq_true_eq] using heq
+
 /-- Helper: `canPlayCard` implies `id` is in `p`'s hand or arsenal. -/
 theorem mem_hand_or_arsenal_of_canPlayCard {s : GameState} {p : PlayerId} {id : ObjId}
     (h : canPlayCard s p id = true) :
     id ∈ s.zone (.player p .hand) ∨ id ∈ s.zone (.player p .arsenal) := by
   unfold canPlayCard at h
+  dsimp only at h
   split at h
   · rename_i hor
     simpa [Bool.or_eq_true, decide_eq_true_eq] using hor
@@ -301,6 +332,52 @@ theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
         rw [restore_snapshot_physIds s s1 hmeta.1]
         exact hperm.symm
     · cases h
+  · -- priority attackWeapon
+    split at h
+    · dsimp only at h
+      split at h
+      · cases h
+      · rename_i s1 proxyId hadd
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        have hcfg : s1.config = s.config := by
+          unfold addObject at hadd
+          split at hadd
+          · dsimp only at hadd; simp only [Option.some.injEq, Prod.mk.injEq] at hadd
+            obtain ⟨rfl, rfl⟩ := hadd; rfl
+          · cases hadd
+        have hwf1 := addObject_wf hwf hadd
+        have hok1 := addObject_ownerOk hwf hok hadd
+        have hperm : s1.physIds.Perm s.physIds := addObject_physIds hwf rfl hadd
+        refine ⟨GameState.WF.congr hwf1 rfl rfl rfl rfl,
+                GameState.OwnerOk.congr hok1 rfl rfl,
+                ?_, hperm, hcfg⟩
+        intro snap hs
+        simp only [Option.some.injEq] at hs
+        subst hs
+        refine ⟨GameState.WF.congr hwf hcfg rfl rfl rfl,
+                GameState.OwnerOk.congr hok rfl rfl, ?_⟩
+        change (s1.restore s.snapshot).physIds.Perm s1.physIds
+        rw [restore_snapshot_physIds s s1 hcfg]
+        exact hperm.symm
+    · cases h
+  · -- defendPick defendCard
+    split at h
+    · split at h
+      · dsimp only at h
+        split at h
+        · rename_i srcZ s1 id' _ hm
+          simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          have hp := moveObj_preserves hwf hok hrb hm
+          exact hp.trans (sameBoard_preserves hp.wf hp.ownerOk hp.rollbackOk rfl rfl rfl rfl rfl)
+        · cases h
+      · cases h
+    · cases h
+  · -- defendPick defendDone
+    split at h
+    · dsimp only at h
+      simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · cases h
   · -- chooseMode pickMode
     split at h
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
@@ -435,6 +512,27 @@ theorem drawOne_meta (s : GameState) (p : PlayerId) :
     | none => exact ⟨rfl, rfl⟩
     | some res => exact moveObj_config_rollback hm
 
+/-- `gspRun` followed by setting `pending` preserves `StepPreserves`. -/
+theorem gspRun_pending_preserves {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
+    (hrb : s.RollbackOk) (newPending : List Frame) :
+    StepPreserves s { gspRun s with pending := newPending } := by
+  have hm := gspRun_meta s
+  have hp := gspRun_physIds hwf
+  exact ⟨GameState.WF.congr (gspRun_wf hwf) rfl rfl rfl rfl,
+         GameState.OwnerOk.congr (gspRun_ownerOk hwf hok) rfl rfl,
+         GameState.RollbackOk.preserve hrb hm.1 hm.2 hp,
+         hp, hm.1⟩
+
+/-- Same-board update followed by `gspRun` and setting `pending` preserves `StepPreserves`. -/
+theorem sameBoard_gspRun_pending_preserves {s s1 : GameState} (hwf : s.WF) (hok : s.OwnerOk)
+    (hrb : s.RollbackOk)
+    (hc : s1.config = s.config) (ho : s1.objects = s.objects) (hz : s1.zones = s.zones)
+    (hn : s1.nextId = s.nextId) (hr : s1.playRollback = s.playRollback)
+    (newPending : List Frame) :
+    StepPreserves s { gspRun s1 with pending := newPending } := by
+  have hp1 := sameBoard_preserves hwf hok hrb hc ho hz hn hr
+  exact hp1.trans (gspRun_pending_preserves hp1.wf hp1.ownerOk hp1.rollbackOk newPending)
+
 /-- One `microStep` preserves `WF`, `OwnerOk`, `RollbackOk`, `physIds`, and `config` (L2 + L4). -/
 theorem microStep_preserves {s s' : GameState} {es : List Event}
     (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
@@ -488,7 +586,10 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact rollbackPlay_preserves hwf hok hrb _
   · -- resolveStack
-    split at h <;>
+    split at h
+    · split at h <;>
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
   · -- finishResolve
@@ -503,49 +604,140 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
       split
       · exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
       · exact StepPreserves.refl hwf hok hrb
+    let isDefReact :=
+      match s1.cardDefOf? layerId with
+      | some c => c.front.hasType .defenseReaction && s1.combat.isSome
+      | none => false
     let p2 :=
       if layerId ∈ s1.zone .stack then
-        match s1.obj? layerId with
-        | some o =>
-          let isPerm :=
-            match s1.cardDefOf? layerId with
-            | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
-            | none => false
-          let dst := if isPerm then Zone.player info.controller .permanent
-                     else Zone.player o.owner .graveyard
-          match moveObj s1 layerId dst .top false with
-          | some (sMoved, id') => (sMoved, [Event.moved layerId id' .stack dst])
+        if isDefReact then
+          match moveObj s1 layerId .combatChain .top false with
+          | some (sMoved, id') =>
+            let cc' := sMoved.combat.map fun cc => cc.updateActiveLink fun l =>
+              { l with
+                defending := l.defending ++ [id']
+                defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
+            ({ sMoved with combat := cc' }, [Event.moved layerId id' .stack .combatChain])
           | none => (s1, [])
-        | none => (s1, [])
+        else
+          match s1.obj? layerId with
+          | some o =>
+            let isPerm :=
+              match s1.cardDefOf? layerId with
+              | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
+              | none => false
+            let dst := if isPerm then Zone.player info.controller .permanent
+                       else Zone.player o.owner .graveyard
+            match moveObj s1 layerId dst .top false with
+            | some (sMoved, id') => (sMoved, [Event.moved layerId id' .stack dst])
+            | none => (s1, [])
+          | none => (s1, [])
       else
         (s1, [])
     have hp2 : StepPreserves s1 p2.1 := by
       dsimp only [p2]
       split
-      · cases ho : s1.obj? layerId with
-        | none => exact StepPreserves.refl hp1.wf hp1.ownerOk hp1.rollbackOk
-        | some o =>
-          dsimp only
-          cases hm : moveObj s1 layerId _ .top false with
+      · split
+        · cases hm : moveObj s1 layerId .combatChain .top false with
           | none => exact StepPreserves.refl hp1.wf hp1.ownerOk hp1.rollbackOk
-          | some res => exact moveObj_preserves hp1.wf hp1.ownerOk hp1.rollbackOk hm
+          | some res =>
+            have hpm := moveObj_preserves hp1.wf hp1.ownerOk hp1.rollbackOk hm
+            exact hpm.trans (sameBoard_preserves hpm.wf hpm.ownerOk hpm.rollbackOk rfl rfl rfl rfl rfl)
+        · cases ho : s1.obj? layerId with
+          | none => exact StepPreserves.refl hp1.wf hp1.ownerOk hp1.rollbackOk
+          | some o =>
+            dsimp only
+            cases hm : moveObj s1 layerId _ .top false with
+            | none => exact StepPreserves.refl hp1.wf hp1.ownerOk hp1.rollbackOk
+            | some res => exact moveObj_preserves hp1.wf hp1.ownerOk hp1.rollbackOk hm
       · exact StepPreserves.refl hp1.wf hp1.ownerOk hp1.rollbackOk
     have hp12 := hp1.trans hp2
     let p2e : GameState := { p2.1 with layerMeta := p2.1.layerMeta.erase layerId.n }
     have hwf_e : p2e.WF := GameState.WF.congr hp12.wf rfl rfl rfl rfl
     have hok_e : p2e.OwnerOk := GameState.OwnerOk.congr hp12.ownerOk rfl rfl
-    have hmeta3 := checkHeroDefeat_config_rollback p2e
-    have hphys3 : (checkHeroDefeat p2e).physIds.Perm p2.1.physIds := by
-      rw [checkHeroDefeat_physIds]
-      exact List.Perm.refl _
+    have hmeta3 := gspRun_meta p2e
+    have hphys3 : (gspRun p2e).physIds.Perm p2.1.physIds := gspRun_physIds hwf_e
     have hp3 : StepPreserves p2.1
-        { checkHeroDefeat p2e with
-            pending := Frame.priority ((checkHeroDefeat p2e).active.getD ⟨0⟩) 0 :: rest } :=
-      ⟨GameState.WF.congr (checkHeroDefeat_wf hwf_e) rfl rfl rfl rfl,
-       GameState.OwnerOk.congr (checkHeroDefeat_ownerOk hok_e) rfl rfl,
+        { gspRun p2e with
+            pending := Frame.priority ((gspRun p2e).active.getD ⟨0⟩) 0 :: rest } :=
+      ⟨GameState.WF.congr (gspRun_wf hwf_e) rfl rfl rfl rfl,
+       GameState.OwnerOk.congr (gspRun_ownerOk hwf_e hok_e) rfl rfl,
        GameState.RollbackOk.preserve hp12.rollbackOk hmeta3.1 hmeta3.2 hphys3,
        hphys3, hmeta3.1⟩
     exact hp12.trans hp3
+  · -- combatStep .layer
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- combatStep .attack
+    rename_i layerId rest _
+    dsimp only at h
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
+    obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := enterAttackStep_inv hwf hok layerId info.controller
+    exact ⟨GameState.WF.congr hwf1 rfl rfl rfl rfl,
+           GameState.OwnerOk.congr hok1 rfl rfl,
+           GameState.RollbackOk.preserve hrb hc1 hr1 hp1,
+           hp1, hc1⟩
+  · -- combatStep .defend
+    split at h
+    · dsimp only at h
+      split at h <;>
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- combatStep .reaction
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- combatStep .damage
+    rename_i atkId rest _
+    dsimp only at h
+    cases hcc : s.combat with
+    | none =>
+      rw [hcc] at h
+      simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    | some cc =>
+      rw [hcc] at h
+      dsimp only at h
+      cases hl : cc.activeLink? with
+      | none =>
+        rw [hl] at h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+      | some link =>
+        rw [hl] at h
+        dsimp only at h
+        split at h <;>
+        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          apply sameBoard_gspRun_pending_preserves hwf hok hrb <;> rfl
+  · -- combatStep .resolution
+    dsimp only at h
+    split at h
+    · split at h
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        split <;> exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  · -- combatStep .close
+    rename_i _ rest _
+    have hinv := closeCombatChainStep_inv hwf hok
+    cases hcc : closeCombatChainStep s with
+    | mk s1 es1 =>
+      rw [hcc] at h hinv
+      dsimp only at h hinv
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := hinv
+      have hp1s : StepPreserves s s1 :=
+        ⟨hwf1, hok1, GameState.RollbackOk.preserve hrb hc1 hr1 hp1, hp1, hc1⟩
+      exact hp1s.trans (gspRun_pending_preserves hwf1 hok1 hp1s.rollbackOk _)
+  · -- gameStateProcess
+    dsimp only at h
+    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+    exact gspRun_pending_preserves hwf hok hrb _
   · -- run (L4!)
     rename_i ctrl src fromArsenal env todo rest _
     simp only [Option.some.injEq] at h
@@ -754,6 +946,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
             right
             simp [hfin]
         | chanceFirstChooser _ | pickFirstPlayer _ | shuffleOrder _ | pass | playCard _
+        | attackWeapon _ | defendCard _ | defendDone
         | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _
         | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_map, List.mem_filter,
@@ -775,30 +968,103 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
       | player q =>
         cases kind with
         | pass =>
-          simp only [Actor.isPlayer, and_true, List.mem_cons, List.mem_map, List.mem_filter,
-            Action.mk.injEq, Actor.player.injEq, and_true]
+          simp only [Actor.isPlayer, and_true, List.mem_cons, List.mem_append, List.mem_map,
+            List.mem_filter, Action.mk.injEq, Actor.player.injEq, and_true]
           constructor
-          · rintro (hq | ⟨_, _, _, hcontra⟩)
+          · rintro (hq | ⟨_, _, _, hcontra⟩ | ⟨_, _, _, hcontra⟩)
             · exact hq
+            · cases hcontra
             · cases hcontra
           · intro hq; left; exact hq
         | playCard id =>
-          simp only [Actor.isPlayer, and_true, List.mem_cons, List.mem_map, List.mem_filter,
-            List.mem_append, Action.mk.injEq, Actor.player.injEq, ActionKind.playCard.injEq]
+          simp only [Actor.isPlayer, and_true, List.mem_cons, List.mem_append, List.mem_map,
+            List.mem_filter, Action.mk.injEq, Actor.player.injEq, ActionKind.playCard.injEq]
           constructor
-          · rintro (⟨_, hcontra⟩ | ⟨x, ⟨_, hcan⟩, rfl, rfl⟩)
+          · rintro (⟨_, hcontra⟩ | ⟨x, ⟨_, hcan⟩, rfl, rfl⟩ | ⟨_, _, _, hcontra⟩)
+            · cases hcontra
+            · exact ⟨rfl, hcan⟩
+            · cases hcontra
+          · rintro ⟨rfl, hcan⟩
+            right; left
+            exact ⟨id, ⟨mem_hand_or_arsenal_of_canPlayCard hcan, hcan⟩, rfl, rfl⟩
+        | attackWeapon wid =>
+          simp only [Actor.isPlayer, and_true, List.mem_cons, List.mem_append, List.mem_map,
+            List.mem_filter, Action.mk.injEq, Actor.player.injEq, ActionKind.attackWeapon.injEq]
+          constructor
+          · rintro (⟨_, hcontra⟩ | ⟨_, _, _, hcontra⟩ | ⟨x, ⟨_, hcan⟩, rfl, rfl⟩)
+            · cases hcontra
             · cases hcontra
             · exact ⟨rfl, hcan⟩
           · rintro ⟨rfl, hcan⟩
-            right
-            exact ⟨id, ⟨mem_hand_or_arsenal_of_canPlayCard hcan, hcan⟩, rfl, rfl⟩
+            right; right
+            exact ⟨wid, ⟨mem_weapon_of_canAttackWithWeapon hcan, hcan⟩, rfl, rfl⟩
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pickMode _ | pitchCard _ | cancelPlay | pickMay _
-        | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | defendCard _ | defendDone | pickMode _ | pitchCard _
+        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _
+        | arsenalSkip | pitchReturnPick _ | concede =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
+    | defendPick defender =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | defendCard id =>
+          simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_singleton,
+            Action.mk.injEq, Actor.player.injEq]
+          cases hc : s.combat.bind CombatChain.activeLink? with
+          | none =>
+            simp only [List.not_mem_nil, false_or, and_false, iff_false]
+            rintro ⟨_, hcontra⟩; cases hcontra
+          | some link =>
+            simp only [List.mem_map, List.mem_filter, Action.mk.injEq, Actor.player.injEq,
+              ActionKind.defendCard.injEq]
+            constructor
+            · rintro (⟨x, ⟨_, hcan⟩, rfl, rfl⟩ | ⟨_, hcontra⟩)
+              · exact ⟨rfl, hcan⟩
+              · cases hcontra
+            · rintro ⟨rfl, hcan⟩
+              left
+              exact ⟨id, ⟨mem_defendCandidates_of_canDefendWith hcan, hcan⟩, rfl, rfl⟩
+        | defendDone =>
+          simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_singleton,
+            Action.mk.injEq, Actor.player.injEq, and_true]
+          constructor
+          · rintro (hdef | hq)
+            · cases hc : s.combat.bind CombatChain.activeLink? with
+              | none => simp [hc] at hdef
+              | some link =>
+                simp only [hc, List.mem_map, Action.mk.injEq] at hdef
+                obtain ⟨_, _, _, hcontra⟩ := hdef
+                cases hcontra
+            · exact hq
+          · intro hq; right; exact hq
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | pickMode _
+        | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
+        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
+          simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_singleton,
+            Action.mk.injEq, iff_false]
+          rintro (hdef | ⟨_, hcontra⟩)
+          · cases hc : s.combat.bind CombatChain.activeLink? with
+            | none => simp [hc] at hdef
+            | some link =>
+              simp only [hc, List.mem_map, Action.mk.injEq] at hdef
+              obtain ⟨_, _, _, hcontra⟩ := hdef
+              cases hcontra
+          · cases hcontra
+      | chance | clock | judge =>
+        cases kind <;> simp only [Actor.isPlayer, Bool.false_eq_true, and_false, iff_false,
+          List.mem_append, List.mem_singleton, Action.mk.injEq]
+        all_goals
+          rintro (hdef | ⟨hcontra, _⟩)
+          · cases hc : s.combat.bind CombatChain.activeLink? with
+            | none => simp [hc] at hdef
+            | some link =>
+              simp only [hc, List.mem_map, Action.mk.injEq] at hdef
+              obtain ⟨_, _, hcontra, _⟩ := hdef
+              cases hcontra
+          · cases hcontra
     | chooseMode p _ _ modeCount _ =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer]
       all_goals grind
@@ -826,9 +1092,9 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
             · exact hq
           · intro hq; right; exact hq
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pickMay _
-        | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pickMode _ | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
+        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
@@ -839,9 +1105,9 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | pickMay b =>
           cases b <;> simp [Actor.isPlayer, eq_comm]
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
-        | cancelPlay | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pickMode _ | pitchCard _ | cancelPlay | die6Roll _ | handToDeckPick _
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
@@ -858,9 +1124,9 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | optPick b =>
           cases b <;> simp [Actor.isPlayer, eq_comm]
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
-        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | arsenalPut _ | arsenalSkip
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
+        | handToDeckPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
@@ -901,9 +1167,9 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
             right
             exact hq
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
-        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
+        | handToDeckPick _ | optPick _ | pitchReturnPick _ | concede =>
           simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_singleton,
             Action.mk.injEq, iff_false]
           rintro (hput | ⟨_, hcontra⟩)
@@ -929,8 +1195,9 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
       grind
     | revealLoadouts | chanceShuffle _ | openingDraws | draw _ _ | beginTurn
     | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _ | resolveStack
-    | finishResolve _ | run _ _ _ _ _ | chanceDie6 _ _ _ _ _ _ _ | optStep _ _
-    | endPhaseStart _ | returnPitch _ | endTurnCleanup _ =>
+    | finishResolve _ | combatStep _ _ | gameStateProcess | run _ _ _ _ _
+    | chanceDie6 _ _ _ _ _ _ _ | optStep _ _ | endPhaseStart _ | returnPitch _
+    | endTurnCleanup _ =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer]
 
 /-- **I6** (concession enumeration): `concedeActions` matches `LegalConcede` for player actions. -/
@@ -1043,6 +1310,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           obtain ⟨rfl, hfin⟩ := hlf
           simp [hfin]
         | chanceFirstChooser _ | pickFirstPlayer _ | shuffleOrder _ | pass | playCard _
+        | attackWeapon _ | defendCard _ | defendDone
         | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _
         | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           exact False.elim hlf
@@ -1076,10 +1344,74 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           cases hm' : moveObj s id .stack .top false with
           | none => rw [hm'] at hm; simp at hm
           | some _ => rfl
+        | attackWeapon wid =>
+          obtain ⟨rfl, hcan⟩ := hlf
+          simp only [hcan, and_self, ↓reduceIte]
+          have hadd : (addObject s .stack
+              { kind := .attackProxy wid (some (captureLki s wid q))
+                owner := q
+                controller := q
+                timestamp := ⟨s.nextTimestamp⟩ } .top).isSome = true := by
+            unfold addObject
+            have hv : Zone.stack.Valid s.playerCount := Zone.valid_stack s.playerCount
+            have ha : Zone.stack.allowsOwner q = true := rfl
+            simp [hv, ha]
+          cases ha' : addObject s .stack
+              { kind := .attackProxy wid (some (captureLki s wid q))
+                owner := q
+                controller := q
+                timestamp := ⟨s.nextTimestamp⟩ } .top with
+          | none => rw [ha'] at hadd; simp at hadd
+          | some _ => rfl
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pickMode _ | pitchCard _ | cancelPlay | pickMay _
-        | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | defendCard _ | defendDone | pickMode _ | pitchCard _
+        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _
+        | arsenalSkip | pitchReturnPick _ | concede =>
+          exact False.elim hlf
+      | chance | clock | judge =>
+        cases kind <;> exact False.elim hlf
+    | defendPick defender =>
+      cases actor with
+      | player q =>
+        cases kind with
+        | defendCard id =>
+          obtain ⟨rfl, hdef⟩ := hlf
+          cases hc : s.combat.bind CombatChain.activeLink? with
+          | none => rw [hc] at hdef; exact False.elim hdef
+          | some link =>
+            rw [hc] at hdef
+            simp only [hdef, and_self, ↓reduceIte]
+            have hcand := mem_defendCandidates_of_canDefendWith hdef
+            unfold defendCandidateIds equipZoneIds at hcand
+            simp only [List.mem_append] at hcand
+            have hloc_and_move :
+                ∃ srcZ, s.locate id = some srcZ ∧ (moveObj s id .combatChain .top false).isSome = true := by
+              have aux : ∀ k : ZoneKind, id ∈ s.zone (.player q k) →
+                  ∃ srcZ, s.locate id = some srcZ ∧ (moveObj s id .combatChain .top false).isSome = true := by
+                intro k hmem
+                have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem
+                refine ⟨.player q k, GameState.locate_eq hwf (Zone.valid_player hq k) hmem, ?_⟩
+                apply moveObj_isSome hwf (Zone.valid_player hq k) hmem
+                intro o _
+                exact ⟨Zone.valid_combatChain s.playerCount, by intro heq; cases heq⟩
+              rcases hcand with hh | (((hhe | hch) | har) | hle)
+              · exact aux .hand hh
+              · exact aux .head hhe
+              · exact aux .chest hch
+              · exact aux .arms har
+              · exact aux .legs hle
+            obtain ⟨srcZ, hloc, hm⟩ := hloc_and_move
+            rw [hloc]
+            cases hm' : moveObj s id .combatChain .top false with
+            | none => rw [hm'] at hm; simp at hm
+            | some _ => rfl
+        | defendDone =>
+          subst hlf
+          simp
+        | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | pickMode _
+        | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
+        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1094,9 +1426,9 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           subst hlf
           simp
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pitchCard _ | pickMay _
-        | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pitchCard _ | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
+        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1117,9 +1449,9 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           subst hlf
           simp
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pickMay _
-        | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pickMode _ | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
+        | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1131,9 +1463,9 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           subst hlf
           cases b <;> simp
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
-        | cancelPlay | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pickMode _ | pitchCard _ | cancelPlay | die6Roll _ | handToDeckPick _
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1145,9 +1477,9 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           obtain ⟨rfl, hlt⟩ := hlf
           simp [hlt]
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pitchCard _ | cancelPlay
-        | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1180,9 +1512,9 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
             · have hsome := hm .top; rw [hm'] at hsome; simp at hsome
           · rfl
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
-        | cancelPlay | pickMay _ | die6Roll _ | optPick _ | arsenalPut _ | arsenalSkip
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
+        | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1197,9 +1529,9 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
             split <;> rfl
           · simp
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
-        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | arsenalPut _ | arsenalSkip
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
+        | handToDeckPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1226,9 +1558,9 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           subst hlf
           simp
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
-        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _
-        | pitchReturnPick _ | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
+        | handToDeckPick _ | optPick _ | pitchReturnPick _ | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -1252,15 +1584,16 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           | none => rw [hm'] at hm; simp at hm
           | some _ => rfl
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
-        | loadoutDone | shuffleOrder _ | pass | playCard _ | pickMode _ | pitchCard _
-        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | optPick _ | arsenalPut _
-        | arsenalSkip | concede =>
+        | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | defendCard _
+        | defendDone | pickMode _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
+        | handToDeckPick _ | optPick _ | arsenalPut _ | arsenalSkip | concede =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
     | revealLoadouts | openingDraws | draw _ _ | beginTurn | startPhaseWork _
     | actionPhaseStart _ | playPayCost _ _ _ _ _ | resolveStack | finishResolve _
-    | run _ _ _ _ _ | optStep _ _ | endPhaseStart _ | returnPitch _ | endTurnCleanup _ =>
+    | combatStep _ _ | gameStateProcess | run _ _ _ _ _ | optStep _ _
+    | endPhaseStart _ | returnPitch _ | endTurnCleanup _ =>
       cases actor <;> cases kind <;> exact False.elim hlf
 
 /-- Under `WF` and `OwnerOk`, every legal action applies without failing. -/
@@ -1297,8 +1630,29 @@ theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
     · split <;> rfl
   | resolveStack =>
     dsimp only
-    split <;> rfl
+    split
+    · split <;> rfl
+    · rfl
   | finishResolve _ => rfl
+  | combatStep cs _ =>
+    cases cs with
+    | layer | attack | reaction | close => rfl
+    | defend =>
+      dsimp only
+      split
+      · split <;> rfl
+      · rfl
+    | damage =>
+      dsimp only
+      split
+      · split <;> rfl
+      · rfl
+    | resolution =>
+      dsimp only
+      split
+      · split <;> rfl
+      · rfl
+  | gameStateProcess => rfl
   | run _ _ _ _ _ => rfl
   | optStep _ n =>
     cases n

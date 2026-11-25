@@ -1,6 +1,7 @@
 module
 
 public import Fab.State.Zone
+public import Fab.State.Combat
 public import Fab.Core.Cost
 public import Fab.Card.IR.Effect
 
@@ -65,6 +66,12 @@ inductive ActionKind where
   | pass
   /-- Announce playing card `id` from hand or arsenal while holding priority (CR 5.1.1). -/
   | playCard (id : ObjId)
+  /-- Activate a weapon attack using weapon `weaponId` in the player's weapon zone (CR 1.4.3, 7.1). -/
+  | attackWeapon (weaponId : ObjId)
+  /-- Defend Step: declare card or equipment `id` as a defending card on the active link (CR 7.3). -/
+  | defendCard (id : ObjId)
+  /-- Defend Step: finish declaring defending cards for the active link (CR 7.3). -/
+  | defendDone
   /-- Select modal branch index `idx` during play declaration or `Effect.chooseOne` (CR 5.1.2a). -/
   | pickMode (idx : Nat)
   /-- Pitch card `id` from hand to pay an asset cost during `choosePitch` (CR 1.14.3, 5.1.6). -/
@@ -136,6 +143,13 @@ inductive Frame where
   | resolveStack
   /-- Work frame: finish resolving `layerId` (Go Again +1 AP, move to graveyard/arena, priority to active) (CR 5.3.4, 5.3.5). -/
   | finishResolve (layerId : ObjId)
+  /-- Work frame: advance the Combat Chain to `step` for attack object `atkId` (CR 7.1-7.7). -/
+  | combatStep (step : CombatStep) (atkId : ObjId)
+  /-- Player decision: defending player `defender` incrementally picks defending cards from hand
+  and/or equipment during Defend Step (CR 7.3). -/
+  | defendPick (defender : PlayerId)
+  /-- Work frame: run Game State Process to fixed point before granting priority (CR 1.10.2). -/
+  | gameStateProcess
   /-- Work frame: 1-step effect IR interpreter continuation (CR 1.7, 6.0). -/
   | run (ctrl : PlayerId) (src : ObjId) (fromArsenal : Bool) (env : List (VarId × Int))
       (todo : List Effect)
@@ -177,6 +191,8 @@ def Frame.isWork : Frame → Bool
   | .playPayCost _ _ _ _ _ => true
   | .resolveStack => true
   | .finishResolve _ => true
+  | .combatStep _ _ => true
+  | .gameStateProcess => true
   | .run _ _ _ _ _ => true
   | .optStep _ _ => true
   | .endPhaseStart _ => true

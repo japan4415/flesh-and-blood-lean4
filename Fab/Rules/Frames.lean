@@ -4,6 +4,7 @@ public import Fab.Rules.Move
 public import Fab.Rules.Reorder
 public import Fab.Rules.Objects
 public import Fab.Rules.Interp
+public import Fab.Rules.Combat
 public import Fab.Rules.Actions.Draw
 public import Fab.Rules.Actions.Pitch
 
@@ -35,15 +36,6 @@ def nextInOrder (order : List PlayerId) (p : PlayerId) : PlayerId :=
   | some idx =>
     if order.isEmpty then p
     else order.getD ((idx + 1) % order.length) p
-
-/-- Look up the `CardDef` of an object in `s.cards`. -/
-def GameState.cardDefOf? (s : GameState) (id : ObjId) : Option CardDef :=
-  match s.obj? id with
-  | none => none
-  | some o =>
-    match o.kind.cardId? with
-    | none => none
-    | some cid => s.cards.find? cid
 
 /-- Whether a weapon zone currently holds a two-handed weapon (CR 3.16). -/
 def GameState.hasTwoHandedEquipped (s : GameState) (p : PlayerId) : Bool :=
@@ -273,10 +265,16 @@ def canPitchForCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Bool :=
   !(pitchableCards s p).isEmpty
 
 /-- Whether player `p` may announce playing card `id` from hand or arsenal while holding priority
-(CR 5.1.1, 4.3, 3.2.2). Face-down arsenal cards may be played; Instants may be played anytime on
-priority; Actions require own Action Phase, empty stack, and at least 1 AP. -/
+(CR 5.1.1, 4.3, 3.2.2, 7.1, 7.4, 7.6).
+- Instants: playable anytime on priority.
+- Actions: own Action Phase, empty stack, ≥1 AP, and either combat chain closed or (for Attack
+  Action cards) in Resolution Step to continue a combat chain.
+- Attack Reactions: Reaction Step as the attacking player (CR 7.4).
+- Defense Reactions: Reaction Step as the defending player, respecting Dominate from hand (CR 7.4, 8.3.4). -/
 def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
-  if id ∈ s.zone (.player p .hand) || id ∈ s.zone (.player p .arsenal) then
+  let fromHand := id ∈ s.zone (.player p .hand)
+  let fromArsenal := id ∈ s.zone (.player p .arsenal)
+  if fromHand || fromArsenal then
     match s.cardDefOf? id with
     | none => false
     | some c =>
@@ -285,14 +283,57 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
       else if c.front.hasType .instant then
         true
       else if c.front.hasType .action then
+        let chainOk :=
+          match s.combat with
+          | none => true
+          | some cc => cc.step == .resolution && c.front.hasSubtype .attack
         s.phase == .actionPhase &&
         s.active == some p &&
         (s.zone .stack).isEmpty &&
+        chainOk &&
         1 ≤ (s.poolOf p).actionPoints
+      else if c.front.hasType .attackReaction then
+        match s.combat with
+        | some cc =>
+          cc.step == .reaction &&
+          match cc.activeLink? with
+          | some link => link.attacker == p
+          | none => false
+        | none => false
+      else if c.front.hasType .defenseReaction then
+        match s.combat with
+        | some cc =>
+          cc.step == .reaction &&
+          match cc.activeLink? with
+          | some link =>
+            link.defender == p &&
+            !(fromHand && linkHasKeyword s link .dominate && 1 ≤ link.defendedFromHandCount)
+          | none => false
+        | none => false
       else
         false
   else
     false
+
+/-- Whether object `id` on `Zone.stack` is an Attack layer (Attack Action card or weapon
+`attackProxy`) that enters the Combat Chain on resolution (CR 7.1, 7.2). -/
+def isAttackLayer (s : GameState) (id : ObjId) : Bool :=
+  match s.obj? id with
+  | none => false
+  | some o =>
+    match o.kind with
+    | .attackProxy _ _ => true
+    | .card _ _ =>
+      match s.cardDefOf? id with
+      | some c => c.front.hasType .action && c.front.hasSubtype .attack
+      | none => false
+    | _ => false
+
+/-- Strip a trailing `.combatStep .close _` frame when chaining a new attack during Resolution
+Step so the Combat Chain remains open for Link 2+ (CR 7.6). -/
+def dropPendingClose : List Frame → List Frame
+  | .combatStep .close _ :: tail => tail
+  | rest => rest
 
 /-- Base `AssetCost` of playing card `c`, applying resource floor semantics (CR 5.1.5). -/
 def cardPlayCost (c : CardDef) : AssetCost :=
@@ -399,6 +440,10 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       let snap := s.snapshot
       let cost := match s.cardDefOf? id with | some c => cardPlayCost c | none => {}
       let modes := match s.cardDefOf? id with | some c => cardModeCount c | none => 0
+      let isAtkCard := match s.cardDefOf? id with
+        | some c => c.front.hasType .action && c.front.hasSubtype .attack
+        | none => false
+      let rest' := if isAtkCard then dropPendingClose rest else rest
       match moveObj s id .stack .top false with
       | none => none
       | some (s1, layerId) =>
@@ -407,8 +452,53 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
             Frame.chooseMode p layerId fromArsenal modes cost
           else
             Frame.playPayCost p layerId fromArsenal none cost
-        some ({ s1 with playRollback := some snap, pending := nextFrame :: rest },
+        some ({ s1 with playRollback := some snap, pending := nextFrame :: rest' },
               [.moved id layerId srcZone .stack])
+    else
+      none
+  | .priority p _ :: rest, .player q, .attackWeapon wid =>
+    if p = q ∧ canAttackWithWeapon s p wid = true then
+      let snap := s.snapshot
+      let cost := match s.cardDefOf? wid with | some c => weaponAttackCost c | none => { actionPoints := 1 }
+      let lki := captureLki s wid p
+      let proxyObj : Object :=
+        { kind := .attackProxy wid (some lki)
+          owner := p
+          controller := p
+          timestamp := ⟨s.nextTimestamp⟩ }
+      match addObject s .stack proxyObj .top with
+      | none => none
+      | some (s1, proxyId) =>
+        let rest' := dropPendingClose rest
+        some ({ s1 with
+                  playRollback := some snap
+                  pending := .playPayCost p proxyId false none cost :: rest' },
+              [])
+    else
+      none
+  | .defendPick defender :: rest, .player q, .defendCard id =>
+    match s.combat.bind CombatChain.activeLink? with
+    | some link =>
+      if defender = q ∧ canDefendWith s link defender id = true then
+        let fromHand := id ∈ s.zone (.player defender .hand)
+        let isAction := match s.objectFace? id with | some f => f.hasType .action | none => false
+        match s.locate id, moveObj s id .combatChain .top false with
+        | some srcZ, some (s1, id') =>
+          let cc' := s1.combat.map fun cc => cc.updateActiveLink fun l =>
+            { l with
+              defending := l.defending ++ [id']
+              defendedFromHandCount := l.defendedFromHandCount + (if fromHand then 1 else 0)
+              defendedActionCount := l.defendedActionCount + (if isAction then 1 else 0) }
+          some ({ s1 with combat := cc', pending := .defendPick defender :: rest },
+                [.moved id id' srcZ .combatChain])
+        | _, _ => none
+      else
+        none
+    | none => none
+  | .defendPick defender :: rest, .player q, .defendDone =>
+    if defender = q then
+      let tp := s.active.getD ⟨0⟩
+      some ({ s with pending := .gameStateProcess :: .priority tp 0 :: rest }, [])
     else
       none
   | .chooseMode p layerId fromArsenal modeCount cost :: rest, .player q, .pickMode idx =>
@@ -562,19 +652,22 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .resolveStack :: rest =>
     match s.zone .stack with
     | topId :: _ =>
-      let info := s.layerMeta.getD topId.n
-        { controller := s.active.getD ⟨0⟩ }
-      let eff :=
-        match s.cardDefOf? topId with
-        | some c => cardResolveEffect c info.modeIdx
-        | none => .nop
-      some ({ s with
-                pending := .run info.controller topId info.fromArsenal [] [eff] ::
-                  .finishResolve topId :: rest },
-            [])
+      if isAttackLayer s topId then
+        some ({ s with pending := .combatStep .attack topId :: rest }, [])
+      else
+        let info := s.layerMeta.getD topId.n
+          { controller := s.active.getD ⟨0⟩ }
+        let eff :=
+          match s.cardDefOf? topId with
+          | some c => cardResolveEffect c info.modeIdx
+          | none => .nop
+        some ({ s with
+                  pending := .run info.controller topId info.fromArsenal [] [eff] ::
+                    .finishResolve topId :: rest },
+              [])
     | [] =>
       let tp := s.active.getD ⟨0⟩
-      some ({ s with pending := .priority tp 0 :: rest }, [])
+      some ({ s with pending := .gameStateProcess :: .priority tp 0 :: rest }, [])
   | .finishResolve layerId :: rest =>
     let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
     let s1 :=
@@ -582,25 +675,131 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         s.setPool info.controller ((s.poolOf info.controller).addActionPoints 1)
       else
         s
+    let isDefReact :=
+      match s1.cardDefOf? layerId with
+      | some c => c.front.hasType .defenseReaction && s1.combat.isSome
+      | none => false
     let (s2, es) :=
       if layerId ∈ s1.zone .stack then
-        match s1.obj? layerId with
-        | some o =>
-          let isPerm :=
-            match s1.cardDefOf? layerId with
-            | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
-            | none => false
-          let dst := if isPerm then Zone.player info.controller .permanent
-                     else Zone.player o.owner .graveyard
-          match moveObj s1 layerId dst .top false with
-          | some (sMoved, id') => (sMoved, [.moved layerId id' .stack dst])
+        if isDefReact then
+          match moveObj s1 layerId .combatChain .top false with
+          | some (sMoved, id') =>
+            let cc' := sMoved.combat.map fun cc => cc.updateActiveLink fun l =>
+              { l with
+                defending := l.defending ++ [id']
+                defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
+            ({ sMoved with combat := cc' }, [.moved layerId id' .stack .combatChain])
           | none => (s1, [])
-        | none => (s1, [])
+        else
+          match s1.obj? layerId with
+          | some o =>
+            let isPerm :=
+              match s1.cardDefOf? layerId with
+              | some c => c.front.hasSubtype .aura || c.front.hasSubtype .item
+              | none => false
+            let dst := if isPerm then Zone.player info.controller .permanent
+                       else Zone.player o.owner .graveyard
+            match moveObj s1 layerId dst .top false with
+            | some (sMoved, id') => (sMoved, [.moved layerId id' .stack dst])
+            | none => (s1, [])
+          | none => (s1, [])
       else
         (s1, [])
-    let s3 := checkHeroDefeat { s2 with layerMeta := s2.layerMeta.erase layerId.n }
+    let s3 := gspRun { s2 with layerMeta := s2.layerMeta.erase layerId.n }
     let tp := s3.active.getD ⟨0⟩
     some ({ s3 with pending := .priority tp 0 :: rest }, es)
+  | .combatStep .layer _ :: rest =>
+    some ({ s with pending := rest }, [])
+  | .combatStep .attack layerId :: rest =>
+    let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
+    let eff :=
+      match s.cardDefOf? layerId with
+      | some c => cardResolveEffect c info.modeIdx
+      | none => .nop
+    let (s1, atkId, es) := enterAttackStep s layerId info.controller
+    let tp := s1.active.getD ⟨0⟩
+    let effFrames :=
+      if eff == .nop then [] else [.run info.controller atkId info.fromArsenal [] [eff]]
+    some ({ s1 with
+              pending := effFrames ++ [.gameStateProcess, .priority tp 0, .combatStep .defend atkId] ++ rest },
+          es)
+  | .combatStep .defend atkId :: rest =>
+    match s.combat with
+    | some cc =>
+      let cc' := { cc with step := .defend }
+      match cc'.activeLink? with
+      | some link =>
+        some ({ s with
+                  combat := some cc'
+                  pending := .defendPick link.defender :: .combatStep .reaction atkId :: rest }, [])
+      | none =>
+        some ({ s with combat := some cc', pending := .combatStep .reaction atkId :: rest }, [])
+    | none =>
+      some ({ s with pending := rest }, [])
+  | .combatStep .reaction atkId :: rest =>
+    let tp := s.active.getD ⟨0⟩
+    let cc' := s.combat.map fun cc => { cc with step := .reaction }
+    some ({ s with
+              combat := cc'
+              pending := .gameStateProcess :: .priority tp 0 :: .combatStep .damage atkId :: rest }, [])
+  | .combatStep .damage atkId :: rest =>
+    let tp := s.active.getD ⟨0⟩
+    match s.combat with
+    | some cc =>
+      match cc.activeLink? with
+      | some link =>
+        let atkP := linkAttackPower s link
+        let totD := linkTotalDefense s link
+        let dmg := calcCombatDamage atkP totD
+        let isHit := didCombatHit dmg
+        let cc' := { cc with step := .damage }.updateActiveLink fun l =>
+          { l with hit := isHit, damageDealt := dmg }
+        let s1 := { s with combat := some cc' }
+        let (s2, es) :=
+          if 0 < dmg then
+            (s1.setLife link.defender (s1.lifeOf link.defender - Int.ofNat dmg),
+             [.damageDealt link.defender .physical dmg])
+          else
+            (s1, [])
+        let s3 := gspRun s2
+        some ({ s3 with pending := .priority tp 0 :: .combatStep .resolution atkId :: rest }, es)
+      | none =>
+        some ({ s with
+                  combat := some { cc with step := .damage }
+                  pending := .priority tp 0 :: .combatStep .resolution atkId :: rest }, [])
+    | none =>
+      some ({ s with pending := rest }, [])
+  | .combatStep .resolution atkId :: rest =>
+    let tp := s.active.getD ⟨0⟩
+    match s.combat with
+    | some cc =>
+      match cc.activeLink? with
+      | some link =>
+        let grantGA := linkHasKeyword s link .goAgain && !link.goAgainGranted
+        let cc' := { cc with step := .resolution }.updateActiveLink fun l =>
+          { l with goAgainGranted := l.goAgainGranted || grantGA }
+        let s1 := { s with combat := some cc' }
+        let s2 :=
+          if grantGA then
+            s1.setPool link.attacker ((s1.poolOf link.attacker).addActionPoints 1)
+          else
+            s1
+        some ({ s2 with
+                  pending := .gameStateProcess :: .priority tp 0 :: .combatStep .close atkId :: rest }, [])
+      | none =>
+        some ({ s with
+                  combat := some { cc with step := .resolution }
+                  pending := .priority tp 0 :: .combatStep .close atkId :: rest }, [])
+    | none =>
+      some ({ s with pending := rest }, [])
+  | .combatStep .close _ :: rest =>
+    let (s1, es) := closeCombatChainStep s
+    let s2 := gspRun s1
+    let tp := s2.active.getD ⟨0⟩
+    some ({ s2 with pending := .priority tp 0 :: rest }, es)
+  | .gameStateProcess :: rest =>
+    let s1 := gspRun s
+    some ({ s1 with pending := rest }, [])
   | .run ctrl src fromArsenal env todo :: rest =>
     some (interpRunStep s ctrl src fromArsenal env todo rest)
   | .optStep _ 0 :: rest =>
