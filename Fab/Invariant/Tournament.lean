@@ -405,6 +405,13 @@ theorem timeLimitBounded_of_eq {deadline : Nat} {s s' : GameState}
   obtain ⟨k, hk, hle⟩ := hb (hres hr')
   exact ⟨k, by rw [htourn]; exact hk, by rw [ht]; exact hle⟩
 
+private theorem afterPermanentEntry_turn_tournament_result (s : GameState)
+    (triggers : List PendingTrigger) (rest : List Frame) :
+    (afterPermanentEntry s triggers rest).turn = s.turn ∧
+    (afterPermanentEntry s triggers rest).tournament = s.tournament ∧
+    (afterPermanentEntry s triggers rest).result = s.result :=
+  ⟨rfl, rfl, rfl⟩
+
 /-- Helper: `gspRun` only ever sets `result` from `none` to `some`, never back to `none`. -/
 theorem gspStep_result_none {s s' : GameState} (h : gspStep s = some s') (hr : s'.result = none) :
     s.result = none := by
@@ -700,11 +707,14 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
               | none => exact ⟨rfl, rfl, rfl⟩
               | some _ => exact moveObj_turn_tournament_result hm
       · exact ⟨rfl, rfl, rfl⟩
-    have hg := gspRun_turn_tournament { p2.1 with layerMeta := p2.1.layerMeta.erase layerId.n }
-    exact timeLimitBounded_of_eq hb (hg.1.trans (h2.1.trans h1.1)) (hg.2.trans (h2.2.1.trans h1.2.1))
+    let resolved := { p2.1 with layerMeta := p2.1.layerMeta.erase layerId.n }
+    have hg := gspRun_turn_tournament resolved
+    let triggers := permanentEntryTriggers p2.1 info.fromArsenal p2.2
+    have ha := afterPermanentEntry_turn_tournament_result (gspRun resolved) triggers rest
+    exact timeLimitBounded_of_eq hb (ha.1.trans (hg.1.trans (h2.1.trans h1.1)))
+      (ha.2.1.trans (hg.2.trans (h2.2.1.trans h1.2.1)))
       (fun hr => by
-        have hr1 : ({ p2.1 with layerMeta := p2.1.layerMeta.erase layerId.n }).result = none :=
-          gspRun_result_none hr
+        have hr1 : resolved.result = none := gspRun_result_none (ha.2.2.symm.trans hr)
         exact h1.2.2 ▸ h2.2.2 ▸ hr1)
   · -- combatStep .layer
     simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h

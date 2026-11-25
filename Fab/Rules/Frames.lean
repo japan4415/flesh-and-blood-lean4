@@ -609,17 +609,21 @@ def EffectList.bindPlayedAttack (attack : ObjId) : EffectList → EffectList
   | .cons first rest => .cons (first.bindPlayedAttack attack) (rest.bindPlayedAttack attack)
 end
 
+/-- Collect an active permanent's triggered abilities matching the given event (CR 6.6). -/
+def permanentTriggers (s : GameState) (source : ObjId) (p : PlayerId) (fromArsenal : Bool)
+    (event : Trigger) : List PendingTrigger :=
+  if (s.characteristics source).any (fun c => c.controller == p && !c.abilitiesLost) &&
+      (s.obj? source).any (fun obj => !obj.faceDown) then
+    let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+    collectCardTriggers s source p fromArsenal abilities fun trigger cond =>
+      trigger == event && (cond.map (evalCondition s p source fromArsenal)).getD true
+  else []
+
 /-- Collect triggered abilities of face-up permanents controlled by the player (CR 6.6). -/
 def controlledPermanentTriggers (s : GameState) (p : PlayerId) (event : Trigger) :
     List PendingTrigger :=
   let permanents := (allPlayers s.playerCount).flatMap fun owner => s.zone (.player owner .permanent)
-  permanents.flatMap fun source =>
-    if (s.characteristics source).any (fun c => c.controller == p && !c.abilitiesLost) &&
-        (s.obj? source).any (fun obj => !obj.faceDown) then
-      let abilities := ((s.objectFace? source).map (·.abilities)).getD []
-      collectCardTriggers s source p false abilities fun trigger cond =>
-        trigger == event && (cond.map (evalCondition s p source false)).getD true
-    else []
+  permanents.flatMap fun source => permanentTriggers s source p false event
 
 /-- Collect arena triggers caused by paying for a card or weapon attack (CR 5.1.10, 6.6.5). -/
 def arenaAttackPlayTriggers (s : GameState) (layerId : ObjId) (p : PlayerId) :
@@ -627,6 +631,23 @@ def arenaAttackPlayTriggers (s : GameState) (layerId : ObjId) (p : PlayerId) :
   if (attackLayerFace? s layerId).isNone then [] else
     (controlledPermanentTriggers s p .onPlayAttackOrWeapon).map fun trigger =>
       { trigger with effect := trigger.effect.bindPlayedAttack layerId }
+
+/-- Collect an entering permanent's abilities using the new object in the arena (CR 3.0.5, 6.6.5). -/
+def permanentEntryTriggers (s : GameState) (fromArsenal : Bool) (events : List Event) :
+    List PendingTrigger :=
+  events.flatMap fun
+    | .moved _ source .stack (.player controller .permanent) =>
+      permanentTriggers s source controller fromArsenal .onEnterArena
+    | _ => []
+
+/-- Put a resolving permanent's triggers ahead of the next priority window (CR 6.6.6). -/
+def afterPermanentEntry (s : GameState) (triggers : List PendingTrigger) (rest : List Frame) : GameState :=
+  let queued := triggers.zipIdx.map fun (trigger, index) => { trigger with id := s.nextTimestamp + index }
+  let flush := if triggers.isEmpty then [] else [.flushTriggers]
+  { s with
+    pendingTriggers := s.pendingTriggers ++ queued
+    nextTimestamp := s.nextTimestamp + queued.length
+    pending := flush ++ (afterLayerResolution s :: rest) }
 
 /-- Read the supported single, required hand-card cost (CR 5.1.9). -/
 def cardPlayHandCost? (s : GameState) (layerId : ObjId) : Option HandCardCost :=
@@ -1164,8 +1185,9 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
           | none => (s1, [])
       else
         (s1, [])
+    let triggers := permanentEntryTriggers s2 info.fromArsenal es
     let s3 := gspRun { s2 with layerMeta := s2.layerMeta.erase layerId.n }
-    some ({ s3 with pending := afterLayerResolution s3 :: rest }, es)
+    some (afterPermanentEntry s3 triggers rest, es)
   | .combatStep .layer _ :: rest =>
     some ({ s with pending := rest }, [])
   | .combatStep .attack layerId :: rest =>
