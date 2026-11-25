@@ -1324,6 +1324,77 @@ meta def checkShowTime : Option Bool := do
 
 #guard checkShowTime == some true
 
+/-- Fyendal's Spring Tunic gains optional counters in the Start Phase and removes them as a cost. -/
+meta def checkFyendalsSpringTunic : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_150"⟩
+  let chest := Zone.player player .chest
+  let grave := Zone.player player .graveyard
+  let card ← m5Base.cards.find? cid
+  let (equipped, tunic) ← cPlace (m5Base.setPool player {}) player .chest cid
+  let (ready, otherTunic) ← cPlace equipped opponent .chest cid
+  let openTurn := [Frame.startPhaseWork player, .actionPhaseStart player, .endPhaseStart player, .beginTurn]
+  let first ← (advance 64 { ready with pending := openTurn } []).toOption.map Prod.fst
+  let offer (s : GameState) (p : PlayerId) : Option GameState := do
+    let trigger ← s.pendingTriggers.head?
+    cSteps s [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩]
+  let answer (s : GameState) (p : PlayerId) (yes : Bool) : Option GameState := do
+    let choosing ← offer s p
+    cSteps choosing [⟨.player p, .pickMay yes⟩]
+  let charge : Action := ⟨.player player, .pickMay true⟩
+  let activate : Action := ⟨.player player, .activateAbility tunic 1⟩
+  let energy (s : GameState) (id : ObjId) := (s.obj? id).map (·.counterCount .energy)
+  let choosing ← offer first player
+  let firstTurn ← cSteps choosing [charge]
+  let declined ← cSteps choosing [⟨.player player, .pickMay false⟩]
+  let firstOpponent ← cSteps firstTurn passBoth
+  let firstOpponentTurn ← answer firstOpponent opponent true
+  let second ← cSteps firstOpponentTurn passBoth.reverse
+  let secondTurn ← answer second player true
+  let secondOpponent ← cSteps secondTurn passBoth
+  let secondOpponentTurn ← answer secondOpponent opponent false
+  let third ← cSteps secondOpponentTurn passBoth.reverse
+  let thirdTurn ← answer third player true
+  let thirdOpponent ← cSteps thirdTurn passBoth
+  let thirdOpponentTurn ← answer thirdOpponent opponent false
+  let atCap ← cSteps thirdOpponentTurn passBoth.reverse
+  let priority ← cSteps thirdOpponentTurn [⟨.player opponent, .pass⟩]
+  let paid ← cSteps priority [activate]
+  let resolved ← cSteps paid passBoth
+  let extra := updateSingleObject priority tunic (fun o => o.addCounterVal .energy 1)
+  let paidExtra ← cSteps extra [activate]
+  let attacker := ready.setPool opponent { actionPoints := 1 }
+  let attackBase : GameState :=
+    { attacker with active := some opponent, pending := [.priority opponent 0, .endPhaseStart opponent] }
+  let (withAttack, attack) ← cPlace attackBase opponent .hand ⟨"WTR_203_R"⟩
+  let defending ← cSteps withAttack
+    (⟨.player opponent, .playCard attack⟩ :: (passBoth.reverse ++ passBoth.reverse))
+  let worn ← cSteps defending ([⟨.player player, .defendCard tunic⟩, ⟨.player player, .defendDone⟩] ++
+    (List.replicate 4 passBoth.reverse).flatten)
+  let broken ← (worn.zone grave).head?
+  pure (card.status == .full && card.front.defense == some 1 && card.front.keywords.contains .bladeBreak &&
+    first.phase == .startPhase && choosing.phase == .startPhase &&
+    (choosing.poolOf player).actionPoints == 0 && !(legalActionsFor player choosing).contains activate &&
+    !(legalActionsFor player choosing).contains ⟨.player player, .pass⟩ &&
+    (legalActionsFor player choosing).contains charge &&
+    declined.phase == .actionPhase && energy declined tunic == some 0 &&
+    firstTurn.phase == .actionPhase && (firstTurn.poolOf player).actionPoints == 1 &&
+    energy firstTurn tunic == some 1 && energy firstOpponentTurn otherTunic == some 1 &&
+    energy firstOpponentTurn tunic == some 1 &&
+    energy secondTurn tunic == some 2 && !(legalActionsFor player secondTurn).contains activate &&
+    energy thirdTurn tunic == some 3 && (legalActionsFor player thirdTurn).contains activate &&
+    atCap.phase == .actionPhase && atCap.pending.head? == some (.priority player 0) &&
+    atCap.pendingTriggers.isEmpty && energy atCap tunic == some 3 &&
+    priority.active == some opponent && (legalActionsFor player priority).contains activate &&
+    energy paid tunic == some 0 && (paid.poolOf player).resources == 0 &&
+    !(legalActionsFor player paid).contains activate &&
+    (resolved.poolOf player).resources == 1 && (resolved.poolOf player).actionPoints == 0 &&
+    energy paidExtra tunic == some 1 && energy resolved otherTunic == some 1 &&
+    worn.zone chest == [] && (worn.cardDefOf? broken).map (·.id) == some cid)
+
+#guard checkFyendalsSpringTunic == some true
+
 /-- Remembrance lets its caster choose up to three action cards, then banishes itself. -/
 meta def checkRemembrance : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

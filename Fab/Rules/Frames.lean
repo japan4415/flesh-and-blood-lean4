@@ -534,9 +534,13 @@ def nextTriggerFrame (s : GameState) : List PlayerId → List Frame
     else
       nextTriggerFrame s rem
 
-/-- Resolve remaining end-phase layers without granting priority (CR 4.4.1, 4.4.2). -/
+/-- Players receive no priority in the Start or End Phase (CR 4.2.1, 4.4.1). -/
+def phaseResolvesWithoutPriority (phase : Phase) : Bool :=
+  phase == .startPhase || phase == .endPhase
+
+/-- Resolve remaining Start or End Phase layers without granting priority (CR 4.2.2, 4.4.2). -/
 def afterLayerResolution (s : GameState) : Frame :=
-  if s.phase = .endPhase then .resolveStack else .priority (s.active.getD ⟨0⟩) 0
+  if phaseResolvesWithoutPriority s.phase then .resolveStack else .priority (s.active.getD ⟨0⟩) 0
 
 /-- The source of a resolving ability layer, or the resolving card itself. -/
 def resolvingSource (s : GameState) (layer : ObjId) : ObjId :=
@@ -942,18 +946,22 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
         s.combat.any fun cc => cc.step == .reaction && cc.activeLink?.any (fun link => link.attacker == p)
       | _ => false
     let destroy := extra == [{ cost := .destroySelf }]
+    let removeCounters := match extra with
+      | [{ cost := .removeCounters kind n, optional := false, cond := none }] => some (kind, n)
+      | _ => none
+    let canRemove := removeCounters.any fun (kind, n) => decide (n ≤ obj.counterCount kind)
     if !timely || chars.abilitiesLost || chars.controller != p || !activationConditionMet s p condition ||
         (once && s.activatedThisTurn.contains (source, index)) ||
-        !(extra.isEmpty || destroy) ||
+        !(extra.isEmpty || destroy || canRemove) ||
         !(effect.modes.isEmpty && effect.extraCosts.isEmpty) ||
         effect.body == .prim .weaponAttack then none else
     let (body, declared) ← activationResolution? s effect target
-    some (speed, once, cost, destroy, goAgain, body, declared))
-  let (speed, once, cost, destroy, goAgain, body, declared) := terms
+    some (speed, once, cost, destroy, removeCounters, goAgain, body, declared))
+  let (speed, once, cost, destroy, removeCounters, goAgain, body, declared) := terms
   let cost := if speed == .action then { cost with actionPoints := max cost.actionPoints 1 } else cost
   let pool := s.poolOf p
   if cost.actionPoints ≤ pool.actionPoints && (pool.canPay cost || canPitchForCost s p cost) then
-    some ⟨⟨source, index, origin, obj.owner, destroy, once⟩, cost, goAgain, body, declared⟩
+    some ⟨⟨source, index, origin, obj.owner, destroy, once, removeCounters⟩, cost, goAgain, body, declared⟩
   else none
 
 /-- The indexed abilities currently available to a player holding priority. -/
@@ -969,10 +977,17 @@ def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat × 
       | _ => []
   candidates.filter fun (source, index, target) => (activationPlan? s p source index target).isSome
 
-/-- Pay a permanent's destruction cost before priority returns (CR 5.2.2b). -/
+/-- Pay the cost taken from an activation's source before returning priority (CR 5.2.2b). -/
 def payActivationSource (s : GameState) (payment : ActivationPayment) :
     Option (GameState × List Event) := do
-  if !payment.destroySource then some (s, []) else
+  if !payment.destroySource then
+    match payment.removeCounters with
+    | none => some (s, [])
+    | some (kind, n) =>
+      if (s.obj? payment.source).any (fun o => decide (n ≤ o.counterCount kind)) then
+        some (updateSingleObject s payment.source (fun o => o.removeCounterVal kind n), [])
+      else none
+  else
     let graveyard := Zone.player payment.owner .graveyard
     let (paid, spent) ← moveObj s payment.source graveyard .top false
     some (paid, [.moved payment.source spent payment.origin graveyard])
@@ -1439,8 +1454,11 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
                 tournament := ts'
                 pending := turnFrames tp ++ [.beginTurn] ++ rest },
             [])
-  | .startPhaseWork _ :: rest =>
-    some ({ s with phase := .startPhase, pending := rest }, [])
+  | .startPhaseWork tp :: rest =>
+    let starting := { s with phase := .startPhase }
+    let queued := queueCardTriggers starting (installedCardTriggers starting tp (· == .onStartOfTurn))
+    let triggers := if queued.pendingTriggers.isEmpty then [] else [.flushTriggers, .resolveStack]
+    some ({ queued with pending := triggers ++ rest }, [])
   | .actionPhaseStart tp :: rest =>
     let s1 := { s with phase := .actionPhase }
     let triggers := (controlledPermanentTriggers s1 tp .onStartOfActionPhase).zipIdx.map
@@ -1509,7 +1527,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
                     .finishResolve topId :: rest },
               [])
     | [] =>
-      let next := if s.phase = .endPhase then rest else afterLayerResolution s :: rest
+      let next := if phaseResolvesWithoutPriority s.phase then rest else afterLayerResolution s :: rest
       some ({ s with pending := .gameStateProcess :: next }, [])
   | .finishResolve layerId :: rest =>
     let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }

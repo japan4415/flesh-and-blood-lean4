@@ -563,8 +563,14 @@ private theorem payActivationSource_turn_tournament_result {s paid : GameState}
     paid.turn = s.turn ∧ paid.tournament = s.tournament ∧ paid.result = s.result := by
   unfold payActivationSource at h
   split at h
-  · cases h
-    exact ⟨rfl, rfl, rfl⟩
+  · split at h
+    · cases h
+      exact ⟨rfl, rfl, rfl⟩
+    · split at h
+      · cases h
+        unfold updateSingleObject
+        split <;> exact ⟨rfl, rfl, rfl⟩
+      · cases h
   · obtain ⟨⟨moved, spent⟩, hm, h⟩ := Option.bind_eq_some_iff.mp h
     cases h
     exact moveObj_turn_tournament_result hm
@@ -579,6 +585,7 @@ private theorem finishPaidActivation_ttr {s s' : GameState} {p : PlayerId} {laye
   obtain ⟨ht, htn, hr⟩ := payActivationSource_turn_tournament_result hpay
   exact ⟨ht, htn, hr⟩
 
+set_option maxHeartbeats 300000 in
 /-- **I14** (microStep preservation): every `microStep` preserves `TimeLimitBounded deadline`.
 In particular, `beginTurn` either terminates in `.draw .timeLimit` (when `k = 0`) or increments
 `turn` by 1 while decrementing `timeLimitTurnsLeft` by 1, preserving `turn + k ≤ deadline` (TRP 4). -/

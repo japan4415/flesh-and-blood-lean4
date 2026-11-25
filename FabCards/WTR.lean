@@ -903,13 +903,14 @@ def WTR_149_B : CardDef := { naturesPathPilgrimage WTR_149_B_meta 1 with status 
 
 /-! ## Generic Equipment, Attacks, Reactions, Instants, Items, Tokens (WTR150-WTR225) -/
 
-/-- Fyendal's Spring Tunic (drafted IR). -/
+/-- Fyendal's Spring Tunic. -/
 def WTR_150 : CardDef :=
-  draftCard WTR_150_meta
-    [ .triggered .onStartOfTurn false none (some (.sourceCounterLt .energy 3))
-        { body := .may (.prim (.addCounter .self_ .energy (.const 1))) .nop }
-    , .activated .instant false {} [{ cost := .removeCounters .energy 3 }] none false
-        { body := .prim (.gainResource .controller (.const 1)) } ]
+  { draftCard WTR_150_meta
+      [ .triggered .onStartOfTurn false none (some (.sourceCounterLt .energy 3))
+          { body := .may (.prim (.addCounter .self_ .energy (.const 1))) .nop }
+      , .activated .instant false {} [{ cost := .removeCounters .energy 3 }] none false
+          { body := .prim (.gainResource .controller (.const 1)) } ]
+    with status := .full }
 
 /-- Hope Merchant's Hood. -/
 def WTR_151 : CardDef :=
