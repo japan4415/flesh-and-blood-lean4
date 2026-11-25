@@ -4722,6 +4722,7 @@ meta def checkDebilitate (cid : CardId) (pitch power : Nat) : Option Bool := do
 
 #guard checkDebilitate ⟨"WTR_066_R"⟩ 1 8 == some true
 #guard checkDebilitate ⟨"WTR_067_Y"⟩ 2 7 == some true
+#guard checkDebilitate ⟨"WTR_068_B"⟩ 3 6 == some true
 
 /-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
 meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
