@@ -83,6 +83,8 @@ structure PlayerView where
   result : Option GameResult
   /-- Combat chain state. -/
   combat : Option CombatChain
+  /-- Weapons that have hit during the current turn, including closed chains. -/
+  weaponHitsThisTurn : List ObjId
   /-- Tournament clock & ID offer state. -/
   tournament : TournamentState
   /-- Pending continuation frames, with other players' private selections masked. -/
@@ -110,6 +112,7 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
     phase := s.phase
     result := s.result
     combat := s.combat
+    weaponHitsThisTurn := s.weaponHitsThisTurn
     tournament := s.tournament
     pending := s.pending.map fun frame =>
       match frame with
@@ -163,6 +166,8 @@ structure HiddenEquiv (p : PlayerId) (s1 s2 : GameState) : Prop where
   result : s1.result = s2.result
   /-- Same combat chain. -/
   combat : s1.combat = s2.combat
+  /-- Same public weapon hit history. -/
+  weaponHitsThisTurn : s1.weaponHitsThisTurn = s2.weaponHitsThisTurn
   /-- Same tournament state. -/
   tournament : s1.tournament = s2.tournament
   /-- Same public history of this turn's limited activations. -/
@@ -360,6 +365,14 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
     unfold canPitchForCost pitchableCards
     rw [h.visibleZones _ (by simp [Zone.isSecretTo]), funext h.canPitchCard_eq]
     simp [GameState.poolOf, h.pools] <;> rfl
+  have hcondition : activationConditionMet s1 p = activationConditionMet s2 p := by
+    funext condition
+    cases condition with
+    | none => rfl
+    | some condition =>
+      cases condition <;> try rfl
+      simp only [activationConditionMet, hasWeaponHitThisTurn,
+        h.weaponHitsThisTurn, h.characteristics_eq]
   have hplan (id : ObjId) (index : Nat) (target : Option ObjId) :
       activationPlan? s1 p id index target = activationPlan? s2 p id index target := by
     have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
@@ -367,7 +380,7 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
     unfold activationPlan?
     rw [hz, hfind, ho, h.characteristics_eq, (h.cardDef_face id).2, hp, h.playerCount,
       h.phase, h.active, h.combat, h.visibleZones .stack rfl, h.activatedThisTurn]
-    simp only [hresolution, hcanPitch]
+    simp only [hresolution, hcanPitch, hcondition]
   have hface (id : ObjId) := (h.cardDef_face id).2
   unfold availableActivations
   simp only [hz, hsources, hface, hplan, htargets]
@@ -592,7 +605,7 @@ theorem reorder_deck_noninterference {s : GameState} (p q : PlayerId) {l : List 
   have heq : HiddenEquiv p (s.reorder (.player q .deck) l) s :=
     { config := rfl, cards := rfl, objects := rfl, pools := rfl, heroLife := rfl,
       turn := rfl, active := rfl, pending := rfl, turnOrder := rfl, phase := rfl,
-      result := rfl, combat := rfl, tournament := rfl,
+      result := rfl, combat := rfl, weaponHitsThisTurn := rfl, tournament := rfl,
       activatedThisTurn := rfl, activeEffects := rfl,
       pendingTriggers := rfl,
       visibleZones := fun z hns => by
@@ -635,7 +648,7 @@ theorem opp_hand_noninterference {s : GameState} {p q : PlayerId} (hne : q ≠ p
   exact
     { config := rfl, cards := rfl, objects := rfl, pools := rfl, heroLife := rfl,
       turn := rfl, active := rfl, pending := rfl, turnOrder := rfl, phase := rfl,
-      result := rfl, combat := rfl, tournament := rfl,
+      result := rfl, combat := rfl, weaponHitsThisTurn := rfl, tournament := rfl,
       activatedThisTurn := rfl, activeEffects := rfl,
       pendingTriggers := rfl,
       visibleZones := fun z hns => by

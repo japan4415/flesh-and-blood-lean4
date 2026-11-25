@@ -204,6 +204,11 @@ def nonEquipmentDefenderCount (s : GameState) (link : ChainLink) : Nat :=
   link.defending.countP fun id =>
     s.locate id == some .combatChain && !(s.characteristics id).any (·.types.contains .equipment)
 
+/-- Whether a weapon the player currently controls has hit this turn. -/
+def hasWeaponHitThisTurn (s : GameState) (p : PlayerId) : Bool :=
+  s.weaponHitsThisTurn.any fun weapon =>
+    (s.characteristics weapon).any fun c => c.controller == p && c.types.contains .weapon
+
 /-- Evaluate an IR condition in the current game state. -/
 def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal : Bool) :
     Condition → Bool
@@ -256,9 +261,7 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
         (s.combat.bind CombatChain.activeLink?).bind fun link =>
           if link.attack == some src then link.discardedForPlay else none
     discarded.any (cardFaceMatches filter)
-  | .weaponHitThisTurn =>
-    s.weaponHitsThisTurn.any fun weapon =>
-      (s.characteristics weapon).any fun c => c.controller == ctrl && c.types.contains .weapon
+  | .weaponHitThisTurn => hasWeaponHitThisTurn s ctrl
   | .defendingWeaponAttack =>
     match s.combat.bind CombatChain.activeLink? with
     | some cur =>

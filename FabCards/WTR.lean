@@ -662,11 +662,12 @@ def WTR_115 : CardDef :=
           { body := .ifThen .sourceNotHitThisTurn (.prim (.removeAllCounters .self_ .plusOnePower)) .nop } ]
     with status := .full }
 
-/-- Braveforge Bracers (drafted IR). -/
+/-- Braveforge Bracers. -/
 def WTR_116 : CardDef :=
-  draftCard WTR_116_meta
-    [ .activated .action true { actionPoints := 1, resources := 1 } [] (some .weaponHitThisTurn) true
-        { body := .grant (.nextAttack CardFilter.weaponAttack) (.addPower (.const 1)) .thisTurn } ]
+  { draftCard WTR_116_meta
+      [ .activated .action true { actionPoints := 1, resources := 1 } [] (some .weaponHitThisTurn) true
+          { body := .grant (.nextAttack CardFilter.weaponAttack) (.addPower (.const 1)) .thisTurn } ]
+    with status := .full }
 
 /-- Refraction Bolters. -/
 def WTR_117 : CardDef :=
