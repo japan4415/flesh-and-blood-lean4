@@ -1785,22 +1785,30 @@ def ModScope.isSelf : ModScope → Bool
   | .self_ | .obj .self_ => true
   | _ => false
 
-/-- Apply a self-grant to a paid action layer (CR 5.3.5, 8.3.5). -/
+/-- Modify the source action or the paid attack bound to a trigger (CR 5.3.5, 8.3.5). -/
 def modifyPendingAction (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) :
-    Option LayerInfo := do
-  if !scope.isSelf || s.locate src != some .stack then none else
-    let card ← s.cardDefOf? src
-    let face := card.front
-    if !face.hasType .action then none else
-      let info ← s.layerMeta.get? src.n
-      match face.hasSubtype .attack, dur, mod with
-      | true, .thisChainLink, .addPower d =>
-        some { info with attackPowerBonus := info.attackPowerBonus + evalNumExpr s ctrl env d }
-      | true, .thisChainLink, .grantKeyword kw =>
-        some { info with attackKeywords := kw :: info.attackKeywords }
-      | false, .thisTurn, .grantKeyword .goAgain => some { info with goAgain := true }
-      | _, _, _ => none
+    Option (ObjId × LayerInfo) := do
+  let target ← match scope with
+    | .self_ | .obj .self_ => some src
+    | .paidAttack id => some id
+    | _ => none
+  if s.locate target != some .stack then none else
+    let info ← s.layerMeta.get? target.n
+    let isProxy := (s.obj? target).any fun o => match o.kind with
+      | .attackProxy _ _ => true
+      | _ => false
+    let face := (s.cardDefOf? target).map (·.front)
+    let isAttack := isProxy || face.any (fun f => f.hasType .action && f.hasSubtype .attack)
+    match isAttack, dur, mod with
+    | true, .thisChainLink, .addPower d =>
+      some (target, { info with attackPowerBonus := info.attackPowerBonus + evalNumExpr s ctrl env d })
+    | true, .thisChainLink, .grantKeyword kw =>
+      some (target, { info with attackKeywords := insertUnique kw info.attackKeywords })
+    | false, .thisTurn, .grantKeyword .goAgain =>
+      if scope.isSelf && face.any (·.hasType .action) then some (target, { info with goAgain := true })
+      else none
+    | _, _, _ => none
 
 /-- Put a resolving defense reaction's self-granted defense on the card (CR 5.3.4, 6.3.2h). -/
 def defenseReactionGrant (s : GameState) (ctrl : PlayerId) (src : ObjId)
@@ -1831,8 +1839,8 @@ def declaredAttackStillMatches (s : GameState) (src : ObjId) (link : ChainLink) 
 turn- and chain-scoped continuous effects in `s.activeEffects` (CR 6.2-6.3, 7.4). -/
 def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) : GameState :=
-  if let some info := modifyPendingAction s ctrl src env scope mod dur then
-    { s with layerMeta := s.layerMeta.insert src.n info }
+  if let some (target, info) := modifyPendingAction s ctrl src env scope mod dur then
+    { s with layerMeta := s.layerMeta.insert target.n info }
   else if let some effect := defenseReactionGrant s ctrl src env scope mod dur then
     { s with activeEffects := s.activeEffects ++ [effect], nextTimestamp := s.nextTimestamp + 1 }
   else match dur, s.combat with
@@ -1840,6 +1848,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
     let cc' := cc.updateActiveLink fun link =>
       let targetSlotOk := match scope with
         | .obj (.slot i) => i == 0 && declaredAttackStillMatches s src link
+        | .paidAttack _ => false
         | _ => true
       let targetsAttack := match scope with
         | .self_ | .obj .self_ => link.attack == some src
@@ -1891,6 +1900,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .nextAttack filter, .grantAttackAbility _
         | .nextAttack filter, .addPowerIfFewerDefenders _ _ => .nextAttack filter
         | .allAttacks filter, .addPower _ => .allAttacks filter
+        | .paidAttack id, _ => .obj id
         | .arenaObjectsOfType player kind, _ =>
           let affected := evalPlayerRef s ctrl player
           let arena := (allZones s.playerCount).filter Zone.isArena

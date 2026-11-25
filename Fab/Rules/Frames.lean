@@ -596,6 +596,33 @@ def cardPlayRandomDiscardCost (s : GameState) (layerId : ObjId) : Nat :=
     count
   | _ => 0
 
+mutual
+/-- Bind the attack referenced by an attack-play triggered effect. -/
+def Effect.bindPlayedAttack (attack : ObjId) : Effect → Effect
+  | .grant (.obj .currentAttack) mod duration => .grant (.paidAttack attack) mod duration
+  | .seq effects => .seq (effects.bindPlayedAttack attack)
+  | effect => effect
+
+/-- Bind an attack reference throughout a sequence of triggered effects. -/
+def EffectList.bindPlayedAttack (attack : ObjId) : EffectList → EffectList
+  | .nil => .nil
+  | .cons first rest => .cons (first.bindPlayedAttack attack) (rest.bindPlayedAttack attack)
+end
+
+/-- Collect arena triggers caused by paying for a card or weapon attack (CR 5.1.10, 6.6.5). -/
+def arenaAttackPlayTriggers (s : GameState) (layerId : ObjId) (p : PlayerId) :
+    List PendingTrigger :=
+  if (attackLayerFace? s layerId).isNone then [] else
+    let permanents := (allPlayers s.playerCount).flatMap fun owner => s.zone (.player owner .permanent)
+    permanents.flatMap fun source =>
+      if (s.characteristics source).any (fun c => c.controller == p && !c.abilitiesLost) &&
+          (s.obj? source).any (fun obj => !obj.faceDown) then
+        let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+        let triggers := collectCardTriggers s source p false abilities fun trigger cond =>
+          trigger == .onPlayAttackOrWeapon && (cond.map (evalCondition s p source false)).getD true
+        triggers.map fun trigger => { trigger with effect := trigger.effect.bindPlayedAttack layerId }
+      else []
+
 /-- Read the supported single, required hand-card cost (CR 5.1.9). -/
 def cardPlayHandCost? (s : GameState) (layerId : ObjId) : Option HandCardCost :=
   match (s.cardDefOf? layerId).bind (·.front.playEffect) with
@@ -643,7 +670,9 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       goAgain := hasGoAgain }
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
   let s := { s with layerMeta := s.layerMeta.insert layerId.n updatedInfo }
-  let triggers := playedCardTriggers s layerId p fromArsenal
+  let newTriggers := playedCardTriggers s layerId p fromArsenal ++ arenaAttackPlayTriggers s layerId p
+  let triggers := newTriggers.zipIdx.map fun (trigger, index) =>
+    { trigger with id := s.nextTimestamp + index }
   let pendingTriggers := s.pendingTriggers ++ triggers
   let flush := if pendingTriggers.isEmpty then [] else [.flushTriggers]
   { s with

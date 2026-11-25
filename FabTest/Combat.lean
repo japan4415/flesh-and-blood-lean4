@@ -864,6 +864,65 @@ meta def checkEnlightenedStrike (fromArsenal : Bool) : Option Bool := do
 #guard checkEnlightenedStrike false == some true
 #guard checkEnlightenedStrike true == some true
 
+/-- Quicken waits for a paid attack, then grants Go Again through its own triggered layer. -/
+meta def checkQuicken (weaponAttack : Bool) (count : Nat) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let tokens := Zone.player player .permanent
+  let cid : CardId := ⟨"WTR_225"⟩
+  let base := m5Base.setPool player { actionPoints := 1, resources := 1 }
+  let card ← base.cards.find? cid
+  let (withWeapon, weapon) ← cPlace base player .weapon ⟨"WTR_078"⟩
+  let (withAttack, attack) ← cPlace withWeapon player .hand ⟨"WTR_205_B"⟩
+  let (withAction, action) ← cPlace withAttack player .hand ⟨"WTR_218_R"⟩
+  let (withDefense, block) ← cPlace withAction opponent .hand ⟨"WTR_188_R"⟩
+  let ready := createTokens withDefense player cid count
+  let tokenIds := ready.zone tokens
+  let play id : Action := ⟨.player player, .playCard id⟩
+  let swing : Action := ⟨.player player, .attackWeapon weapon⟩
+  let nonAttack ← cSteps ready [play action]
+  let noResources := ready.setPool player { actionPoints := 1 }
+  let trying ← cSteps noResources [swing]
+  let cancelled ← cSteps trying [⟨.player player, .cancelPlay⟩]
+  let queued ← cSteps ready [if weaponAttack then swing else play attack]
+  let stackAttack ← (queued.zone .stack).head?
+  let order := queued.pendingTriggers.map fun trigger =>
+    (⟨.player player, .pickTrigger trigger.id⟩ : Action)
+  let stacked ← cSteps queued (⟨.player player, .pickTriggerStart player⟩ :: order)
+  let triggered ← cSteps stacked ((List.replicate count passBoth).flatten)
+  let staleRemoved ← if weaponAttack then do
+    let (withoutWeapon, _) ← moveObj triggered weapon (.player player .graveyard) .top false
+    pure ((gspRun withoutWeapon).zone .stack).isEmpty
+  else some true
+  let defended ← cSteps triggered (passBoth ++ passBoth ++
+    [⟨.player opponent, .defendCard block⟩])
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let link ← active defended
+  let after ← cSteps defended ([⟨.player opponent, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth)
+  let closed ← cSteps after (passBoth ++
+    (if weaponAttack then [play attack] else [swing]))
+  let nextLayer ← (closed.zone .stack).head?
+  pure (card.status == .full && card.front.hasType .token && card.front.hasSubtype .aura &&
+    nonAttack.pendingTriggers.isEmpty && nonAttack.zone tokens == tokenIds &&
+    trying.pendingTriggers.isEmpty && trying.zone tokens == tokenIds &&
+    decide (cancelled = noResources) &&
+    queued.zone tokens == tokenIds && queued.pendingTriggers.length == count &&
+    queued.pendingTriggers.all (fun trigger => tokenIds.contains trigger.source) &&
+    (queued.pendingTriggers.map (·.id)).eraseDups.length == count &&
+    ((queued.layerMeta.get? stackAttack.n).map (·.attackKeywords)) == some [] &&
+    (stacked.zone .stack).length == count + 1 && stacked.zone tokens == tokenIds &&
+    triggered.zone tokens == [] && triggered.zone .stack == [stackAttack] &&
+    staleRemoved &&
+    ((triggered.layerMeta.get? stackAttack.n).map (·.attackKeywords)) == some [.goAgain] &&
+    linkHasKeyword defended link .goAgain &&
+    (active after).map (·.damageDealt) == some 0 &&
+    (after.poolOf player).actionPoints == 1 &&
+    closed.pendingTriggers.isEmpty &&
+    ((closed.layerMeta.get? nextLayer.n).map (·.attackKeywords)) == some [])
+
+#guard checkQuicken false 1 == some true
+#guard checkQuicken true 2 == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do

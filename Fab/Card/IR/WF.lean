@@ -50,6 +50,7 @@ def Condition.wfBool (numSlots : Nat) : Condition → Bool
 def ModScope.wfBool (numSlots : Nat) (env : List VarId) : ModScope → Bool
   | .self_ => true
   | .obj ref => ref.wfBool numSlots env
+  | .paidAttack _ => false
   | .nextCardPlayed _ => true
   | .nextAttack _ => true
   | .allAttacks _ => true

@@ -20,16 +20,17 @@ Proves **I12a** (strictly decreasing measure `gspMeasure` guaranteeing terminati
 
 namespace Fab
 
-/-- Whether `id` is a non-physical token or attack-proxy that cannot exist in a Non-Arena zone. -/
+/-- Whether `id` must be removed from a Non-Arena zone (CR 1.4.3c, 1.10.2). -/
 def isStrayNonPhys (s : GameState) (id : ObjId) : Bool :=
   match s.obj? id with
   | some o =>
     match o.kind with
-    | .token _ | .attackProxy _ _ => true
+    | .token _ => true
+    | .attackProxy source _ => s.locate id != some .stack || (s.obj? source).isNone
     | .card _ _ | .layer _ _ _ _ => false
   | none => false
 
-/-- All tokens and attack-proxies currently sitting in Non-Arena zones (CR 1.10.2). -/
+/-- Non-Arena tokens and stray attack-proxies (CR 1.4.3c, 1.10.2). -/
 def nonArenaNonPhys (s : GameState) : List ObjId :=
   ((allZones s.playerCount).filter fun z => !z.isArena).flatMap fun z =>
     (s.zone z).filter (isStrayNonPhys s)
