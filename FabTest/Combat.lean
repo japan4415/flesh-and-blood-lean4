@@ -257,6 +257,97 @@ meta def checkAncestralEmpowerment (fromArsenal : Bool) : Option Bool := do
 #guard checkAncestralEmpowerment false == some true
 #guard checkAncestralEmpowerment true == some true
 
+/-- Razor Reflex offers the mode for the current target and grants Go Again only on a card hit. -/
+meta def checkRazorReflex (cid : CardId) (pitch bonus : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 4 }
+  let card ← funded.cards.find? cid
+  let (withCheap, cheap) ← cPlace funded attacker .hand ⟨"WTR_203_R"⟩
+  let (withBoundary, boundary) ← cPlace withCheap attacker .hand ⟨"WTR_085_R"⟩
+  let (withExpensive, expensive) ← cPlace withBoundary attacker .hand ⟨"WTR_188_R"⟩
+  let (withDagger, dagger) ← cPlace withExpensive attacker .weapon ⟨"WTR_078"⟩
+  let (withSword, sword) ← cPlace withDagger attacker .weapon ⟨"WTR_115"⟩
+  let (withClub, club) ← cPlace withSword attacker .weapon ⟨"WTR_003"⟩
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let (withRazor, razor) ← cPlace withClub attacker origin cid fromArsenal
+  let (withFirst, block1) ← cPlace withRazor defender .hand ⟨"WTR_203_R"⟩
+  let (withSecond, block2) ← cPlace withFirst defender .hand ⟨"WTR_204_Y"⟩
+  let (ready, block3) ← cPlace withSecond defender .hand ⟨"WTR_205_B"⟩
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let attackWith id : Action := ⟨.player attacker, .attackWeapon id⟩
+  let defend id : Action := ⟨.player defender, .defendCard id⟩
+  let pick idx : Action := ⟨.player attacker, .pickMode idx⟩
+  let cancel : Action := ⟨.player attacker, .cancelPlay⟩
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let start a := cSteps ready (a :: (passBoth ++ passBoth))
+  let enter s := cSteps s (done :: passBoth)
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let choose (s : GameState) (idx : Nat) := do
+    let choosing ← cSteps s [play razor]
+    let cancelled ← cSteps choosing [cancel]
+    let link ← active s
+    let target ← link.attack
+    let (paid, events) ← (step 64 choosing (pick idx)).toOption
+    let layer ← (paid.zone .stack).head?
+    let applied ← cSteps paid passBoth
+    let legal := legalActionsFor attacker choosing
+    let rejected := (step 64 choosing (pick (1 - idx))).toOption.isNone
+    pure (applied, legal == [pick idx, cancel, ⟨.player attacker, .concede⟩] &&
+      rejected && decide (cancelled = s) &&
+      (choosing.poolOf attacker).resources == (s.poolOf attacker).resources &&
+      (paid.poolOf attacker).resources + 1 == (s.poolOf attacker).resources &&
+      (paid.poolOf attacker).actionPoints == 0 &&
+      events.contains (.targetedAttack layer target) &&
+      ((paid.layerMeta.get? layer.n).bind (·.attackTarget)) == some target)
+  let cheapDefense ← start (play cheap)
+  let cheapReaction ← enter cheapDefense
+  let blockedReaction ← cSteps cheapDefense ([defend block1, defend block2, defend block3, done] ++ passBoth)
+  let boundaryDefense ← start (play boundary)
+  let boundaryReaction ← enter boundaryDefense
+  let expensiveDefense ← start (play expensive)
+  let expensiveReaction ← enter expensiveDefense
+  let daggerDefense ← start (attackWith dagger)
+  let daggerReaction ← enter daggerDefense
+  let swordDefense ← start (attackWith sword)
+  let swordReaction ← enter swordDefense
+  let clubDefense ← start (attackWith club)
+  let clubReaction ← enter clubDefense
+  let (buffed, validCardMode) ← choose cheapReaction 1
+  let (blocked, validBlockedMode) ← choose blockedReaction 1
+  let (atBoundary, validBoundaryMode) ← choose boundaryReaction 1
+  let (withDaggerBonus, validDaggerMode) ← choose daggerReaction 0
+  let (withSwordBonus, validSwordMode) ← choose swordReaction 0
+  let hit ← cSteps buffed passBoth
+  let trigger ← hit.pendingTriggers.head?
+  let attacking ← active hit
+  let triggerResolved ← cSteps hit ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let granted ← active triggerResolved
+  let cardFinished ← cSteps triggerResolved passBoth
+  let blockedFinished ← cSteps blocked (passBoth ++ passBoth)
+  let daggerFinished ← cSteps withDaggerBonus (passBoth ++ passBoth)
+  let swordFinished ← cSteps withSwordBonus (passBoth ++ passBoth)
+  let denied (s : GameState) :=
+    !(legalActionsFor attacker s).contains (play razor) && (step 64 s (play razor)).toOption.isNone
+  let damage (s : GameState) := (active s).map (·.damageDealt)
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 2 &&
+    denied expensiveReaction && denied clubReaction &&
+    validCardMode && validBlockedMode && validBoundaryMode && validDaggerMode && validSwordMode &&
+    (active atBoundary).map (linkAttackPower atBoundary) == some (5 + bonus) &&
+    damage hit == some (4 + bonus) && some trigger.source == attacking.attack &&
+    !linkHasKeyword hit attacking .goAgain &&
+    linkHasKeyword triggerResolved granted .goAgain &&
+    (cardFinished.poolOf attacker).actionPoints == 1 &&
+    damage blockedFinished == some 0 && blockedFinished.pendingTriggers.isEmpty &&
+    damage daggerFinished == some (1 + bonus) && daggerFinished.pendingTriggers.isEmpty &&
+    damage swordFinished == some (3 + bonus) && swordFinished.pendingTriggers.isEmpty &&
+    [blockedFinished, daggerFinished, swordFinished].all (fun s => (s.poolOf attacker).actionPoints == 0))
+
+#guard checkRazorReflex ⟨"WTR_209_R"⟩ 1 3 false == some true
+#guard checkRazorReflex ⟨"WTR_209_R"⟩ 1 3 true == some true
+
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
 --    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!
