@@ -1176,20 +1176,21 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
               l.removeDefender id isAction
             ({ s1 with combat := cc' }, [.moved id id' .combatChain (.player o.owner .hand)], [])
       else (s, [], [])
-  | .searchDeck pref f maxCount dstRef reveal playable shuffleAfter =>
+  | .searchDeck pref f maxCount dstRef reveal playable shuffleAfter exactCost =>
     let target := evalPlayerRef s ctrl pref
+    let price := exactCost.map (fun expr => clampNonNeg (evalNumExpr s ctrl env expr (some src)))
     match zoneOfRef target dstRef with
     | none => (s, [], [])
     | some dstZ =>
       let matching := (s.zone (.player target .deck)).filter fun id =>
         match s.objectFace? id with
-        | some face => cardFaceMatches f face
+        | some face => cardFaceMatches f face && price.all (fun n => face.cost.any (·.resources == n))
         | none => false
       let limit := min (maxCount.getD matching.length) matching.length
       let choice : DeckSearchChoice :=
         { destination := dstZ
           reveal := reveal
-          mayFail := f != CardFilter.any
+          mayFail := f != CardFilter.any || price.isSome
           shuffleAfter := shuffleAfter
           playableDuration := playable }
       let follow := if maxCount == some 0 || (s.zone (.player target .deck)).isEmpty then
@@ -1463,7 +1464,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
                    GameState.OwnerOk.congr (moveObj_ownerOk hwf hok hm) rfl rfl,
                    hp, hmeta.1, hmeta.2⟩
       · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-  | searchDeck pref f maxCount dstRef _ _ _ =>
+  | searchDeck pref f maxCount dstRef _ _ _ _ =>
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
@@ -1718,7 +1719,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
             have h := moveObj_ttr_core hm
             exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
       · exact ⟨rfl, rfl, id⟩
-  | searchDeck pref f maxCount dstRef _ _ _ =>
+  | searchDeck pref f maxCount dstRef _ _ _ _ =>
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨rfl, rfl, id⟩

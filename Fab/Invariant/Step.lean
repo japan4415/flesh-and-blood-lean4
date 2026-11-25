@@ -1602,13 +1602,13 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
       cases actor <;> cases kind <;> simp [Actor.isPlayer, eq_comm]
       rename_i choice
       cases choice <;> simp
-    | chooseVariableResources p _ _ _ _ limit =>
-      cases actor <;> cases kind <;> simp [Actor.isPlayer]
+    | chooseVariableResources p _ _ _ _ limit optional =>
+      cases optional <;> cases actor <;> cases kind <;> simp [Actor.isPlayer]
       all_goals
         first
         | exact eq_comm
         | rename_i amount
-          cases amount <;> simp [Nat.lt_succ_iff] <;> grind
+          cases amount <;> simp [validVariableResources, Nat.lt_succ_iff] <;> grind
     | chooseGraveyardCost p _ _ _ _ candidates =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer]
       all_goals
@@ -2150,7 +2150,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
       split <;> simp_all
     | chooseOptionalPlayCost p _ _ _ _ _ =>
       cases actor <;> cases kind <;> simp_all
-    | chooseVariableResources p _ _ _ _ _ =>
+    | chooseVariableResources p _ _ _ _ _ _ =>
       cases actor <;> cases kind <;> simp at hlf ⊢
       all_goals first | exact hlf.symm | obtain ⟨rfl, h⟩ := hlf; simp [h]
     | chooseGraveyardCost p _ _ _ _ _ =>

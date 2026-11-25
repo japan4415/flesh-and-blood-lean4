@@ -93,9 +93,20 @@ def ARC_008_R : CardDef :=
     front := { Meta.ARC_008_R_meta.front with playRequirement := some (.boostedAtLeast 3) }
     status := .full }
 
+/-- Spark of Genius (ARC009). -/
+def ARC_009_Y : CardDef :=
+  { Meta.ARC_009_Y_meta with
+    front := { Meta.ARC_009_Y_meta.front with
+      playEffect := some {
+        body := .seqL
+          [ .prim (.searchDeck .controller { supertypes := [.class_ .mechanologist], subtypes := [.item] }
+                (some 1) .arena true none true (some .xValue))
+          , .ifThen (.boostedThisTurn 1) (.prim (.draw .controller (.const 1))) .nop ] } }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
-  [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B, ARC_008_R]
+  [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B, ARC_008_R, ARC_009_Y]
 
 end FabCards.ARC
 

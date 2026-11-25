@@ -93,6 +93,8 @@ def fmt_card_def(card: dict) -> str:
         fields.append(f"pitch := {fmt_opt_nat(card['pitch'])}")
     if card["cost"] is not None:
         fields.append(f"cost := {fmt_cost(card['cost'])}")
+    if card.get("variable_cost_factor"):
+        fields.append(f"xCostFactor := {card['variable_cost_factor']}")
     if card["power"] is not None:
         fields.append(f"power := {fmt_opt_int(card['power'])}")
     if card["defense"] is not None:

@@ -185,6 +185,11 @@ inductive OptionalPlayCost where
   | boost
 deriving DecidableEq, Repr
 
+/-- Check an X declaration. An optional cost can be declined without choosing a value. -/
+def validVariableResources (limit : Nat) (optional : Bool) : Option Nat → Bool
+  | none => optional
+  | some value => decide (value ≤ limit)
+
 /-- Continuation stack frame: either a decision frame waiting for `step`, or a work frame
 advanced automatically by `microStep` (design.md §6.2). -/
 inductive Frame where
@@ -233,9 +238,9 @@ inductive Frame where
   /-- Player decision: accept an optional additional cost or waive it (CR 5.1.5). -/
   | chooseOptionalPlayCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
       (modeIdx : Option Nat) (cost : AssetCost) (extra : OptionalPlayCost)
-  /-- Player decision: declare X for an optional additional cost (CR 5.1.3a). -/
+  /-- Player decision: declare X for a variable resource cost (CR 5.1.3a). -/
   | chooseVariableResources (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
-      (modeIdx : Option Nat) (cost : AssetCost) (limit : Nat)
+      (modeIdx : Option Nat) (cost : AssetCost) (limit : Nat) (optional : Bool := true)
   /-- Player decision: declare an optional banish cost before paying assets (CR 5.1.3, 5.1.6). -/
   | chooseGraveyardCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
       (modeIdx : Option Nat) (cost : AssetCost) (candidates : List ObjId)

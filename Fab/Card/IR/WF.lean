@@ -103,7 +103,9 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .putHandOnDeck p _ => p.wfBool numSlots
   | .putArsenalOnDeckBottom p => p.wfBool numSlots
   | .returnDefendingCardToHand _ | .returnChosenDefendingCard _ => true
-  | .searchDeck p _ _ _ _ _ _ | .shuffleZone p _ => p.wfBool numSlots
+  | .searchDeck p _ _ _ _ _ _ price =>
+    p.wfBool numSlots && price.all (·.wfBool numSlots env hasX)
+  | .shuffleZone p _ => p.wfBool numSlots
   | .shuffleZoneIntoDeck p _ _ _ _ => p.wfBool numSlots
   | .revealTopToArsenalIf p _ => p.wfBool numSlots
   | .addCounter o _ n | .removeCounter o _ n => o.wfBool numSlots env && n.wfBool numSlots env hasX
@@ -225,7 +227,7 @@ def CardFace.wfBool (f : CardFace) : Bool :=
   f.abilities.all Ability.wfBool &&
   match f.playEffect with
   | none => true
-  | some ed => ed.wfBool false
+  | some ed => ed.wfBool (f.xCostFactor > 0)
 
 /-- Static well-formedness check for a `CardDef` (front face and optional back/split faces). -/
 def CardDef.wfBool (c : CardDef) : Bool :=

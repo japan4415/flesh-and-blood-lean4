@@ -424,13 +424,10 @@ def nextActionSurcharge (s : GameState) (p : PlayerId) : Nat :=
     | .addCostRes n => if effect.isNextActionCostFor p then total + n else total
     | _ => total) 0
 
-/-- Apply the announcing player's first-action and next-attack cost modifiers (CR 5.1.7). -/
-def modifiedCardPlayCost (s : GameState) (p : PlayerId) (card : CardDef)
-    (additionalResources : Nat := 0) : AssetCost :=
-  let printed := cardPlayCost card
-  let base := { printed with resources := printed.resources + additionalResources }
+/-- Resource adjustments applying to the announced action (CR 5.1.7). -/
+def cardResourceAdjustment (s : GameState) (p : PlayerId) (card : CardDef) : Int :=
   if card.front.hasType .action then
-    let delta := s.activeEffects.foldl (fun total effect =>
+    s.activeEffects.foldl (fun total effect =>
       match effect.target with
       | .nextAttackCard filter =>
         if card.front.hasSubtype .attack && effect.controller == p &&
@@ -441,8 +438,14 @@ def modifiedCardPlayCost (s : GameState) (p : PlayerId) (card : CardDef)
           | _ => total
         else total
       | _ => total) (Int.ofNat (nextActionSurcharge s p))
-    { base with resources := clampNonNeg (Int.ofNat base.resources + delta) }
-  else base
+  else 0
+
+/-- Apply the announcing player's action and next-attack cost modifiers (CR 5.1.7). -/
+def modifiedCardPlayCost (s : GameState) (p : PlayerId) (card : CardDef)
+    (additionalResources : Nat := 0) : AssetCost :=
+  let printed := cardPlayCost card
+  let base := Int.ofNat (printed.resources + additionalResources)
+  { printed with resources := clampNonNeg (base + cardResourceAdjustment s p card) }
 
 /-- Number of play-time modes (`ModeSpec`s) declared on `c`'s `playEffect` (CR 5.1.2a). -/
 def cardModeCount (c : CardDef) : Nat :=
@@ -474,12 +477,28 @@ def playCostCondition (s : GameState) (p : PlayerId) (source : ObjId) (fromArsen
     (s.combat.bind CombatChain.activeLink?).any (fun link => link.attackLki.name == name)
   | condition => evalCondition s p source fromArsenal condition
 
-/-- Declare supported optional costs before asset payment (CR 5.1.3, 5.1.6). -/
+/-- Resource-equivalent assets available from pitching are private to the payer (CR 1.14.3). -/
+def potentialResourceEnergy (s : GameState) (p : PlayerId) : Nat :=
+  (pitchableCards s p).foldl (fun amount id => amount + ((s.objectFace? id).bind (·.pitch)).getD 0)
+    (s.poolOf p).totalEnergy
+
+/-- Bound the offered X choices by the energy available to pay the printed cost (CR 5.1.3a). -/
+def printedXLimit (s : GameState) (p : PlayerId) (card : CardDef) : Nat :=
+  let base := cardPlayCost card
+  let available := Int.ofNat (potentialResourceEnergy s p) - Int.ofNat (base.resources + base.chi)
+  (available - cardResourceAdjustment s p card).toNat / card.front.xCostFactor
+
+/-- Declare supported variable or additional costs before asset payment (CR 5.1.3, 5.1.6). -/
 def cardPaymentFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (cost : AssetCost) : Frame :=
-  let face : Option CardFace := (s.cardDefOf? layerId).map (·.front)
+  let card := s.cardDefOf? layerId
+  let face : Option CardFace := card.map (·.front)
   let playEffect : Option EffectDef := face.bind (·.playEffect)
-  if face.any (fun face => face.keywords.contains .boost) && !(s.zone (.player p .deck)).isEmpty then
+  let printedLimit := card.bind fun c =>
+    if c.front.xCostFactor > 0 then some (printedXLimit s p c) else none
+  if let some limit := printedLimit then
+    .chooseVariableResources p layerId fromArsenal modeIdx cost limit false
+  else if face.any (fun face => face.keywords.contains .boost) && !(s.zone (.player p .deck)).isEmpty then
     .chooseOptionalPlayCost p layerId fromArsenal modeIdx cost .boost
   else match playEffect with
   | some { extraCosts := [{ cost := .payResources extra, optional := true, cond := none }], .. } =>
@@ -593,11 +612,6 @@ def spendAssetCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Option Ga
   | some pool' => some (s.setPool p pool')
   | none => none
 
-/-- Resource-equivalent assets available from pitching are private to the payer (CR 1.14.3). -/
-def preventionEnergy (s : GameState) (p : PlayerId) : Nat :=
-  (pitchableCards s p).foldl (fun amount id => amount + ((s.objectFace? id).bind (·.pitch)).getD 0)
-    (s.poolOf p).totalEnergy
-
 /-- Resource cost of a paid prevention effect (CR 8.3.8). -/
 def preventionResourceCost (effect : ReplacementEffect) : Nat :=
   match effect.action with
@@ -622,7 +636,7 @@ def advanceArcaneDamage (s : GameState) (p : PlayerId) (effects : List Replaceme
     let publicChoices := effects.filter fun effect =>
       let energy := max (preventionResourceCost effect) (s.poolOf p).totalEnergy
       effect.eligible .prevention { damage with availResources := energy }
-    let energy := preventionEnergy s p
+    let energy := potentialResourceEnergy s p
     let available := publicChoices.filter fun e => decide (preventionResourceCost e ≤ energy)
     let prompt := Frame.chooseReplacement p .prevention (available.map (·.id)) (!available.any (·.isMandatory))
     let waiting := { s with pending := prompt :: .arcaneDamage p effects damage .readChoice :: rest }
@@ -1582,18 +1596,18 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       none
   | .chooseOptionalPlayCost p _ _ _ _ _ :: rest, .player q, .cancelPlay =>
     if p = q then some (rollbackPlay s rest, []) else none
-  | .chooseVariableResources p layerId fromArsenal modeIdx cost limit :: rest, .player q,
+  | .chooseVariableResources p layerId fromArsenal modeIdx cost limit optional :: rest, .player q,
       .pickVariableResources amount =>
-    if p = q ∧ amount.all (· ≤ limit) = true then
+    if p = q ∧ validVariableResources limit optional amount = true then
       let info := s.layerMeta.getD layerId.n { controller := p }
       let total := match amount, s.cardDefOf? layerId with
-        | some x, some card => modifiedCardPlayCost s p card x
+        | some x, some card => modifiedCardPlayCost s p card (x * max 1 card.front.xCostFactor)
         | _, _ => cost
       some ({ s with
         layerMeta := s.layerMeta.insert layerId.n { info with variableResources := amount }
         pending := .playPayCost p layerId fromArsenal modeIdx total :: rest }, [])
     else none
-  | .chooseVariableResources p _ _ _ _ _ :: rest, .player q, .cancelPlay =>
+  | .chooseVariableResources p _ _ _ _ _ _ :: rest, .player q, .cancelPlay =>
     if p = q then some (rollbackPlay s rest, []) else none
   | .chooseGraveyardCost p layerId fromArsenal modeIdx cost candidates :: rest, .player q,
       .pickGraveyardCost choice =>
