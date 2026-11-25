@@ -181,8 +181,8 @@ def barragingBeatdown (base : CardDef) (bonus : Int) : CardDef :=
 
 /-- Barraging Beatdown Red. -/
 def WTR_017_R : CardDef := { barragingBeatdown WTR_017_R_meta 4 with status := .full }
-/-- Barraging Beatdown Yellow (drafted IR). -/
-def WTR_018_Y : CardDef := barragingBeatdown WTR_018_Y_meta 3
+/-- Barraging Beatdown Yellow. -/
+def WTR_018_Y : CardDef := { barragingBeatdown WTR_018_Y_meta 3 with status := .full }
 /-- Barraging Beatdown Blue (drafted IR). -/
 def WTR_019_B : CardDef := barragingBeatdown WTR_019_B_meta 2
 
