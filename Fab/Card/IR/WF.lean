@@ -100,7 +100,7 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .putHandOnDeck p _ => p.wfBool numSlots
   | .putArsenalOnDeckBottom p => p.wfBool numSlots
   | .returnDefendingCardToHand _ => true
-  | .searchDeck p _ _ _ _ _ => p.wfBool numSlots
+  | .searchDeck p _ _ _ _ _ _ | .shuffleZone p _ => p.wfBool numSlots
   | .shuffleZoneIntoDeck p _ _ _ _ => p.wfBool numSlots
   | .revealTopToArsenalIf p _ => p.wfBool numSlots
   | .addCounter o _ n => o.wfBool numSlots env && n.wfBool numSlots env hasX
@@ -135,6 +135,8 @@ def Effect.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Effect →
     branches.wfBool numSlots env' hasX && cont.wfBool numSlots env' hasX
   | .bindRevealTopCount p _ _ bindVar cont =>
     p.wfBool numSlots && cont.wfBool numSlots (bindVar :: env) hasX
+  | .discardTopOfHand p _ ifMatches otherwise =>
+    p.wfBool numSlots && ifMatches.wfBool numSlots env hasX && otherwise.wfBool numSlots env hasX
   | .grant scope mod _ =>
     scope.wfBool numSlots env && mod.wfBool numSlots env hasX
   | .custom id _ => !id.val.isEmpty

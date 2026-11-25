@@ -4297,6 +4297,76 @@ meta def checkBucklingBlow (cid : CardId) (pitch power : Nat) : Option Bool := d
 #guard checkBucklingBlow ⟨"WTR_058_Y"⟩ 2 7 == some true
 #guard checkBucklingBlow ⟨"WTR_059_B"⟩ 3 6 == some true
 
+/-- Sand Sketched Plan searches without revealing and discards before shuffling the deck. -/
+meta def checkSandSketchedPlan : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_009_B"⟩
+  let highCid : CardId := ⟨"WTR_014_R"⟩
+  let lowCid : CardId := ⟨"WTR_015_Y"⟩
+  let hand := Zone.player player .hand
+  let deck := Zone.player player .deck
+  let grave := Zone.player player .graveyard
+  let card ← m5Base.cards.find? cid
+  let (withRhinar, rhinar) ← cPlace m5Base player .hero ⟨"WTR_001"⟩
+  let (withOpponent, opponentCard) ← cPlace withRhinar opponent .hand ⟨"WTR_203_R"⟩
+  let (bare, plan) ← cPlace withOpponent player .hand cid
+  let (withLow, low) ← cPlace bare player .hand lowCid
+  let (withBottom, bottom) ← cPlace withLow player .deck ⟨"WTR_205_B"⟩
+  let (withHigh, high) ← cPlace withBottom player .deck highCid
+  let (ready, top) ← cPlace withHigh player .deck ⟨"WTR_203_R"⟩
+  let play := ⟨.player player, .playCard plan⟩ :: passBoth
+  let choose (id : ObjId) : Action := ⟨.player player, .pickShuffleCard (some id)⟩
+  let done : Action := ⟨.player player, .pickShuffleCard none⟩
+  let shuffle (ids : List ObjId) : Action := ⟨.chance, .shuffleOrder ids⟩
+  let picking ← cSteps ready play
+  let chosen ← cSteps picking [choose high]
+  let (randomDiscard, searchEvents) ← (step 64 chosen done).toOption
+  let inHand ← (randomDiscard.zone hand).head?
+  let (highDiscard, discardEvents) ← (step 64 randomDiscard (shuffle [inHand, low])).toOption
+  let highInGrave ← (highDiscard.zone grave).head?
+  let lowDiscard ← cSteps randomDiscard [shuffle [low, inHand]]
+  let lowInGrave ← (lowDiscard.zone grave).head?
+  let reward ← cSteps highDiscard [shuffle [bottom, top]]
+  let trigger ← reward.pendingTriggers.head?
+  let intimidation ← cSteps reward ([⟨.player player, .pickTriggerStart player⟩,
+    ⟨.player player, .pickTrigger trigger.id (some opponent)⟩] ++ passBoth)
+  let noReward ← cSteps lowDiscard [shuffle [top, bottom]]
+  let empty ← cSteps bare play
+  let emptyDone ← cSteps empty [shuffle []]
+  let (emptyDeck, _) ← cPlace bare player .hand highCid
+  let discardedWithoutSearch ← cSteps emptyDeck play
+  let rewardedWithoutSearch ← cSteps discardedWithoutSearch [shuffle []]
+  let (withOne, only) ← cPlace bare player .deck highCid
+  let forcedDiscard ← cSteps withOne (play ++ [choose only, done])
+  let singleReward ← cSteps forcedDiscard [shuffle []]
+  pure (card.status == .full && card.front.pitch == some 3 && card.front.defense == some 3 &&
+    card.front.keywords.contains (.specialization "Rhinar") &&
+    (view player picking).selectionChoices.length == 3 && (view opponent picking).selectionChoices.isEmpty &&
+    (step 64 picking done).toOption.isNone &&
+    (randomDiscard.cardDefOf? inHand).map (·.id) == some highCid &&
+    searchEvents == [.moved high inHand deck hand] &&
+    randomDiscard.pending.head? == some (.chanceShuffle hand) && randomDiscard.zone deck == [top, bottom] &&
+    highDiscard.pending.head? == some (.chanceShuffle deck) && lowDiscard.pending.head? == some (.chanceShuffle deck) &&
+    discardEvents.contains (.discarded player highInGrave) &&
+    (highDiscard.cardDefOf? highInGrave).map (·.id) == some highCid &&
+    (lowDiscard.cardDefOf? lowInGrave).map (·.id) == some lowCid &&
+    (highDiscard.poolOf player).actionPoints == 0 && (lowDiscard.poolOf player).actionPoints == 0 &&
+    reward.zone deck == [bottom, top] && reward.zone hand == [low] &&
+    (reward.poolOf player).actionPoints == 2 && (noReward.poolOf player).actionPoints == 0 &&
+    noReward.zone hand == [inHand] && (reward.zone .stack).isEmpty &&
+    trigger.source == rhinar && noReward.pendingTriggers.isEmpty &&
+    reward.zone (.player opponent .hand) == [opponentCard] &&
+    intimidation.zone (.player opponent .hand) == [] &&
+    (intimidation.zone (.player opponent .banished)).length == 1 &&
+    empty.pending.head? == some (.chanceShuffle deck) && (emptyDone.poolOf player).actionPoints == 0 &&
+    discardedWithoutSearch.zone hand == [] && (discardedWithoutSearch.zone grave).length == 1 &&
+    (rewardedWithoutSearch.poolOf player).actionPoints == 2 &&
+    forcedDiscard.pending.head? == some (.chanceShuffle deck) && (forcedDiscard.zone grave).length == 1 &&
+    (singleReward.poolOf player).actionPoints == 2)
+
+#guard checkSandSketchedPlan == some true
+
 /-- Resolve Crippling Crush with different chance outcomes and with fewer than two cards. -/
 meta def checkCripplingCrush : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

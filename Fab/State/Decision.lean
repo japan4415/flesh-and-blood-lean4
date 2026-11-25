@@ -145,6 +145,8 @@ structure DeckSearchChoice where
   reveal : Bool
   /-- Whether the player may finish without selecting a card. -/
   mayFail : Bool
+  /-- Whether this particular search instruction ends with a shuffle. -/
+  shuffleAfter : Bool := true
 deriving DecidableEq, Repr
 
 /-- A filtered deck search may fail, while an unrestricted search must select a card if possible. -/

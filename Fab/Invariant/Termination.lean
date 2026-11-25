@@ -36,6 +36,7 @@ def effectSize : Effect → Nat
   | .chooseOne ms => 1 + effectListSize ms
   | .rollDie6 _ _ c => 1 + effectSize c
   | .bindRevealTopCount _ _ _ _ c => 1 + effectSize c
+  | .discardTopOfHand _ _ m n => 1 + max (effectSize m) (effectSize n)
   | .grant _ _ _ => 1
   | .custom _ _ => 1
 
@@ -106,7 +107,8 @@ theorem interpRunStep_pure_decreases (s : GameState) (ctrl : PlayerId) (src : Ob
   | custom _ _ =>
     refine ⟨_, [], more, rfl, rfl, ?_⟩
     simp [todoSize, effectSize]
-  | prim _ | may _ _ | chooseOne _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _ =>
+  | prim _ | may _ _ | chooseOne _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
+  | discardTopOfHand _ _ _ _ =>
     simp [Effect.isPureAuto] at hpure
 
 /-- **I12b** (`bindRevealTopCount` strict decrease): splitting `bindRevealTopCount` into two
@@ -115,6 +117,13 @@ theorem interpRunStep_bindReveal_decreases (pref : PlayerRef) (n : Nat) (f : Car
     (v : VarId) (cont : Effect) (more : List Effect) :
     todoSize [cont] + todoSize more < todoSize (.bindRevealTopCount pref n f v cont :: more) := by
   simp [todoSize, effectSize]
+
+/-- Executing either branch of a discard decreases the remaining effect size (I12). -/
+theorem interpRunStep_discardTop_decreases (p : PlayerRef) (f : CardFilter)
+    (matched : Bool) (ifMatches otherwise : Effect) (more : List Effect) :
+    todoSize ((if matched then ifMatches else otherwise) :: more) <
+      todoSize (.discardTopOfHand p f ifMatches otherwise :: more) := by
+  cases matched <;> simp [todoSize, effectSize] <;> omega
 
 /-- **I12b** (interactive IR combinators halt automatic work in 1 step):
 `Effect.may` and `Effect.rollDie6` immediately place a non-work decision frame on top of `pending`,

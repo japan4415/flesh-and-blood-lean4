@@ -1184,7 +1184,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
             let cc' := s1.combat.map fun cc => cc.updateActiveLink fun l =>
               { l with defending := l.defending.filter (· != did) }
             ({ s1 with combat := cc' }, [.moved did id' .combatChain (.player o.owner .hand)], [])
-  | .searchDeck pref f maxCount dstRef reveal _ =>
+  | .searchDeck pref f maxCount dstRef reveal _ shuffleAfter =>
     let target := evalPlayerRef s ctrl pref
     match zoneOfRef target dstRef with
     | none => (s, [], [])
@@ -1195,9 +1195,12 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         | none => false
       let limit := min (maxCount.getD matching.length) matching.length
       let follow := if maxCount == some 0 || (s.zone (.player target .deck)).isEmpty then
-          [.chanceShuffle (.player target .deck)]
-        else [.chooseShuffleCards target limit matching [] false (some ⟨dstZ, reveal, f != CardFilter.any⟩)]
+          if shuffleAfter then [.chanceShuffle (.player target .deck)] else []
+        else [.chooseShuffleCards target limit matching [] false
+          (some ⟨dstZ, reveal, f != CardFilter.any, shuffleAfter⟩)]
       (s, [], follow)
+  | .shuffleZone pref ref =>
+    (s, [], ((zoneOfRef (evalPlayerRef s ctrl pref) ref).map Frame.chanceShuffle).toList)
   | .shuffleZoneIntoDeck pref srcRef f maxCount drawSame =>
     let target := evalPlayerRef s ctrl pref
     match zoneOfRef target srcRef with
@@ -1440,11 +1443,12 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
             exact ⟨GameState.WF.congr (moveObj_wf hwf hm) rfl rfl rfl rfl,
                    GameState.OwnerOk.congr (moveObj_ownerOk hwf hok hm) rfl rfl,
                    hp, hmeta.1, hmeta.2⟩
-  | searchDeck pref f maxCount dstRef _ _ =>
+  | searchDeck pref f maxCount dstRef _ _ _ =>
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     | some _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | shuffleZone _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | shuffleZoneIntoDeck pref srcRef f maxCount drawSame =>
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) srcRef with
@@ -1683,11 +1687,12 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
           | some _ =>
             have h := moveObj_ttr_core hm
             exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
-  | searchDeck pref f maxCount dstRef _ _ =>
+  | searchDeck pref f maxCount dstRef _ _ _ =>
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨rfl, rfl, id⟩
     | some _ => exact ⟨rfl, rfl, id⟩
+  | shuffleZone _ _ => exact ⟨rfl, rfl, id⟩
   | shuffleZoneIntoDeck pref srcRef f maxCount _ =>
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) srcRef with
@@ -1947,6 +1952,14 @@ def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     ({ s with
         pending := .run ctrl src fromArsenal ((bindVar, Int.ofNat matched) :: env) [cont] ::
           .run ctrl src fromArsenal env more :: rest }, revealed)
+  | .discardTopOfHand pref filter ifMatches otherwise :: more =>
+    let player := evalPlayerRef s ctrl pref
+    let (discarded, events) := discardManyObjs s player ((s.zone (.player player .hand)).take 1)
+    let matched := events.any fun
+      | .discarded _ id => (discarded.objectFace? id).any (cardFaceMatches filter)
+      | _ => false
+    let next := if matched then ifMatches else otherwise
+    ({ discarded with pending := .run ctrl src fromArsenal env (next :: more) :: rest }, events)
   | .grant scope mod dur :: more =>
     let s1 := applyChainLinkMod s ctrl src env scope mod dur
     ({ s1 with pending := .run ctrl src fromArsenal env more :: rest }, [])
@@ -1965,6 +1978,8 @@ theorem interpRunStep_wf {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : 
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact GameState.WF.congr hwf rfl rfl rfl rfl
+    | discardTopOfHand pref _ _ _ =>
+      exact GameState.WF.congr (discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok).1 rfl rfl rfl rfl
     | grant scope mod dur =>
       have hf := applyChainLinkMod_fields s ctrl src env scope mod dur
       exact GameState.WF.congr hwf hf.1 hf.2.1 hf.2.2.1 hf.2.2.2.1
@@ -1987,6 +2002,8 @@ theorem interpRunStep_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact GameState.OwnerOk.congr hok rfl rfl
+    | discardTopOfHand pref _ _ _ =>
+      exact GameState.OwnerOk.congr (discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok).2.1 rfl rfl
     | grant scope mod dur =>
       have hf := applyChainLinkMod_fields s ctrl src env scope mod dur
       exact GameState.OwnerOk.congr hok hf.2.1 hf.2.2.1
@@ -2010,6 +2027,8 @@ theorem interpRunStep_physIds {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact List.Perm.refl _
+    | discardTopOfHand pref _ _ _ =>
+      exact (discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok).2.2.1
     | grant scope mod dur =>
       have hf := applyChainLinkMod_fields s ctrl src env scope mod dur
       have hp : (interpRunStep s ctrl src fromArsenal env (.grant scope mod dur :: more) rest).1.physIds =
@@ -2037,6 +2056,8 @@ theorem interpRunStep_meta {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl 
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact ⟨rfl, rfl⟩
+    | discardTopOfHand pref _ _ _ =>
+      exact (discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok).2.2.2
     | grant scope mod dur =>
       have hf := applyChainLinkMod_fields s ctrl src env scope mod dur
       exact ⟨hf.1, hf.2.2.2.2⟩
