@@ -428,11 +428,11 @@ def WTR_078 : CardDef :=
           (.grantKeyword .goAgain) ]
     with status := .full }
 
-/-- Mask of Momentum (drafted IR). -/
+/-- Mask of Momentum. -/
 def WTR_079 : CardDef :=
-  draftCard WTR_079_meta
-    [ .triggered (.onConsecutiveHitLink 3) true none none
-        { body := .prim (.draw .controller (.const 1)) } ]
+  { draftCard WTR_079_meta
+      [ .triggered (.onConsecutiveHitLink 3) true none none
+          { body := .prim (.draw .controller (.const 1)) } ] with status := .full }
 
 /-- Breaking Scales (drafted IR). -/
 def WTR_080 : CardDef :=

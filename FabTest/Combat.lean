@@ -1410,6 +1410,68 @@ meta def checkRhinar (cid : CardId) (life : Nat) : Option Bool := do
 
 #guard checkRhinar ⟨"WTR_002"⟩ 20 == some true
 
+/-- Mask of Momentum cares about the current hit streak, the hitting card, and its own use limit. -/
+meta def checkMaskOfMomentum : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_079"⟩
+  let card ← m5Base.cards.find? cid
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 1 }
+  let (equipped, mask) ← cPlace funded attacker .head cid
+  let (withWeapon, weapon) ← cPlace equipped attacker .weapon ⟨"WTR_078"⟩
+  let (withPitch, _) ← cPlace withWeapon attacker .pitch ⟨"WTR_203_R"⟩
+  let (withFirst, first) ← cPlace withPitch attacker .hand ⟨"WTR_098_R"⟩
+  let (withSecond, second) ← cPlace withFirst attacker .hand ⟨"WTR_098_R"⟩
+  let (withThird, third) ← cPlace withSecond attacker .hand ⟨"WTR_098_R"⟩
+  let (withFourth, fourth) ← cPlace withThird attacker .hand ⟨"WTR_098_R"⟩
+  let (withDeck, top) ← cPlace withFourth attacker .deck ⟨"WTR_203_R"⟩
+  let (ready, block) ← cPlace withDeck defender .hand ⟨"WTR_203_R"⟩
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let swing : Action := ⟨.player attacker, .attackWeapon weapon⟩
+  let enter (s : GameState) (a : Action) := cSteps s (a :: (passBoth ++ passBoth))
+  let toDamage := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth
+  let firstDefend ← enter ready (play first)
+  let firstHit ← cSteps firstDefend (toDamage ++ passBoth)
+  let secondDefend ← enter firstHit (play second)
+  let secondHit ← cSteps secondDefend (toDamage ++ passBoth)
+  let secondMiss ← cSteps secondDefend
+    ([⟨.player defender, .defendCard block⟩] ++ toDamage ++ passBoth)
+  let afterMiss ← enter secondMiss (play third)
+  let brokenStreak ← cSteps afterMiss (toDamage ++ passBoth)
+  let thirdDefend ← enter secondHit (play third)
+  let thirdHit ← cSteps thirdDefend toDamage
+  let trigger ← thirdHit.pendingTriggers.head?
+  let drawn ← cSteps thirdHit ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let resumable ← cSteps drawn passBoth
+  let fourthDefend ← enter resumable (play fourth)
+  let fourthHit ← cSteps fourthDefend (toDamage ++ passBoth)
+  let weaponDefend ← enter secondHit swing
+  let weaponHit ← cSteps weaponDefend (toDamage ++ passBoth)
+  let mixedDefend ← enter weaponHit (play fourth)
+  let mixedHit ← cSteps mixedDefend toDamage
+  let mixedTrigger ← mixedHit.pendingTriggers.head?
+  let closed ← cSteps secondHit passBoth
+  let newDefend ← enter closed (play third)
+  let newChain ← cSteps newDefend (toDamage ++ passBoth)
+  let (otherSide, otherMask) ← cPlace funded defender .head cid
+  let (wearReady, wearAttack) ← cPlace otherSide attacker .hand ⟨"WTR_203_R"⟩
+  let wearDefend ← enter wearReady (play wearAttack)
+  let worn ← cSteps wearDefend ([⟨.player defender, .defendCard otherMask⟩] ++
+    toDamage ++ passBoth ++ passBoth)
+  let wornCard ← (worn.zone (.player defender .graveyard)).head?
+  pure (card.status == .full && card.front.defense == some 2 && card.front.keywords.contains .bladeBreak &&
+    [firstHit, secondHit, brokenStreak, weaponHit, newChain].all
+      (fun s => s.pendingTriggers.isEmpty && s.triggeredThisTurn.isEmpty && s.zone (.player attacker .deck) == [top]) &&
+    thirdHit.pendingTriggers.length == 1 && trigger.source == mask &&
+    thirdHit.zone (.player attacker .deck) == [top] && drawn.zone (.player attacker .deck) == [] &&
+    (drawn.zone (.player attacker .hand)).length == 2 &&
+    fourthHit.pendingTriggers.isEmpty && fourthHit.triggeredThisTurn == [(mask, 0)] &&
+    mixedHit.pendingTriggers.length == 1 && mixedTrigger.source == mask &&
+    worn.zone (.player defender .head) == [] && (worn.cardDefOf? wornCard).map (·.id) == some cid)
+
+#guard checkMaskOfMomentum == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
