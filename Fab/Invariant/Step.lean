@@ -1661,7 +1661,7 @@ theorem moveObj_isSome {s : GameState} (hwf : s.WF) {id : ObjId} {src dst : Zone
 
 private theorem activationPlan_source {s : GameState} {p : PlayerId} {source : ObjId}
     {index : Nat} {plan : ActivationPlan} (h : activationPlan? s p source index = some plan) :
-    plan.origin ∈ installedArenaZones s ∧ source ∈ s.zone plan.origin ∧
+    plan.origin ∈ activationArenaZones s ∧ source ∈ s.zone plan.origin ∧
       ∃ obj, s.obj? source = some obj ∧ obj.owner = plan.owner ∧ obj.owner.n < s.playerCount := by
   unfold activationPlan? at h
   obtain ⟨origin, hfind, h⟩ := Option.bind_eq_some_iff.mp h
@@ -1687,7 +1687,10 @@ private theorem startActivation_isSome {s : GameState} {p : PlayerId} {source : 
   have hhas : (activationPlan? s p source index).isSome = true := (List.mem_filter.mp h).2
   obtain ⟨plan, hplan⟩ := Option.isSome_iff_exists.mp hhas
   obtain ⟨hzone, hmem, obj, hobj, howner, hlt⟩ := activationPlan_source hplan
-  have horigin := List.mem_filter.mp hzone
+  have horigin : plan.origin.Valid s.playerCount := by
+    rcases List.mem_cons.mp hzone with heq | hinstalled
+    · rw [heq]; exact Zone.valid_combatChain s.playerCount
+    · exact (List.mem_filter.mp hinstalled).1
   have hpay : (payActivationSource (s.setPool p plan.pool) source plan).isSome = true := by
     unfold payActivationSource
     split
@@ -1696,7 +1699,7 @@ private theorem startActivation_isSome {s : GameState} {p : PlayerId} {source : 
           (.player plan.owner .graveyard) .top false).isSome = true := by
         have hwfp : (s.setPool p plan.pool).WF := GameState.WF.congr hwf rfl rfl rfl rfl
         apply moveObj_isSome (s := s.setPool p plan.pool) (id := source) (src := plan.origin)
-          hwfp horigin.1 hmem
+          hwfp horigin hmem
         intro o ho
         change s.obj? source = some o at ho
         rw [hobj] at ho
@@ -1704,8 +1707,8 @@ private theorem startActivation_isSome {s : GameState} {p : PlayerId} {source : 
         refine ⟨Zone.valid_player hlt .graveyard, ?_⟩
         intro heq
         change plan.origin = .player obj.owner .graveyard at heq
-        rw [heq] at horigin
-        simp [ZoneKind.isArena] at horigin
+        rw [heq] at hzone
+        simp [activationArenaZones, installedArenaZones, ZoneKind.isArena] at hzone
       obtain ⟨⟨paid, spent⟩, hm⟩ := Option.isSome_iff_exists.mp hmove
       exact Option.isSome_iff_exists.mpr ⟨_, Option.bind_eq_some_iff.mpr ⟨_, hm, rfl⟩⟩
   obtain ⟨⟨paid, events⟩, hp⟩ := Option.isSome_iff_exists.mp hpay

@@ -1727,6 +1727,52 @@ meta def checkGoliathGauntlet : Option Bool := do
 
 #guard checkGoliathGauntlet == some true
 
+/-- Barkbone Strapping can be spent in a reaction window, including while defending. -/
+meta def checkBarkboneStrapping (roll : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_005"⟩
+  let chest := Zone.player defender .chest
+  let grave := Zone.player defender .graveyard
+  let card ← m5Base.cards.find? cid
+  let (equipped, source) ← cPlace m5Base defender .chest cid
+  let (ready, attack) ← cPlace equipped attacker .hand ⟨"WTR_203_R"⟩
+  let defending ← cSteps ready
+    (⟨.player attacker, .playCard attack⟩ :: (passBoth ++ passBoth))
+  let block : Action := ⟨.player defender, .defendCard source⟩
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let activate : Action := ⟨.player defender, .activateAbility source 0⟩
+  let attackerPass : Action := ⟨.player attacker, .pass⟩
+  let fromSlot ← cSteps defending [done, attackerPass]
+  let onChain ← cSteps defending [block, done, attackerPass]
+  let (paidSlot, slotEvents) ← (step 64 fromSlot activate).toOption
+  let (paidChain, chainEvents) ← (step 64 onChain activate).toOption
+  let slotSpent ← (paidSlot.zone grave).head?
+  let chainSpent ← (paidChain.zone grave).head?
+  let rolling ← cSteps paidChain passBoth.reverse
+  let (resolved, _) ← (step 64 rolling ⟨.chance, .die6Roll roll⟩).toOption
+  let hit ← cSteps resolved (passBoth ++ passBoth)
+  let worn ← cSteps defending ([block, done] ++ passBoth ++ passBoth ++ passBoth ++ passBoth)
+  pure (card.status == .full && card.front.defense == some 1 && card.front.keywords.contains .battleworn &&
+    (step 64 defending activate).toOption.isNone &&
+    (legalActionsFor defender fromSlot).contains activate &&
+    (legalActionsFor defender onChain).contains activate &&
+    slotEvents.contains (.moved source slotSpent chest grave) &&
+    chainEvents.contains (.moved source chainSpent .combatChain grave) &&
+    (paidSlot.cardDefOf? slotSpent).map (·.id) == some cid &&
+    (paidChain.cardDefOf? chainSpent).map (·.id) == some cid &&
+    paidSlot.zone chest == [] && paidChain.zone chest == [] &&
+    !(paidChain.zone .combatChain).contains source && (paidChain.zone .stack).length == 1 &&
+    (paidChain.poolOf defender).resources == 0 && (rolling.poolOf defender).resources == 0 &&
+    (resolved.poolOf defender).resources == roll / 2 && (resolved.poolOf defender).actionPoints == 0 &&
+    (step 64 rolling ⟨.chance, .die6Roll 0⟩).toOption.isNone &&
+    (step 64 rolling ⟨.chance, .die6Roll 7⟩).toOption.isNone &&
+    hit.lifeOf defender == 36 && worn.lifeOf defender == 37 && worn.zone chest == [source] &&
+    (worn.obj? source).map (·.minusDefenseCounters) == some 1 &&
+    objEffectiveDefense worn source == some 0)
+
+#guard [1, 2, 3, 4, 5, 6].all (fun roll => checkBarkboneStrapping roll == some true)
+
 /-- Scabskin Leathers spends an AP, rounds the die down, and resets its limit next turn. -/
 meta def checkScabskinLeathers (roll : Nat) : Option Bool := do
   let player : PlayerId := ⟨0⟩

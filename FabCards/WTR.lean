@@ -92,11 +92,12 @@ def WTR_004 : CardDef :=
       [ .activated .action true { actionPoints := 1 } [] none false
           { body := .rollDie6 ⟨0⟩ .nil (.prim (.gainAP .controller (.halfRoundDown ⟨0⟩))) } ] with status := .full }
 
-/-- Barkbone Strapping (drafted IR). -/
+/-- Barkbone Strapping. -/
 def WTR_005 : CardDef :=
-  draftCard WTR_005_meta
-    [ .activated .instant false {} [{ cost := .destroySelf }] none false
-        { body := .rollDie6 ⟨0⟩ .nil (.prim (.gainResource .controller (.halfRoundDown ⟨0⟩))) } ]
+  { draftCard WTR_005_meta
+      [ .activated .instant false {} [{ cost := .destroySelf }] none false
+          { body := .rollDie6 ⟨0⟩ .nil (.prim (.gainResource .controller (.halfRoundDown ⟨0⟩))) } ]
+    with status := .full }
 
 /-- Intimidate a hero chosen when the attack trigger is stacked (CR 7.2.3, 8.5.10b). -/
 def intimidateOnAttack : Ability :=
