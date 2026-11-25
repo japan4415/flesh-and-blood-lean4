@@ -166,6 +166,14 @@ deriving DecidableEq, Repr
 def shuffleSelectionCanConfirm (selected : List ObjId) (search : Option DeckSearchChoice) : Bool :=
   search.all (fun choice => choice.mayFail || !selected.isEmpty)
 
+/-- Optional additional payment offered when declaring a card (CR 5.1.3, 8.3.9). -/
+inductive OptionalPlayCost where
+  /-- Add this number of resources to the announced asset cost. -/
+  | resources (n : Nat)
+  /-- Banish the top card of the deck after paying the assets. -/
+  | boost
+deriving DecidableEq, Repr
+
 /-- Continuation stack frame: either a decision frame waiting for `step`, or a work frame
 advanced automatically by `microStep` (design.md §6.2). -/
 inductive Frame where
@@ -211,9 +219,9 @@ inductive Frame where
   /-- Player decision: pitch a card from hand while paying `cost`, or cancel play (CR 1.14.3, 5.1.6). -/
   | choosePitch (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
       (cost : AssetCost)
-  /-- Player decision: accept an optional additional resource cost or waive it (CR 5.1.5). -/
-  | chooseOptionalResources (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
-      (modeIdx : Option Nat) (cost : AssetCost) (extra : Nat)
+  /-- Player decision: accept an optional additional cost or waive it (CR 5.1.5). -/
+  | chooseOptionalPlayCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
+      (modeIdx : Option Nat) (cost : AssetCost) (extra : OptionalPlayCost)
   /-- Player decision: declare X for an optional additional cost (CR 5.1.3a). -/
   | chooseVariableResources (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
       (modeIdx : Option Nat) (cost : AssetCost) (limit : Nat)

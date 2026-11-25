@@ -44,8 +44,18 @@ def ARC_003 : CardDef :=
                 (.prim (.addCounter .self_ .steam (.const 1))) .nop } ] }
     status := .full }
 
+/-- Teklo Foundry Heart (ARC004). -/
+def ARC_004 : CardDef :=
+  { Meta.ARC_004_meta with
+    front := { Meta.ARC_004_meta.front with
+      abilities :=
+        [ .activated .action true { actionPoints := 1, resources := 1 } [] (some (.boostedThisTurn 1)) true
+            { body := .bindBanishTopCount .controller 2 { supertypes := [.class_ .mechanologist] } ⟨0⟩
+                (.prim (.gainResource .controller (.varVal ⟨0⟩))) } ] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
-def arcCards : List CardDef := [ARC_000_B, ARC_001, ARC_002, ARC_003]
+def arcCards : List CardDef := [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004]
 
 end FabCards.ARC
 

@@ -92,7 +92,7 @@ def legalFrameActions (s : GameState) : List Action :=
   | .choosePitch p _ _ _ _ :: _ =>
     ((pitchableCards s p).map fun id => ⟨.player p, .pitchCard id⟩) ++
       [⟨.player p, .cancelPlay⟩]
-  | .chooseOptionalResources p _ _ _ _ _ :: _ =>
+  | .chooseOptionalPlayCost p _ _ _ _ _ :: _ =>
     [⟨.player p, .pickMay true⟩, ⟨.player p, .pickMay false⟩, ⟨.player p, .cancelPlay⟩]
   | .chooseVariableResources p _ _ _ _ limit :: _ =>
     [⟨.player p, .pickVariableResources none⟩, ⟨.player p, .cancelPlay⟩] ++

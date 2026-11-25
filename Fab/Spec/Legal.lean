@@ -59,8 +59,8 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     q = p ∧ canPitchCard s p id = true
   | .choosePitch p _ _ _ _ :: _, .player q, .cancelPlay =>
     q = p
-  | .chooseOptionalResources p _ _ _ _ _ :: _, .player q, .pickMay _
-  | .chooseOptionalResources p _ _ _ _ _ :: _, .player q, .cancelPlay =>
+  | .chooseOptionalPlayCost p _ _ _ _ _ :: _, .player q, .pickMay _
+  | .chooseOptionalPlayCost p _ _ _ _ _ :: _, .player q, .cancelPlay =>
     q = p
   | .chooseVariableResources p _ _ _ _ limit :: _, .player q, .pickVariableResources amount =>
     q = p ∧ amount.all (· ≤ limit) = true

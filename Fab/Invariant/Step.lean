@@ -291,6 +291,18 @@ private theorem payActivationSource_preserves {s paid : GameState}
     cases h
     exact moveObj_preserves hwf hok hrb hm
 
+private theorem finishBoostedPlay_preserves {s s' : GameState} {p : PlayerId} {layerId : ObjId}
+    {fromArsenal : Bool} {modeIdx : Option Nat} {rest : List Frame} {es : List Event}
+    (hwf : s.WF) (hok : s.OwnerOk)
+    (h : finishBoostedPlay s p layerId fromArsenal modeIdx rest = (s', es)) :
+    StepPreserves s s' := by
+  have heq : (finishBoostedPlay s p layerId fromArsenal modeIdx rest).1 = s' := congrArg Prod.fst h
+  subst s'
+  have hb := applyBoost_inv hwf hok p false
+  exact ⟨GameState.WF.congr hb.1 rfl rfl rfl rfl,
+    GameState.OwnerOk.congr hb.2.1 rfl rfl, GameState.RollbackOk.of_none rfl,
+    hb.2.2.1, hb.2.2.2.1⟩
+
 private theorem finishPaidActivation_preserves {s s' : GameState} {p : PlayerId}
     {layerId : ObjId} {payment : ActivationPayment} {rest : List Frame} {es : List Event}
     (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
@@ -552,12 +564,12 @@ theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       exact rollbackPlay_preserves hwf hok hrb _
     · cases h
-  · -- chooseOptionalResources pickMay
+  · -- chooseOptionalPlayCost pickMay
     split at h
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
     · cases h
-  · -- chooseOptionalResources cancelPlay
+  · -- chooseOptionalPlayCost cancelPlay
     split at h
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       exact rollbackPlay_preserves hwf hok hrb _
@@ -854,42 +866,44 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
       obtain ⟨hp1, _⟩ := spendAssetCost_preserves hwf hok hrb hspend
       dsimp only at h
       split at h
-      · split at h
-        · rename_i _ hfinish
-          cases h
-          exact hp1.trans (finishPaidActivation_preserves hp1.wf hp1.ownerOk hp1.rollbackOk hfinish)
-        · cases h
-          exact rollbackPlay_preserves hwf hok hrb _
+      · exact hp1.trans (finishBoostedPlay_preserves hp1.wf hp1.ownerOk (Option.some.inj h))
       · split at h
         · split at h
-          · split at h
-            · rename_i moved id hm
-              cases h
-              have hmove := moveObj_preserves hp1.wf hp1.ownerOk hp1.rollbackOk hm
-              exact hp1.trans ⟨GameState.WF.congr hmove.wf rfl rfl rfl rfl,
-                GameState.OwnerOk.congr hmove.ownerOk rfl rfl,
-                GameState.RollbackOk.of_none rfl, hmove.physIds, hmove.config⟩
-            · cases h
-              exact rollbackPlay_preserves hwf hok hrb _
+          · rename_i _ hfinish
+            cases h
+            exact hp1.trans (finishPaidActivation_preserves hp1.wf hp1.ownerOk hp1.rollbackOk hfinish)
           · cases h
             exact rollbackPlay_preserves hwf hok hrb _
         · split at h
           · split at h
-            · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-              exact hp1.trans (sameBoard_preserves hp1.wf hp1.ownerOk hp1.rollbackOk rfl rfl rfl rfl rfl)
-            · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+            · split at h
+              · rename_i moved id hm
+                cases h
+                have hmove := moveObj_preserves hp1.wf hp1.ownerOk hp1.rollbackOk hm
+                exact hp1.trans ⟨GameState.WF.congr hmove.wf rfl rfl rfl rfl,
+                  GameState.OwnerOk.congr hmove.ownerOk rfl rfl,
+                  GameState.RollbackOk.of_none rfl, hmove.physIds, hmove.config⟩
+              · cases h
+                exact rollbackPlay_preserves hwf hok hrb _
+            · cases h
               exact rollbackPlay_preserves hwf hok hrb _
           · split at h
-            · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-              exact ⟨GameState.WF.congr hp1.wf rfl rfl rfl rfl,
-                     GameState.OwnerOk.congr hp1.ownerOk rfl rfl,
-                     GameState.RollbackOk.of_none rfl,
-                     hp1.physIds, hp1.config⟩
             · split at h
               · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
                 exact hp1.trans (sameBoard_preserves hp1.wf hp1.ownerOk hp1.rollbackOk rfl rfl rfl rfl rfl)
               · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
                 exact rollbackPlay_preserves hwf hok hrb _
+            · split at h
+              · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+                exact ⟨GameState.WF.congr hp1.wf rfl rfl rfl rfl,
+                       GameState.OwnerOk.congr hp1.ownerOk rfl rfl,
+                       GameState.RollbackOk.of_none rfl,
+                       hp1.physIds, hp1.config⟩
+              · split at h
+                · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+                  exact hp1.trans (sameBoard_preserves hp1.wf hp1.ownerOk hp1.rollbackOk rfl rfl rfl rfl rfl)
+                · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+                  exact rollbackPlay_preserves hwf hok hrb _
     · split at h
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
@@ -1522,7 +1536,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
-    | chooseOptionalResources p _ _ _ _ _ =>
+    | chooseOptionalPlayCost p _ _ _ _ _ =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer, eq_comm]
       rename_i choice
       cases choice <;> simp
@@ -2065,7 +2079,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
-    | chooseOptionalResources p _ _ _ _ _ =>
+    | chooseOptionalPlayCost p _ _ _ _ _ =>
       cases actor <;> cases kind <;> simp_all
     | chooseVariableResources p _ _ _ _ _ =>
       cases actor <;> cases kind <;> simp at hlf ⊢
@@ -2389,16 +2403,18 @@ theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
     dsimp only
     split
     · split
-      · split <;> rfl
+      · rfl
       · split
+        · split <;> rfl
         · split
-          · split <;> rfl
-          · rfl
-        · split
-          · split <;> rfl
           · split
-            · rfl
             · split <;> rfl
+            · rfl
+          · split
+            · split <;> rfl
+            · split
+              · rfl
+              · split <;> rfl
     · split <;> rfl
   | payRandomDiscard _ _ _ _ _ => rfl
   | resolveStack =>

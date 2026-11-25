@@ -69,6 +69,8 @@ structure LayerInfo where
   activationPayment : Option ActivationPayment := none
   /-- Whether to include the optional resources when paying for this layer (CR 5.1.5). -/
   payAdditionalResources : Bool := false
+  /-- The layer's controller chose to pay its boost cost (CR 8.3.9). -/
+  boostChosen : Bool := false
   /-- Declared X for the selected variable additional cost (including X = 0). -/
   variableResources : Option Nat := none
   /-- Selected graveyard card, held until the play pays its assets (CR 5.1.6, 5.1.9). -/
@@ -130,6 +132,8 @@ structure BoardSnapshot where
   activeReplacements : List ReplacementEffect := []
   /-- Saved players who charged their hero's soul this turn. -/
   chargedThisTurn : List PlayerId := []
+  /-- Controllers who paid a boost cost this turn, with one entry per cost (CR 8.3.9). -/
+  boostsThisTurn : List PlayerId := []
   /-- Saved players who banished a 6+ power card this turn. -/
   banishedSixPowerThisTurn : List PlayerId := []
   /-- Saved once-per-turn activated ability usages `(objId, abilityIdx)`. -/
@@ -198,6 +202,8 @@ structure GameState where
   activeReplacements : List ReplacementEffect := []
   /-- Players who have charged their hero's soul this turn (CR 8.5). -/
   chargedThisTurn : List PlayerId := []
+  /-- Controllers who paid a boost cost this turn, with one entry per cost (CR 8.3.9). -/
+  boostsThisTurn : List PlayerId := []
   /-- Players who have banished a card with `≥ 6{p}` this turn (MON: Levia / Shadow Brute). -/
   banishedSixPowerThisTurn : List PlayerId := []
   /-- Once-per-turn activated abilities already used this turn (CR 5.2). -/
@@ -491,6 +497,7 @@ def snapshot (s : GameState) : BoardSnapshot :=
     markedPlayers := s.markedPlayers
     activeReplacements := s.activeReplacements
     chargedThisTurn := s.chargedThisTurn
+    boostsThisTurn := s.boostsThisTurn
     banishedSixPowerThisTurn := s.banishedSixPowerThisTurn
     activatedThisTurn := s.activatedThisTurn
     weaponHitsThisTurn := s.weaponHitsThisTurn
@@ -518,6 +525,7 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     markedPlayers := snap.markedPlayers
     activeReplacements := snap.activeReplacements
     chargedThisTurn := snap.chargedThisTurn
+    boostsThisTurn := snap.boostsThisTurn
     banishedSixPowerThisTurn := snap.banishedSixPowerThisTurn
     activatedThisTurn := snap.activatedThisTurn
     weaponHitsThisTurn := snap.weaponHitsThisTurn

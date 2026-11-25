@@ -247,6 +247,8 @@ inductive Effect where
   | rollDie6 (bindVar : VarId) (branches : DieBranchList) (cont : Effect)
   /-- Reveal the top `n` cards of `p`'s deck, bind the count matching `f` to `bindVar`, then run `cont` (Blessing of Deliverance). -/
   | bindRevealTopCount (p : PlayerRef) (n : Nat) (f : CardFilter) (bindVar : VarId) (cont : Effect)
+  /-- Banish up to n cards from the top of a deck face up, then bind the number that match f (CR 8.5.1). -/
+  | bindBanishTopCount (p : PlayerRef) (n : Nat) (f : CardFilter) (bindVar : VarId) (cont : Effect)
   /-- Discard the first card in a randomized hand, then execute the branch matching its face. -/
   | discardTopOfHand (p : PlayerRef) (f : CardFilter) (ifMatches otherwise : Effect)
   /-- Apply a continuous modification `mod` over `scope` for duration `dur` (CR 6.2). -/

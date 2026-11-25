@@ -475,9 +475,13 @@ def playCostCondition (s : GameState) (p : PlayerId) (source : ObjId) (fromArsen
 /-- Declare supported optional costs before asset payment (CR 5.1.3, 5.1.6). -/
 def cardPaymentFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (cost : AssetCost) : Frame :=
-  match (s.cardDefOf? layerId).bind (·.front.playEffect) with
+  let face : Option CardFace := (s.cardDefOf? layerId).map (·.front)
+  let playEffect : Option EffectDef := face.bind (·.playEffect)
+  if face.any (fun face => face.keywords.contains .boost) && !(s.zone (.player p .deck)).isEmpty then
+    .chooseOptionalPlayCost p layerId fromArsenal modeIdx cost .boost
+  else match playEffect with
   | some { extraCosts := [{ cost := .payResources extra, optional := true, cond := none }], .. } =>
-    .chooseOptionalResources p layerId fromArsenal modeIdx cost extra
+    .chooseOptionalPlayCost p layerId fromArsenal modeIdx cost (.resources extra)
   | some { extraCosts := [{ cost := .payX, optional := true, cond := cond }],
            onPayX := some (filter, _), .. } =>
     if cond.all (playCostCondition s p layerId fromArsenal) then
@@ -975,12 +979,13 @@ def variablePaymentTrigger (s : GameState) (p : PlayerId) (source : ObjId) (from
 
 /-- Finalize a paid layer, then stack triggers queued during play and return priority (CR 5.1.10, 6.6.6). -/
 def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
-    (modeIdx : Option Nat) (rest : List Frame) (discarded : Option CardFace := none) : GameState :=
+    (modeIdx : Option Nat) (rest : List Frame) (discarded : Option CardFace := none)
+    (boostPaid : Option Bool := none) : GameState :=
   let card := s.cardDefOf? layerId
-  let hasGoAgain :=
-    match card with
-    | some c => c.front.keywords.contains .goAgain && !c.front.hasSubtype .attack
-    | none => false
+  let isAttack := card.any (fun c => c.front.hasSubtype .attack)
+  let hasBoostGoAgain := boostPaid.getD false && layerCanGainGoAgain s layerId p
+  let hasGoAgain := (card.any (fun c => c.front.keywords.contains .goAgain) || hasBoostGoAgain) &&
+    !isAttack && layerCanGainGoAgain s layerId p
   let modeOnAttack : Option Effect := do
     let effect ← card.bind (·.front.playEffect)
     let index ← modeIdx
@@ -994,12 +999,13 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       attackTarget := (s.layerMeta.get? layerId.n).bind (·.attackTarget)
       weaponTarget := (s.layerMeta.get? layerId.n).bind (·.weaponTarget)
       variableResources := (s.layerMeta.get? layerId.n).bind (·.variableResources)
-      additionalCostPaid := (s.layerMeta.get? layerId.n).any
+      additionalCostPaid := boostPaid.isSome || (s.layerMeta.get? layerId.n).any
         (fun info => info.payAdditionalResources || info.additionalCostPaid || info.variableResources.isSome)
       discardedForPlay := discarded
+      attackKeywords := if isAttack && hasBoostGoAgain then [.goAgain] else []
       attackAbilities :=
         (modeOnAttack.map fun body => Ability.triggered .onAttack false none none { body := body }).toList
-      goAgain := hasGoAgain && layerCanGainGoAgain s layerId p }
+      goAgain := hasGoAgain }
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
   let isAction := card.any (fun c => c.front.hasType .action) ||
     (s.obj? layerId).any (fun obj => match obj.kind with | .attackProxy _ _ => true | _ => false)
@@ -1026,6 +1032,14 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
     pendingTriggers := pendingTriggers
     nextTimestamp := s.nextTimestamp + triggers.length
     pending := flush ++ (.priority p 0 :: rest) }
+
+/-- Pay the declared boost cost before returning priority and grant its keyword to the paid layer
+(CR 5.1.9, 8.3.9). -/
+def finishBoostedPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
+    (modeIdx : Option Nat) (rest : List Frame) : GameState × List Event :=
+  let (boosted, goAgain, events) := applyBoost s p false
+  let paid := if events.isEmpty then none else some goAgain
+  (finishPaidPlay boosted p layerId fromArsenal modeIdx rest none paid, events)
 
 /-- The declarations and payment for a supported activated ability (CR 5.2.2). -/
 structure ActivationPlan where
@@ -1077,6 +1091,7 @@ def activationResolution? (s : GameState) (effect : EffectDef) (target : Option 
 def activationConditionMet (s : GameState) (p : PlayerId) : Option Condition → Bool
   | none => true
   | some .weaponHitThisTurn => hasWeaponHitThisTurn s p
+  | some (.boostedThisTurn n) => decide (n ≤ s.boostsThisTurn.count p)
   | some _ => false
 
 /-- Read the announced ability and its payable costs from a visible arena source (CR 5.2.2). -/
@@ -1462,17 +1477,22 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       some (rollbackPlay s rest, [])
     else
       none
-  | .chooseOptionalResources p layerId fromArsenal modeIdx cost extra :: rest, .player q,
+  | .chooseOptionalPlayCost p layerId fromArsenal modeIdx cost extra :: rest, .player q,
       .pickMay accept =>
     if p = q then
-      let total := if accept then { cost with resources := cost.resources + extra } else cost
       let info := s.layerMeta.getD layerId.n { controller := p }
+      let total := match extra with
+        | .resources n => if accept then { cost with resources := cost.resources + n } else cost
+        | .boost => cost
+      let declared := match extra with
+        | .resources _ => { info with payAdditionalResources := accept }
+        | .boost => { info with boostChosen := accept }
       some ({ s with
-                layerMeta := s.layerMeta.insert layerId.n { info with payAdditionalResources := accept }
+                layerMeta := s.layerMeta.insert layerId.n declared
                 pending := .playPayCost p layerId fromArsenal modeIdx total :: rest }, [])
     else
       none
-  | .chooseOptionalResources p _ _ _ _ _ :: rest, .player q, .cancelPlay =>
+  | .chooseOptionalPlayCost p _ _ _ _ _ :: rest, .player q, .cancelPlay =>
     if p = q then some (rollbackPlay s rest, []) else none
   | .chooseVariableResources p layerId fromArsenal modeIdx cost limit :: rest, .player q,
       .pickVariableResources amount =>
@@ -1742,7 +1762,9 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .playPayCost p layerId fromArsenal modeIdx cost :: rest =>
     match spendAssetCost s p cost with
     | some s1 =>
-      if let some payment := (s.layerMeta.get? layerId.n).bind (·.activationPayment) then
+      if (s.layerMeta.get? layerId.n).any (·.boostChosen) then
+        some (finishBoostedPlay s1 p layerId fromArsenal modeIdx rest)
+      else if let some payment := (s.layerMeta.get? layerId.n).bind (·.activationPayment) then
         match finishPaidActivation s1 p layerId payment rest with
         | some finished => some finished
         | none => some (rollbackPlay s rest, [])
@@ -1999,6 +2021,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       pools := ∅
       activeReplacements := []
       chargedThisTurn := []
+      boostsThisTurn := []
       banishedSixPowerThisTurn := []
       activatedThisTurn := []
       weaponHitsThisTurn := []

@@ -2,6 +2,7 @@ module
 
 public import Fab.Rules.Combat
 public import Fab.Rules.Actions.Banish
+import Fab.Rules.Interp
 
 /-!
 # Combat Keywords & End-Phase Triggers (CR 8.3)
@@ -197,69 +198,83 @@ theorem applySpectraClose_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ta
   obtain ⟨hwf2, hok2, hp2, hc2, hr2⟩ := closeCombatChainStep_inv hwf1 hok1
   exact ⟨hwf2, hok2, hp2.trans hp1, hc2.trans hc1, hr2.trans hr1⟩
 
-/-- Resolve **Boost** (CR 8.3.9): banishes the top card of `p`'s deck face-up; if the banished card
-is a Mechanologist card, returns `true` and grants `.goAgain` to the active `ChainLink`. -/
-def applyBoost (s : GameState) (p : PlayerId) : GameState × Bool × List Event :=
-  match s.zone (.player p .deck) with
-  | [] => (s, false, [])
-  | topId :: _ =>
-    let isMech :=
-      match s.cardDefOf? topId with
-      | some c => c.front.supertypes.contains (.class_ .mechanologist)
-      | none => false
-    match banishOne s topId false with
-    | none => (s, false, [])
-    | some (s1, _, es) =>
-      let s2 :=
-        if isMech then
-          { s1 with combat := s1.combat.map fun cc => cc.updateActiveLink fun l =>
-              { l with grantedKeywords := .goAgain :: l.grantedKeywords } }
-        else
-          s1
-      (s2, isMech, es)
+/-- Pay Boost by banishing the top card face up (CR 8.3.9).
+Returns whether the card grants Go Again. When a caller already has an active link for
+the boosting attack, it can apply the keyword directly to that link. -/
+def applyBoost (s : GameState) (p : PlayerId) (grantActiveLink : Bool := true) :
+    GameState × Bool × List Event :=
+  let (banished, events) := banishManyObjs s p false ((s.zone (.player p .deck)).take 1)
+  let isMechanologist := events.any fun
+    | .banished _ id false =>
+      (banished.objectFace? id).any (fun face => face.supertypes.contains (.class_ .mechanologist))
+    | _ => false
+  let paid := !events.isEmpty
+  let next := { banished with
+    boostsThisTurn := if paid then p :: banished.boostsThisTurn else banished.boostsThisTurn
+    combat := if grantActiveLink && isMechanologist then
+        banished.combat.map fun chain => chain.updateActiveLink fun link =>
+          { link with grantedKeywords := .goAgain :: link.grantedKeywords }
+      else banished.combat }
+  (next, isMechanologist, events ++ (if paid then [.boosted p] else []))
 
-/-- `applyBoost` preserves `WF`, `OwnerOk`, `physIds`, `config`, and `playRollback`. -/
-theorem applyBoost_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (p : PlayerId) :
-    (applyBoost s p).1.WF ∧
-    (applyBoost s p).1.OwnerOk ∧
-    (applyBoost s p).1.physIds.Perm s.physIds ∧
-    (applyBoost s p).1.config = s.config ∧
-    (applyBoost s p).1.playRollback = s.playRollback := by
-  unfold applyBoost
+/-- Boost preserves object and configuration invariants (CR 8.3.9). -/
+theorem applyBoost_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (p : PlayerId)
+    (grantActiveLink : Bool := true) :
+    (applyBoost s p grantActiveLink).1.WF ∧
+    (applyBoost s p grantActiveLink).1.OwnerOk ∧
+    (applyBoost s p grantActiveLink).1.physIds.Perm s.physIds ∧
+    (applyBoost s p grantActiveLink).1.config = s.config ∧
+    (applyBoost s p grantActiveLink).1.playRollback = s.playRollback := by
+  have h := banishManyObjs_inv p false ((s.zone (.player p .deck)).take 1) hwf hok
+  exact ⟨GameState.WF.congr h.1 rfl rfl rfl rfl,
+    GameState.OwnerOk.congr h.2.1 rfl rfl, h.2.2⟩
+
+/-- Boost preserves turn, tournament, and result (CR 8.3.9). -/
+theorem applyBoost_ttr (s : GameState) (p : PlayerId) (grantActiveLink : Bool) :
+    (applyBoost s p grantActiveLink).1.turn = s.turn ∧
+    (applyBoost s p grantActiveLink).1.tournament = s.tournament ∧
+    (applyBoost s p grantActiveLink).1.result = s.result :=
+  banishManyObjs_ttr p false ((s.zone (.player p .deck)).take 1) s
+
+/-- Paying the boost effect-cost does not spend any assets (CR 5.1.9, 8.3.9). -/
+theorem applyBoost_pools (s : GameState) (p : PlayerId) (grantActiveLink : Bool) :
+    (applyBoost s p grantActiveLink).1.pools = s.pools := by
+  change (banishManyObjs s p false ((s.zone (.player p .deck)).take 1)).1.pools = s.pools
   cases s.zone (.player p .deck) with
-  | nil => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-  | cons topId _ =>
-    dsimp only
-    cases hb : banishOne s topId false with
-    | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-    | some res =>
-      obtain ⟨s1, id1, es1⟩ := res
+  | nil => rfl
+  | cons top rest =>
+    simp only [List.take_succ_cons, List.take_zero, banishManyObjs]
+    cases hb : banishOne s top false with
+    | none => rfl
+    | some answer =>
+      obtain ⟨banished, newId, events⟩ := answer
       dsimp only
-      have hwf1 := banishOne_wf hwf hb
-      have hok1 := banishOne_ownerOk hwf hok hb
-      have hp1 := banishOne_physIds hwf hb
-      have hmeta : s1.config = s.config ∧ s1.playRollback = s.playRollback := by
+      have hpools : banished.pools = s.pools := by
         unfold banishOne at hb
         split at hb
-        · rename_i src0 o0 _ _
+        · rename_i src owner _ _
           dsimp only at hb
-          cases hm : moveObj s topId (Zone.player o0.owner .banished) .top false with
-          | none => simp only [hm] at hb; cases hb
-          | some rm =>
-            obtain ⟨sm, idm⟩ := rm
-            simp only [hm, Option.some.injEq, Prod.mk.injEq] at hb
+          cases hm : moveObj s top (.player owner.owner .banished) .top false with
+          | none => rw [hm] at hb; cases hb
+          | some moved =>
+            obtain ⟨board, id⟩ := moved
+            rw [hm] at hb
+            simp only [Option.some.injEq, Prod.mk.injEq] at hb
             obtain ⟨rfl, rfl, rfl⟩ := hb
-            exact moveObj_config_rollback hm
+            unfold moveObj at hm
+            split at hm
+            · dsimp only at hm
+              split at hm
+              · cases hm
+              · split at hm <;> cases hm <;> rfl
+            · cases hm
         · cases hb
-      cases (match s.cardDefOf? topId with
-        | some c => c.front.supertypes.contains (.class_ .mechanologist)
-        | none => false) with
-      | true =>
-        exact ⟨GameState.WF.congr hwf1 rfl rfl rfl rfl,
-               GameState.OwnerOk.congr hok1 rfl rfl,
-               hp1, hmeta.1, hmeta.2⟩
-      | false =>
-        exact ⟨hwf1, hok1, hp1, hmeta.1, hmeta.2⟩
+      have hunchanged (b : Bool) :
+          (if b then { banished with
+            banishedSixPowerThisTurn := p :: banished.banishedSixPowerThisTurn }
+           else banished).pools = s.pools := by
+        cases b <;> exact hpools
+      exact hunchanged _
 
 /-- Whether object `id` is a **face-up** card with **Blood Debt** (CR 8.3.12). -/
 def isFaceUpBloodDebt (s : GameState) (id : ObjId) : Bool :=

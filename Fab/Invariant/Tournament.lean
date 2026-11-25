@@ -379,6 +379,10 @@ theorem interpRunStep_ttr (s : GameState) (ctrl : PlayerId) (src : ObjId)
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact ⟨rfl, rfl, id⟩
+    | bindBanishTopCount pref n _ _ _ =>
+      let target := evalPlayerRef s ctrl pref
+      have h := banishManyObjs_ttr target false ((s.zone (.player target .deck)).take n) s
+      exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
     | discardTopOfHand pref _ _ _ =>
       have h := discardManyObjs_ttr (evalPlayerRef s ctrl pref) ((s.zone (.player (evalPlayerRef s ctrl pref) .hand)).take 1) s
       exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
@@ -577,6 +581,14 @@ private theorem payActivationSource_turn_tournament_result {s paid : GameState}
     cases h
     exact moveObj_turn_tournament_result hm
 
+private theorem finishBoostedPlay_ttr {s s' : GameState} {p : PlayerId} {layerId : ObjId}
+    {fa : Bool} {modeIdx : Option Nat} {rest : List Frame} {es : List Event}
+    (h : finishBoostedPlay s p layerId fa modeIdx rest = (s', es)) :
+    s'.turn = s.turn ∧ s'.tournament = s.tournament ∧ s'.result = s.result := by
+  have heq : (finishBoostedPlay s p layerId fa modeIdx rest).1 = s' := congrArg Prod.fst h
+  subst s'
+  exact applyBoost_ttr s p false
+
 private theorem finishPaidActivation_ttr {s s' : GameState} {p : PlayerId} {layerId : ObjId}
     {payment : ActivationPayment} {rest : List Frame} {es : List Event}
     (h : finishPaidActivation s p layerId payment rest = some (s', es)) :
@@ -650,45 +662,49 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
       have hs1 := spendAssetCost_ttr hsp
       dsimp only at h
       split at h
-      · split at h
-        · rename_i _ hfinish
-          cases h
-          obtain ⟨ht, htn, hr⟩ := finishPaidActivation_ttr hfinish
-          exact timeLimitBounded_of_eq hb (ht.trans hs1.1) (htn.trans hs1.2.1)
-            (fun heq => (hr.trans hs1.2.2) ▸ heq)
-        · cases h
-          unfold rollbackPlay
-          cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
+      · obtain ⟨ht, htn, hr⟩ := finishBoostedPlay_ttr (Option.some.inj h)
+        exact timeLimitBounded_of_eq hb (ht.trans hs1.1) (htn.trans hs1.2.1)
+          (fun heq => (hr.trans hs1.2.2) ▸ heq)
       · split at h
         · split at h
-          · split at h
-            · rename_i moved id hm
-              cases h
-              have hmove := moveObj_ttr_core hm
-              exact timeLimitBounded_of_eq hb (hmove.1.trans hs1.1) (hmove.2.1.trans hs1.2.1)
-                (fun hr => (hmove.2.2.trans hs1.2.2) ▸ hr)
-            · cases h
-              unfold rollbackPlay
-              cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
+          · rename_i _ hfinish
+            cases h
+            obtain ⟨ht, htn, hr⟩ := finishPaidActivation_ttr hfinish
+            exact timeLimitBounded_of_eq hb (ht.trans hs1.1) (htn.trans hs1.2.1)
+              (fun heq => (hr.trans hs1.2.2) ▸ heq)
           · cases h
             unfold rollbackPlay
             cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
         · split at h
           · split at h
-            · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-              exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
-            · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+            · split at h
+              · rename_i moved id hm
+                cases h
+                have hmove := moveObj_ttr_core hm
+                exact timeLimitBounded_of_eq hb (hmove.1.trans hs1.1) (hmove.2.1.trans hs1.2.1)
+                  (fun hr => (hmove.2.2.trans hs1.2.2) ▸ hr)
+              · cases h
+                unfold rollbackPlay
+                cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
+            · cases h
               unfold rollbackPlay
               cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
           · split at h
-            · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-              exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
             · split at h
               · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
                 exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
               · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
                 unfold rollbackPlay
                 cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
+            · split at h
+              · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+                exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
+              · split at h
+                · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+                  exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
+                · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+                  unfold rollbackPlay
+                  cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
     · split at h
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact timeLimitBounded_of_eq hb rfl rfl id
@@ -1112,11 +1128,11 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       unfold rollbackPlay; cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
     · cases h
-  · -- chooseOptionalResources pickMay
+  · -- chooseOptionalPlayCost pickMay
     split at h
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact ⟨rfl, rfl, rfl⟩
     · cases h
-  · -- chooseOptionalResources cancelPlay
+  · -- chooseOptionalPlayCost cancelPlay
     split at h
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       unfold rollbackPlay; cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
