@@ -175,6 +175,11 @@ def earlyPrintingCardId? : String → Option CardId
   | "HER006" | "HER006-P" => some ⟨"WTR_039"⟩
   | "HER007" | "HER007-P" => some ⟨"WTR_077"⟩
   | "HER008" | "HER008-P" => some ⟨"WTR_114"⟩
+  -- Cold foil hero participation printings from the 2020 Auckland Calling.
+  | "HER001" | "HER001-P" => some ⟨"WTR_001"⟩
+  | "HER002" | "HER002-P" => some ⟨"WTR_038"⟩
+  | "HER003" | "HER003-P" => some ⟨"WTR_076"⟩
+  | "HER004" | "HER004-P" => some ⟨"WTR_113"⟩
   | "ARC000" => some ⟨"ARC_000_B"⟩
   -- Arcane Rising reprint of the existing WTR resource.
   | "ARC218" => some ⟨"WTR_224_Y"⟩
