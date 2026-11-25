@@ -96,6 +96,109 @@ theorem Object.resetOnZoneChange_kind (o : Object) (ts : Timestamp) (fd : Bool) 
 theorem Object.resetOnZoneChange_owner (o : Object) (ts : Timestamp) (fd : Bool) :
     (o.resetOnZoneChange ts fd).owner = o.owner := rfl
 
+/-- Read counter count of kind `k` on object `o`. -/
+def Object.counterCount (o : Object) : CounterKind → Nat
+  | .minusOneDefense => o.minusDefenseCounters
+  | .plusOnePower => o.plusPowerCounters
+  | .energy => (o.extraCounters.find? (·.1 == "energy")).map (·.2) |>.getD 0
+  | .steam => (o.extraCounters.find? (·.1 == "steam")).map (·.2) |>.getD 0
+  | .aim => (o.extraCounters.find? (·.1 == "aim")).map (·.2) |>.getD 0
+  | .named lbl => (o.extraCounters.find? (·.1 == lbl)).map (·.2) |>.getD 0
+
+/-- Update counter `k` on object `o` by adding `delta`. -/
+def Object.addCounterVal (o : Object) (k : CounterKind) (delta : Nat) : Object :=
+  match k with
+  | .minusOneDefense => { o with minusDefenseCounters := o.minusDefenseCounters + delta }
+  | .plusOnePower => { o with plusPowerCounters := o.plusPowerCounters + delta }
+  | .energy =>
+    let cur := o.counterCount .energy
+    let rest := o.extraCounters.filter (·.1 != "energy")
+    { o with extraCounters := ("energy", cur + delta) :: rest }
+  | .steam =>
+    let cur := o.counterCount .steam
+    let rest := o.extraCounters.filter (·.1 != "steam")
+    { o with extraCounters := ("steam", cur + delta) :: rest }
+  | .aim =>
+    let cur := o.counterCount .aim
+    let rest := o.extraCounters.filter (·.1 != "aim")
+    { o with extraCounters := ("aim", cur + delta) :: rest }
+  | .named lbl =>
+    let cur := o.counterCount (.named lbl)
+    let rest := o.extraCounters.filter (·.1 != lbl)
+    { o with extraCounters := (lbl, cur + delta) :: rest }
+
+/-- Remove all counters of kind `k` from object `o`. -/
+def Object.clearCounterVal (o : Object) : CounterKind → Object
+  | .minusOneDefense => { o with minusDefenseCounters := 0 }
+  | .plusOnePower => { o with plusPowerCounters := 0 }
+  | .energy => { o with extraCounters := o.extraCounters.filter (·.1 != "energy") }
+  | .steam => { o with extraCounters := o.extraCounters.filter (·.1 != "steam") }
+  | .aim => { o with extraCounters := o.extraCounters.filter (·.1 != "aim") }
+  | .named lbl => { o with extraCounters := o.extraCounters.filter (·.1 != lbl) }
+
+/-- Remove up to `n` counters of the specified kind. -/
+def Object.removeCounterVal (o : Object) (k : CounterKind) (n : Nat) : Object :=
+  let remaining := o.counterCount k - n
+  let cleared := o.clearCounterVal k
+  if remaining = 0 then cleared else cleared.addCounterVal k remaining
+
+/-- `Object.addCounterVal` preserves `kind`. -/
+theorem Object.addCounterVal_kind (o : Object) (k : CounterKind) (d : Nat) :
+    (o.addCounterVal k d).kind = o.kind := by
+  cases k <;> rfl
+
+/-- `Object.addCounterVal` preserves `owner`. -/
+theorem Object.addCounterVal_owner (o : Object) (k : CounterKind) (d : Nat) :
+    (o.addCounterVal k d).owner = o.owner := by
+  cases k <;> rfl
+
+/-- `Object.clearCounterVal` preserves `kind`. -/
+theorem Object.clearCounterVal_kind (o : Object) (k : CounterKind) :
+    (o.clearCounterVal k).kind = o.kind := by
+  cases k <;> rfl
+
+/-- Removing counters preserves the physical/card identity of the object. -/
+theorem Object.removeCounterVal_kind (o : Object) (k : CounterKind) (n : Nat) :
+    (o.removeCounterVal k n).kind = o.kind := by
+  unfold Object.removeCounterVal
+  dsimp only
+  split <;> simp only [Object.clearCounterVal_kind, Object.addCounterVal_kind]
+
+/-- `Object.clearCounterVal` preserves `owner`. -/
+theorem Object.clearCounterVal_owner (o : Object) (k : CounterKind) :
+    (o.clearCounterVal k).owner = o.owner := by
+  cases k <;> rfl
+
+/-- Removing counters preserves ownership. -/
+theorem Object.removeCounterVal_owner (o : Object) (k : CounterKind) (n : Nat) :
+    (o.removeCounterVal k n).owner = o.owner := by
+  unfold Object.removeCounterVal
+  dsimp only
+  split <;> simp only [Object.clearCounterVal_owner, Object.addCounterVal_owner]
+
+/-- Add the counters a source receives when entering the arena (CR 3.0.5, 6.4). -/
+def Object.withEntryCounters : Object → List (CounterKind × Nat) → Object
+  | obj, [] => obj
+  | obj, (kind, count) :: rest => (obj.addCounterVal kind count).withEntryCounters rest
+
+/-- Entry counters preserve the physical or layered object kind. -/
+@[simp] theorem Object.withEntryCounters_kind (o : Object) (counts : List (CounterKind × Nat)) :
+    (o.withEntryCounters counts).kind = o.kind := by
+  induction counts generalizing o with
+  | nil => rfl
+  | cons counter rest ih =>
+    rcases counter with ⟨kind, count⟩
+    simp only [Object.withEntryCounters, ih, Object.addCounterVal_kind]
+
+/-- Entry counters preserve the object's owner. -/
+@[simp] theorem Object.withEntryCounters_owner (o : Object) (counts : List (CounterKind × Nat)) :
+    (o.withEntryCounters counts).owner = o.owner := by
+  induction counts generalizing o with
+  | nil => rfl
+  | cons counter rest ih =>
+    rcases counter with ⟨kind, count⟩
+    simp only [Object.withEntryCounters, ih, Object.addCounterVal_owner]
+
 end Fab
 
 end

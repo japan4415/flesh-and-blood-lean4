@@ -73,6 +73,8 @@ structure CardFace where
   keywords : List KeywordInst := []
   /-- Printed activated, triggered, static, and replacement abilities (CR 1.7, 6.0). -/
   abilities : List Ability := []
+  /-- Counters a card receives as it enters the arena (CR 3.0.5, 6.4). -/
+  entryCounters : List (CounterKind × Nat) := []
   /-- Optional resolution effect executed when this card is played and resolves (CR 5.3). -/
   playEffect : Option EffectDef := none
 deriving DecidableEq, Repr

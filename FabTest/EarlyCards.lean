@@ -291,7 +291,8 @@ meta def eyeOfOphidiaScenario : Option Bool := do
 
 #guard eyeOfOphidiaScenario == some true
 
-meta def dashSetupScenario (hero : String) (format : Format) (deckSize : Nat) : Option Bool := do
+meta def dashSetupScenario (hero : String) (format : Format) (deckSize : Nat)
+    (itemId : String := "Dash-test-item") (startingSteam : Nat := 0) : Option Bool := do
   let player := earlyAttacker
   let opponent := earlyDefender
   let permanent := Zone.player player .permanent
@@ -316,7 +317,7 @@ meta def dashSetupScenario (hero : String) (format : Format) (deckSize : Nat) : 
   let loaded ← (List.range (deckSize - 1)).foldlM
     (fun s _ => (earlyPlace s player deck "WTR_203_R").map Prod.fst) withHero
   let (withExpensive, wrong) ← earlyPlace loaded player inventory "Dash-test-expensive"
-  let (ready, allowed) ← earlyPlace withExpensive player inventory "Dash-test-item"
+  let (ready, allowed) ← earlyPlace withExpensive player inventory itemId
   let selected ← earlySteps ready [⟨.player player, .loadoutEquip allowed⟩]
   let id ← (selected.zone permanent).head?
   let revealed ← earlySteps selected [⟨.player player, .loadoutDone⟩]
@@ -324,10 +325,13 @@ meta def dashSetupScenario (hero : String) (format : Format) (deckSize : Nat) : 
     loadoutEquipDest? ready player wrong == none && (selected.obj? id).any (·.faceDown) &&
     viewZone opponent selected permanent == .countOnly 0 &&
     viewZone opponent selected deck == .countOnly deckSize &&
-    (revealed.obj? id).any (fun obj => !obj.faceDown) && (revealed.zone deck).length == deckSize - 1)
+    (revealed.obj? id).any (fun obj => !obj.faceDown && obj.counterCount .steam == startingSteam) &&
+    (revealed.zone deck).length == deckSize - 1)
 
 #guard dashSetupScenario "ARC_001" .classicConstructed 60 == some true
 #guard dashSetupScenario "ARC_002" .blitz 40 == some true
+#guard dashSetupScenario "ARC_001" .classicConstructed 60 "ARC_007_B" 2 == some true
+#guard dashSetupScenario "ARC_002" .blitz 40 "ARC_007_B" 2 == some true
 
 #guard (["ARC003", "LGS009-P"].map fun number =>
   (earlyPrintingCardId? number).bind throughArcDB.find? |>.map (·.front.name)) ==
@@ -394,7 +398,7 @@ meta def foundryHeartScenario (deckCards : List String) (matchCount : Nat) (mech
           cost := some { actionPoints := 1 }
           power := some 3
           keywords := [.boost] } }
-  let cards : CardDB := ⟨fixture :: ARC.Meta.ARC_007_B_meta :: throughArcDB.cards⟩
+  let cards : CardDB := ⟨fixture :: throughArcDB.cards⟩
   let (equipped, heart) ← earlyPlace { earlyBase with cards } p (.player p .chest) "ARC_004"
   let deckReady ← deckCards.reverse.foldlM
     (fun s name => (earlyPlace s p deck name).map Prod.fst) equipped
@@ -578,6 +582,42 @@ meta def highOctaneScenario : Option Bool := do
     (secondHit.poolOf p).actionPoints == 5 && expired.delayedTriggers.isEmpty)
 
 #guard highOctaneScenario == some true
+
+#guard ((earlyPrintingCardId? "ARC007").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Teklo Core" && card.status == .full &&
+    card.specializations == ["Dash"])
+
+meta def tekloCoreScenario : Option Bool := do
+  let p := earlyAttacker
+  let permanent := Zone.player p .permanent
+  let grave := Zone.player p .graveyard
+  let (ready, card) ← earlyPlace { earlyBase with cards := throughArcDB } p (.player p .hand) "ARC_007_B"
+  let entered ← earlySteps ready (⟨.player p, .playCard card⟩ :: earlyPass)
+  let core ← (entered.zone permanent).head?
+  let steam (s : GameState) := (s.obj? core).map (·.counterCount .steam)
+  let newActionPhase (s : GameState) := do
+    let next := { s.setPool p {} with turn := s.turn + 2, pending := [.actionPhaseStart p] }
+    ((advance 64 next []).toOption).map Prod.fst
+  let resolve (s : GameState) := do
+    let trigger ← s.pendingTriggers.head?
+    earlySteps s ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let first ← newActionPhase entered
+  let oneLeft ← resolve first
+  let second ← newActionPhase oneLeft
+  let depleted ← resolve second
+  let destruction ← depleted.pendingTriggers.head?
+  let spent ← resolve depleted
+  let discarded ← (spent.zone grave).head?
+  pure (card != core && steam entered == some 2 && entered.pendingTriggers.isEmpty &&
+    first.pendingTriggers.length == 1 && second.pendingTriggers.length == 1 &&
+    steam oneLeft == some 1 && (oneLeft.poolOf p).resources == 2 &&
+    oneLeft.pendingTriggers.isEmpty && steam depleted == some 0 && (depleted.poolOf p).resources == 2 &&
+    depleted.zone permanent == [core] && depleted.zone grave == [] &&
+    depleted.pendingTriggers.length == 1 && destruction.source == core &&
+    destruction.effect == .prim (.destroy .self_) &&
+    spent.zone permanent == [] && (spent.cardDefOf? discarded).any (fun card => card.id == ⟨"ARC_007_B"⟩))
+
+#guard tekloCoreScenario == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>

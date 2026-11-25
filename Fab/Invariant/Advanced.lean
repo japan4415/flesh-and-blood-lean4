@@ -64,7 +64,7 @@ theorem transcendCard_yields_back_face {s s' : GameState} {id id' : ObjId} {es :
               · split at hm
                 · simp only [Option.some.injEq, Prod.mk.injEq] at hm
                   obtain ⟨rfl, rfl⟩ := hm
-                  simp [GameState.obj?, Object.resetOnZoneChange]
+                  simp [GameState.obj?, Object.resetOnZoneChange] <;> rfl
                 · simp only [Option.some.injEq, Prod.mk.injEq] at hm
                   obtain ⟨rfl, rfl⟩ := hm
                   change (sF.obj? id).map (·.faceState) = some .back

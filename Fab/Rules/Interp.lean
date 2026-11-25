@@ -127,85 +127,14 @@ def countMatchingInZone (s : GameState) (p : PlayerId) (zr : ZoneRef) (f : CardF
       | some face => cardFaceMatches f face
       | none => false).length
 
-/-- Read counter count of kind `k` on object `o`. -/
-def Object.counterCount (o : Object) : CounterKind → Nat
-  | .minusOneDefense => o.minusDefenseCounters
-  | .plusOnePower => o.plusPowerCounters
-  | .energy => (o.extraCounters.find? (·.1 == "energy")).map (·.2) |>.getD 0
-  | .steam => (o.extraCounters.find? (·.1 == "steam")).map (·.2) |>.getD 0
-  | .aim => (o.extraCounters.find? (·.1 == "aim")).map (·.2) |>.getD 0
-  | .named lbl => (o.extraCounters.find? (·.1 == lbl)).map (·.2) |>.getD 0
-
-/-- Update counter `k` on object `o` by adding `delta`. -/
-def Object.addCounterVal (o : Object) (k : CounterKind) (delta : Nat) : Object :=
-  match k with
-  | .minusOneDefense => { o with minusDefenseCounters := o.minusDefenseCounters + delta }
-  | .plusOnePower => { o with plusPowerCounters := o.plusPowerCounters + delta }
-  | .energy =>
-    let cur := o.counterCount .energy
-    let rest := o.extraCounters.filter (·.1 != "energy")
-    { o with extraCounters := ("energy", cur + delta) :: rest }
-  | .steam =>
-    let cur := o.counterCount .steam
-    let rest := o.extraCounters.filter (·.1 != "steam")
-    { o with extraCounters := ("steam", cur + delta) :: rest }
-  | .aim =>
-    let cur := o.counterCount .aim
-    let rest := o.extraCounters.filter (·.1 != "aim")
-    { o with extraCounters := ("aim", cur + delta) :: rest }
-  | .named lbl =>
-    let cur := o.counterCount (.named lbl)
-    let rest := o.extraCounters.filter (·.1 != lbl)
-    { o with extraCounters := (lbl, cur + delta) :: rest }
-
-/-- Remove all counters of kind `k` from object `o`. -/
-def Object.clearCounterVal (o : Object) : CounterKind → Object
-  | .minusOneDefense => { o with minusDefenseCounters := 0 }
-  | .plusOnePower => { o with plusPowerCounters := 0 }
-  | .energy => { o with extraCounters := o.extraCounters.filter (·.1 != "energy") }
-  | .steam => { o with extraCounters := o.extraCounters.filter (·.1 != "steam") }
-  | .aim => { o with extraCounters := o.extraCounters.filter (·.1 != "aim") }
-  | .named lbl => { o with extraCounters := o.extraCounters.filter (·.1 != lbl) }
-
-/-- Remove up to `n` counters of the specified kind. -/
-def Object.removeCounterVal (o : Object) (k : CounterKind) (n : Nat) : Object :=
-  let remaining := o.counterCount k - n
-  let cleared := o.clearCounterVal k
-  if remaining = 0 then cleared else cleared.addCounterVal k remaining
-
-/-- `Object.addCounterVal` preserves `kind`. -/
-theorem Object.addCounterVal_kind (o : Object) (k : CounterKind) (d : Nat) :
-    (o.addCounterVal k d).kind = o.kind := by
-  cases k <;> rfl
-
-/-- `Object.addCounterVal` preserves `owner`. -/
-theorem Object.addCounterVal_owner (o : Object) (k : CounterKind) (d : Nat) :
-    (o.addCounterVal k d).owner = o.owner := by
-  cases k <;> rfl
-
-/-- `Object.clearCounterVal` preserves `kind`. -/
-theorem Object.clearCounterVal_kind (o : Object) (k : CounterKind) :
-    (o.clearCounterVal k).kind = o.kind := by
-  cases k <;> rfl
-
-/-- Removing counters preserves the physical/card identity of the object. -/
-theorem Object.removeCounterVal_kind (o : Object) (k : CounterKind) (n : Nat) :
-    (o.removeCounterVal k n).kind = o.kind := by
-  unfold Object.removeCounterVal
-  dsimp only
-  split <;> simp only [Object.clearCounterVal_kind, Object.addCounterVal_kind]
-
-/-- `Object.clearCounterVal` preserves `owner`. -/
-theorem Object.clearCounterVal_owner (o : Object) (k : CounterKind) :
-    (o.clearCounterVal k).owner = o.owner := by
-  cases k <;> rfl
-
-/-- Removing counters preserves ownership. -/
-theorem Object.removeCounterVal_owner (o : Object) (k : CounterKind) (n : Nat) :
-    (o.removeCounterVal k n).owner = o.owner := by
-  unfold Object.removeCounterVal
-  dsimp only
-  split <;> simp only [Object.clearCounterVal_owner, Object.addCounterVal_owner]
+/-- Report the transition to zero counters on a public arena object (CR 6.6.5c). -/
+def counterRemovalEvents (s : GameState) (source : ObjId) (kind : CounterKind) (amount : Nat) :
+    List Event :=
+  if (s.locate source).any Zone.isArena && (s.obj? source).any (fun obj =>
+    let current := obj.counterCount kind
+    !obj.faceDown && current > 0 && current ≤ amount) then
+    [.countersEmptied source kind]
+  else []
 
 /-- Count live defenders whose current type does not include Equipment (CR 7.0.5). -/
 def nonEquipmentDefenderCount (s : GameState) (link : ChainLink) : Nat :=
@@ -1181,11 +1110,18 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     | some oid =>
       let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
       (updateSingleObject s oid (fun o => o.addCounterVal k amt), [], [])
+  | .removeCounter oref k n =>
+    match evalObjRef src oref with
+    | none => (s, [], [])
+    | some oid =>
+      let amount := clampNonNeg (evalNumExpr s ctrl env n (some src))
+      (updateSingleObject s oid (fun o => o.removeCounterVal k amount), counterRemovalEvents s oid k amount, [])
   | .removeAllCounters oref k =>
     match evalObjRef src oref with
     | none => (s, [], [])
     | some oid =>
-      (updateSingleObject s oid (fun o => o.clearCounterVal k), [], [])
+      let amount := ((s.obj? oid).map (·.counterCount k)).getD 0
+      (updateSingleObject s oid (fun o => o.clearCounterVal k), counterRemovalEvents s oid k amount, [])
   | .discardRandom pref n =>
     let target := evalPlayerRef s ctrl pref
     let cnt := clampNonNeg (evalNumExpr s ctrl env n (some src))
@@ -1463,6 +1399,17 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
              updateSingleObject_ownerOk hok oid (fun o => Object.addCounterVal_owner o k _),
              by rw [updateSingleObject_physIds s oid (fun o => Object.addCounterVal_kind o k _)],
              hm.1, hm.2⟩
+  | removeCounter oref k n =>
+    unfold execPrim; dsimp only
+    cases evalObjRef src oref with
+    | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    | some oid =>
+      let amount := clampNonNeg (evalNumExpr s ctrl env n (some src))
+      have hm := updateSingleObject_meta s oid (fun o => o.removeCounterVal k amount)
+      exact ⟨updateSingleObject_wf hwf oid _,
+        updateSingleObject_ownerOk hok oid (fun o => Object.removeCounterVal_owner o k _),
+        by rw [updateSingleObject_physIds s oid (fun o => Object.removeCounterVal_kind o k _)],
+        hm.1, hm.2⟩
   | removeAllCounters oref k =>
     unfold execPrim; dsimp only
     cases evalObjRef src oref with
@@ -1717,7 +1664,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     | some oid =>
       dsimp only; unfold updateSingleObject
       cases s.objects[oid.n]? <;> exact ⟨rfl, rfl, id⟩
-  | removeAllCounters oref _ =>
+  | removeCounter oref _ _ | removeAllCounters oref _ =>
     unfold execPrim; dsimp only
     cases evalObjRef src oref with
     | none => exact ⟨rfl, rfl, id⟩

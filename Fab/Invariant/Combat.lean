@@ -171,7 +171,7 @@ theorem bladeBreak_destroys {s : GameState} {id : ObjId} {o : Object} {c : CardD
     rw [hloc, ho]
     dsimp only
     rw [hnorm]
-    simp only [hne, false_or, hval, not_true_eq_false, ↓reduceIte, hcross, Pos.insert]
+    simp only [hne, false_or, hval, not_true_eq_false, ↓reduceIte, hcross, Pos.insert] <;> rfl
   have hmove : moveRuleObj s id (.player o.owner .graveyard) .top false =
       moveObj s id (.player o.owner .graveyard) .top false := by
     simp [moveRuleObj, ruleMoveParameters, ho, hnoReplacement]

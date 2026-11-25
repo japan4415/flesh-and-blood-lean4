@@ -51,6 +51,8 @@ inductive Trigger where
   | onLeaveArena
   /-- When this is destroyed (CR 1.10). -/
   | onDestroy
+  /-- When this goes from having counters of the specified kind to having none (CR 6.6.5c). -/
+  | onCountersEmptied (kind : CounterKind)
   /-- When this is banished (CR 3.3). -/
   | onBanish
   /-- When this is pitched, as on Heart of Fyendal (CR 1.14.3). -/
@@ -203,6 +205,8 @@ inductive Prim where
   | revealTopToArsenalIf (p : PlayerRef) (f : CardFilter)
   /-- Add `n` counters of kind `k` onto object `o`. -/
   | addCounter (o : ObjRef) (k : CounterKind) (n : NumExpr)
+  /-- Remove up to n counters of kind k from object o (CR 1.0.1b). -/
+  | removeCounter (o : ObjRef) (k : CounterKind) (n : NumExpr)
   /-- Remove all counters of kind `k` from object `o` (Dawnblade). -/
   | removeAllCounters (o : ObjRef) (k : CounterKind)
   /-- Create a prevention shield for player `p` preventing the next `n` damage during `dur` (Bone Head Barrier). -/
