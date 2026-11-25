@@ -609,19 +609,24 @@ def EffectList.bindPlayedAttack (attack : ObjId) : EffectList → EffectList
   | .cons first rest => .cons (first.bindPlayedAttack attack) (rest.bindPlayedAttack attack)
 end
 
+/-- Collect triggered abilities of face-up permanents controlled by the player (CR 6.6). -/
+def controlledPermanentTriggers (s : GameState) (p : PlayerId) (event : Trigger) :
+    List PendingTrigger :=
+  let permanents := (allPlayers s.playerCount).flatMap fun owner => s.zone (.player owner .permanent)
+  permanents.flatMap fun source =>
+    if (s.characteristics source).any (fun c => c.controller == p && !c.abilitiesLost) &&
+        (s.obj? source).any (fun obj => !obj.faceDown) then
+      let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+      collectCardTriggers s source p false abilities fun trigger cond =>
+        trigger == event && (cond.map (evalCondition s p source false)).getD true
+    else []
+
 /-- Collect arena triggers caused by paying for a card or weapon attack (CR 5.1.10, 6.6.5). -/
 def arenaAttackPlayTriggers (s : GameState) (layerId : ObjId) (p : PlayerId) :
     List PendingTrigger :=
   if (attackLayerFace? s layerId).isNone then [] else
-    let permanents := (allPlayers s.playerCount).flatMap fun owner => s.zone (.player owner .permanent)
-    permanents.flatMap fun source =>
-      if (s.characteristics source).any (fun c => c.controller == p && !c.abilitiesLost) &&
-          (s.obj? source).any (fun obj => !obj.faceDown) then
-        let abilities := ((s.objectFace? source).map (·.abilities)).getD []
-        let triggers := collectCardTriggers s source p false abilities fun trigger cond =>
-          trigger == .onPlayAttackOrWeapon && (cond.map (evalCondition s p source false)).getD true
-        triggers.map fun trigger => { trigger with effect := trigger.effect.bindPlayedAttack layerId }
-      else []
+    (controlledPermanentTriggers s p .onPlayAttackOrWeapon).map fun trigger =>
+      { trigger with effect := trigger.effect.bindPlayedAttack layerId }
 
 /-- Read the supported single, required hand-card cost (CR 5.1.9). -/
 def cardPlayHandCost? (s : GameState) (layerId : ObjId) : Option HandCardCost :=
@@ -1056,8 +1061,15 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .startPhaseWork _ :: rest =>
     some ({ s with phase := .startPhase, pending := rest }, [])
   | .actionPhaseStart tp :: rest =>
-    let s1 := s.setPool tp ((s.poolOf tp).addActionPoints 1)
-    some ({ s1 with phase := .actionPhase, pending := .priority tp 0 :: rest }, [])
+    let s1 := { s with phase := .actionPhase }
+    let triggers := (controlledPermanentTriggers s1 tp .onStartOfActionPhase).zipIdx.map
+      fun (trigger, index) => { trigger with id := s1.nextTimestamp + index }
+    let s2 := s1.setPool tp ((s.poolOf tp).addActionPoints 1)
+    let flush := if triggers.isEmpty then [] else [.flushTriggers]
+    some ({ s2 with
+              pendingTriggers := s2.pendingTriggers ++ triggers
+              nextTimestamp := s2.nextTimestamp + triggers.length
+              pending := flush ++ (.priority tp 0 :: rest) }, [])
   | .playPayCost p layerId fromArsenal modeIdx cost :: rest =>
     match spendAssetCost s p cost with
     | some s1 =>
