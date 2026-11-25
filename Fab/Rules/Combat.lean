@@ -277,7 +277,7 @@ def canAttackWithWeapon (s : GameState) (p : PlayerId) (weaponId : ObjId) : Bool
       s.activatedThisTurn.contains (weaponId, index)
     let canPayCounters := (weaponAttackCounterCost? c).all fun (_, kind, n) =>
       (s.obj? weaponId).any (fun weapon => decide (n ≤ weapon.counterCount kind))
-    c.isWeapon && canPayCounters &&
+    c.isWeapon && (c.front.power.isSome || (weaponAttackSpec? c).isSome) && canPayCounters &&
       (!alreadyUsed || s.activeEffects.any (fun effect => effect.allowsWeaponAttack p weaponId))
   | none => false
 
