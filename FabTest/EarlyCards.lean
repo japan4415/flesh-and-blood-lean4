@@ -152,3 +152,6 @@ meta def kickScenario : Option Bool := do
   let power (s : GameState) := (s.combat.bind CombatChain.activeLink?).map (linkAttackPower s)
   pure (power first == some 5 && power second == some 5 && power third == some 7)
 #guard kickScenario == some true
+
+#guard ((earlyPrintingCardId? "IRA008-P").bind throughWtrDB.find?).any
+  (fun c => c.id == ⟨"WTR_100_B"⟩ && c.status == .full)
