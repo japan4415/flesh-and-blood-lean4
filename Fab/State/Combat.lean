@@ -82,8 +82,10 @@ structure ChainLink where
   grantedAbilities : List Ability := []
   /-- Defending card and equipment `ObjId`s on `Zone.combatChain` defending this link. -/
   defending : List ObjId := []
-  /-- Number of cards defended from hand on this link for Dominate (CR 8.3.4) and Reprise (CR 8.3.8). -/
+  /-- Number of cards that have defended from hand on this link, for Reprise (CR 8.3.8). -/
   defendedFromHandCount : Nat := 0
+  /-- Cards still defending on this link that came from hand, for Dominate (CR 8.3.4). -/
+  defendingFromHand : List ObjId := []
   /-- Number of action cards defending on this link for Overpower (CR 8.3.26). -/
   defendedActionCount : Nat := 0
   /-- Whether this link's attack hit during the Damage Step (CR 7.5.3). -/
@@ -93,6 +95,21 @@ structure ChainLink where
   /-- Whether Go Again +1 AP has already been granted during Resolution Step (CR 7.6.2). -/
   goAgainGranted : Bool := false
 deriving DecidableEq, Repr
+
+/-- Record a defending card and its origin (CR 7.3.2, 7.4.2). -/
+def ChainLink.addDefender (link : ChainLink) (id : ObjId) (fromHand isAction : Bool) : ChainLink :=
+  { link with
+    defending := link.defending ++ [id]
+    defendedFromHandCount := link.defendedFromHandCount + (if fromHand then 1 else 0)
+    defendingFromHand := if fromHand then id :: link.defendingFromHand else link.defendingFromHand
+    defendedActionCount := link.defendedActionCount + (if isAction then 1 else 0) }
+
+/-- Remove a defending card while preserving the link's defense history. -/
+def ChainLink.removeDefender (link : ChainLink) (id : ObjId) (isAction : Bool) : ChainLink :=
+  { link with
+    defending := link.defending.filter (· != id)
+    defendingFromHand := link.defendingFromHand.filter (· != id)
+    defendedActionCount := link.defendedActionCount - (if isAction then 1 else 0) }
 
 /-- Active Combat Chain state while a combat chain is open (CR 3.5, 7.0).
 `links` stores the most recent (active) chain link at the head (`links.head?`), followed by

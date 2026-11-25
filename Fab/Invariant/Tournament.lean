@@ -712,9 +712,7 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
           match moveObj s1 layerId .combatChain .top false with
           | some (sMoved, id') =>
             let cc' := sMoved.combat.map fun cc => cc.updateActiveLink fun l =>
-              { l with
-                defending := l.defending ++ [id']
-                defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
+              l.addDefender id' (!info.fromArsenal) false
             ({ sMoved with
                 combat := cc'
                 activeEffects := defenseReactionEffects

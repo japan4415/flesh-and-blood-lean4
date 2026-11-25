@@ -772,16 +772,16 @@ def WTR_119_R : CardDef :=
               (.grantTrigger .onHit none (.prim (.draw .controller (.const 1))))
               .thisTurn ] })
 
-/-- Rout (drafted IR). -/
+/-- Rout. -/
 def WTR_120_R : CardDef :=
-  draftCard WTR_120_R_meta []
-    (some
-      { targets := [targetWeaponAttack]
-        body := .seqL
-          [ .grant (.obj (.slot 0)) (.addPower (.const 3)) .thisChainLink
-          , .ifThen .defendedFromHandThisLink
-              (.may (.prim (.returnDefendingCardToHand CardFilter.nonEquipment)) .nop)
-              .nop ] })
+  { draftCard WTR_120_R_meta []
+      (some
+        { targets := [targetWeaponAttack]
+          body := .seqL
+            [ .grant (.obj (.slot 0)) (.addPower (.const 3)) .thisChainLink
+            , .ifThen .defendedFromHandThisLink
+                (.prim (.returnDefendingCardToHand CardFilter.nonEquipment))
+                .nop ] }) with status := .full }
 
 /-- Shared 3-color helper for Overpower (weapon attack +base, or +repriseBonus if Reprise). -/
 def overpowerCard (base : CardDef) (baseBonus repriseBonus : Int) : CardDef :=

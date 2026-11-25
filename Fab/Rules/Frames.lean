@@ -272,7 +272,7 @@ def canPitchForCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Bool :=
 def canLinkTakeDefenseReaction (s : GameState) (link : ChainLink) (p : PlayerId)
     (fromHand : Bool) : Bool :=
   link.defender == p &&
-    !(fromHand && linkHasKeyword s link .dominate && 1 ≤ link.defendedFromHandCount)
+    !(fromHand && linkHasKeyword s link .dominate && 1 ≤ link.defendingFromHand.length)
 
 /-- A card or selected mode with a required single-attack target needs a matching active attack. -/
 def hasRequiredAttackTarget (s : GameState) (card : CardDef) (modeIdx : Option Nat) : Bool :=
@@ -1194,10 +1194,7 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
         match s.locate id, moveObj s id .combatChain .top false with
         | some srcZ, some (s1, id') =>
           let cc' := s1.combat.map fun cc => cc.updateActiveLink fun l =>
-            { l with
-              defending := l.defending ++ [id']
-              defendedFromHandCount := l.defendedFromHandCount + (if fromHand then 1 else 0)
-              defendedActionCount := l.defendedActionCount + (if isAction then 1 else 0) }
+            l.addDefender id' fromHand isAction
           some ({ s1 with
                     combat := cc'
                     activeEffects := nextDefendEffects s1 defender id'
@@ -1583,9 +1580,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
           match moveObj s1 layerId .combatChain .top false with
           | some (sMoved, id') =>
             let cc' := sMoved.combat.map fun cc => cc.updateActiveLink fun l =>
-              { l with
-                defending := l.defending ++ [id']
-                defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
+              l.addDefender id' (!info.fromArsenal) false
             ({ sMoved with
                 combat := cc'
                 activeEffects := defenseReactionEffects

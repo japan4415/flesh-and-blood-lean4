@@ -201,7 +201,7 @@ def canDefendWith (s : GameState) (link : ChainLink) (p : PlayerId) (id : ObjId)
       | some face =>
         if face.defense.isNone || face.hasType .defenseReaction then
           false
-        else if fromHand && linkHasKeyword s link .dominate && 1 ≤ link.defendedFromHandCount then
+        else if fromHand && linkHasKeyword s link .dominate && 1 ≤ link.defendingFromHand.length then
           false
         else if face.hasType .action && linkHasKeyword s link .overpower &&
             1 ≤ link.defendedActionCount then
