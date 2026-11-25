@@ -1901,6 +1901,12 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .nextAttack filter, .grantAttackAbility _
         | .nextAttack filter, .addPowerIfFewerDefenders _ _ => .nextAttack filter
         | .allAttacks filter, .addPower _ => .allAttacks filter
+        | .arenaObjectsOfType player kind, _ =>
+          let affected := evalPlayerRef s ctrl player
+          let arena := (allZones s.playerCount).filter Zone.isArena
+          .objects ((arena.flatMap s.zone).filter fun id =>
+            (s.obj? id).any (fun obj => !obj.faceDown) &&
+            (s.characteristics id).any (fun c => c.controller == affected && c.types.contains kind))
         | _, _ => .matching (ctrl := some ctrl)
       let eff : ContinuousEffect :=
         { id := s.nextTimestamp
