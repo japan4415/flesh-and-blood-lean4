@@ -79,12 +79,12 @@ def WTR_001 : CardDef := draftCard WTR_001_meta rhinarAbility
 /-- Rhinar (Young, drafted IR). -/
 def WTR_002 : CardDef := draftCard WTR_002_meta rhinarAbility
 
-/-- Romping Club (drafted IR). -/
+/-- Romping Club. -/
 def WTR_003 : CardDef :=
-  draftCard WTR_003_meta
-    [ weaponAttackAbility 2
-    , .triggered (.onDiscard power6Filter false) true none none
-        { body := .grant .self_ (.addPower (.const 1)) .thisTurn } ]
+  { draftCard WTR_003_meta
+      [ weaponAttackAbility 2
+      , .triggered (.onDiscard power6Filter false) true none none
+          { body := .grant .self_ (.addPower (.const 1)) .thisTurn } ] with status := .full }
 
 /-- Scabskin Leathers (drafted IR). -/
 def WTR_004 : CardDef :=

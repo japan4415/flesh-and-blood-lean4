@@ -157,7 +157,9 @@ private theorem afterPermanentEntry_pending (s : GameState) (triggers : List Pen
     (afterPermanentEntry s triggers rest).pending = afterLayerResolution (afterPermanentEntry s triggers rest) :: rest ∨
       (afterPermanentEntry s triggers rest).pending =
         .flushTriggers :: afterLayerResolution (afterPermanentEntry s triggers rest) :: rest := by
-  cases triggers <;> simp [afterPermanentEntry, afterLayerResolution]
+  let queued := triggers.zipIdx.map fun (trigger, index) => { trigger with id := s.nextTimestamp + index }
+  by_cases hempty : (s.pendingTriggers ++ queued).isEmpty = true <;>
+    simp [afterPermanentEntry, afterLayerResolution, queued, hempty]
 
 /-- **I9**: after a layer resolves, end-phase layers resolve automatically. Otherwise the
 turn-player regains priority with `passCount = 0`. New triggers go on the stack before that next
