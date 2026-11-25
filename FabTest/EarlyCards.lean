@@ -138,3 +138,17 @@ meta def tempoScenario : Option Bool := do
   let after ← resolved.combat.bind CombatChain.activeLink?
   pure (!linkHasKeyword hit before .goAgain && linkHasKeyword resolved after .goAgain)
 #guard tempoScenario == some true
+
+meta def kickScenario : Option Bool := do
+  let p := earlyAttacker
+  let (firstHand, jab1) ← earlyPlace earlyBase p (.player p .hand) "WTR_100_B"
+  let (secondHand, jab2) ← earlyPlace firstHand p (.player p .hand) "WTR_100_B"
+  let (ready, kick) ← earlyPlace secondHand p (.player p .hand) "IRA_007_R"
+  let first ← earlyAttack ready (.playCard kick)
+  let hit1 ← (earlyAttack ready (.playCard jab1)).bind earlyDamage
+  let second ← (earlySteps hit1 earlyPass).bind (earlyAttack · (.playCard kick))
+  let hit2 ← (earlySteps hit1 earlyPass).bind (earlyAttack · (.playCard jab2)) >>= earlyDamage
+  let third ← (earlySteps hit2 earlyPass).bind (earlyAttack · (.playCard kick))
+  let power (s : GameState) := (s.combat.bind CombatChain.activeLink?).map (linkAttackPower s)
+  pure (power first == some 5 && power second == some 5 && power third == some 7)
+#guard kickScenario == some true

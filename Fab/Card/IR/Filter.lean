@@ -244,6 +244,8 @@ inductive Condition where
   | always
   /-- `Combo`: previous chain link attack had name `name` (CR 8.3.6). -/
   | prevChainLinkNamed (name : String)
+  /-- True for the source attack when its current link is at least this number. -/
+  | chainLinkAtLeast (minimum : Nat)
   /-- `Reprise`: defending hero defended with a card from hand this chain link (CR 8.3.8). -/
   | defendedFromHandThisLink
   /-- Current attack is defended by fewer than `n` non-equipment cards (Barraging Beatdown/Brawnhide). -/
