@@ -5,7 +5,7 @@ public import FabCards.WTR.Meta
 /-!
 # Welcome to Rathe (WTR) card definitions and IR transcriptions
 
-Handwritten effect IR transcriptions (`status := .drafted`) overlaid on top of the
+Handwritten rules and implementation statuses overlaid on top of the
 auto-generated metadata in `FabCards.WTR.Meta` (docs/card-data.md §4.1-4.2).
 All 226 logical cards of WTR are included in `wtrCards`; cards not yet transcribed
 retain their generated `.todo` metadata.
@@ -28,6 +28,10 @@ def draftCard (base : CardDef) (abilities : List Ability := [])
 /-- Mark a vanilla or keyword-only card (no additional text abilities) as `.drafted`. -/
 def draftVanilla (base : CardDef) : CardDef :=
   { base with status := .drafted }
+
+/-- Mark a card whose printed rules are covered by scenario or shared keyword tests. -/
+def verifiedCard (base : CardDef) : CardDef :=
+  { base with status := .full }
 
 /-- Helper: standard weapon attack activated ability (`Once per Turn Action - {r}: Attack`). -/
 def weaponAttackAbility (resCost : Nat) : Ability :=
@@ -411,19 +415,56 @@ def WTR_087_Y : CardDef := flusterFist WTR_087_Y_meta
 /-- Fluster Fist Blue (drafted IR). -/
 def WTR_088_B : CardDef := flusterFist WTR_088_B_meta
 
-/-- Head Jab Red (vanilla Go Again, drafted IR). -/
-def WTR_098_R : CardDef := draftVanilla WTR_098_R_meta
-/-- Head Jab Yellow (vanilla Go Again, drafted IR). -/
-def WTR_099_Y : CardDef := draftVanilla WTR_099_Y_meta
-/-- Head Jab Blue (vanilla Go Again, drafted IR). -/
-def WTR_100_B : CardDef := draftVanilla WTR_100_B_meta
+/-- Apply a combo bonus when the named card was the previous attack on the chain. -/
+def comboAttack (base : CardDef) (previous : String) (bonus : Int)
+    (keywords : List KeywordInst := []) : CardDef :=
+  draftCard base [] (some
+    { body := .ifThen (.prevChainLinkNamed previous)
+        (.seqL (.grant .self_ (.addPower (.const bonus)) .thisChainLink ::
+          keywords.map (fun kw => .grant .self_ (.grantKeyword kw) .thisChainLink)))
+        .nop })
 
-/-- Surging Strike Red (vanilla Go Again, drafted IR). -/
-def WTR_107_R : CardDef := draftVanilla WTR_107_R_meta
-/-- Surging Strike Yellow (vanilla Go Again, drafted IR). -/
-def WTR_108_Y : CardDef := draftVanilla WTR_108_Y_meta
-/-- Surging Strike Blue (vanilla Go Again, drafted IR). -/
-def WTR_109_B : CardDef := draftVanilla WTR_109_B_meta
+/-- Blackout Kick Red. -/
+def WTR_089_R : CardDef := verifiedCard (comboAttack WTR_089_R_meta "Rising Knee Thrust" 3)
+/-- Blackout Kick Yellow. -/
+def WTR_090_Y : CardDef := verifiedCard (comboAttack WTR_090_Y_meta "Rising Knee Thrust" 3)
+/-- Blackout Kick Blue. -/
+def WTR_091_B : CardDef := verifiedCard (comboAttack WTR_091_B_meta "Rising Knee Thrust" 3)
+
+/-- Open the Center Red. -/
+def WTR_095_R : CardDef := verifiedCard (comboAttack WTR_095_R_meta "Head Jab" 1 [.goAgain, .dominate])
+/-- Open the Center Yellow. -/
+def WTR_096_Y : CardDef := verifiedCard (comboAttack WTR_096_Y_meta "Head Jab" 1 [.goAgain, .dominate])
+/-- Open the Center Blue. -/
+def WTR_097_B : CardDef := verifiedCard (comboAttack WTR_097_B_meta "Head Jab" 1 [.goAgain, .dominate])
+
+/-- Head Jab Red (vanilla Go Again). -/
+def WTR_098_R : CardDef := verifiedCard WTR_098_R_meta
+/-- Head Jab Yellow (vanilla Go Again). -/
+def WTR_099_Y : CardDef := verifiedCard WTR_099_Y_meta
+/-- Head Jab Blue (vanilla Go Again). -/
+def WTR_100_B : CardDef := verifiedCard WTR_100_B_meta
+
+/-- Leg Tap Red. -/
+def WTR_101_R : CardDef := verifiedCard WTR_101_R_meta
+/-- Leg Tap Yellow. -/
+def WTR_102_Y : CardDef := verifiedCard WTR_102_Y_meta
+/-- Leg Tap Blue. -/
+def WTR_103_B : CardDef := verifiedCard WTR_103_B_meta
+
+/-- Rising Knee Thrust Red. -/
+def WTR_104_R : CardDef := verifiedCard (comboAttack WTR_104_R_meta "Leg Tap" 2 [.goAgain])
+/-- Rising Knee Thrust Yellow. -/
+def WTR_105_Y : CardDef := verifiedCard (comboAttack WTR_105_Y_meta "Leg Tap" 2 [.goAgain])
+/-- Rising Knee Thrust Blue. -/
+def WTR_106_B : CardDef := verifiedCard (comboAttack WTR_106_B_meta "Leg Tap" 2 [.goAgain])
+
+/-- Surging Strike Red (vanilla Go Again). -/
+def WTR_107_R : CardDef := verifiedCard WTR_107_R_meta
+/-- Surging Strike Yellow (vanilla Go Again). -/
+def WTR_108_Y : CardDef := verifiedCard WTR_108_Y_meta
+/-- Surging Strike Blue (vanilla Go Again). -/
+def WTR_109_B : CardDef := verifiedCard WTR_109_B_meta
 
 /-- Shared 3-color helper for Whelming Gustwave (Combo: +1{p}, go again, onHit draw 1). -/
 def whelmingGustwave (base : CardDef) : CardDef :=
@@ -563,14 +604,14 @@ def WTR_154 : CardDef :=
         { targets := [{ kind := .attackAction, filter := { maxCost := some 1 } }]
           body := .grant (.obj (.slot 0)) (.grantKeyword .goAgain) .thisChainLink } ]
 
-/-- Ironrot Helm (keyword-only Blade Break, drafted IR). -/
-def WTR_155 : CardDef := draftVanilla WTR_155_meta
-/-- Ironrot Plate (keyword-only Blade Break, drafted IR). -/
-def WTR_156 : CardDef := draftVanilla WTR_156_meta
-/-- Ironrot Gauntlet (keyword-only Blade Break, drafted IR). -/
-def WTR_157 : CardDef := draftVanilla WTR_157_meta
-/-- Ironrot Legs (keyword-only Blade Break, drafted IR). -/
-def WTR_158 : CardDef := draftVanilla WTR_158_meta
+/-- Ironrot Helm (keyword-only Blade Break). -/
+def WTR_155 : CardDef := verifiedCard WTR_155_meta
+/-- Ironrot Plate (keyword-only Blade Break). -/
+def WTR_156 : CardDef := verifiedCard WTR_156_meta
+/-- Ironrot Gauntlet (keyword-only Blade Break). -/
+def WTR_157 : CardDef := verifiedCard WTR_157_meta
+/-- Ironrot Legs (keyword-only Blade Break). -/
+def WTR_158 : CardDef := verifiedCard WTR_158_meta
 
 /-- Enlightened Strike (drafted IR — modal choice + deck-bottom extra cost). -/
 def WTR_159_R : CardDef :=
@@ -582,9 +623,9 @@ def WTR_159_R : CardDef :=
           , .grant .self_ (.addPower (.const 2)) .thisChainLink
           , .grant .self_ (.grantKeyword .goAgain) .thisChainLink ] })
 
-/-- Tome of Fyendal (drafted IR). -/
+/-- Tome of Fyendal. -/
 def WTR_160_Y : CardDef :=
-  draftCard WTR_160_Y_meta []
+  verifiedCard <| draftCard WTR_160_Y_meta []
     (some
       { body := .seqL
           [ .prim (.draw .controller (.const 2))
@@ -632,31 +673,31 @@ def snatchCard (base : CardDef) : CardDef :=
   draftCard base
     [ .triggered .onHit false none none { body := .prim (.draw .controller (.const 1)) } ]
 
-/-- Snatch Red (drafted IR). -/
-def WTR_167_R : CardDef := snatchCard WTR_167_R_meta
-/-- Snatch Yellow (drafted IR). -/
-def WTR_168_Y : CardDef := snatchCard WTR_168_Y_meta
-/-- Snatch Blue (drafted IR). -/
-def WTR_169_B : CardDef := snatchCard WTR_169_B_meta
+/-- Snatch Red. -/
+def WTR_167_R : CardDef := verifiedCard (snatchCard WTR_167_R_meta)
+/-- Snatch Yellow. -/
+def WTR_168_Y : CardDef := verifiedCard (snatchCard WTR_168_Y_meta)
+/-- Snatch Blue. -/
+def WTR_169_B : CardDef := verifiedCard (snatchCard WTR_169_B_meta)
 
 /-- Shared 3-color helper for Sigil of Solace (Instant gain 3/2/1 life). -/
 def sigilOfSolace (base : CardDef) (amount : Int) : CardDef :=
   draftCard base []
     (some { body := .prim (.gainLife .controller (.const amount)) })
 
-/-- Sigil of Solace Red (drafted IR). -/
-def WTR_173_R : CardDef := sigilOfSolace WTR_173_R_meta 3
-/-- Sigil of Solace Yellow (drafted IR). -/
-def WTR_174_Y : CardDef := sigilOfSolace WTR_174_Y_meta 2
-/-- Sigil of Solace Blue (drafted IR). -/
-def WTR_175_B : CardDef := sigilOfSolace WTR_175_B_meta 1
+/-- Sigil of Solace Red. -/
+def WTR_173_R : CardDef := verifiedCard (sigilOfSolace WTR_173_R_meta 3)
+/-- Sigil of Solace Yellow. -/
+def WTR_174_Y : CardDef := verifiedCard (sigilOfSolace WTR_174_Y_meta 2)
+/-- Sigil of Solace Blue. -/
+def WTR_175_B : CardDef := verifiedCard (sigilOfSolace WTR_175_B_meta 1)
 
-/-- Raging Onslaught Red (vanilla, drafted IR). -/
-def WTR_188_R : CardDef := draftVanilla WTR_188_R_meta
-/-- Raging Onslaught Yellow (vanilla, drafted IR). -/
-def WTR_189_Y : CardDef := draftVanilla WTR_189_Y_meta
-/-- Raging Onslaught Blue (vanilla, drafted IR). -/
-def WTR_190_B : CardDef := draftVanilla WTR_190_B_meta
+/-- Raging Onslaught Red (vanilla). -/
+def WTR_188_R : CardDef := verifiedCard WTR_188_R_meta
+/-- Raging Onslaught Yellow (vanilla). -/
+def WTR_189_Y : CardDef := verifiedCard WTR_189_Y_meta
+/-- Raging Onslaught Blue (vanilla). -/
+def WTR_190_B : CardDef := verifiedCard WTR_190_B_meta
 
 /-- Shared 3-color helper for Scar for a Scar (onPlay lessLife → goAgain). -/
 def scarForAScar (base : CardDef) : CardDef :=
@@ -671,12 +712,12 @@ def WTR_192_Y : CardDef := scarForAScar WTR_192_Y_meta
 /-- Scar for a Scar Blue (drafted IR). -/
 def WTR_193_B : CardDef := scarForAScar WTR_193_B_meta
 
-/-- Wounding Blow Red (vanilla, drafted IR). -/
-def WTR_203_R : CardDef := draftVanilla WTR_203_R_meta
-/-- Wounding Blow Yellow (vanilla, drafted IR). -/
-def WTR_204_Y : CardDef := draftVanilla WTR_204_Y_meta
-/-- Wounding Blow Blue (vanilla, drafted IR). -/
-def WTR_205_B : CardDef := draftVanilla WTR_205_B_meta
+/-- Wounding Blow Red (vanilla). -/
+def WTR_203_R : CardDef := verifiedCard WTR_203_R_meta
+/-- Wounding Blow Yellow (vanilla). -/
+def WTR_204_Y : CardDef := verifiedCard WTR_204_Y_meta
+/-- Wounding Blow Blue (vanilla). -/
+def WTR_205_B : CardDef := verifiedCard WTR_205_B_meta
 
 /-- Shared 3-color helper for Pummel (per-mode `ModeSpec` targets: club/hammer vs cost ≥2 attack). -/
 def pummelCard (base : CardDef) (bonus : Int) : CardDef :=
@@ -726,16 +767,16 @@ def WTR_211_B : CardDef := razorReflex WTR_211_B_meta 1
 def sinkBelow (base : CardDef) : CardDef :=
   draftCard base []
     (some
-      { body := .may
-          (.prim (.putHandOnDeck .controller .bottom))
-          (.prim (.draw .controller (.const 1))) })
+      { body := .ifThen (.zoneEmpty .controller .hand) .nop
+          (.may (.prim (.putHandOnDeck .controller .bottom))
+            (.prim (.draw .controller (.const 1)))) })
 
-/-- Sink Below Red (drafted IR). -/
-def WTR_215_R : CardDef := sinkBelow WTR_215_R_meta
-/-- Sink Below Yellow (drafted IR). -/
-def WTR_216_Y : CardDef := sinkBelow WTR_216_Y_meta
-/-- Sink Below Blue (drafted IR). -/
-def WTR_217_B : CardDef := sinkBelow WTR_217_B_meta
+/-- Sink Below Red. -/
+def WTR_215_R : CardDef := verifiedCard (sinkBelow WTR_215_R_meta)
+/-- Sink Below Yellow. -/
+def WTR_216_Y : CardDef := verifiedCard (sinkBelow WTR_216_Y_meta)
+/-- Sink Below Blue. -/
+def WTR_217_B : CardDef := verifiedCard (sinkBelow WTR_217_B_meta)
 
 /-- Quicken Token (drafted IR). -/
 def WTR_225 : CardDef :=
@@ -747,7 +788,7 @@ def WTR_225 : CardDef :=
 
 /-! ## Merged WTR card list (all 226 logical cards) -/
 
-/-- All WTR cards with handwritten IR transcriptions (`status := .drafted`). -/
+/-- All WTR cards with handwritten overrides. -/
 def draftedCards : List CardDef :=
   [ WTR_000_B
   , WTR_001, WTR_002, WTR_003, WTR_004, WTR_005, WTR_006_R, WTR_007_Y, WTR_008_B, WTR_010_Y
@@ -757,7 +798,9 @@ def draftedCards : List CardDef :=
   , WTR_048_R, WTR_049_Y, WTR_050_B, WTR_051_R, WTR_052_Y, WTR_053_B
   , WTR_054_R, WTR_055_Y, WTR_056_B, WTR_057_R, WTR_058_Y, WTR_059_B, WTR_075
   , WTR_076, WTR_077, WTR_078, WTR_079, WTR_080, WTR_081_B, WTR_082_R, WTR_084_Y, WTR_085_R
-  , WTR_086_R, WTR_087_Y, WTR_088_B, WTR_098_R, WTR_099_Y, WTR_100_B
+  , WTR_086_R, WTR_087_Y, WTR_088_B, WTR_089_R, WTR_090_Y, WTR_091_B
+  , WTR_095_R, WTR_096_Y, WTR_097_B, WTR_098_R, WTR_099_Y, WTR_100_B
+  , WTR_101_R, WTR_102_Y, WTR_103_B, WTR_104_R, WTR_105_Y, WTR_106_B
   , WTR_107_R, WTR_108_Y, WTR_109_B, WTR_110_R, WTR_111_Y, WTR_112_B
   , WTR_113, WTR_114, WTR_115, WTR_116, WTR_117, WTR_118_B, WTR_119_R, WTR_120_R
   , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_141_R, WTR_142_Y, WTR_143_B

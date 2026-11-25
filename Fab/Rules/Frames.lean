@@ -393,6 +393,37 @@ def nextTriggerFrame (s : GameState) : List PlayerId → List Frame
     else
       nextTriggerFrame s rem
 
+/-- Source used by a resolving ability, or the card itself for a card layer. -/
+def resolvingSource (s : GameState) (layer : ObjId) : ObjId :=
+  match (s.obj? layer).map Object.kind with
+  | some (.layer src _ _ _) => src
+  | _ => layer
+
+/-- Collect a hitting attack card's untargeted abilities without a hit-count restriction. -/
+def attackHitTriggers (s : GameState) (link : ChainLink) : List PendingTrigger :=
+  match link.attack with
+  | none => []
+  | some source =>
+    match s.objectFace? source with
+    | none => []
+    | some face =>
+      let hits := face.abilities.zipIdx.filterMap fun (ability, abilityIdx) =>
+        match ability with
+        | .triggered trigger false none cond eff =>
+          if (trigger == .onHit || trigger == .onHitHero) &&
+              eff.targets.isEmpty && eff.modes.isEmpty && eff.extraCosts.isEmpty &&
+              cond.all (evalCondition s link.attacker source false) then
+            some ({
+              id := 0
+              source := source
+              sourceLki := captureLki s source link.attacker
+              controller := link.attacker
+              abilityIdx := abilityIdx
+              effect := eff.body } : PendingTrigger)
+          else none
+        | _ => none
+      hits.zipIdx.map fun (hit, idx) => { hit with id := s.nextTimestamp + idx }
+
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
   match s.pending, a.actor, a.kind with
@@ -749,7 +780,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
             | some c => cardResolveEffect c info.modeIdx
             | none => .nop
         some ({ s with
-                  pending := .run info.controller topId info.fromArsenal [] [eff] ::
+                  pending := .run info.controller (resolvingSource s topId) info.fromArsenal [] [eff] ::
                     .finishResolve topId :: rest },
               [])
     | [] =>
@@ -858,8 +889,13 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         let isHit := didCombatHit finalDmg
         let cc' := { cc with step := .damage }.updateActiveLink fun l =>
           { l with hit := isHit, damageDealt := finalDmg }
-        let s3 := gspRun { s2 with combat := some cc' }
-        some ({ s3 with pending := .priority tp 0 :: .combatStep .resolution atkId :: rest }, es)
+        let withDamage := { s2 with combat := some cc' }
+        let hits := if isHit && withDamage.result.isNone then attackHitTriggers withDamage link else []
+        let s3 := gspRun { withDamage with
+          pendingTriggers := withDamage.pendingTriggers ++ hits
+          nextTimestamp := withDamage.nextTimestamp + hits.length }
+        let triggers := if hits.isEmpty then [] else [.flushTriggers]
+        some ({ s3 with pending := triggers ++ [.priority tp 0, .combatStep .resolution atkId] ++ rest }, es)
       | none =>
         some ({ s with
                   combat := some { cc with step := .damage }

@@ -107,8 +107,9 @@ meta def passBoth : List Action :=
     let (s3, ancId) ← cPlace s2 ⟨0⟩ .hand ⟨"WTR_082_R"⟩
     let (s4, defHand) ← cPlace s3 ⟨1⟩ .hand ⟨"WTR_098_R"⟩  -- Head Jab Red (2{d})
     let (s5, sinkId) ← cPlace s4 ⟨1⟩ .hand ⟨"WTR_215_R"⟩   -- Sink Below Red (4{d})
+    let (s6, _) ← cPlace s5 ⟨1⟩ .hand ⟨"WTR_204_Y"⟩
     -- Enter Defend Step, defend with defHand (2{d}), advance to Reaction Step
-    let sReact ← cSteps s5
+    let sReact ← cSteps s6
       ([⟨.player ⟨0⟩, .playCard wbAtk⟩] ++ passBoth ++ passBoth ++
        [⟨.player ⟨1⟩, .defendCard defHand⟩, ⟨.player ⟨1⟩, .defendDone⟩] ++ passBoth)
     let onReact := sReact.combat.map (·.step) == some .reaction
@@ -126,6 +127,86 @@ meta def passBoth : List Action :=
       (sDmg.combat.bind CombatChain.activeLink?).map (fun l => (l.hit, l.damageDealt)) == some (false, 0))) with
   | some b => b
   | none => false
+
+/-- Play two attacks on successive links and check the second attack's combo bonus. -/
+meta def checkCombo (previous next : CardId) (bonus : Int) (goAgain dominate : Bool) : Option Bool := do
+  let p : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let s0 := m5Base.setPool p { actionPoints := 2, resources := 8 }
+  let (s1, prev) ← cPlace s0 p .hand previous
+  let (s2, current) ← cPlace s1 p .hand next
+  let atDefense ← cSteps s2 ([⟨.player p, .playCard prev⟩] ++ passBoth ++ passBoth)
+  let nextLink ← cSteps atDefense ([⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth)
+  let attached ← cSteps nextLink ([⟨.player p, .playCard current⟩] ++ passBoth)
+  let link ← attached.combat.bind CombatChain.activeLink?
+  let attack ← link.attack
+  pure ((attached.cardDefOf? attack).map (·.id) == some next &&
+    link.powerBonus == bonus && linkHasKeyword attached link .goAgain == goAgain &&
+    linkHasKeyword attached link .dominate == dominate)
+
+#guard ["WTR_089_R", "WTR_090_Y", "WTR_091_B"].all (fun id =>
+  checkCombo ⟨"WTR_104_R"⟩ ⟨id⟩ 3 false false == some true &&
+  checkCombo ⟨"WTR_203_R"⟩ ⟨id⟩ 0 false false == some true)
+#guard ["WTR_095_R", "WTR_096_Y", "WTR_097_B"].all (fun id =>
+  checkCombo ⟨"WTR_098_R"⟩ ⟨id⟩ 1 true true == some true &&
+  checkCombo ⟨"WTR_203_R"⟩ ⟨id⟩ 0 false false == some true)
+#guard ["WTR_104_R", "WTR_105_Y", "WTR_106_B"].all (fun id =>
+  checkCombo ⟨"WTR_101_R"⟩ ⟨id⟩ 2 true false == some true &&
+  checkCombo ⟨"WTR_203_R"⟩ ⟨id⟩ 0 false false == some true)
+
+/-- Play Sink Below through the reaction stack with empty hand, decline, and acceptance. -/
+meta def checkSinkBelow (cid : CardId) : Option Bool := do
+  let p : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let (s1, atk) ← cPlace m5Base p .hand ⟨"WTR_203_R"⟩
+  let (s2, sink) ← cPlace s1 defender .hand cid
+  let (s3, drawId) ← cPlace s2 defender .deck ⟨"WTR_188_R"⟩
+  let react ← cSteps s3 ([⟨.player p, .playCard atk⟩] ++ passBoth ++ passBoth ++
+    [⟨.player defender, .defendDone⟩] ++ passBoth)
+  let announce : List Action := [⟨.player p, .pass⟩, ⟨.player defender, .playCard sink⟩,
+    ⟨.player defender, .pass⟩, ⟨.player p, .pass⟩]
+  let empty ← cSteps react announce
+  let (reactWithHand, handId) ← cPlace react defender .hand ⟨"WTR_204_Y"⟩
+  let choose ← cSteps reactWithHand announce
+  let decline ← cSteps choose [⟨.player defender, .pickMay false⟩]
+  let accept ← cSteps choose [⟨.player defender, .pickMay true⟩,
+    ⟨.player defender, .handToDeckPick handId⟩]
+  let drawn ← (accept.zone (.player defender .hand)).head?
+  let tucked ← (accept.zone (.player defender .deck)).head?
+  pure (empty.pending.head? == some (.priority p 0) &&
+    (empty.zone (.player defender .hand)).isEmpty &&
+    empty.zone (.player defender .deck) == [drawId] &&
+    decline.zone (.player defender .hand) == [handId] &&
+    decline.zone (.player defender .deck) == [drawId] &&
+    (accept.cardDefOf? drawn).map (·.id) == some ⟨"WTR_188_R"⟩ &&
+    (accept.cardDefOf? tucked).map (·.id) == some ⟨"WTR_204_Y"⟩)
+
+#guard ["WTR_215_R", "WTR_216_Y", "WTR_217_B"].all (fun id =>
+  checkSinkBelow ⟨id⟩ == some true)
+
+/-- Snatch draws only after a hit and after its triggered layer resolves. -/
+meta def checkSnatch (cid : CardId) : Option Bool := do
+  let p : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let (s1, atk) ← cPlace m5Base p .hand cid
+  let (s2, drawId) ← cPlace s1 p .deck ⟨"WTR_188_R"⟩
+  let (s3, block1) ← cPlace s2 defender .hand ⟨"WTR_203_R"⟩
+  let (s4, block2) ← cPlace s3 defender .hand ⟨"WTR_204_Y"⟩
+  let defense ← cSteps s4 ([⟨.player p, .playCard atk⟩] ++ passBoth ++ passBoth)
+  let finishDefense : List Action := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth
+  let hit ← cSteps defense finishDefense
+  let blocked ← cSteps defense ([⟨.player defender, .defendCard block1⟩,
+    ⟨.player defender, .defendCard block2⟩] ++ finishDefense)
+  let trigger ← hit.pendingTriggers.head?
+  let stacked ← cSteps hit [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩]
+  let drawn ← cSteps stacked passBoth
+  let card ← (drawn.zone (.player p .hand)).head?
+  pure (hit.pendingTriggers.length == 1 && blocked.pendingTriggers.isEmpty &&
+    blocked.zone (.player p .deck) == [drawId] && hit.zone (.player p .deck) == [drawId] &&
+    (stacked.zone .stack).length == 1 && (drawn.zone .stack).isEmpty &&
+    (drawn.cardDefOf? card).map (·.id) == some ⟨"WTR_188_R"⟩)
+
+#guard ["WTR_167_R", "WTR_168_Y", "WTR_169_B"].all (fun id => checkSnatch ⟨id⟩ == some true)
 
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->

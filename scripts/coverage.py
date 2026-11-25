@@ -30,7 +30,7 @@ def scan_statuses(wtr_lean_path: pathlib.Path, card_ids: list[str]) -> tuple[dic
         body = m.group(2)
         if cid not in statuses:
             continue
-        if ".full" in body:
+        if ".full" in body or re.match(r"\s*verifiedCard\b", body):
             statuses[cid] = "full"
         elif ".«partial»" in body or ".partial" in body:
             statuses[cid] = "partial"
