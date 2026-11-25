@@ -1453,6 +1453,49 @@ meta def azaleaScenario (heroId : String) (arrowTop : Bool) : Option Bool := do
 #guard azaleaScenario "ARC_039" true == some true
 #guard azaleaScenario "ARC_039" false == some true
 
+#guard ((earlyPrintingCardId? "ARC040").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Death Dealer" && card.front.hasSubtype .bow && card.status == .full)
+
+meta def deathDealerScenario : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let arsenal := Zone.player p .arsenal
+  let deck := Zone.player p .deck
+  let arrow := FabCards.ARC.Meta.ARC_043_R_meta
+  let state := { earlyBase with cards := ⟨arrow :: throughArcDB.cards⟩ }
+  let (withBow, bow) ← earlyPlace state p (.player p .weapon) "ARC_040"
+  let (withDeck, _) ← earlyPlace withBow p deck "WTR_192_Y"
+  let (ordinaryHand, other) ← earlyPlace withDeck p hand "WTR_191_R"
+  let (ready, arrowId) ← earlyPlace ordinaryHand p hand arrow.id.val
+  let use : Action := ⟨.player p, .activateAbility bow 0 none⟩
+  let pick (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let choosing ← earlySteps ready (use :: earlyPass)
+  let .chooseShuffleCards chooser 1 [candidate] [] true (some selection) :: _ := choosing.pending
+    | none
+  let loaded ← earlySteps choosing [pick (some arrowId), pick none]
+  let declined ← earlySteps choosing [pick none]
+  let (alreadyLoaded, old) ← earlyPlace ready p arsenal "WTR_193_B"
+  let blocked ← earlySteps alreadyLoaded (use :: earlyPass)
+  let noArrow ← earlySteps ordinaryHand (use :: (earlyPass ++ [pick none]))
+  let loadedId ← (loaded.zone arsenal).head?
+  let handIds := (loaded.zone hand).filterMap (fun id => (loaded.cardDefOf? id).map (·.id))
+  pure (chooser == p && candidate == arrowId && !selection.searchesDeck && !selection.shuffleAfter &&
+    (earlySteps choosing [pick (some other)]).isNone &&
+    (loaded.zone deck).isEmpty && handIds == [⟨"WTR_192_Y"⟩, ⟨"WTR_191_R"⟩] &&
+    (loaded.obj? loadedId).any (fun obj => !obj.faceDown) &&
+    (loaded.cardDefOf? loadedId).any (fun c => c.id == arrow.id) &&
+    (loaded.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    (loaded.poolOf p).resources + 1 == (ready.poolOf p).resources &&
+    !((step 64 loaded use).isOk) && !canAttackWithWeapon ready p bow &&
+    (declined.zone arsenal).isEmpty && declined.zone deck == ready.zone deck &&
+    declined.zone hand == ready.zone hand &&
+    blocked.zone arsenal == [old] && blocked.zone deck == ready.zone deck &&
+    blocked.zone hand == ready.zone hand &&
+    (noArrow.zone arsenal).isEmpty && noArrow.zone deck == ready.zone deck &&
+    noArrow.zone hand == ordinaryHand.zone hand)
+
+#guard deathDealerScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

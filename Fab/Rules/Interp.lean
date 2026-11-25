@@ -1252,6 +1252,17 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
           if shuffleAfter then [.chanceShuffle (.player target .deck)] else []
         else [.chooseShuffleCards target limit matching [] false (some choice)]
       (s, [], follow)
+  | .putHandArsenal pref filter drawAfter =>
+    let target := evalPlayerRef s ctrl pref
+    let hand := s.zone (.player target .hand)
+    let arsenal := Zone.player target .arsenal
+    if hand.isEmpty || !(s.zone arsenal).isEmpty then (s, [], [])
+    else
+      let matching := hand.filter fun id => (s.objectFace? id).any (cardFaceMatches filter)
+      let choice : DeckSearchChoice :=
+        { destination := arsenal, reveal := false, mayFail := true,
+          shuffleAfter := false, searchesDeck := false }
+      (s, [], [.chooseShuffleCards target 1 matching [] drawAfter (some choice)])
   | .putHandPermanent pref filter entryCounter =>
     let target := evalPlayerRef s ctrl pref
     let hand := s.zone (.player target .hand)
@@ -1568,6 +1579,8 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     | some _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | putHandArsenal _ _ _ =>
+    unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | putHandPermanent _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | shuffleZone _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | shuffleZoneIntoDeck pref srcRef f maxCount drawSame =>
@@ -1850,6 +1863,8 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨rfl, rfl, id⟩
     | some _ => exact ⟨rfl, rfl, id⟩
+  | putHandArsenal _ _ _ =>
+    unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | putHandPermanent _ _ _ => exact ⟨rfl, rfl, id⟩
   | shuffleZone _ _ => exact ⟨rfl, rfl, id⟩
   | shuffleZoneIntoDeck pref srcRef f maxCount _ =>

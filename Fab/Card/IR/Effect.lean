@@ -203,6 +203,9 @@ inductive Prim where
       (exactCost : Option NumExpr := none)
   /-- Optionally put one matching card from hand into the arena with an additional entry counter. -/
   | putHandPermanent (p : PlayerRef) (f : CardFilter) (entryCounter : Option CounterKind := none)
+  /-- If the arsenal is empty, optionally put one matching hand card into it face up
+  and draw one card if the move succeeds and `drawAfter` is true. -/
+  | putHandArsenal (p : PlayerRef) (f : CardFilter) (drawAfter : Bool)
   /-- Randomize the order of a player's zone using a chance decision (CR 8.5.20). -/
   | shuffleZone (p : PlayerRef) (z : ZoneRef)
   /-- Player `p` chooses up to `maxCount` cards matching `f` from `src` to shuffle into their deck.
