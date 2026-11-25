@@ -292,6 +292,52 @@ meta def checkSnatch (cid : CardId) (power : Nat) : Option Bool := do
 #guard checkSnatch ⟨"WTR_168_Y"⟩ 3 == some true
 #guard checkSnatch ⟨"WTR_169_B"⟩ 2 == some true
 
+/-- Check Disable's damage threshold and the arsenal move after its trigger resolves. -/
+meta def checkDisable (cid : CardId) (power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 5 }
+  let card ← funded.cards.find? cid
+  let (withAttack, attackId) ← cPlace funded attacker .hand cid
+  let (withDeck, deckTop) ← cPlace withAttack defender .deck ⟨"WTR_188_R"⟩
+  let arsenalZone := Zone.player defender .arsenal
+  let deckZone := Zone.player defender .deck
+  let (withArsenal, arsenalId) ← cPlace withDeck defender .arsenal ⟨"WTR_203_R"⟩ true
+  let (ready, blocker) ← cPlace withArsenal defender .hand ⟨"WTR_204_Y"⟩
+  let play := [⟨.player attacker, .playCard attackId⟩] ++ passBoth ++ passBoth
+  let defense ← cSteps ready play
+  let finishDefense := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth
+  let (atFour, _, _) := execPrim defense defender ⟨0⟩ []
+    (.preventNextDamage .controller (.const (Int.ofNat (power - 4))) .thisTurn)
+  let (atThree, _, _) := execPrim defense defender ⟨0⟩ []
+    (.preventNextDamage .controller (.const (Int.ofNat (power - 6))) .thisTurn)
+  let crushed ← cSteps atFour finishDefense
+  let blocked ← cSteps atThree ([⟨.player defender, .defendCard blocker⟩] ++ finishDefense)
+  let stackCrush := fun (s : GameState) => do
+    let trigger ← s.pendingTriggers.head?
+    cSteps s [⟨.player attacker, .pickTriggerStart attacker⟩,
+      ⟨.player attacker, .pickTrigger trigger.id⟩]
+  let stacked ← stackCrush crushed
+  let passed ← cSteps stacked [⟨.player attacker, .pass⟩]
+  let (resolved, events) ← (step 64 passed ⟨.player defender, .pass⟩).toOption
+  let bottom ← (resolved.zone deckZone).getLast?
+  let emptyArsenal ← cSteps withDeck (play ++ finishDefense)
+  let emptyStacked ← stackCrush emptyArsenal
+  let emptyResolved ← cSteps emptyStacked passBoth
+  pure (card.status == .full && (defense.poolOf attacker).resources == 0 &&
+    crushed.lifeOf defender == 36 && crushed.pendingTriggers.length == 1 &&
+    blocked.lifeOf defender == 37 && blocked.pendingTriggers.isEmpty &&
+    [crushed, stacked, blocked].all (fun s => s.zone arsenalZone == [arsenalId] &&
+      s.zone deckZone == [deckTop]) &&
+    resolved.zone arsenalZone == [] && resolved.zone deckZone == [deckTop, bottom] &&
+    (resolved.cardDefOf? bottom).map (·.id) == some ⟨"WTR_203_R"⟩ &&
+    events.countP (· == .moved arsenalId bottom arsenalZone deckZone) == 1 &&
+    emptyArsenal.lifeOf defender == 40 - Int.ofNat power &&
+    emptyResolved.zone arsenalZone == [] && emptyResolved.zone deckZone == [deckTop] &&
+    (emptyResolved.zone .stack).isEmpty)
+
+#guard checkDisable ⟨"WTR_048_R"⟩ 9 == some true
+
 /-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
 meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
     (keywords : List KeywordInst := []) : Option Bool := do
