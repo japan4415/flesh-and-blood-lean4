@@ -687,3 +687,4 @@ meta def checkFlusterFist (cid : CardId) (basePower : Nat) : Option Bool := do
     twoOk && oneOk && zeroOk && standaloneOk)
 
 #guard checkFlusterFist ⟨"WTR_086_R"⟩ 4 == some true
+#guard checkFlusterFist ⟨"WTR_087_Y"⟩ 3 == some true
