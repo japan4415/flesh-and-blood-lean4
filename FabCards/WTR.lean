@@ -616,8 +616,8 @@ def dorintheaAbility : List Ability :=
 /-- Dorinthea Ironsong. -/
 def WTR_113 : CardDef := { draftCard WTR_113_meta dorintheaAbility with status := .full }
 
-/-- Dorinthea (Young, drafted IR). -/
-def WTR_114 : CardDef := draftCard WTR_114_meta dorintheaAbility
+/-- Dorinthea (Young). -/
+def WTR_114 : CardDef := { draftCard WTR_114_meta dorintheaAbility with status := .full }
 
 /-- Dawnblade (drafted IR). -/
 def WTR_115 : CardDef :=
