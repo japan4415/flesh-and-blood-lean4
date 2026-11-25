@@ -206,11 +206,15 @@ def ARC_021_Y : CardDef := { overLoop Meta.ARC_021_Y_meta with status := .full }
 /-- Over Loop (ARC022). -/
 def ARC_022_B : CardDef := { overLoop Meta.ARC_022_B_meta with status := .full }
 
+/-- Throttle (ARC023). -/
+def ARC_023_R : CardDef := { Meta.ARC_023_R_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
    ARC_008_R, ARC_009_Y, ARC_010_R, ARC_011_R, ARC_012_Y, ARC_013_B, ARC_014_R, ARC_015_Y,
-   ARC_016_B, ARC_017_Y, ARC_018_B, ARC_019_R, ARC_020_R, ARC_021_Y, ARC_022_B]
+   ARC_016_B, ARC_017_Y, ARC_018_B, ARC_019_R, ARC_020_R, ARC_021_Y, ARC_022_B,
+   ARC_023_R]
 
 end FabCards.ARC
 
