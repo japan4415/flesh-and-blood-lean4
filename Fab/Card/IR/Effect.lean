@@ -37,7 +37,9 @@ inductive Trigger where
   | onHit
   /-- When this hits a hero specifically (CR 7.5). -/
   | onHitHero
-  /-- `Crush` or general damage threshold trigger: deals at least `minDmg` damage (CR 8.3.7). -/
+  /-- When this attack deals at least 4 damage to a hero (CR 8.4.2). -/
+  | onCrush
+  /-- General damage threshold trigger: deals at least `minDmg` damage. -/
   | onDealDamage (minDmg : Nat) (toHero : Bool)
   /-- When this defends (CR 7.3). -/
   | onDefend

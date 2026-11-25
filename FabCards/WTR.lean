@@ -247,13 +247,13 @@ def WTR_045_B : CardDef :=
         { body := .grant (.hero .defendingHero) .cantDrawCards .nextActionPhase } ]
 
 /-- Shared 3-color helper for Disable (Crush → defending hero's arsenal to deck bottom). -/
-def disableCard (base : CardDef) : CardDef :=
+def disableCard (base : CardDef) (trigger : Trigger := .onDealDamage 4 true) : CardDef :=
   draftCard base
-    [ .triggered (.onDealDamage 4 true) false none none
+    [ .triggered trigger false none none
         { body := .prim (.putArsenalOnDeckBottom .defendingHero) } ]
 
-/-- Disable Red (drafted IR). -/
-def WTR_048_R : CardDef := disableCard WTR_048_R_meta
+/-- Disable Red. -/
+def WTR_048_R : CardDef := { disableCard WTR_048_R_meta .onCrush with status := .full }
 /-- Disable Yellow (drafted IR). -/
 def WTR_049_Y : CardDef := disableCard WTR_049_Y_meta
 /-- Disable Blue (drafted IR). -/

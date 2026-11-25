@@ -399,18 +399,22 @@ def resolvingSource (s : GameState) (layer : ObjId) : ObjId :=
   | some (.layer src _ _ _) => src
   | _ => layer
 
-/-- Collect a hitting attack card's unconditional, untargeted hit triggers (CR 7.5.3, 6.6). -/
-def attackHitTriggers (s : GameState) (link : ChainLink) : List PendingTrigger :=
+/-- Collect an attack card's unconditional, untargeted hit and Crush triggers (CR 7.5.3, 8.4.2). -/
+def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigger :=
   match link.attack with
   | none => []
   | some source =>
     match s.objectFace? source with
     | none => []
     | some face =>
-      let hits := face.abilities.zipIdx.filterMap fun (ability, abilityIdx) =>
+      let triggers := face.abilities.zipIdx.filterMap fun (ability, abilityIdx) =>
         match ability with
-        | .triggered .onHit false none none eff =>
-          if eff.targets.isEmpty && eff.modes.isEmpty && eff.extraCosts.isEmpty then
+        | .triggered trigger false none none eff =>
+          let applies := match trigger with
+            | .onHit => link.hit
+            | .onCrush => crushTriggered link
+            | _ => false
+          if applies && eff.targets.isEmpty && eff.modes.isEmpty && eff.extraCosts.isEmpty then
             some ({
               id := 0
               source := source
@@ -420,7 +424,7 @@ def attackHitTriggers (s : GameState) (link : ChainLink) : List PendingTrigger :
               effect := eff.body } : PendingTrigger)
           else none
         | _ => none
-      hits.zipIdx.map fun (hit, idx) => { hit with id := s.nextTimestamp + idx }
+      triggers.zipIdx.map fun (trigger, idx) => { trigger with id := s.nextTimestamp + idx }
 
 /-- Apply a decision answer to the top frame of `s.pending` (CR 1.11, 4.1-4.4, 5.1). -/
 def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :=
@@ -885,14 +889,15 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
           | some (.damageDealt _ _ d) => d
           | _ => 0
         let isHit := didCombatHit finalDmg
-        let cc' := { cc with step := .damage }.updateActiveLink fun l =>
-          { l with hit := isHit, damageDealt := finalDmg }
+        let damagedLink := { link with hit := isHit, damageDealt := finalDmg }
+        let cc' := { cc with step := .damage }.updateActiveLink fun _ => damagedLink
         let withDamage := { s2 with combat := some cc' }
-        let hits := if isHit && withDamage.result.isNone then attackHitTriggers withDamage link else []
+        let damageTriggers := if isHit && withDamage.result.isNone then
+          attackDamageTriggers withDamage damagedLink else []
         let s3 := gspRun { withDamage with
-          pendingTriggers := withDamage.pendingTriggers ++ hits
-          nextTimestamp := withDamage.nextTimestamp + hits.length }
-        let triggers := if hits.isEmpty then [] else [.flushTriggers]
+          pendingTriggers := withDamage.pendingTriggers ++ damageTriggers
+          nextTimestamp := withDamage.nextTimestamp + damageTriggers.length }
+        let triggers := if damageTriggers.isEmpty then [] else [.flushTriggers]
         some ({ s3 with pending := triggers ++ [.priority tp 0, .combatStep .resolution atkId] ++ rest }, es)
       | none =>
         some ({ s with
