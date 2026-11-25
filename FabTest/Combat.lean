@@ -352,3 +352,4 @@ meta def checkOpenTheCenter (cid : CardId) (basePower : Nat) : Bool :=
   checkComboAttack [⟨"WTR_098_R"⟩, ⟨"WTR_203_R"⟩] cid basePower 0 == some true
 
 #guard checkOpenTheCenter ⟨"WTR_095_R"⟩ 5
+#guard checkOpenTheCenter ⟨"WTR_096_Y"⟩ 4
