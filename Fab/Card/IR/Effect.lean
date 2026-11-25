@@ -69,6 +69,8 @@ inductive Trigger where
   | onPlayAttackOrWeapon
   /-- When an attack action card you control is the `minLink`-th or higher chain link in a row to hit (Mask of Momentum). -/
   | onConsecutiveHitLink (minLink : Nat)
+  /-- Whenever controller charges their hero's soul (MON: Boltyn). -/
+  | onCharge
 deriving DecidableEq, Repr
 
 /-- Non-asset additional or activation cost (CR 1.14, 5.1.5). -/
@@ -185,6 +187,14 @@ inductive Prim where
   | preventNextDamage (p : PlayerRef) (n : NumExpr) (dur : Duration)
   /-- Immediately close the combat chain (Phantasm, Spectra) (CR 7.7). -/
   | closeCombatChain
+  /-- Charge: put a card from player `p`'s hand into their hero's Soul (CR 3.9, 8.5). -/
+  | charge (p : PlayerRef)
+  /-- Banish up to `n` cards from player `p`'s Soul (MON: Boltyn / Light) (CR 3.9). -/
+  | banishFromSoul (p : PlayerRef) (n : Nat)
+  /-- Banish the top `n` cards of player `p`'s deck, optionally face-down (MON: Chane / Levia) (CR 3.3). -/
+  | banishTopDeck (p : PlayerRef) (n : Nat) (faceDown : Bool)
+  /-- Banish up to `n` cards matching `f` from player `p`'s graveyard (MON: Levia / Shadow Brute) (CR 3.3). -/
+  | banishFromGraveyard (p : PlayerRef) (f : CardFilter) (n : Nat)
 deriving DecidableEq, Repr
 
 /-- Event pattern watched by a static replacement ability (CR 6.4). -/
@@ -263,6 +273,8 @@ inductive ContinuousMod where
   | additionalWeaponAttack
   /-- Damage dealt by affected attack to a hero is doubled (Pounding Gale). -/
   | doubleDamageToHero
+  /-- Affected card may be played from its owner's banished zone during duration (MON: Shadow). -/
+  | playableFromBanished
 deriving DecidableEq, Repr
 
 end

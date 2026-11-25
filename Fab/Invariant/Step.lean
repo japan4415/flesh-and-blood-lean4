@@ -777,8 +777,29 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
   · -- combatStep .reaction
-    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-    exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    dsimp only at h
+    cases hact : s.combat.bind CombatChain.activeLink? with
+    | none =>
+      rw [hact] at h; dsimp only at h
+      simp only [Bool.false_eq_true, ↓reduceIte, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    | some _ =>
+      rw [hact] at h; dsimp only at h
+      split at h
+      · have hinv := applyPhantasmClose_inv hwf hok
+        cases hph : applyPhantasmClose s with
+        | mk s1 es1 =>
+          rw [hph] at h hinv
+          dsimp only at h hinv
+          simp only [Option.some.injEq, Prod.mk.injEq] at h
+          obtain ⟨rfl, -⟩ := h
+          obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := hinv
+          have hp1s : StepPreserves s s1 :=
+            ⟨hwf1, hok1, GameState.RollbackOk.preserve hrb hc1 hr1 hp1, hp1, hc1⟩
+          exact hp1s.trans (gspRun_pending_preserves hwf1 hok1 hp1s.rollbackOk _)
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
   · -- combatStep .damage
     rename_i atkId rest _
     dsimp only at h
@@ -798,9 +819,20 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
       | some link =>
         rw [hl] at h
         dsimp only at h
-        split at h <;>
-        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-          apply sameBoard_gspRun_pending_preserves hwf hok hrb <;> rfl
+        have hinv := applyDamageWithPrevention_inv hwf hok link.defender .physical
+          (calcCombatDamage (linkAttackPower s link) (linkTotalDefense s link))
+        cases hdmg : applyDamageWithPrevention s link.defender .physical
+            (calcCombatDamage (linkAttackPower s link) (linkTotalDefense s link)) with
+        | mk s2 es2 =>
+          rw [hdmg] at h hinv
+          dsimp only at h hinv
+          simp only [Option.some.injEq, Prod.mk.injEq] at h
+          obtain ⟨rfl, -⟩ := h
+          obtain ⟨hwf2, hok2, hp2, hc2, hr2⟩ := hinv
+          have hp2s : StepPreserves s s2 :=
+            ⟨hwf2, hok2, GameState.RollbackOk.preserve hrb hc2 hr2 hp2, hp2, hc2⟩
+          apply hp2s.trans
+          refine sameBoard_gspRun_pending_preserves hwf2 hok2 hp2s.rollbackOk ?_ ?_ ?_ ?_ ?_ _ <;> rfl
   · -- combatStep .resolution
     dsimp only at h
     split at h
@@ -834,9 +866,9 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
     have hs' : s' = (interpRunStep s ctrl src fromArsenal env todo rest).1 :=
       congrArg Prod.fst h.symm
     subst hs'
-    have hmeta := interpRunStep_meta s ctrl src fromArsenal env todo rest
-    have hperm := interpRunStep_physIds hwf ctrl src fromArsenal env todo rest
-    exact ⟨interpRunStep_wf hwf ctrl src fromArsenal env todo rest,
+    have hmeta := interpRunStep_meta hwf hok ctrl src fromArsenal env todo rest
+    have hperm := interpRunStep_physIds hwf hok ctrl src fromArsenal env todo rest
+    exact ⟨interpRunStep_wf hwf hok ctrl src fromArsenal env todo rest,
            interpRunStep_ownerOk hwf hok ctrl src fromArsenal env todo rest,
            GameState.RollbackOk.preserve hrb hmeta.1 hmeta.2 hperm,
            hperm, hmeta.1⟩
@@ -1932,7 +1964,8 @@ theorem microStep_isSome {s : GameState} {f : Frame} {rest : List Frame}
   | finishResolve _ => rfl
   | combatStep cs _ =>
     cases cs with
-    | layer | attack | reaction | close => rfl
+    | layer | attack | close => rfl
+    | reaction => dsimp only; split <;> (try split) <;> rfl
     | defend =>
       dsimp only
       split

@@ -55,8 +55,17 @@ structure SetCode where
   val : String
 deriving DecidableEq, Repr, Hashable, Ord
 
-/-- `Welcome to Rathe` set code (initial target set). -/
+/-- `Welcome to Rathe` set code (1st set). -/
 def SetCode.wtr : SetCode := ⟨"WTR"⟩
+
+/-- `Arcane Rising` set code (2nd set). -/
+def SetCode.arc : SetCode := ⟨"ARC"⟩
+
+/-- `Crucible of War` set code (3rd set). -/
+def SetCode.cru : SetCode := ⟨"CRU"⟩
+
+/-- `Monarch` set code (4th set). -/
+def SetCode.mon : SetCode := ⟨"MON"⟩
 
 end Fab
 

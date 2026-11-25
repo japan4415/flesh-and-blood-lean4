@@ -196,10 +196,11 @@ meta def runSteps (s : GameState) : List Action → Option GameState
     let sBrewPrompt ← match advance 16 sBrew [] with | .ok (s, _) => some s | .error _ => none
     let sRoll1 ← runSteps sBrewPrompt [⟨.chance, .die6Roll 1⟩]
     let sRoll6 ← runSteps sBrewPrompt [⟨.chance, .die6Roll 6⟩]
-    -- (b) Remembrance banishes itself
+    -- (b) Remembrance shuffles deck and banishes itself
     let (r1, remId) ← placeCard m4BaseState ⟨0⟩ .hand ⟨"WTR_163_Y"⟩
     let rDone ← runSteps r1
-      [⟨.player ⟨0⟩, .playCard remId⟩, ⟨.player ⟨0⟩, .pass⟩, ⟨.player ⟨1⟩, .pass⟩]
+      [⟨.player ⟨0⟩, .playCard remId⟩, ⟨.player ⟨0⟩, .pass⟩, ⟨.player ⟨1⟩, .pass⟩,
+       ⟨.chance, .shuffleOrder []⟩]
     -- (c) Token creation + Opt 1 bottom
     let (o1, topC) ← placeCard m4BaseState ⟨0⟩ .deck ⟨"WTR_188_R"⟩
     let (o2, botC) ← placeCard o1 ⟨0⟩ .deck ⟨"WTR_203_R"⟩

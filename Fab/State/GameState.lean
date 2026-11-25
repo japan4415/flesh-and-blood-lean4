@@ -74,6 +74,14 @@ structure BoardSnapshot where
   chosenReplacements : List (Option Nat) := []
   /-- Saved list of currently Marked players (CR 8.5.48). -/
   markedPlayers : List PlayerId := []
+  /-- Saved active replacement / prevention effects (CR 6.4-6.5). -/
+  activeReplacements : List ReplacementEffect := []
+  /-- Saved players who charged their hero's soul this turn. -/
+  chargedThisTurn : List PlayerId := []
+  /-- Saved players who banished a 6+ power card this turn. -/
+  banishedSixPowerThisTurn : List PlayerId := []
+  /-- Saved once-per-turn activated ability usages `(objId, abilityIdx)`. -/
+  activatedThisTurn : List (ObjId × Nat) := []
 deriving DecidableEq, Repr
 
 /-- Complete state of a Flesh and Blood game (M2-M5 core). -/
@@ -124,6 +132,14 @@ structure GameState where
   chosenReplacements : List (Option Nat) := []
   /-- Players currently Marked by Mark effects (CR 8.5.48). -/
   markedPlayers : List PlayerId := []
+  /-- Active replacement and damage-prevention effects evaluated on proposed events (CR 6.4-6.5). -/
+  activeReplacements : List ReplacementEffect := []
+  /-- Players who have charged their hero's soul this turn (CR 8.5). -/
+  chargedThisTurn : List PlayerId := []
+  /-- Players who have banished a card with `≥ 6{p}` this turn (MON: Levia / Shadow Brute). -/
+  banishedSixPowerThisTurn : List PlayerId := []
+  /-- Once-per-turn activated abilities already used this turn (CR 5.2). -/
+  activatedThisTurn : List (ObjId × Nat) := []
 deriving DecidableEq, Repr
 
 /-- List of every valid zone in an `n`-player game (CR 3.0). -/
@@ -371,7 +387,11 @@ def snapshot (s : GameState) : BoardSnapshot :=
     pendingTriggers := s.pendingTriggers
     delayedTriggers := s.delayedTriggers
     chosenReplacements := s.chosenReplacements
-    markedPlayers := s.markedPlayers }
+    markedPlayers := s.markedPlayers
+    activeReplacements := s.activeReplacements
+    chargedThisTurn := s.chargedThisTurn
+    banishedSixPowerThisTurn := s.banishedSixPowerThisTurn
+    activatedThisTurn := s.activatedThisTurn }
 
 /-- Restore a saved `BoardSnapshot` and clear `playRollback` (CR 5.1.1). -/
 def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
@@ -390,6 +410,10 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     delayedTriggers := snap.delayedTriggers
     chosenReplacements := snap.chosenReplacements
     markedPlayers := snap.markedPlayers
+    activeReplacements := snap.activeReplacements
+    chargedThisTurn := snap.chargedThisTurn
+    banishedSixPowerThisTurn := snap.banishedSixPowerThisTurn
+    activatedThisTurn := snap.activatedThisTurn
     playRollback := none }
 
 /-- Evaluate the 8-stage derived characteristics of object `id` in state `s` (CR 6.3.2). -/

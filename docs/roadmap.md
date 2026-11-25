@@ -322,6 +322,11 @@ FaB ルールの中核マイルストーン。
 - テスト: `FabTest/MultiAndInfo.lean`（4 人戦 UPF 隣接＆脱落、I10 デッキ順・相手手札非干渉、I19 カウンタ増分越しのループ検出＆ジャッジ引き分け、I12 構造測度減少）。
 - 検証: `./scripts/verify.sh` 全 5 項目通過（171 jobs、警告 0、`sorry` 0、標準 3 公理のみ、`gen_lean --check` OK、`cr_citations.py` 63 files / 1107 citations / 210 distinct rules / malformed: 0）。
 
+**基本ルール完全実装パス（2026-11-25）: 完了**
+- 従来スタブだった全 `Prim` 解釈命令を本実装（`Fab/Rules/Interp.lean`）：`applyDamageWithPrevention`（`dealDamage` および `combatStep .damage` への 4 段階置換・防御パイプラインライブ接続、Ward/Spellvoid 破壊・シールド消費）、`discardRandom` / `discardChoice`、`intimidate`（裏向き追放＋End Phase 手札復帰 `DelayedTrigger`）、`returnDefendingCardToHand`、`searchDeck`（`chanceShuffle` 接続）、`shuffleZoneIntoDeck`（シャッフル＋同数ドロー）、`revealTopToArsenalIf`、`preventNextDamage`（`activeReplacements` 登録）、`closeCombatChain`、および Light/Shadow プリミティブ（`charge`・`banishFromSoul`・`banishTopDeck`・`banishFromGraveyard`・`chargedThisTurn`・`banishedSixPowerThisTurn`・`soulCount`・`banishedCount`）。
+- 戦闘エンジン強化（`Fab/Rules/Frames.lean`）：`combatStep .reaction` での Phantasm 自動破壊・チェーンクローズ、`combatStep .damage` の置換・防御パイプライン接続、`endTurnCleanup` でのターン状態リセット。
+- 全保存定理（L4 `execPrim_inv` / `execPrim_ttr_core`、I1/I3/I4/I6/I14）とテスト（`FabTest/CoreRulesComplete.lean`）を完遂。
+
 ---
 
 ### M10: 完了判定（`original.md` 最終目的の達成条件）

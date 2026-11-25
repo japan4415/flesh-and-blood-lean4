@@ -34,6 +34,8 @@ def NumExpr.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : NumExpr �
   | .handCount p => p.wfBool numSlots
   | .chainHits => true
   | .halfRoundDown v => env.contains v
+  | .soulCount p => p.wfBool numSlots
+  | .banishedCount p => p.wfBool numSlots
 
 /-- Check whether a `Condition` stays within `numSlots` target slots. -/
 def Condition.wfBool (numSlots : Nat) : Condition → Bool
@@ -99,6 +101,10 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .removeAllCounters o _ => o.wfBool numSlots env
   | .preventNextDamage p n _ => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .closeCombatChain => true
+  | .charge p => p.wfBool numSlots
+  | .banishFromSoul p _ => p.wfBool numSlots
+  | .banishTopDeck p _ _ => p.wfBool numSlots
+  | .banishFromGraveyard p _ _ => p.wfBool numSlots
 
 /-- Whether `EffectList` is non-empty. -/
 def EffectList.isNonEmpty : EffectList → Bool
@@ -156,6 +162,7 @@ def ContinuousMod.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Con
   | .cantDrawCards => true
   | .additionalWeaponAttack => true
   | .doubleDamageToHero => true
+  | .playableFromBanished => true
 
 end
 

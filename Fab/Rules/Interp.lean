@@ -4,6 +4,7 @@ public import Fab.Rules.Move
 public import Fab.Rules.Add
 public import Fab.Rules.Objects
 public import Fab.Rules.Actions.Banish
+public import Fab.Rules.Actions.Discard
 
 /-!
 # Effect IR 1-step interpreter and L4 invariants
@@ -81,6 +82,12 @@ def evalNumExpr (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int)) : 
   | .halfRoundDown v =>
     let raw := lookupVar env v
     if raw ≤ 0 then 0 else Int.ofNat (raw.toNat / 2)
+  | .soulCount p =>
+    let target := evalPlayerRef s ctrl p
+    Int.ofNat (s.zone (.player target .soul)).length
+  | .banishedCount p =>
+    let target := evalPlayerRef s ctrl p
+    Int.ofNat (s.zone (.player target .banished)).length
 
 /-- Test whether a `CardFace` matches a syntactic `CardFilter`. -/
 def cardFaceMatches (f : CardFilter) (face : CardFace) : Bool :=
@@ -260,6 +267,12 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     match s.combat with
     | some cc => !(cc.links.any fun l => l.hit && l.attackSource == some src)
     | none => true
+  | .chargedThisTurn => s.chargedThisTurn.contains ctrl
+  | .banishedSixPowerThisTurn => s.banishedSixPowerThisTurn.contains ctrl
+  | .playedFromBanished =>
+    match s.locate src with
+    | some (.player _ .banished) => true
+    | _ => false
 
 /-- Resolve an `ObjRef` to a concrete `ObjId` if available. -/
 def evalObjRef (src : ObjId) : ObjRef → Option ObjId
@@ -411,6 +424,537 @@ theorem updateSingleObject_meta (s : GameState) (target : ObjId) (f : Object →
   unfold updateSingleObject
   cases s.objects[target.n]? <;> exact ⟨rfl, rfl⟩
 
+/-- Helper: `moveObj` preserves `config` and `playRollback`. -/
+theorem moveObj_config_rollback {s s' : GameState} {id id' : ObjId} {dst : Zone} {pos : Pos}
+    {fd : Bool} (h : moveObj s id dst pos fd = some (s', id')) :
+    s'.config = s.config ∧ s'.playRollback = s.playRollback := by
+  unfold moveObj at h
+  split at h
+  · dsimp only at h
+    split at h
+    · cases h
+    · split at h <;>
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        exact ⟨rfl, rfl⟩
+  · cases h
+
+/-- Helper: `moveObj` preserves `turn`, `tournament`, and `result`. -/
+theorem moveObj_ttr_core {s s' : GameState} {id id' : ObjId} {dst : Zone} {pos : Pos}
+    {fd : Bool} (h : moveObj s id dst pos fd = some (s', id')) :
+    s'.turn = s.turn ∧ s'.tournament = s.tournament ∧ s'.result = s.result := by
+  unfold moveObj at h
+  split at h
+  · dsimp only at h
+    split at h
+    · cases h
+    · split at h <;>
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        exact ⟨rfl, rfl, rfl⟩
+  · cases h
+
+/-- Helper: `checkHeroDefeat` preserves `config` and `playRollback`. -/
+theorem checkHeroDefeat_config_rollback (s : GameState) :
+    (checkHeroDefeat s).config = s.config ∧ (checkHeroDefeat s).playRollback = s.playRollback := by
+  unfold checkHeroDefeat
+  split
+  · exact ⟨rfl, rfl⟩
+  · split <;> exact ⟨rfl, rfl⟩
+
+/-- Helper: `checkHeroDefeat` preserves `turn`, `tournament`, and never clears a set `result`. -/
+theorem checkHeroDefeat_ttr_core (s : GameState) :
+    (checkHeroDefeat s).turn = s.turn ∧ (checkHeroDefeat s).tournament = s.tournament ∧
+    ((checkHeroDefeat s).result = none → s.result = none) := by
+  unfold checkHeroDefeat
+  split
+  · exact ⟨rfl, rfl, id⟩
+  · cases livingPlayers s with
+    | nil => exact ⟨rfl, rfl, fun h => by cases h⟩
+    | cons _ ws =>
+      cases ws with
+      | nil => exact ⟨rfl, rfl, fun h => by cases h⟩
+      | cons _ _ => exact ⟨rfl, rfl, id⟩
+
+/-- Move a list of objects to `dst` at `pos` with facing `fd`, skipping any object that cannot be
+moved (CR 1.0.1b). -/
+def moveManyObjs (s : GameState) (ids : List ObjId) (dst : Zone) (pos : Pos) (fd : Bool) :
+    GameState × List Event :=
+  match ids with
+  | [] => (s, [])
+  | id :: rest =>
+    let (s1, es1) :=
+      match s.locate id with
+      | some srcZ =>
+        match moveObj s id dst pos fd with
+        | some (sm, id') => (sm, [.moved id id' srcZ dst])
+        | none => (s, [])
+      | none => (s, [])
+    let (s2, es2) := moveManyObjs s1 rest dst pos fd
+    (s2, es1 ++ es2)
+
+/-- `moveManyObjs` preserves `WF`, `OwnerOk`, `physIds` (I1), `config`, and `playRollback`. -/
+theorem moveManyObjs_inv (dst : Zone) (pos : Pos) (fd : Bool) :
+    ∀ (ids : List ObjId) {s : GameState}, s.WF → s.OwnerOk →
+      (moveManyObjs s ids dst pos fd).1.WF ∧
+      (moveManyObjs s ids dst pos fd).1.OwnerOk ∧
+      (moveManyObjs s ids dst pos fd).1.physIds.Perm s.physIds ∧
+      (moveManyObjs s ids dst pos fd).1.config = s.config ∧
+      (moveManyObjs s ids dst pos fd).1.playRollback = s.playRollback
+  | [], _, hwf, hok => ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | id :: rest, s, hwf, hok => by
+    unfold moveManyObjs
+    have h1 : let p1 := match s.locate id with
+        | some srcZ =>
+          match moveObj s id dst pos fd with
+          | some (sm, id') => (sm, [Event.moved id id' srcZ dst])
+          | none => (s, [])
+        | none => (s, [])
+        p1.1.WF ∧ p1.1.OwnerOk ∧ p1.1.physIds.Perm s.physIds ∧
+        p1.1.config = s.config ∧ p1.1.playRollback = s.playRollback := by
+      cases s.locate id with
+      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      | some srcZ =>
+        dsimp only
+        cases hm : moveObj s id dst pos fd with
+        | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+        | some res =>
+          have hmeta := moveObj_config_rollback hm
+          exact ⟨moveObj_wf hwf hm, moveObj_ownerOk hwf hok hm,
+                 moveObj_physIds hwf hm, hmeta.1, hmeta.2⟩
+    obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := h1
+    obtain ⟨hwf2, hok2, hp2, hc2, hr2⟩ := moveManyObjs_inv dst pos fd rest hwf1 hok1
+    exact ⟨hwf2, hok2, hp2.trans hp1, hc2.trans hc1, hr2.trans hr1⟩
+
+/-- `moveManyObjs` preserves `turn`, `tournament`, and `result`. -/
+theorem moveManyObjs_ttr (dst : Zone) (pos : Pos) (fd : Bool) :
+    ∀ (ids : List ObjId) (s : GameState),
+      (moveManyObjs s ids dst pos fd).1.turn = s.turn ∧
+      (moveManyObjs s ids dst pos fd).1.tournament = s.tournament ∧
+      (moveManyObjs s ids dst pos fd).1.result = s.result
+  | [], _ => ⟨rfl, rfl, rfl⟩
+  | id :: rest, s => by
+    unfold moveManyObjs
+    let p1 := match s.locate id with
+      | some srcZ =>
+        match moveObj s id dst pos fd with
+        | some (sm, id') => (sm, [Event.moved id id' srcZ dst])
+        | none => (s, [])
+      | none => (s, [])
+    have h1 : p1.1.turn = s.turn ∧ p1.1.tournament = s.tournament ∧ p1.1.result = s.result := by
+      dsimp only [p1]
+      cases s.locate id with
+      | none => exact ⟨rfl, rfl, rfl⟩
+      | some _ =>
+        dsimp only
+        cases hm : moveObj s id dst pos fd with
+        | none => exact ⟨rfl, rfl, rfl⟩
+        | some _ => exact moveObj_ttr_core hm
+    have h2 := moveManyObjs_ttr dst pos fd rest p1.1
+    exact ⟨h2.1.trans h1.1, h2.2.1.trans h1.2.1, h2.2.2.trans h1.2.2⟩
+
+/-- Discard a list of cards from `p`'s hand via `discardOne` (CR 3.0, 3.10). -/
+def discardManyObjs (s : GameState) (p : PlayerId) : List ObjId → GameState × List Event
+  | [] => (s, [])
+  | id :: rest =>
+    let (s1, es1) :=
+      match discardOne s p id with
+      | some (sd, _, es) => (sd, es)
+      | none => (s, [])
+    let (s2, es2) := discardManyObjs s1 p rest
+    (s2, es1 ++ es2)
+
+/-- `discardManyObjs` preserves `WF`, `OwnerOk`, `physIds` (I1), `config`, and `playRollback`. -/
+theorem discardManyObjs_inv (p : PlayerId) :
+    ∀ (ids : List ObjId) {s : GameState}, s.WF → s.OwnerOk →
+      (discardManyObjs s p ids).1.WF ∧
+      (discardManyObjs s p ids).1.OwnerOk ∧
+      (discardManyObjs s p ids).1.physIds.Perm s.physIds ∧
+      (discardManyObjs s p ids).1.config = s.config ∧
+      (discardManyObjs s p ids).1.playRollback = s.playRollback
+  | [], _, hwf, hok => ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | id :: rest, s, hwf, hok => by
+    unfold discardManyObjs
+    have h1 : let p1 := match discardOne s p id with
+        | some (sd, _, es) => (sd, es)
+        | none => (s, [])
+        p1.1.WF ∧ p1.1.OwnerOk ∧ p1.1.physIds.Perm s.physIds ∧
+        p1.1.config = s.config ∧ p1.1.playRollback = s.playRollback := by
+      cases hd : discardOne s p id with
+      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      | some res =>
+        obtain ⟨sd, idd, esd⟩ := res
+        dsimp only
+        have hmeta : sd.config = s.config ∧ sd.playRollback = s.playRollback := by
+          unfold discardOne at hd
+          split at hd
+          · cases hm : moveObj s id (.player p .graveyard) .top false with
+            | none => rw [hm] at hd; cases hd
+            | some rm =>
+              obtain ⟨sm, idm⟩ := rm
+              rw [hm] at hd; simp only [Option.some.injEq, Prod.mk.injEq] at hd
+              obtain ⟨rfl, rfl, rfl⟩ := hd
+              exact moveObj_config_rollback hm
+          · cases hd
+        exact ⟨discardOne_wf hwf hd, discardOne_ownerOk hwf hok hd,
+               discardOne_physIds hwf hd, hmeta.1, hmeta.2⟩
+    obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := h1
+    obtain ⟨hwf2, hok2, hp2, hc2, hr2⟩ := discardManyObjs_inv p rest hwf1 hok1
+    exact ⟨hwf2, hok2, hp2.trans hp1, hc2.trans hc1, hr2.trans hr1⟩
+
+/-- `discardManyObjs` preserves `turn`, `tournament`, and `result`. -/
+theorem discardManyObjs_ttr (p : PlayerId) :
+    ∀ (ids : List ObjId) (s : GameState),
+      (discardManyObjs s p ids).1.turn = s.turn ∧
+      (discardManyObjs s p ids).1.tournament = s.tournament ∧
+      (discardManyObjs s p ids).1.result = s.result
+  | [], _ => ⟨rfl, rfl, rfl⟩
+  | id :: rest, s => by
+    unfold discardManyObjs
+    let p1 := match discardOne s p id with
+      | some (sd, _, es) => (sd, es)
+      | none => (s, [])
+    have h1 : p1.1.turn = s.turn ∧ p1.1.tournament = s.tournament ∧ p1.1.result = s.result := by
+      dsimp only [p1]
+      cases hd : discardOne s p id with
+      | none => exact ⟨rfl, rfl, rfl⟩
+      | some res =>
+        obtain ⟨sd, idd, esd⟩ := res
+        dsimp only
+        unfold discardOne at hd
+        split at hd
+        · cases hm : moveObj s id (.player p .graveyard) .top false with
+          | none => rw [hm] at hd; cases hd
+          | some rm =>
+            obtain ⟨sm, idm⟩ := rm
+            rw [hm] at hd; simp only [Option.some.injEq, Prod.mk.injEq] at hd
+            obtain ⟨rfl, rfl, rfl⟩ := hd
+            exact moveObj_ttr_core hm
+        · cases hd
+    have h2 := discardManyObjs_ttr p rest p1.1
+    exact ⟨h2.1.trans h1.1, h2.2.1.trans h1.2.1, h2.2.2.trans h1.2.2⟩
+
+/-- Banish a list of objects via `banishOne`, recording `p ∈ banishedSixPowerThisTurn` whenever a
+card with printed power `≥ 6` is banished (CR 3.3). -/
+def banishManyObjs (s : GameState) (p : PlayerId) (fd : Bool) :
+    List ObjId → GameState × List Event
+  | [] => (s, [])
+  | id :: rest =>
+    let isSix :=
+      match s.objectFace? id with
+      | some face =>
+        match face.power with
+        | some pw => decide (6 ≤ pw)
+        | none => false
+      | none => false
+    let (s1, es1) :=
+      match banishOne s id fd with
+      | some (sb, _, es) =>
+        let sb' :=
+          if isSix && !(sb.banishedSixPowerThisTurn.contains p) then
+            { sb with banishedSixPowerThisTurn := p :: sb.banishedSixPowerThisTurn }
+          else
+            sb
+        (sb', es)
+      | none => (s, [])
+    let (s2, es2) := banishManyObjs s1 p fd rest
+    (s2, es1 ++ es2)
+
+/-- `banishManyObjs` preserves `WF`, `OwnerOk`, `physIds` (I1), `config`, and `playRollback`. -/
+theorem banishManyObjs_inv (p : PlayerId) (fd : Bool) :
+    ∀ (ids : List ObjId) {s : GameState}, s.WF → s.OwnerOk →
+      (banishManyObjs s p fd ids).1.WF ∧
+      (banishManyObjs s p fd ids).1.OwnerOk ∧
+      (banishManyObjs s p fd ids).1.physIds.Perm s.physIds ∧
+      (banishManyObjs s p fd ids).1.config = s.config ∧
+      (banishManyObjs s p fd ids).1.playRollback = s.playRollback
+  | [], _, hwf, hok => ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | id :: rest, s, hwf, hok => by
+    unfold banishManyObjs
+    dsimp only
+    let isSix :=
+      match s.objectFace? id with
+      | some face => match face.power with | some pw => decide (6 ≤ pw) | none => false
+      | none => false
+    have h1 : let p1 := match banishOne s id fd with
+        | some (sb, _, es) =>
+          let sb' :=
+            if isSix && !(sb.banishedSixPowerThisTurn.contains p) then
+              { sb with banishedSixPowerThisTurn := p :: sb.banishedSixPowerThisTurn }
+            else sb
+          (sb', es)
+        | none => (s, [])
+        p1.1.WF ∧ p1.1.OwnerOk ∧ p1.1.physIds.Perm s.physIds ∧
+        p1.1.config = s.config ∧ p1.1.playRollback = s.playRollback := by
+      cases hb : banishOne s id fd with
+      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      | some res =>
+        obtain ⟨sb, idb, esb⟩ := res
+        dsimp only
+        have hmeta : sb.config = s.config ∧ sb.playRollback = s.playRollback := by
+          unfold banishOne at hb
+          split at hb
+          · rename_i src0 o0 _ _
+            dsimp only at hb
+            cases hm : moveObj s id (Zone.player o0.owner .banished) .top fd with
+            | none => rw [hm] at hb; cases hb
+            | some rm =>
+              obtain ⟨sm, idm⟩ := rm
+              rw [hm] at hb; simp only [Option.some.injEq, Prod.mk.injEq] at hb
+              obtain ⟨rfl, rfl, rfl⟩ := hb
+              exact moveObj_config_rollback hm
+          · cases hb
+        have hwf1 := banishOne_wf hwf hb
+        have hok1 := banishOne_ownerOk hwf hok hb
+        have hp1 := banishOne_physIds hwf hb
+        cases (isSix && !sb.banishedSixPowerThisTurn.contains p) with
+        | true =>
+          exact ⟨GameState.WF.congr hwf1 rfl rfl rfl rfl,
+                 GameState.OwnerOk.congr hok1 rfl rfl,
+                 hp1, hmeta.1, hmeta.2⟩
+        | false => exact ⟨hwf1, hok1, hp1, hmeta.1, hmeta.2⟩
+    obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := h1
+    obtain ⟨hwf2, hok2, hp2, hc2, hr2⟩ := banishManyObjs_inv p fd rest hwf1 hok1
+    exact ⟨hwf2, hok2, hp2.trans hp1, hc2.trans hc1, hr2.trans hr1⟩
+
+/-- `banishManyObjs` preserves `turn`, `tournament`, and `result`. -/
+theorem banishManyObjs_ttr (p : PlayerId) (fd : Bool) :
+    ∀ (ids : List ObjId) (s : GameState),
+      (banishManyObjs s p fd ids).1.turn = s.turn ∧
+      (banishManyObjs s p fd ids).1.tournament = s.tournament ∧
+      (banishManyObjs s p fd ids).1.result = s.result
+  | [], _ => ⟨rfl, rfl, rfl⟩
+  | id :: rest, s => by
+    unfold banishManyObjs
+    dsimp only
+    let isSix :=
+      match s.objectFace? id with
+      | some face => match face.power with | some pw => decide (6 ≤ pw) | none => false
+      | none => false
+    let p1 := match banishOne s id fd with
+      | some (sb, _, es) =>
+        let sb' :=
+          if isSix && !(sb.banishedSixPowerThisTurn.contains p) then
+            { sb with banishedSixPowerThisTurn := p :: sb.banishedSixPowerThisTurn }
+          else sb
+        (sb', es)
+      | none => (s, [])
+    have h1 : p1.1.turn = s.turn ∧ p1.1.tournament = s.tournament ∧ p1.1.result = s.result := by
+      dsimp only [p1]
+      cases hb : banishOne s id fd with
+      | none => exact ⟨rfl, rfl, rfl⟩
+      | some res =>
+        obtain ⟨sb, idb, esb⟩ := res
+        dsimp only
+        have httr : sb.turn = s.turn ∧ sb.tournament = s.tournament ∧ sb.result = s.result := by
+          unfold banishOne at hb
+          split at hb
+          · rename_i src0 o0 _ _
+            dsimp only at hb
+            cases hm : moveObj s id (Zone.player o0.owner .banished) .top fd with
+            | none => rw [hm] at hb; cases hb
+            | some rm =>
+              obtain ⟨sm, idm⟩ := rm
+              rw [hm] at hb; simp only [Option.some.injEq, Prod.mk.injEq] at hb
+              obtain ⟨rfl, rfl, rfl⟩ := hb
+              exact moveObj_ttr_core hm
+          · cases hb
+        cases (isSix && !sb.banishedSixPowerThisTurn.contains p) <;> exact httr
+    have h2 := banishManyObjs_ttr p fd rest p1.1
+    exact ⟨h2.1.trans h1.1, h2.2.1.trans h1.2.1, h2.2.2.trans h1.2.2⟩
+
+/-- Destroy a list of objects (removing non-physical tokens/proxies or moving physical cards to
+owner's graveyard) (CR 8.5.5). -/
+def destroyManyObjs (s : GameState) : List ObjId → GameState × List Event
+  | [] => (s, [])
+  | id :: rest =>
+    let (s1, es1) :=
+      match s.locate id, s.obj? id with
+      | some srcZ, some o =>
+        if o.kind.phys?.isNone then
+          (removeNonPhysObj s id, [])
+        else
+          match moveObj s id (.player o.owner .graveyard) .top false with
+          | some (sm, id') => (sm, [.moved id id' srcZ (.player o.owner .graveyard)])
+          | none => (s, [])
+      | _, _ => (s, [])
+    let (s2, es2) := destroyManyObjs s1 rest
+    (s2, es1 ++ es2)
+
+/-- `destroyManyObjs` preserves `WF`, `OwnerOk`, `physIds` (I1), `config`, and `playRollback`. -/
+theorem destroyManyObjs_inv :
+    ∀ (ids : List ObjId) {s : GameState}, s.WF → s.OwnerOk →
+      (destroyManyObjs s ids).1.WF ∧
+      (destroyManyObjs s ids).1.OwnerOk ∧
+      (destroyManyObjs s ids).1.physIds.Perm s.physIds ∧
+      (destroyManyObjs s ids).1.config = s.config ∧
+      (destroyManyObjs s ids).1.playRollback = s.playRollback
+  | [], _, hwf, hok => ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | id :: rest, s, hwf, hok => by
+    unfold destroyManyObjs
+    have h1 : let p1 := match s.locate id, s.obj? id with
+        | some srcZ, some o =>
+          if o.kind.phys?.isNone then (removeNonPhysObj s id, [])
+          else
+            match moveObj s id (.player o.owner .graveyard) .top false with
+            | some (sm, id') => (sm, [Event.moved id id' srcZ (.player o.owner .graveyard)])
+            | none => (s, [])
+        | _, _ => (s, [])
+        p1.1.WF ∧ p1.1.OwnerOk ∧ p1.1.physIds.Perm s.physIds ∧
+        p1.1.config = s.config ∧ p1.1.playRollback = s.playRollback := by
+      cases s.locate id with
+      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      | some srcZ =>
+        cases s.obj? id with
+        | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+        | some o =>
+          dsimp only
+          split
+          · have hm := removeNonPhysObj_meta s id
+            exact ⟨removeNonPhysObj_wf hwf id, removeNonPhysObj_ownerOk hok id,
+                   removeNonPhysObj_physIds hwf id, hm.1, hm.2⟩
+          · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+            | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+            | some _ =>
+              have hmeta := moveObj_config_rollback hm
+              exact ⟨moveObj_wf hwf hm, moveObj_ownerOk hwf hok hm,
+                     moveObj_physIds hwf hm, hmeta.1, hmeta.2⟩
+    obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := h1
+    obtain ⟨hwf2, hok2, hp2, hc2, hr2⟩ := destroyManyObjs_inv rest hwf1 hok1
+    exact ⟨hwf2, hok2, hp2.trans hp1, hc2.trans hc1, hr2.trans hr1⟩
+
+/-- `destroyManyObjs` preserves `turn`, `tournament`, and `result`. -/
+theorem destroyManyObjs_ttr :
+    ∀ (ids : List ObjId) (s : GameState),
+      (destroyManyObjs s ids).1.turn = s.turn ∧
+      (destroyManyObjs s ids).1.tournament = s.tournament ∧
+      (destroyManyObjs s ids).1.result = s.result
+  | [], _ => ⟨rfl, rfl, rfl⟩
+  | id :: rest, s => by
+    unfold destroyManyObjs
+    let p1 := match s.locate id, s.obj? id with
+      | some srcZ, some o =>
+        if o.kind.phys?.isNone then (removeNonPhysObj s id, [])
+        else
+          match moveObj s id (.player o.owner .graveyard) .top false with
+          | some (sm, id') => (sm, [Event.moved id id' srcZ (.player o.owner .graveyard)])
+          | none => (s, [])
+      | _, _ => (s, [])
+    have h1 : p1.1.turn = s.turn ∧ p1.1.tournament = s.tournament ∧ p1.1.result = s.result := by
+      dsimp only [p1]
+      cases s.locate id with
+      | none => exact ⟨rfl, rfl, rfl⟩
+      | some _ =>
+        cases s.obj? id with
+        | none => exact ⟨rfl, rfl, rfl⟩
+        | some o =>
+          dsimp only
+          split
+          · unfold removeNonPhysObj
+            cases s.locate id with
+            | none => exact ⟨rfl, rfl, rfl⟩
+            | some _ =>
+              cases s.obj? id with
+              | none => exact ⟨rfl, rfl, rfl⟩
+              | some _ => dsimp only; split <;> exact ⟨rfl, rfl, rfl⟩
+          · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+            | none => exact ⟨rfl, rfl, rfl⟩
+            | some _ => exact moveObj_ttr_core hm
+    have h2 := destroyManyObjs_ttr rest p1.1
+    exact ⟨h2.1.trans h1.1, h2.2.1.trans h1.2.1, h2.2.2.trans h1.2.2⟩
+
+/-- Extract remaining damage amount from a `ProposedEvent` after replacement/prevention. -/
+def remainingDamage : ProposedEvent → Nat
+  | .damage _ _ d _ => d
+  | _ => 0
+
+/-- Apply damage of `kind` and `amt` to `target` through the 4-stage replacement & prevention
+pipeline (`s.activeReplacements`), destroying Ward/Spellvoid sources, consuming applied one-shot
+effects, subtracting remaining damage from `heroLife`, and running `checkHeroDefeat`
+(CR 6.4-6.5, 7.5, 8.3.21). -/
+def applyDamageWithPrevention (s : GameState) (target : PlayerId) (kind : DamageKind) (amt : Nat) :
+    GameState × List Event :=
+  if amt = 0 then
+    (s, [])
+  else if s.activeReplacements.isEmpty then
+    let s1 := checkHeroDefeat (s.setLife target (s.lifeOf target - Int.ofNat amt))
+    (s1, [.damageDealt target kind amt])
+  else
+    let rRes := applyReplacementPipeline [] s.activeReplacements
+      { event := .damage target kind amt, availResources := (s.poolOf target).resources }
+    let remRepls := s.activeReplacements.filter fun e => !(rRes.usedIds.contains e.id)
+    let dRes := destroyManyObjs { s with activeReplacements := remRepls } rRes.destroyedSources
+    let remDmg := remainingDamage rRes.event
+    if remDmg = 0 then
+      (dRes.1, dRes.2)
+    else
+      let sFinal := checkHeroDefeat (dRes.1.setLife target (dRes.1.lifeOf target - Int.ofNat remDmg))
+      (sFinal, dRes.2 ++ [.damageDealt target kind remDmg])
+
+/-- `applyDamageWithPrevention` preserves `WF`, `OwnerOk`, `physIds` (I1), `config`, and
+`playRollback`. -/
+theorem applyDamageWithPrevention_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
+    (target : PlayerId) (kind : DamageKind) (amt : Nat) :
+    (applyDamageWithPrevention s target kind amt).1.WF ∧
+    (applyDamageWithPrevention s target kind amt).1.OwnerOk ∧
+    (applyDamageWithPrevention s target kind amt).1.physIds.Perm s.physIds ∧
+    (applyDamageWithPrevention s target kind amt).1.config = s.config ∧
+    (applyDamageWithPrevention s target kind amt).1.playRollback = s.playRollback := by
+  unfold applyDamageWithPrevention
+  split
+  · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  · split
+    · have hwf1 : (s.setLife target (s.lifeOf target - Int.ofNat amt)).WF :=
+        GameState.WF.congr hwf rfl rfl rfl rfl
+      have hok1 : (s.setLife target (s.lifeOf target - Int.ofNat amt)).OwnerOk :=
+        GameState.OwnerOk.congr hok rfl rfl
+      have hm := checkHeroDefeat_config_rollback (s.setLife target (s.lifeOf target - Int.ofNat amt))
+      exact ⟨checkHeroDefeat_wf hwf1, checkHeroDefeat_ownerOk hok1,
+             by rw [checkHeroDefeat_physIds]; exact List.Perm.refl _, hm.1, hm.2⟩
+    · dsimp only
+      let rRes := applyReplacementPipeline [] s.activeReplacements
+        { event := .damage target kind amt, availResources := (s.poolOf target).resources }
+      let remRepls := s.activeReplacements.filter fun e => !(rRes.usedIds.contains e.id)
+      have hwf0 : ({ s with activeReplacements := remRepls }).WF :=
+        GameState.WF.congr hwf rfl rfl rfl rfl
+      have hok0 : ({ s with activeReplacements := remRepls }).OwnerOk :=
+        GameState.OwnerOk.congr hok rfl rfl
+      obtain ⟨hwfd, hokd, hpd, hcd, hrd⟩ :=
+        destroyManyObjs_inv rRes.destroyedSources hwf0 hok0
+      split
+      · exact ⟨hwfd, hokd, hpd, hcd, hrd⟩
+      · let sDest := (destroyManyObjs { s with activeReplacements := remRepls } rRes.destroyedSources).1
+        let sDmg := sDest.setLife target (sDest.lifeOf target - Int.ofNat (remainingDamage rRes.event))
+        have hwf2 : sDmg.WF := GameState.WF.congr hwfd rfl rfl rfl rfl
+        have hok2 : sDmg.OwnerOk := GameState.OwnerOk.congr hokd rfl rfl
+        have hm := checkHeroDefeat_config_rollback sDmg
+        exact ⟨checkHeroDefeat_wf hwf2, checkHeroDefeat_ownerOk hok2,
+               by rw [checkHeroDefeat_physIds]; exact hpd,
+               hm.1.trans hcd, hm.2.trans hrd⟩
+
+/-- `applyDamageWithPrevention` preserves `turn` and `tournament`, and never clears a set `result`. -/
+theorem applyDamageWithPrevention_ttr (s : GameState) (target : PlayerId)
+    (kind : DamageKind) (amt : Nat) :
+    (applyDamageWithPrevention s target kind amt).1.turn = s.turn ∧
+    (applyDamageWithPrevention s target kind amt).1.tournament = s.tournament ∧
+    ((applyDamageWithPrevention s target kind amt).1.result = none → s.result = none) := by
+  unfold applyDamageWithPrevention
+  split
+  · exact ⟨rfl, rfl, id⟩
+  · split
+    · exact checkHeroDefeat_ttr_core _
+    · dsimp only
+      let rRes := applyReplacementPipeline [] s.activeReplacements
+        { event := .damage target kind amt, availResources := (s.poolOf target).resources }
+      let remRepls := s.activeReplacements.filter fun e => !(rRes.usedIds.contains e.id)
+      have hd := destroyManyObjs_ttr rRes.destroyedSources { s with activeReplacements := remRepls }
+      split
+      · exact ⟨hd.1, hd.2.1, fun hr => hd.2.2 ▸ hr⟩
+      · let sDest := (destroyManyObjs { s with activeReplacements := remRepls } rRes.destroyedSources).1
+        let sDmg := sDest.setLife target (sDest.lifeOf target - Int.ofNat (remainingDamage rRes.event))
+        have hc := checkHeroDefeat_ttr_core sDmg
+        exact ⟨hc.1.trans hd.1, hc.2.1.trans hd.2.1, fun hr => hd.2.2 ▸ hc.2.2 hr⟩
+
 /-- Execute a single atomic `Prim`, returning `(newState, emittedEvents, pushedFrames)`.
 Total by design: impossible instructions become no-ops (CR 1.0.1b). -/
 def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId × Int))
@@ -432,11 +976,8 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
   | .dealDamage kind pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n)
-    if amt = 0 then
-      (s, [], [])
-    else
-      let s1 := checkHeroDefeat (s.setLife target (s.lifeOf target - Int.ofNat amt))
-      (s1, [.damageDealt target kind amt], [])
+    let (s1, es) := applyDamageWithPrevention s target kind amt
+    (s1, es, [])
   | .gainAP pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n)
@@ -511,400 +1052,660 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     | none => (s, [], [])
     | some oid =>
       (updateSingleObject s oid (fun o => o.clearCounterVal k), [], [])
-  -- Combat, search, intimidate, and prevention primitives expand in M5/M6
-  | .weaponAttack | .discardRandom _ _ | .discardChoice _ _ _ | .intimidate _
-  | .returnDefendingCardToHand _ | .searchDeck _ _ _ _ _ _ | .shuffleZoneIntoDeck _ _ _ _ _
-  | .revealTopToArsenalIf _ _ | .preventNextDamage _ _ _ | .closeCombatChain =>
+  | .discardRandom pref n =>
+    let target := evalPlayerRef s ctrl pref
+    let cnt := clampNonNeg (evalNumExpr s ctrl env n)
+    let toDisc := (s.zone (.player target .hand)).take cnt
+    let (s1, es) := discardManyObjs s target toDisc
+    (s1, es, [])
+  | .discardChoice pref f n =>
+    let target := evalPlayerRef s ctrl pref
+    let cnt := clampNonNeg (evalNumExpr s ctrl env n)
+    let matching := (s.zone (.player target .hand)).filter fun id =>
+      match s.objectFace? id with
+      | some face => cardFaceMatches f face
+      | none => false
+    let (s1, es) := discardManyObjs s target (matching.take cnt)
+    (s1, es, [])
+  | .intimidate pref =>
+    let target := evalPlayerRef s ctrl pref
+    match s.zone (.player target .hand) with
+    | [] => (s, [], [])
+    | cid :: _ =>
+      match banishOne s cid true with
+      | none => (s, [], [])
+      | some (s1, banId, es) =>
+        let dt : DelayedTrigger :=
+          { id := s1.nextTimestamp
+            controller := target
+            source := banId
+            watchPhase := .endPhase
+            effect := .prim (.moveCard .self_ .hand .top false) }
+        ({ s1 with
+            delayedTriggers := s1.delayedTriggers ++ [dt]
+            nextTimestamp := s1.nextTimestamp + 1 }, es, [])
+  | .returnDefendingCardToHand f =>
+    match s.combat.bind CombatChain.activeLink? with
+    | none => (s, [], [])
+    | some link =>
+      match link.defending.find? fun did =>
+        match s.objectFace? did with
+        | some face => cardFaceMatches f face
+        | none => false with
+      | none => (s, [], [])
+      | some did =>
+        match s.obj? did with
+        | none => (s, [], [])
+        | some o =>
+          match moveObj s did (.player o.owner .hand) .top false with
+          | none => (s, [], [])
+          | some (s1, id') =>
+            let cc' := s1.combat.map fun cc => cc.updateActiveLink fun l =>
+              { l with defending := l.defending.filter (· != did) }
+            ({ s1 with combat := cc' }, [.moved did id' .combatChain (.player o.owner .hand)], [])
+  | .searchDeck pref f maxCount dstRef _ _ =>
+    let target := evalPlayerRef s ctrl pref
+    match zoneOfRef target dstRef with
+    | none => (s, [], [])
+    | some dstZ =>
+      let matching := (s.zone (.player target .deck)).filter fun id =>
+        match s.objectFace? id with
+        | some face => cardFaceMatches f face
+        | none => false
+      let picked := match maxCount with | some k => matching.take k | none => matching
+      let (s1, es) := moveManyObjs s picked dstZ .top false
+      (s1, es, [.chanceShuffle (.player target .deck)])
+  | .shuffleZoneIntoDeck pref srcRef f maxCount drawSame =>
+    let target := evalPlayerRef s ctrl pref
+    match zoneOfRef target srcRef with
+    | none => (s, [], [])
+    | some srcZ =>
+      let matching := (s.zone srcZ).filter fun id =>
+        match s.objectFace? id with
+        | some face => cardFaceMatches f face
+        | none => false
+      let picked := match maxCount with | some k => matching.take k | none => matching
+      let (s1, es) := moveManyObjs s picked (.player target .deck) .bottom false
+      let drawF := if drawSame && 0 < picked.length then [.draw target picked.length] else []
+      (s1, es, [.chanceShuffle (.player target .deck)] ++ drawF)
+  | .revealTopToArsenalIf pref f =>
+    let target := evalPlayerRef s ctrl pref
+    if !(s.zone (.player target .arsenal)).isEmpty then
+      (s, [], [])
+    else
+      match s.zone (.player target .deck) with
+      | [] => (s, [], [])
+      | topId :: _ =>
+        let ok := match s.objectFace? topId with
+          | some face => cardFaceMatches f face
+          | none => false
+        if ok then
+          match moveObj s topId (.player target .arsenal) .top false with
+          | some (s1, id') => (s1, [.moved topId id' (.player target .deck) (.player target .arsenal)], [])
+          | none => (s, [], [])
+        else
+          (s, [], [])
+  | .preventNextDamage pref n _ =>
+    let target := evalPlayerRef s ctrl pref
+    let amt := clampNonNeg (evalNumExpr s ctrl env n)
+    if amt = 0 then
+      (s, [], [])
+    else
+      let re : ReplacementEffect :=
+        { id := s.nextTimestamp
+          source := src
+          controller := target
+          stage := .prevention
+          action := .shieldPrevent amt
+          optional := false }
+      ({ s with
+          activeReplacements := s.activeReplacements ++ [re]
+          nextTimestamp := s.nextTimestamp + 1 }, [], [])
+  | .closeCombatChain =>
+    (s, [], [.combatStep .close src])
+  | .charge pref =>
+    let target := evalPlayerRef s ctrl pref
+    match s.zone (.player target .hand) with
+    | [] => (s, [], [])
+    | cid :: _ =>
+      match moveObj s cid (.player target .soul) .bottom false with
+      | none => (s, [], [])
+      | some (s1, id') =>
+        let ch' := if s1.chargedThisTurn.contains target then s1.chargedThisTurn
+                   else target :: s1.chargedThisTurn
+        ({ s1 with chargedThisTurn := ch' }, [.moved cid id' (.player target .hand) (.player target .soul)], [])
+  | .banishFromSoul pref n =>
+    let target := evalPlayerRef s ctrl pref
+    let picked := (s.zone (.player target .soul)).take n
+    let (s1, es) := banishManyObjs s target false picked
+    (s1, es, [])
+  | .banishTopDeck pref n fd =>
+    let target := evalPlayerRef s ctrl pref
+    let picked := (s.zone (.player target .deck)).take n
+    let (s1, es) := banishManyObjs s target fd picked
+    (s1, es, [])
+  | .banishFromGraveyard pref f n =>
+    let target := evalPlayerRef s ctrl pref
+    let matching := (s.zone (.player target .graveyard)).filter fun id =>
+      match s.objectFace? id with
+      | some face => cardFaceMatches f face
+      | none => false
+    let (s1, es) := banishManyObjs s target false (matching.take n)
+    (s1, es, [])
+  | .weaponAttack =>
     (s, [], [])
 
-/-- **L4** (`WF` preservation for `execPrim`): any primitive preserves `WF`. -/
-theorem execPrim_wf {s : GameState} (hwf : s.WF) (ctrl : PlayerId) (src : ObjId)
-    (env : List (VarId × Int)) (p : Prim) :
-    (execPrim s ctrl src env p).1.WF := by
+/-- **L4** (bundled preservation for `execPrim`): every primitive preserves `WF`, `OwnerOk`,
+`physIds` (I1), `config`, and `playRollback`. -/
+theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : PlayerId)
+    (src : ObjId) (env : List (VarId × Int)) (p : Prim) :
+    (execPrim s ctrl src env p).1.WF ∧
+    (execPrim s ctrl src env p).1.OwnerOk ∧
+    (execPrim s ctrl src env p).1.physIds.Perm s.physIds ∧
+    (execPrim s ctrl src env p).1.config = s.config ∧
+    (execPrim s ctrl src env p).1.playRollback = s.playRollback := by
   cases p with
-  | draw _ _ | opt _ _ | weaponAttack | discardRandom _ _ | discardChoice _ _ _
-  | intimidate _ | returnDefendingCardToHand _ | searchDeck _ _ _ _ _ _
-  | shuffleZoneIntoDeck _ _ _ _ _ | revealTopToArsenalIf _ _ | preventNextDamage _ _ _
-  | closeCombatChain => exact hwf
-  | gainLife _ _ => exact GameState.WF.congr hwf rfl rfl rfl rfl
-  | loseLife _ _ => exact checkHeroDefeat_wf (GameState.WF.congr hwf rfl rfl rfl rfl)
-  | dealDamage _ _ _ =>
-    unfold execPrim
-    dsimp only
-    split
-    · exact hwf
-    · exact checkHeroDefeat_wf (GameState.WF.congr hwf rfl rfl rfl rfl)
-  | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
-    exact GameState.WF.congr hwf rfl rfl rfl rfl
+  | draw _ _ | opt _ _ | weaponAttack | closeCombatChain =>
+    exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
+    exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
+           GameState.OwnerOk.congr hok rfl rfl,
+           List.Perm.refl _, rfl, rfl⟩
+  | loseLife pref n =>
+    unfold execPrim; dsimp only
+    let s1 := s.setLife (evalPlayerRef s ctrl pref)
+      (s.lifeOf (evalPlayerRef s ctrl pref) - Int.ofNat (clampNonNeg (evalNumExpr s ctrl env n)))
+    have hwf1 : s1.WF := GameState.WF.congr hwf rfl rfl rfl rfl
+    have hok1 : s1.OwnerOk := GameState.OwnerOk.congr hok rfl rfl
+    have hm := checkHeroDefeat_config_rollback s1
+    exact ⟨checkHeroDefeat_wf hwf1, checkHeroDefeat_ownerOk hok1,
+           by rw [checkHeroDefeat_physIds]; exact List.Perm.refl _, hm.1, hm.2⟩
+  | dealDamage kind pref n =>
+    exact applyDamageWithPrevention_inv hwf hok (evalPlayerRef s ctrl pref) kind
+      (clampNonNeg (evalNumExpr s ctrl env n))
   | createToken pref tokId n =>
-    exact createTokens_wf (evalPlayerRef s ctrl pref) tokId n hwf
+    have hm := createTokens_meta (evalPlayerRef s ctrl pref) tokId n s
+    exact ⟨createTokens_wf _ _ _ hwf, createTokens_ownerOk _ _ _ hwf hok,
+           createTokens_physIds _ _ _ hwf, hm.1, hm.2⟩
   | destroy oref =>
-    unfold execPrim
-    dsimp only
+    unfold execPrim; dsimp only
     cases evalObjRef src oref with
-    | none => exact hwf
+    | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     | some oid =>
       dsimp only
       split
       · rename_i srcZ o _ _
         cases hm : moveObj s oid (.player o.owner .graveyard) .top false with
-        | none => exact hwf
-        | some res => exact moveObj_wf hwf hm
-      · exact hwf
+        | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+        | some _ =>
+          have hmeta := moveObj_config_rollback hm
+          exact ⟨moveObj_wf hwf hm, moveObj_ownerOk hwf hok hm,
+                 moveObj_physIds hwf hm, hmeta.1, hmeta.2⟩
+      · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | banish oref fd =>
-    unfold execPrim
-    dsimp only
+    unfold execPrim; dsimp only
     cases evalObjRef src oref with
-    | none => exact hwf
+    | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     | some oid =>
       dsimp only
       cases hb : banishOne s oid fd with
-      | none => exact hwf
-      | some res => exact banishOne_wf hwf hb
+      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      | some res =>
+        obtain ⟨s1, id1, es1⟩ := res
+        dsimp only
+        have hmeta : s1.config = s.config ∧ s1.playRollback = s.playRollback := by
+          unfold banishOne at hb
+          split at hb
+          · rename_i src0 o0 _ _
+            dsimp only at hb
+            cases hm : moveObj s oid (Zone.player o0.owner .banished) .top fd with
+            | none => rw [hm] at hb; cases hb
+            | some rm =>
+              obtain ⟨sm, idm⟩ := rm
+              rw [hm] at hb; simp only [Option.some.injEq, Prod.mk.injEq] at hb
+              obtain ⟨rfl, rfl, rfl⟩ := hb
+              exact moveObj_config_rollback hm
+          · cases hb
+        exact ⟨banishOne_wf hwf hb, banishOne_ownerOk hwf hok hb,
+               banishOne_physIds hwf hb, hmeta.1, hmeta.2⟩
   | moveCard oref dstRef dpos fd =>
-    unfold execPrim
-    dsimp only
+    unfold execPrim; dsimp only
     cases evalObjRef src oref with
-    | none => exact hwf
+    | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     | some oid =>
       dsimp only
       split
       · rename_i srcZ o _ _
         cases zoneOfRef o.owner dstRef with
-        | none => exact hwf
+        | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
         | some dstZ =>
           dsimp only
           split
           · rename_i s1 oid' hm
-            exact moveObj_wf hwf hm
-          · exact hwf
-      · exact hwf
+            have hmeta := moveObj_config_rollback hm
+            exact ⟨moveObj_wf hwf hm, moveObj_ownerOk hwf hok hm,
+                   moveObj_physIds hwf hm, hmeta.1, hmeta.2⟩
+          · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | putHandOnDeck _ _ =>
-    unfold execPrim
-    dsimp only
-    split <;> exact hwf
+    unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | putArsenalOnDeckBottom pref =>
-    unfold execPrim
-    dsimp only
+    unfold execPrim; dsimp only
     cases s.zone (.player (evalPlayerRef s ctrl pref) .arsenal) with
-    | nil => exact hwf
+    | nil => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     | cons aid _ =>
       dsimp only
       cases hm : moveObj s aid (.player (evalPlayerRef s ctrl pref) .deck) .bottom false with
-      | none => exact hwf
-      | some res => exact moveObj_wf hwf hm
+      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      | some _ =>
+        have hmeta := moveObj_config_rollback hm
+        exact ⟨moveObj_wf hwf hm, moveObj_ownerOk hwf hok hm,
+               moveObj_physIds hwf hm, hmeta.1, hmeta.2⟩
   | addCounter oref k n =>
-    unfold execPrim
-    dsimp only
+    unfold execPrim; dsimp only
     cases evalObjRef src oref with
-    | none => exact hwf
-    | some oid => exact updateSingleObject_wf hwf oid _
+    | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    | some oid =>
+      have hm := updateSingleObject_meta s oid (fun o => o.addCounterVal k (clampNonNeg (evalNumExpr s ctrl env n)))
+      exact ⟨updateSingleObject_wf hwf oid _,
+             updateSingleObject_ownerOk hok oid (fun o => Object.addCounterVal_owner o k _),
+             by rw [updateSingleObject_physIds s oid (fun o => Object.addCounterVal_kind o k _)],
+             hm.1, hm.2⟩
   | removeAllCounters oref k =>
-    unfold execPrim
-    dsimp only
+    unfold execPrim; dsimp only
     cases evalObjRef src oref with
-    | none => exact hwf
-    | some oid => exact updateSingleObject_wf hwf oid _
+    | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    | some oid =>
+      have hm := updateSingleObject_meta s oid (fun o => o.clearCounterVal k)
+      exact ⟨updateSingleObject_wf hwf oid _,
+             updateSingleObject_ownerOk hok oid (fun o => Object.clearCounterVal_owner o k),
+             by rw [updateSingleObject_physIds s oid (fun o => Object.clearCounterVal_kind o k)],
+             hm.1, hm.2⟩
+  | discardRandom pref n =>
+    exact discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok
+  | discardChoice pref f n =>
+    exact discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok
+  | intimidate pref =>
+    unfold execPrim; dsimp only
+    cases s.zone (.player (evalPlayerRef s ctrl pref) .hand) with
+    | nil => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    | cons cid _ =>
+      dsimp only
+      cases hb : banishOne s cid true with
+      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      | some res =>
+        obtain ⟨s1, banId, es1⟩ := res
+        dsimp only
+        have hmeta : s1.config = s.config ∧ s1.playRollback = s.playRollback := by
+          unfold banishOne at hb
+          split at hb
+          · rename_i src0 o0 _ _
+            dsimp only at hb
+            cases hm : moveObj s cid (Zone.player o0.owner .banished) .top true with
+            | none => rw [hm] at hb; cases hb
+            | some rm =>
+              obtain ⟨sm, idm⟩ := rm
+              rw [hm] at hb; simp only [Option.some.injEq, Prod.mk.injEq] at hb
+              obtain ⟨rfl, rfl, rfl⟩ := hb
+              exact moveObj_config_rollback hm
+          · cases hb
+        have hp := banishOne_physIds hwf hb
+        exact ⟨GameState.WF.congr (banishOne_wf hwf hb) rfl rfl rfl rfl,
+               GameState.OwnerOk.congr (banishOne_ownerOk hwf hok hb) rfl rfl,
+               hp, hmeta.1, hmeta.2⟩
+  | returnDefendingCardToHand f =>
+    unfold execPrim; dsimp only
+    cases s.combat.bind CombatChain.activeLink? with
+    | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    | some link =>
+      dsimp only
+      cases link.defending.find? (fun did => match s.objectFace? did with | some face => cardFaceMatches f face | none => false) with
+      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      | some did =>
+        dsimp only
+        cases s.obj? did with
+        | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+        | some o =>
+          dsimp only
+          cases hm : moveObj s did (.player o.owner .hand) .top false with
+          | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+          | some res =>
+            obtain ⟨s1, id'⟩ := res
+            dsimp only
+            have hmeta := moveObj_config_rollback hm
+            have hp := moveObj_physIds hwf hm
+            exact ⟨GameState.WF.congr (moveObj_wf hwf hm) rfl rfl rfl rfl,
+                   GameState.OwnerOk.congr (moveObj_ownerOk hwf hok hm) rfl rfl,
+                   hp, hmeta.1, hmeta.2⟩
+  | searchDeck pref f maxCount dstRef _ _ =>
+    unfold execPrim; dsimp only
+    cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
+    | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    | some dstZ =>
+      dsimp only
+      exact moveManyObjs_inv dstZ .top false _ hwf hok
+  | shuffleZoneIntoDeck pref srcRef f maxCount drawSame =>
+    unfold execPrim; dsimp only
+    cases zoneOfRef (evalPlayerRef s ctrl pref) srcRef with
+    | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    | some srcZ =>
+      dsimp only
+      exact moveManyObjs_inv (.player (evalPlayerRef s ctrl pref) .deck) .bottom false _ hwf hok
+  | revealTopToArsenalIf pref f =>
+    unfold execPrim; dsimp only
+    split
+    · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    · cases s.zone (.player (evalPlayerRef s ctrl pref) .deck) with
+      | nil => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      | cons topId _ =>
+        dsimp only
+        cases s.objectFace? topId with
+        | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+        | some face =>
+          dsimp only
+          split
+          · cases hm : moveObj s topId (.player (evalPlayerRef s ctrl pref) .arsenal) .top false with
+            | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+            | some res =>
+              obtain ⟨s1, id'⟩ := res
+              dsimp only
+              have hmeta := moveObj_config_rollback hm
+              exact ⟨moveObj_wf hwf hm, moveObj_ownerOk hwf hok hm,
+                     moveObj_physIds hwf hm, hmeta.1, hmeta.2⟩
+          · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | preventNextDamage pref n _ =>
+    unfold execPrim; dsimp only
+    split
+    · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    · exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
+             GameState.OwnerOk.congr hok rfl rfl,
+             List.Perm.refl _, rfl, rfl⟩
+  | charge pref =>
+    unfold execPrim; dsimp only
+    cases s.zone (.player (evalPlayerRef s ctrl pref) .hand) with
+    | nil => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    | cons cid _ =>
+      dsimp only
+      cases hm : moveObj s cid (.player (evalPlayerRef s ctrl pref) .soul) .bottom false with
+      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+      | some res =>
+        obtain ⟨s1, id'⟩ := res
+        dsimp only
+        have hmeta := moveObj_config_rollback hm
+        have hp := moveObj_physIds hwf hm
+        exact ⟨GameState.WF.congr (moveObj_wf hwf hm) rfl rfl rfl rfl,
+               GameState.OwnerOk.congr (moveObj_ownerOk hwf hok hm) rfl rfl,
+               hp, hmeta.1, hmeta.2⟩
+  | banishFromSoul pref n =>
+    exact banishManyObjs_inv (evalPlayerRef s ctrl pref) false _ hwf hok
+  | banishTopDeck pref n fd =>
+    exact banishManyObjs_inv (evalPlayerRef s ctrl pref) fd _ hwf hok
+  | banishFromGraveyard pref f n =>
+    exact banishManyObjs_inv (evalPlayerRef s ctrl pref) false _ hwf hok
+
+/-- **L4** (`WF` preservation for `execPrim`): any primitive preserves `WF`. -/
+theorem execPrim_wf {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : PlayerId) (src : ObjId)
+    (env : List (VarId × Int)) (p : Prim) :
+    (execPrim s ctrl src env p).1.WF :=
+  (execPrim_inv hwf hok ctrl src env p).1
 
 /-- **L4** (`OwnerOk` preservation for `execPrim`): any primitive preserves `OwnerOk`. -/
 theorem execPrim_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : PlayerId)
     (src : ObjId) (env : List (VarId × Int)) (p : Prim) :
-    (execPrim s ctrl src env p).1.OwnerOk := by
-  cases p with
-  | draw _ _ | opt _ _ | weaponAttack | discardRandom _ _ | discardChoice _ _ _
-  | intimidate _ | returnDefendingCardToHand _ | searchDeck _ _ _ _ _ _
-  | shuffleZoneIntoDeck _ _ _ _ _ | revealTopToArsenalIf _ _ | preventNextDamage _ _ _
-  | closeCombatChain => exact hok
-  | gainLife _ _ => exact GameState.OwnerOk.congr hok rfl rfl
-  | loseLife _ _ => exact checkHeroDefeat_ownerOk (GameState.OwnerOk.congr hok rfl rfl)
-  | dealDamage _ _ _ =>
-    unfold execPrim
-    dsimp only
-    split
-    · exact hok
-    · exact checkHeroDefeat_ownerOk (GameState.OwnerOk.congr hok rfl rfl)
-  | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
-    exact GameState.OwnerOk.congr hok rfl rfl
-  | createToken pref tokId n =>
-    exact createTokens_ownerOk (evalPlayerRef s ctrl pref) tokId n hwf hok
-  | destroy oref =>
-    unfold execPrim
-    dsimp only
-    cases evalObjRef src oref with
-    | none => exact hok
-    | some oid =>
-      dsimp only
-      split
-      · rename_i srcZ o _ _
-        cases hm : moveObj s oid (.player o.owner .graveyard) .top false with
-        | none => exact hok
-        | some res => exact moveObj_ownerOk hwf hok hm
-      · exact hok
-  | banish oref fd =>
-    unfold execPrim
-    dsimp only
-    cases evalObjRef src oref with
-    | none => exact hok
-    | some oid =>
-      dsimp only
-      cases hb : banishOne s oid fd with
-      | none => exact hok
-      | some res => exact banishOne_ownerOk hwf hok hb
-  | moveCard oref dstRef dpos fd =>
-    unfold execPrim
-    dsimp only
-    cases evalObjRef src oref with
-    | none => exact hok
-    | some oid =>
-      dsimp only
-      split
-      · rename_i srcZ o _ _
-        cases zoneOfRef o.owner dstRef with
-        | none => exact hok
-        | some dstZ =>
-          dsimp only
-          split
-          · rename_i s1 oid' hm
-            exact moveObj_ownerOk hwf hok hm
-          · exact hok
-      · exact hok
-  | putHandOnDeck _ _ =>
-    unfold execPrim
-    dsimp only
-    split <;> exact hok
-  | putArsenalOnDeckBottom pref =>
-    unfold execPrim
-    dsimp only
-    cases s.zone (.player (evalPlayerRef s ctrl pref) .arsenal) with
-    | nil => exact hok
-    | cons aid _ =>
-      dsimp only
-      cases hm : moveObj s aid (.player (evalPlayerRef s ctrl pref) .deck) .bottom false with
-      | none => exact hok
-      | some res => exact moveObj_ownerOk hwf hok hm
-  | addCounter oref k n =>
-    unfold execPrim
-    dsimp only
-    cases evalObjRef src oref with
-    | none => exact hok
-    | some oid => exact updateSingleObject_ownerOk hok oid (fun o => Object.addCounterVal_owner o k _)
-  | removeAllCounters oref k =>
-    unfold execPrim
-    dsimp only
-    cases evalObjRef src oref with
-    | none => exact hok
-    | some oid => exact updateSingleObject_ownerOk hok oid (fun o => Object.clearCounterVal_owner o k)
+    (execPrim s ctrl src env p).1.OwnerOk :=
+  (execPrim_inv hwf hok ctrl src env p).2.1
 
 /-- **L4** (I1 `physIds` preservation for `execPrim`): any primitive preserves physical cards. -/
-theorem execPrim_physIds {s : GameState} (hwf : s.WF) (ctrl : PlayerId) (src : ObjId)
-    (env : List (VarId × Int)) (p : Prim) :
-    (execPrim s ctrl src env p).1.physIds.Perm s.physIds := by
-  cases p with
-  | draw _ _ | opt _ _ | weaponAttack | discardRandom _ _ | discardChoice _ _ _
-  | intimidate _ | returnDefendingCardToHand _ | searchDeck _ _ _ _ _ _
-  | shuffleZoneIntoDeck _ _ _ _ _ | revealTopToArsenalIf _ _ | preventNextDamage _ _ _
-  | closeCombatChain | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
-    exact List.Perm.refl _
-  | loseLife _ _ =>
-    unfold execPrim
-    dsimp only
-    rw [checkHeroDefeat_physIds]
-    exact List.Perm.refl _
-  | dealDamage _ _ _ =>
-    unfold execPrim
-    dsimp only
-    split
-    · exact List.Perm.refl _
-    · rw [checkHeroDefeat_physIds]
-      exact List.Perm.refl _
-  | createToken pref tokId n =>
-    exact createTokens_physIds (evalPlayerRef s ctrl pref) tokId n hwf
-  | destroy oref =>
-    unfold execPrim
-    dsimp only
-    cases evalObjRef src oref with
-    | none => exact List.Perm.refl _
-    | some oid =>
-      dsimp only
-      split
-      · rename_i srcZ o _ _
-        cases hm : moveObj s oid (.player o.owner .graveyard) .top false with
-        | none => exact List.Perm.refl _
-        | some res => exact moveObj_physIds hwf hm
-      · exact List.Perm.refl _
-  | banish oref fd =>
-    unfold execPrim
-    dsimp only
-    cases evalObjRef src oref with
-    | none => exact List.Perm.refl _
-    | some oid =>
-      dsimp only
-      cases hb : banishOne s oid fd with
-      | none => exact List.Perm.refl _
-      | some res => exact banishOne_physIds hwf hb
-  | moveCard oref dstRef dpos fd =>
-    unfold execPrim
-    dsimp only
-    cases evalObjRef src oref with
-    | none => exact List.Perm.refl _
-    | some oid =>
-      dsimp only
-      split
-      · rename_i srcZ o _ _
-        cases zoneOfRef o.owner dstRef with
-        | none => exact List.Perm.refl _
-        | some dstZ =>
-          dsimp only
-          split
-          · rename_i s1 oid' hm
-            exact moveObj_physIds hwf hm
-          · exact List.Perm.refl _
-      · exact List.Perm.refl _
-  | putHandOnDeck _ _ =>
-    unfold execPrim
-    dsimp only
-    split <;> exact List.Perm.refl _
-  | putArsenalOnDeckBottom pref =>
-    unfold execPrim
-    dsimp only
-    cases s.zone (.player (evalPlayerRef s ctrl pref) .arsenal) with
-    | nil => exact List.Perm.refl _
-    | cons aid _ =>
-      dsimp only
-      cases hm : moveObj s aid (.player (evalPlayerRef s ctrl pref) .deck) .bottom false with
-      | none => exact List.Perm.refl _
-      | some res => exact moveObj_physIds hwf hm
-  | addCounter oref k n =>
-    unfold execPrim
-    dsimp only
-    cases evalObjRef src oref with
-    | none => exact List.Perm.refl _
-    | some oid =>
-      rw [updateSingleObject_physIds s oid (fun o => Object.addCounterVal_kind o k _)]
-  | removeAllCounters oref k =>
-    unfold execPrim
-    dsimp only
-    cases evalObjRef src oref with
-    | none => exact List.Perm.refl _
-    | some oid =>
-      rw [updateSingleObject_physIds s oid (fun o => Object.clearCounterVal_kind o k)]
-
-/-- Helper: `moveObj` preserves `config` and `playRollback`. -/
-theorem moveObj_config_rollback {s s' : GameState} {id id' : ObjId} {dst : Zone} {pos : Pos}
-    {fd : Bool} (h : moveObj s id dst pos fd = some (s', id')) :
-    s'.config = s.config ∧ s'.playRollback = s.playRollback := by
-  unfold moveObj at h
-  split at h
-  · dsimp only at h
-    split at h
-    · cases h
-    · split at h <;>
-      · simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        exact ⟨rfl, rfl⟩
-  · cases h
-
-/-- Helper: `checkHeroDefeat` preserves `config` and `playRollback`. -/
-theorem checkHeroDefeat_config_rollback (s : GameState) :
-    (checkHeroDefeat s).config = s.config ∧ (checkHeroDefeat s).playRollback = s.playRollback := by
-  unfold checkHeroDefeat
-  split
-  · exact ⟨rfl, rfl⟩
-  · split <;> exact ⟨rfl, rfl⟩
+theorem execPrim_physIds {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : PlayerId)
+    (src : ObjId) (env : List (VarId × Int)) (p : Prim) :
+    (execPrim s ctrl src env p).1.physIds.Perm s.physIds :=
+  (execPrim_inv hwf hok ctrl src env p).2.2.1
 
 /-- `execPrim` preserves `config` and `playRollback`. -/
-theorem execPrim_meta (s : GameState) (ctrl : PlayerId) (src : ObjId)
-    (env : List (VarId × Int)) (p : Prim) :
+theorem execPrim_meta {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : PlayerId)
+    (src : ObjId) (env : List (VarId × Int)) (p : Prim) :
     (execPrim s ctrl src env p).1.config = s.config ∧
-    (execPrim s ctrl src env p).1.playRollback = s.playRollback := by
+    (execPrim s ctrl src env p).1.playRollback = s.playRollback :=
+  ⟨(execPrim_inv hwf hok ctrl src env p).2.2.2.1, (execPrim_inv hwf hok ctrl src env p).2.2.2.2⟩
+
+/-- `execPrim` preserves `turn` and `tournament`, and never clears a set `result`. -/
+theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
+    (env : List (VarId × Int)) (p : Prim) :
+    (execPrim s ctrl src env p).1.turn = s.turn ∧
+    (execPrim s ctrl src env p).1.tournament = s.tournament ∧
+    ((execPrim s ctrl src env p).1.result = none → s.result = none) := by
   cases p with
-  | draw _ _ | opt _ _ | weaponAttack | discardRandom _ _ | discardChoice _ _ _
-  | intimidate _ | returnDefendingCardToHand _ | searchDeck _ _ _ _ _ _
-  | shuffleZoneIntoDeck _ _ _ _ _ | revealTopToArsenalIf _ _ | preventNextDamage _ _ _
-  | closeCombatChain | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
-    exact ⟨rfl, rfl⟩
+  | draw _ _ | opt _ _ | weaponAttack | closeCombatChain
+  | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
+    exact ⟨rfl, rfl, id⟩
   | loseLife _ _ =>
-    exact checkHeroDefeat_config_rollback _
-  | dealDamage _ _ _ =>
-    unfold execPrim; dsimp only
-    split
-    · exact ⟨rfl, rfl⟩
-    · exact checkHeroDefeat_config_rollback _
+    exact checkHeroDefeat_ttr_core _
+  | dealDamage kind pref n =>
+    exact applyDamageWithPrevention_ttr s (evalPlayerRef s ctrl pref) kind
+      (clampNonNeg (evalNumExpr s ctrl env n))
   | createToken pref tokId n =>
-    exact createTokens_meta (evalPlayerRef s ctrl pref) tokId n s
+    have hc : ∀ (k : Nat) (st : GameState),
+        (createTokens st (evalPlayerRef s ctrl pref) tokId k).turn = st.turn ∧
+        (createTokens st (evalPlayerRef s ctrl pref) tokId k).tournament = st.tournament ∧
+        (createTokens st (evalPlayerRef s ctrl pref) tokId k).result = st.result := by
+      intro k
+      induction k with
+      | zero => intro _; exact ⟨rfl, rfl, rfl⟩
+      | succ k ih =>
+        intro st
+        unfold createTokens; dsimp only
+        cases ha : addObject st (.player (evalPlayerRef s ctrl pref) .permanent)
+            { kind := .token tokId, owner := evalPlayerRef s ctrl pref,
+              controller := evalPlayerRef s ctrl pref, timestamp := ⟨st.nextTimestamp⟩ } .top with
+        | none => exact ⟨rfl, rfl, rfl⟩
+        | some res =>
+          have h1 : res.1.turn = st.turn ∧ res.1.tournament = st.tournament ∧ res.1.result = st.result := by
+            unfold addObject at ha; split at ha
+            · simp only [Option.some.injEq] at ha; subst ha; exact ⟨rfl, rfl, rfl⟩
+            · cases ha
+          have h2 := ih res.1
+          exact ⟨h2.1.trans h1.1, h2.2.1.trans h1.2.1, h2.2.2.trans h1.2.2⟩
+    have h := hc n s
+    exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
   | destroy oref =>
     unfold execPrim; dsimp only
     cases evalObjRef src oref with
-    | none => exact ⟨rfl, rfl⟩
+    | none => exact ⟨rfl, rfl, id⟩
     | some oid =>
       dsimp only
       split
       · rename_i srcZ o _ _
         cases hm : moveObj s oid (.player o.owner .graveyard) .top false with
-        | none => exact ⟨rfl, rfl⟩
-        | some res => exact moveObj_config_rollback hm
-      · exact ⟨rfl, rfl⟩
+        | none => exact ⟨rfl, rfl, id⟩
+        | some _ =>
+          have h := moveObj_ttr_core hm
+          exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+      · exact ⟨rfl, rfl, id⟩
   | banish oref fd =>
     unfold execPrim; dsimp only
     cases evalObjRef src oref with
-    | none => exact ⟨rfl, rfl⟩
+    | none => exact ⟨rfl, rfl, id⟩
     | some oid =>
       dsimp only
       cases hb : banishOne s oid fd with
-      | none => exact ⟨rfl, rfl⟩
+      | none => exact ⟨rfl, rfl, id⟩
       | some res =>
-        obtain ⟨s1, id1, es1⟩ := res
-        dsimp only
-        unfold banishOne at hb
-        split at hb
+        obtain ⟨s1, _, _⟩ := res; dsimp only
+        unfold banishOne at hb; split at hb
         · rename_i src0 o0 _ _
           dsimp only at hb
           cases hm : moveObj s oid (Zone.player o0.owner .banished) .top fd with
-          | none => simp only [hm] at hb; cases hb
+          | none => rw [hm] at hb; cases hb
           | some rm =>
             obtain ⟨sm, idm⟩ := rm
-            simp only [hm, Option.some.injEq, Prod.mk.injEq] at hb
+            rw [hm] at hb; simp only [Option.some.injEq, Prod.mk.injEq] at hb
             obtain ⟨rfl, rfl, rfl⟩ := hb
-            exact moveObj_config_rollback hm
+            have h := moveObj_ttr_core hm
+            exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
         · cases hb
   | moveCard oref dstRef dpos fd =>
     unfold execPrim; dsimp only
     cases evalObjRef src oref with
-    | none => exact ⟨rfl, rfl⟩
+    | none => exact ⟨rfl, rfl, id⟩
     | some oid =>
       dsimp only
       split
       · rename_i srcZ o _ _
         cases zoneOfRef o.owner dstRef with
-        | none => exact ⟨rfl, rfl⟩
+        | none => exact ⟨rfl, rfl, id⟩
         | some dstZ =>
           dsimp only
           split
           · rename_i s1 oid' hm
-            exact moveObj_config_rollback hm
-          · exact ⟨rfl, rfl⟩
-      · exact ⟨rfl, rfl⟩
+            have h := moveObj_ttr_core hm
+            exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+          · exact ⟨rfl, rfl, id⟩
+      · exact ⟨rfl, rfl, id⟩
   | putHandOnDeck _ _ =>
-    unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl⟩
+    unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | putArsenalOnDeckBottom pref =>
     unfold execPrim; dsimp only
     cases s.zone (.player (evalPlayerRef s ctrl pref) .arsenal) with
-    | nil => exact ⟨rfl, rfl⟩
+    | nil => exact ⟨rfl, rfl, id⟩
     | cons aid _ =>
       dsimp only
       cases hm : moveObj s aid (.player (evalPlayerRef s ctrl pref) .deck) .bottom false with
-      | none => exact ⟨rfl, rfl⟩
-      | some res => exact moveObj_config_rollback hm
+      | none => exact ⟨rfl, rfl, id⟩
+      | some _ =>
+        have h := moveObj_ttr_core hm
+        exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
   | addCounter oref _ _ =>
     unfold execPrim; dsimp only
     cases evalObjRef src oref with
-    | none => exact ⟨rfl, rfl⟩
-    | some oid => exact updateSingleObject_meta s oid _
+    | none => exact ⟨rfl, rfl, id⟩
+    | some oid =>
+      dsimp only; unfold updateSingleObject
+      cases s.objects[oid.n]? <;> exact ⟨rfl, rfl, id⟩
   | removeAllCounters oref _ =>
     unfold execPrim; dsimp only
     cases evalObjRef src oref with
-    | none => exact ⟨rfl, rfl⟩
-    | some oid => exact updateSingleObject_meta s oid _
+    | none => exact ⟨rfl, rfl, id⟩
+    | some oid =>
+      dsimp only; unfold updateSingleObject
+      cases s.objects[oid.n]? <;> exact ⟨rfl, rfl, id⟩
+  | discardRandom pref n =>
+    have h := discardManyObjs_ttr (evalPlayerRef s ctrl pref)
+      ((s.zone (.player (evalPlayerRef s ctrl pref) .hand)).take (clampNonNeg (evalNumExpr s ctrl env n))) s
+    exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+  | discardChoice pref f n =>
+    have h := discardManyObjs_ttr (evalPlayerRef s ctrl pref)
+      (((s.zone (.player (evalPlayerRef s ctrl pref) .hand)).filter fun id =>
+          match s.objectFace? id with | some face => cardFaceMatches f face | none => false).take
+        (clampNonNeg (evalNumExpr s ctrl env n))) s
+    exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+  | intimidate pref =>
+    unfold execPrim; dsimp only
+    cases s.zone (.player (evalPlayerRef s ctrl pref) .hand) with
+    | nil => exact ⟨rfl, rfl, id⟩
+    | cons cid _ =>
+      dsimp only
+      cases hb : banishOne s cid true with
+      | none => exact ⟨rfl, rfl, id⟩
+      | some res =>
+        obtain ⟨s1, _, _⟩ := res; dsimp only
+        unfold banishOne at hb; split at hb
+        · rename_i src0 o0 _ _
+          dsimp only at hb
+          cases hm : moveObj s cid (Zone.player o0.owner .banished) .top true with
+          | none => rw [hm] at hb; cases hb
+          | some rm =>
+            obtain ⟨sm, idm⟩ := rm
+            rw [hm] at hb; simp only [Option.some.injEq, Prod.mk.injEq] at hb
+            obtain ⟨rfl, rfl, rfl⟩ := hb
+            have h := moveObj_ttr_core hm
+            exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+        · cases hb
+  | returnDefendingCardToHand f =>
+    unfold execPrim; dsimp only
+    cases s.combat.bind CombatChain.activeLink? with
+    | none => exact ⟨rfl, rfl, id⟩
+    | some link =>
+      dsimp only
+      cases link.defending.find? (fun did => match s.objectFace? did with | some face => cardFaceMatches f face | none => false) with
+      | none => exact ⟨rfl, rfl, id⟩
+      | some did =>
+        dsimp only
+        cases s.obj? did with
+        | none => exact ⟨rfl, rfl, id⟩
+        | some o =>
+          dsimp only
+          cases hm : moveObj s did (.player o.owner .hand) .top false with
+          | none => exact ⟨rfl, rfl, id⟩
+          | some _ =>
+            have h := moveObj_ttr_core hm
+            exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+  | searchDeck pref f maxCount dstRef _ _ =>
+    unfold execPrim; dsimp only
+    cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
+    | none => exact ⟨rfl, rfl, id⟩
+    | some dstZ =>
+      dsimp only
+      let matching := (s.zone (.player (evalPlayerRef s ctrl pref) .deck)).filter fun id =>
+        match s.objectFace? id with | some face => cardFaceMatches f face | none => false
+      let picked := match maxCount with | some k => matching.take k | none => matching
+      have h := moveManyObjs_ttr dstZ .top false picked s
+      exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+  | shuffleZoneIntoDeck pref srcRef f maxCount _ =>
+    unfold execPrim; dsimp only
+    cases zoneOfRef (evalPlayerRef s ctrl pref) srcRef with
+    | none => exact ⟨rfl, rfl, id⟩
+    | some srcZ =>
+      dsimp only
+      let matching := (s.zone srcZ).filter fun id =>
+        match s.objectFace? id with | some face => cardFaceMatches f face | none => false
+      let picked := match maxCount with | some k => matching.take k | none => matching
+      have h := moveManyObjs_ttr (.player (evalPlayerRef s ctrl pref) .deck) .bottom false picked s
+      exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+  | revealTopToArsenalIf pref _ =>
+    unfold execPrim; dsimp only
+    split
+    · exact ⟨rfl, rfl, id⟩
+    · cases s.zone (.player (evalPlayerRef s ctrl pref) .deck) with
+      | nil => exact ⟨rfl, rfl, id⟩
+      | cons topId _ =>
+        dsimp only
+        cases s.objectFace? topId with
+        | none => exact ⟨rfl, rfl, id⟩
+        | some face =>
+          dsimp only
+          split
+          · cases hm : moveObj s topId (.player (evalPlayerRef s ctrl pref) .arsenal) .top false with
+            | none => exact ⟨rfl, rfl, id⟩
+            | some _ =>
+              have h := moveObj_ttr_core hm
+              exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+          · exact ⟨rfl, rfl, id⟩
+  | preventNextDamage _ _ _ =>
+    unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
+  | charge pref =>
+    unfold execPrim; dsimp only
+    cases s.zone (.player (evalPlayerRef s ctrl pref) .hand) with
+    | nil => exact ⟨rfl, rfl, id⟩
+    | cons cid _ =>
+      dsimp only
+      cases hm : moveObj s cid (.player (evalPlayerRef s ctrl pref) .soul) .bottom false with
+      | none => exact ⟨rfl, rfl, id⟩
+      | some _ =>
+        have h := moveObj_ttr_core hm
+        exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+  | banishFromSoul pref n =>
+    have h := banishManyObjs_ttr (evalPlayerRef s ctrl pref) false
+      ((s.zone (.player (evalPlayerRef s ctrl pref) .soul)).take n) s
+    exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+  | banishTopDeck pref n fd =>
+    have h := banishManyObjs_ttr (evalPlayerRef s ctrl pref) fd
+      ((s.zone (.player (evalPlayerRef s ctrl pref) .deck)).take n) s
+    exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+  | banishFromGraveyard pref f n =>
+    have h := banishManyObjs_ttr (evalPlayerRef s ctrl pref) false
+      (((s.zone (.player (evalPlayerRef s ctrl pref) .graveyard)).filter fun id =>
+          match s.objectFace? id with | some face => cardFaceMatches f face | none => false).take n) s
+    exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
 
 /-- Apply a continuous modification from `Effect.grant`: updates the active `ChainLink` directly
 for `.thisChainLink` combat buffs, and registers a `ContinuousEffect` in `s.activeEffects` for
@@ -1014,8 +1815,9 @@ def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     ({ s with pending := .run ctrl src fromArsenal env more :: rest }, [])
 
 /-- **L4** (`WF` preservation for `interpRunStep`): stepping any `Effect` preserves `WF`. -/
-theorem interpRunStep_wf {s : GameState} (hwf : s.WF) (ctrl : PlayerId) (src : ObjId)
-    (fromArsenal : Bool) (env : List (VarId × Int)) (todo : List Effect) (rest : List Frame) :
+theorem interpRunStep_wf {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : PlayerId)
+    (src : ObjId) (fromArsenal : Bool) (env : List (VarId × Int)) (todo : List Effect)
+    (rest : List Frame) :
     (interpRunStep s ctrl src fromArsenal env todo rest).1.WF := by
   cases todo with
   | nil => exact GameState.WF.congr hwf rfl rfl rfl rfl
@@ -1032,7 +1834,7 @@ theorem interpRunStep_wf {s : GameState} (hwf : s.WF) (ctrl : PlayerId) (src : O
       split <;> exact GameState.WF.congr hwf rfl rfl rfl rfl
     | prim p =>
       unfold interpRunStep
-      exact GameState.WF.congr (execPrim_wf hwf ctrl src env p) rfl rfl rfl rfl
+      exact GameState.WF.congr (execPrim_wf hwf hok ctrl src env p) rfl rfl rfl rfl
 
 /-- **L4** (`OwnerOk` preservation for `interpRunStep`): stepping any `Effect` preserves `OwnerOk`. -/
 theorem interpRunStep_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : PlayerId)
@@ -1058,8 +1860,9 @@ theorem interpRunStep_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
 
 /-- **L4** (I1 `physIds` preservation for `interpRunStep`): stepping any `Effect` preserves physical
 cards. -/
-theorem interpRunStep_physIds {s : GameState} (hwf : s.WF) (ctrl : PlayerId) (src : ObjId)
-    (fromArsenal : Bool) (env : List (VarId × Int)) (todo : List Effect) (rest : List Frame) :
+theorem interpRunStep_physIds {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : PlayerId)
+    (src : ObjId) (fromArsenal : Bool) (env : List (VarId × Int)) (todo : List Effect)
+    (rest : List Frame) :
     (interpRunStep s ctrl src fromArsenal env todo rest).1.physIds.Perm s.physIds := by
   cases todo with
   | nil => exact List.Perm.refl _
@@ -1080,11 +1883,12 @@ theorem interpRunStep_physIds {s : GameState} (hwf : s.WF) (ctrl : PlayerId) (sr
       split <;> exact List.Perm.refl _
     | prim p =>
       unfold interpRunStep
-      exact execPrim_physIds hwf ctrl src env p
+      exact execPrim_physIds hwf hok ctrl src env p
 
 /-- `interpRunStep` preserves `config` and `playRollback`. -/
-theorem interpRunStep_meta (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal : Bool)
-    (env : List (VarId × Int)) (todo : List Effect) (rest : List Frame) :
+theorem interpRunStep_meta {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : PlayerId)
+    (src : ObjId) (fromArsenal : Bool) (env : List (VarId × Int)) (todo : List Effect)
+    (rest : List Frame) :
     (interpRunStep s ctrl src fromArsenal env todo rest).1.config = s.config ∧
     (interpRunStep s ctrl src fromArsenal env todo rest).1.playRollback = s.playRollback := by
   cases todo with
@@ -1102,7 +1906,7 @@ theorem interpRunStep_meta (s : GameState) (ctrl : PlayerId) (src : ObjId) (from
       split <;> exact ⟨rfl, rfl⟩
     | prim p =>
       unfold interpRunStep
-      exact execPrim_meta s ctrl src env p
+      exact execPrim_meta hwf hok ctrl src env p
 
 /-- **I18** (mandatory prompt for optional choices): `Effect.may` always pushes a `chooseMay`
 decision frame for the player rather than deciding silently. -/
