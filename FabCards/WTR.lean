@@ -930,13 +930,13 @@ def WTR_162_B : CardDef :=
             .nil)))
             .nop } ] with status := .full }
 
-/-- Remembrance (drafted IR). -/
+/-- Remembrance. -/
 def WTR_163_Y : CardDef :=
-  draftCard WTR_163_Y_meta []
-    (some
-      { body := .seqL
-          [ .prim (.shuffleZoneIntoDeck .controller .graveyard { types := [.action] } (some 3) false)
-          , .prim (.banish .self_ false) ] })
+  { draftCard WTR_163_Y_meta []
+      (some
+        { body := .seqL
+            [ .prim (.shuffleZoneIntoDeck .controller .graveyard { types := [.action] } (some 3) false)
+            , .prim (.banish .self_ false) ] }) with status := .full }
 
 /-- Shared 3-color helper for Drone of Brutality (replacement: graveyard → deck bottom). -/
 def droneOfBrutality (base : CardDef) : CardDef :=

@@ -1143,6 +1143,56 @@ meta def checkSeismicSurge : Option Bool := do
 
 #guard checkSeismicSurge == some true
 
+/-- Remembrance lets its caster choose up to three action cards, then banishes itself. -/
+meta def checkRemembrance : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let player : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_163_Y"⟩
+  let grave := Zone.player player .graveyard
+  let deck := Zone.player player .deck
+  let hand := Zone.player player .hand
+  let banished := Zone.player player .banished
+  let card ← m5Base.cards.find? cid
+  let (withSpell, spell) ← cPlace m5Base player .hand cid
+  let (withReserve, reserve) ← cPlace withSpell player .hand ⟨"WTR_203_R"⟩
+  let (withTop, top) ← cPlace withReserve player .deck ⟨"WTR_191_R"⟩
+  let (withFirst, first) ← cPlace withTop player .graveyard ⟨"WTR_203_R"⟩
+  let (withKeep, keep) ← cPlace withFirst player .graveyard ⟨"WTR_204_Y"⟩
+  let (withThird, third) ← cPlace withKeep player .graveyard ⟨"WTR_205_B"⟩
+  let (withAction, nonAttack) ← cPlace withThird player .graveyard ⟨"WTR_218_R"⟩
+  let (withInstant, instant) ← cPlace withAction player .graveyard ⟨"WTR_173_R"⟩
+  let (ready, reaction) ← cPlace withInstant player .graveyard ⟨"WTR_215_R"⟩
+  let choose (id : ObjId) : Action := ⟨.player player, .pickShuffleCard (some id)⟩
+  let done : Action := ⟨.player player, .pickShuffleCard none⟩
+  let shuffle (ids : List ObjId) : Action := ⟨.chance, .shuffleOrder ids⟩
+  let paid ← cSteps ready
+    [⟨.player attacker, .pass⟩, ⟨.player player, .playCard spell⟩]
+  let layer ← (paid.zone .stack).head?
+  let picking ← cSteps paid passBoth.reverse
+  let limit ← cSteps picking [choose third, choose nonAttack, choose first]
+  let (committed, moves) ← (step 64 limit done).toOption
+  let resolved ← cSteps committed [shuffle (committed.zone deck).reverse]
+  let spent ← (resolved.zone banished).head?
+  let zero ← cSteps picking [done, shuffle [top]]
+  pure (card.status == .full && card.front.pitch == some 2 && card.front.defense.isNone &&
+    (paid.poolOf player).actionPoints == 0 && (paid.poolOf player).resources == 0 &&
+    paid.zone grave == ready.zone grave && (step 64 paid (choose third)).toOption.isNone &&
+    (legalActionsFor player picking).contains (choose keep) &&
+    (legalActionsFor player picking).contains (choose nonAttack) &&
+    (step 64 picking (choose instant)).toOption.isNone && (step 64 picking (choose reaction)).toOption.isNone &&
+    (step 64 picking (choose layer)).toOption.isNone && (step 64 picking (choose reserve)).toOption.isNone &&
+    (step 64 limit (choose keep)).toOption.isNone && limit.zone grave == ready.zone grave &&
+    moves.length == 3 && committed.zone grave == [reaction, instant, keep] &&
+    committed.pending.head? == some (.chanceShuffle deck) && committed.zone .stack == [layer] &&
+    resolved.zone deck == (committed.zone deck).reverse && resolved.zone hand == [reserve] &&
+    resolved.zone grave == [reaction, instant, keep] && resolved.zone .stack == [] &&
+    (resolved.obj? spent).any (fun obj => !obj.faceDown) &&
+    (resolved.cardDefOf? spent).map (·.id) == some cid &&
+    zero.zone grave == ready.zone grave && zero.zone deck == [top] && zero.zone hand == [reserve] &&
+    (zero.zone banished).any (fun id => (zero.cardDefOf? id).map (·.id) == some cid))
+
+#guard checkRemembrance == some true
+
 /-- Hope Merchant's Hood shuffles exactly the cards its controller chooses, then draws that many. -/
 meta def checkHopeMerchantsHood : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
