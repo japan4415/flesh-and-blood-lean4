@@ -622,8 +622,8 @@ def WTR_154 : CardDef :=
 
 /-- Ironrot Helm, with Blade Break applied when the combat chain closes. -/
 def WTR_155 : CardDef := { WTR_155_meta with status := .full }
-/-- Ironrot Plate (keyword-only Blade Break, drafted IR). -/
-def WTR_156 : CardDef := draftVanilla WTR_156_meta
+/-- Ironrot Plate, with Blade Break applied when the combat chain closes. -/
+def WTR_156 : CardDef := { WTR_156_meta with status := .full }
 /-- Ironrot Gauntlet (keyword-only Blade Break, drafted IR). -/
 def WTR_157 : CardDef := draftVanilla WTR_157_meta
 /-- Ironrot Legs (keyword-only Blade Break, drafted IR). -/
