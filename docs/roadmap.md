@@ -314,6 +314,14 @@ FaB ルールの中核マイルストーン。
 - **I19（強制ループ検出器）**: `Fab/Tournament/LoopDetect.lean` と健全性証明。
 - **I12（自動処理停止性の総仕上げ）**: `run` 解釈器（`repeatN` / `forEach` 含む多重集合測度）とフレームスタック全体の停止性。
 
+**M9 実装の記録（2026-11-25）: 完了**
+- 多人数戦 UPF（CR 10.1）: `Fab/Rules/Upf.lean`（円環隣接判定 `isAdjacentInOrder` / `adjacentOpponents` / 対称性・非反射性・4 人戦隣接定理、`canAttackTargetUpf`、脱落プレイヤーのオブジェクト整理＆手番除去 `eliminatePlayer`＋WF/OwnerOk/I1 保存定理）。
+- **I10（隠れ情報非干渉）**: `Fab/Invariant/Info.lean`（観測射影 `view p s`・`VisibleObj`・`VisibleZone`、隠れ情報同値 `HiddenEquiv p s1 s2`、`hiddenEquiv_legalActionsFor_eq`、Pitch デッキ底戻し順の秘匿 `reorder_deck_noninterference`、相手手札秘匿 `opp_hand_noninterference`）。
+- **I19（強制ループ検出器）**: `Fab/Tournament/LoopDetect.lean`（単調カウンタ `nextId`/`nextTimestamp`/`ObjId`/`timestamp` を除去した正準盤面射影 `canonicalBoard`、`detectLoop` / `findLoopStart?`、健全性・完全性 `detectLoop_iff` / `detectLoop_sound`、カウンタ不変性 `canonicalBoard_ignores_counters`、大会ジャッジ引き分け連携 `detectLoop_enables_judge_draw`）。
+- **I12（自動処理・IR 解釈器停止性の総仕上げ）**: `Fab/Invariant/Termination.lean`（`Effect`/`EffectList` の構造測度 `effectSize` / `todoSize`、純粋自動コンビネータの厳密減少 `interpRunStep_pure_decreases` / `interpRunStep_bindReveal_decreases`、対話コンビネータの 1 歩停止 `interpRunStep_interactive_stops`、`draw`/`optStep` 停止性、および **I12a/I12b/I12c/I12d** 統合定理 `global_termination_catalog`）。
+- テスト: `FabTest/MultiAndInfo.lean`（4 人戦 UPF 隣接＆脱落、I10 デッキ順・相手手札非干渉、I19 カウンタ増分越しのループ検出＆ジャッジ引き分け、I12 構造測度減少）。
+- 検証: `./scripts/verify.sh` 全 5 項目通過（171 jobs、警告 0、`sorry` 0、標準 3 公理のみ、`gen_lean --check` OK、`cr_citations.py` 63 files / 1107 citations / 210 distinct rules / malformed: 0）。
+
 ---
 
 ### M10: 完了判定（`original.md` 最終目的の達成条件）
