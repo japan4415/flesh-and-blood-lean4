@@ -949,8 +949,8 @@ def razorReflex (base : CardDef) (bonus : Int) : CardDef :=
                       (.grant .self_ (.grantKeyword .goAgain) .thisChainLink))
                     .thisChainLink ] } ] })
 
-/-- Razor Reflex Red (drafted IR). -/
-def WTR_209_R : CardDef := razorReflex WTR_209_R_meta 3
+/-- Razor Reflex Red. -/
+def WTR_209_R : CardDef := { razorReflex WTR_209_R_meta 3 with status := .full }
 /-- Razor Reflex Yellow (drafted IR). -/
 def WTR_210_Y : CardDef := razorReflex WTR_210_Y_meta 2
 /-- Razor Reflex Blue (drafted IR). -/
