@@ -549,6 +549,57 @@ meta def checkSloggismWithNimblism : Option Bool := do
 
 #guard checkSloggismWithNimblism == some true
 
+/-- Check Awakening Bellow's hidden random card, return, and next Brute attack bonus. -/
+meta def checkAwakeningBellow (cid : CardId) (bonus : Int) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player defender .hand
+  let banished := Zone.player defender .banished
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 4 }
+  let card ← funded.cards.find? cid
+  let (withBellow, bellow) ← cPlace funded attacker .hand cid
+  let (withJab, jab) ← cPlace withBellow attacker .hand ⟨"WTR_098_R"⟩
+  let (withHunt, hunt) ← cPlace withJab attacker .hand ⟨"WTR_023_R"⟩
+  let (withFirst, first) ← cPlace withHunt defender .hand ⟨"WTR_203_R"⟩
+  let (ready, second) ← cPlace withFirst defender .hand ⟨"WTR_204_Y"⟩
+  let firstCard ← ready.obj? first
+  let secondCard ← ready.obj? second
+  let play := fun id => [⟨.player attacker, .playCard id⟩]
+  let chance ← cSteps ready (play bellow ++ passBoth)
+  let shuffle := fun ids => (⟨.chance, .shuffleOrder ids⟩ : Action)
+  let (buffed, events) ← (step 64 chance (shuffle [first, second])).toOption
+  let other ← cSteps chance [shuffle [second, first]]
+  let hidden ← (buffed.zone banished).head?
+  let otherHidden ← (other.zone banished).head?
+  let afterJab ← cSteps buffed (play jab ++ passBoth ++ passBoth ++
+    [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth)
+  let paid ← cSteps afterJab (play hunt)
+  let attackLayer ← (paid.zone .stack).head?
+  let atEnd ← cSteps buffed passBoth
+  let returnTrigger ← atEnd.pendingTriggers.head?
+  let returned ← cSteps atEnd [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player defender, .pickTrigger returnTrigger.id⟩]
+  let returnedId ← (returned.zone hand).head?
+  let ended ← cSteps returned [⟨.player attacker, .arsenalSkip⟩]
+  pure (card.status == .full && chance.pending.head? == some (.chanceShuffle hand) &&
+    chance.zone hand == ready.zone hand && chance.zone banished == [] &&
+    (step 64 chance (shuffle [first, first])).toOption.isNone &&
+    (buffed.poolOf attacker).resources == 3 && (buffed.poolOf attacker).actionPoints == 1 &&
+    buffed.zone hand == [second] && buffed.zone banished == [hidden] &&
+    (buffed.obj? hidden).map (fun o => (o.kind, o.faceDown)) == some (firstCard.kind, true) &&
+    events.countP (· == .banished defender hidden true) == 1 &&
+    other.zone hand == [first] &&
+    (other.obj? otherHidden).map (fun o => (o.kind, o.faceDown)) == some (secondCard.kind, true) &&
+    afterJab.lifeOf defender == 37 && afterJab.activeEffects == buffed.activeEffects &&
+    (paid.layerMeta.get? attackLayer.n).map (·.attackPowerBonus) == some bonus &&
+    paid.activeEffects.isEmpty && atEnd.phase == .endPhase && returnTrigger.source == hidden &&
+    returned.zone hand == [returnedId, second] && returned.zone banished == [] &&
+    returned.pending.head? == some (.chooseArsenal attacker) &&
+    (returned.obj? returnedId).map (fun o => (o.kind, o.faceDown)) == some (firstCard.kind, false) &&
+    ended.delayedTriggers.isEmpty && ended.activeEffects.isEmpty)
+
+#guard checkAwakeningBellow ⟨"WTR_032_R"⟩ 3 == some true
+
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

@@ -393,6 +393,10 @@ def nextTriggerFrame (s : GameState) : List PlayerId → List Frame
     else
       nextTriggerFrame s rem
 
+/-- Resolve remaining end-phase layers without granting priority (CR 4.4.1, 4.4.2). -/
+def afterLayerResolution (s : GameState) : Frame :=
+  if s.phase = .endPhase then .resolveStack else .priority (s.active.getD ⟨0⟩) 0
+
 /-- The source of a resolving ability layer, or the resolving card itself. -/
 def resolvingSource (s : GameState) (layer : ObjId) : ObjId :=
   match (s.obj? layer).map Object.kind with
@@ -827,8 +831,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
                     .finishResolve topId :: rest },
               [])
     | [] =>
-      let tp := s.active.getD ⟨0⟩
-      some ({ s with pending := .gameStateProcess :: .priority tp 0 :: rest }, [])
+      let next := if s.phase = .endPhase then rest else afterLayerResolution s :: rest
+      some ({ s with pending := .gameStateProcess :: next }, [])
   | .finishResolve layerId :: rest =>
     let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
     let s1 :=
@@ -870,8 +874,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       else
         (s1, [])
     let s3 := gspRun { s2 with layerMeta := s2.layerMeta.erase layerId.n }
-    let tp := s3.active.getD ⟨0⟩
-    some ({ s3 with pending := .priority tp 0 :: rest }, es)
+    some ({ s3 with pending := afterLayerResolution s3 :: rest }, es)
   | .combatStep .layer _ :: rest =>
     some ({ s with pending := rest }, [])
   | .combatStep .attack layerId :: rest =>
@@ -1000,7 +1003,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       else { sBd with
         delayedTriggers := kept
         pendingTriggers := sBd.pendingTriggers ++ newTrigs }
-    let trigFrames := if fired.isEmpty then [] else [.flushTriggers]
+    let trigFrames := if fired.isEmpty then [] else [.flushTriggers, .resolveStack]
     let pitchReturns := s1.turnOrder.map Frame.returnPitch
     let arsenalFrames :=
       if (s1.zone (.player tp .arsenal)).isEmpty && !(s1.zone (.player tp .hand)).isEmpty then

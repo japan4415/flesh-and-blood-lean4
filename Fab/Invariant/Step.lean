@@ -749,7 +749,7 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
     have hphys3 : (gspRun p2e).physIds.Perm p2.1.physIds := gspRun_physIds hwf_e
     have hp3 : StepPreserves p2.1
         { gspRun p2e with
-            pending := Frame.priority ((gspRun p2e).active.getD ⟨0⟩) 0 :: rest } :=
+            pending := afterLayerResolution (gspRun p2e) :: rest } :=
       ⟨GameState.WF.congr (gspRun_wf hwf_e) rfl rfl rfl rfl,
        GameState.OwnerOk.congr (gspRun_ownerOk hwf_e hok_e) rfl rfl,
        GameState.RollbackOk.preserve hp12.rollbackOk hmeta3.1 hmeta3.2 hphys3,
