@@ -725,8 +725,8 @@ def scarForAScar (base : CardDef) : CardDef :=
 def WTR_191_R : CardDef := { scarForAScar WTR_191_R_meta with status := .full }
 /-- Scar for a Scar Yellow. -/
 def WTR_192_Y : CardDef := { scarForAScar WTR_192_Y_meta with status := .full }
-/-- Scar for a Scar Blue (drafted IR). -/
-def WTR_193_B : CardDef := scarForAScar WTR_193_B_meta
+/-- Scar for a Scar Blue. -/
+def WTR_193_B : CardDef := { scarForAScar WTR_193_B_meta with status := .full }
 
 /-- Wounded Bull gets +1 power if its controller has less life when playing it. -/
 def woundedBull (base : CardDef) : CardDef :=
