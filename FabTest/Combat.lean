@@ -1645,6 +1645,47 @@ meta def checkDawnblade : Option Bool := do
 
 #guard checkDawnblade == some true
 
+/-- Roll every Crazy Brew outcome through the activated layer and test the next attack. -/
+meta def checkCrazyBrew (roll : Nat) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_162_B"⟩
+  let arena := Zone.player player .permanent
+  let grave := Zone.player player .graveyard
+  let funded := m5Base.setPool player { actionPoints := 2 }
+  let card ← funded.cards.find? cid
+  let (withBrew, item) ← cPlace funded player .hand cid
+  let (ready, attack) ← cPlace withBrew player .hand ⟨"WTR_098_R"⟩
+  let installed ← cSteps ready (⟨.player player, .playCard item⟩ :: passBoth)
+  let source ← (installed.zone arena).head?
+  let activate : Action := ⟨.player player, .activateAbility source 0⟩
+  let (paid, events) ← (step 64 installed activate).toOption
+  let spent ← (paid.zone grave).head?
+  let rolling ← cSteps paid passBoth
+  let resolved ← cSteps rolling [⟨.chance, .die6Roll roll⟩]
+  let defending ← cSteps resolved
+    (⟨.player player, .playCard attack⟩ :: (passBoth ++ passBoth))
+  let link ← defending.combat.bind CombatChain.activeLink?
+  let hit ← cSteps defending
+    ([⟨.player opponent, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth)
+  let high := 5 ≤ roll
+  pure (card.status == .full && card.front.pitch == some 3 &&
+    paid.zone arena == [] && (paid.cardDefOf? spent).map (·.id) == some cid &&
+    events.contains (.moved source spent arena grave) &&
+    (rolling.poolOf player).actionPoints == 0 && (rolling.poolOf player).resources == 0 &&
+    rolling.lifeOf player == 40 && rolling.activeEffects.isEmpty &&
+    (step 64 rolling ⟨.chance, .die6Roll 0⟩).toOption.isNone &&
+    (step 64 rolling ⟨.chance, .die6Roll 7⟩).toOption.isNone &&
+    (step 64 rolling ⟨.player player, .die6Roll roll⟩).toOption.isNone &&
+    resolved.lifeOf player == (if roll ≤ 2 then 38 else if roll ≤ 4 then 42 else 40) &&
+    (resolved.poolOf player).actionPoints == (if high then 2 else 1) &&
+    (resolved.poolOf player).resources == (if high then 2 else 0) &&
+    resolved.activeEffects.length == (if high then 1 else 0) &&
+    link.powerBonus == (if high then 2 else 0) && defending.activeEffects.isEmpty &&
+    hit.lifeOf opponent == (if high then 35 else 37))
+
+#guard [1, 2, 3, 4, 5, 6].all (fun roll => checkCrazyBrew roll == some true)
+
 /-- Energy Potion can respond to the opponent's attack and adds resources on resolution. -/
 meta def checkEnergyPotion : Option Bool := do
   let player : PlayerId := ⟨0⟩
