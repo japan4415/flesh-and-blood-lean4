@@ -117,6 +117,8 @@ inductive ModScope where
   | nextCardPlayed (f : CardFilter)
   /-- The next attack matching `f` made by controller during the duration. -/
   | nextAttack (f : CardFilter)
+  /-- Every attack matching `f` made by controller during the duration. -/
+  | allAttacks (f : CardFilter)
   /-- The next card matching `f` controller defends with during the duration (Flic Flak). -/
   | nextDefend (f : CardFilter)
   /-- All cards/objects matching `f` controlled by player `p` (Forged for War, Stonewall Confidence). -/

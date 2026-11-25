@@ -1029,6 +1029,72 @@ meta def checkPrimevalBellow (cid : CardId) (pitch bonus : Nat) (fromArsenal : B
 #guard checkPrimevalBellow ⟨"WTR_037_B"⟩ 3 3 false == some true
 #guard checkPrimevalBellow ⟨"WTR_037_B"⟩ 3 3 true == some true
 
+/-- Bloodrush always buffs Brute attacks and only rewards its own qualifying discard. -/
+meta def checkBloodrushBellow (fromArsenal highPayment : Bool) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player attacker .hand
+  let deck := Zone.player attacker .deck
+  let grave := Zone.player attacker .graveyard
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool attacker { actionPoints := 4, resources := 4 }
+  let cid : CardId := ⟨"WTR_007_Y"⟩
+  let card ← funded.cards.find? cid
+  let (bare, bellow) ← cPlace funded attacker origin cid fromArsenal
+  let play := fun id => (⟨.player attacker, .playCard id⟩ : Action)
+  let rejected ← cSteps bare [play bellow]
+  let (withHigh, high) ← cPlace bare attacker .hand ⟨"WTR_189_Y"⟩
+  let (withLow, low) ← cPlace withHigh attacker .hand ⟨"WTR_190_B"⟩
+  let (withWeapon, weapon) ← cPlace withLow attacker .weapon ⟨"WTR_003"⟩
+  let (withBottom, _) ← cPlace withWeapon attacker .deck ⟨"WTR_204_Y"⟩
+  let (ready, _) ← cPlace withBottom attacker .deck ⟨"WTR_203_R"⟩
+  let paying ← cSteps ready [play bellow]
+  let order := if highPayment then [high, low] else [low, high]
+  let paid ← cSteps paying [⟨.chance, .shuffleOrder order⟩]
+  let discarded ← (paid.zone grave).head?
+  let buffed ← cSteps paid passBoth
+  let expired ← cSteps buffed (passBoth ++ [⟨.player attacker, .arsenalSkip⟩])
+  let (withGeneric, generic) ← cPlace buffed attacker .hand ⟨"WTR_203_R"⟩
+  let fight := passBoth ++ passBoth ++ [⟨.player defender, .defendDone⟩] ++
+    passBoth ++ passBoth ++ passBoth
+  let swing : Action := ⟨.player attacker, .attackWeapon weapon⟩
+  let genericHit ← cSteps withGeneric (play generic :: fight)
+  let beforeBrute ← cSteps genericHit passBoth
+  let (bruteReady, brute) ← cPlace beforeBrute attacker .hand ⟨"WTR_020_R"⟩
+  let playBrute := fun s => do
+    let trying ← cSteps s [play brute]
+    let paidAttack ← if trying.pending.head? == some (.chanceShuffle hand) then
+      cSteps trying [⟨.chance, .shuffleOrder (trying.zone hand)⟩]
+      else some trying
+    cSteps paidAttack fight
+  let weaponFirst ← cSteps bruteReady (swing :: fight)
+  let weaponClosed ← cSteps weaponFirst passBoth
+  let cardSecond ← playBrute weaponClosed
+  let cardFirst ← playBrute bruteReady
+  let cardClosed ← cSteps cardFirst passBoth
+  let weaponSecond ← cSteps cardClosed (swing :: fight)
+  let damage := fun (s : GameState) =>
+    (s.combat.bind CombatChain.activeLink?).map (·.damageDealt)
+  pure (card.status == .full && card.front.pitch == some 2 && card.front.defense == some 3 &&
+    decide (rejected = bare) && paying.pending.head? == some (.chanceShuffle hand) &&
+    (paid.poolOf attacker).actionPoints == 3 && (paid.poolOf attacker).resources == 3 &&
+    (paid.cardDefOf? discarded).map (·.id) ==
+      some (if highPayment then ⟨"WTR_189_Y"⟩ else ⟨"WTR_190_B"⟩) &&
+    paid.activeEffects.isEmpty && paid.zone deck == ready.zone deck &&
+    (buffed.poolOf attacker).actionPoints == (if highPayment then 4 else 3) &&
+    (buffed.zone hand).length == (if highPayment then 3 else 1) &&
+    (buffed.zone deck).length == (if highPayment then 0 else 2) &&
+    objEffectivePower buffed weapon == some 4 &&
+    buffed.activeEffects.map (·.op) == [.addPower 2] && expired.activeEffects.isEmpty &&
+    damage genericHit == some 4 && damage weaponFirst == some 6 && damage cardSecond == some 9 &&
+    damage cardFirst == some 9 && damage weaponSecond == some 6 &&
+    weaponSecond.activeEffects == buffed.activeEffects && cardSecond.activeEffects == buffed.activeEffects)
+
+#guard checkBloodrushBellow false true == some true
+#guard checkBloodrushBellow false false == some true
+#guard checkBloodrushBellow true true == some true
+#guard checkBloodrushBellow true false == some true
+
 /-- Barraging Beatdown checks the live non-equipment defenders of the first Brute attack. -/
 meta def checkBarragingBeatdown (cid : CardId) (pitch bonus : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
