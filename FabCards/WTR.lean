@@ -837,6 +837,14 @@ def WTR_174_Y : CardDef := { sigilOfSolace WTR_174_Y_meta 2 with status := .full
 /-- Sigil of Solace Blue. -/
 def WTR_175_B : CardDef := { sigilOfSolace WTR_175_B_meta 1 with status := .full }
 
+/-- Barraging Brawnhide's static bonus applies while attacking (CR 1.7.4, 6.2). -/
+def barragingBrawnhide (base : CardDef) : CardDef :=
+  draftCard base
+    [ .static_ (some (.defendedByFewerNonEquip 2)) .self_ (.addPower (.const 1)) ]
+
+/-- Barraging Brawnhide Red. -/
+def WTR_176_R : CardDef := { barragingBrawnhide WTR_176_R_meta with status := .full }
+
 /-- Raging Onslaught Red. -/
 def WTR_188_R : CardDef := { WTR_188_R_meta with status := .full }
 /-- Raging Onslaught Yellow. -/
@@ -1005,7 +1013,8 @@ def draftedCards : List CardDef :=
   , WTR_150, WTR_151, WTR_154, WTR_155, WTR_156, WTR_157, WTR_158
   , WTR_159_R, WTR_160_Y, WTR_161_B, WTR_162_B, WTR_163_Y
   , WTR_164_R, WTR_165_Y, WTR_166_B, WTR_167_R, WTR_168_Y, WTR_169_B
-  , WTR_173_R, WTR_174_Y, WTR_175_B, WTR_188_R, WTR_189_Y, WTR_190_B
+  , WTR_173_R, WTR_174_Y, WTR_175_B, WTR_176_R
+  , WTR_188_R, WTR_189_Y, WTR_190_B
   , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_200_R, WTR_201_Y, WTR_202_B
   , WTR_203_R, WTR_204_Y, WTR_205_B
   , WTR_206_R, WTR_207_Y, WTR_208_B, WTR_209_R, WTR_210_Y, WTR_211_B
