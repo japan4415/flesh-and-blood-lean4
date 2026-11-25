@@ -1728,8 +1728,8 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
 /-- Apply a continuous modification from `Effect.grant`: updates the active `ChainLink` directly
 for `.thisChainLink` combat buffs, and registers a `ContinuousEffect` in `s.activeEffects` for
 turn- and chain-scoped continuous effects (CR 6.2-6.3, 7.4). -/
-def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
-    (mod : ContinuousMod) (dur : Duration) : GameState :=
+def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
+    (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) : GameState :=
   match dur, s.combat with
   | .thisChainLink, some cc =>
     let cc' := cc.updateActiveLink fun link =>
@@ -1737,6 +1737,15 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (env : List (VarId × In
       | .addPower d => { link with powerBonus := link.powerBonus + evalNumExpr s ctrl env d }
       | .addDefense d => { link with defenseBonus := link.defenseBonus + evalNumExpr s ctrl env d }
       | .grantKeyword kw => { link with grantedKeywords := kw :: link.grantedKeywords }
+      | .grantTrigger trigger cond body =>
+        let applies := match scope with
+          | .self_ | .obj .self_ => link.attack == some src
+          | .obj .currentAttack => link.attack.isSome
+          | _ => false
+        if applies then
+          { link with grantedAbilities := link.grantedAbilities ++
+              [.triggered trigger false none cond { body := body }] }
+        else link
       | _ => link
     { s with combat := some cc' }
   | .thisTurn, _ | .thisCombatChain, _ =>
@@ -1767,13 +1776,13 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (env : List (VarId × In
 
 /-- `applyChainLinkMod` only updates `combat`/`activeEffects`/`nextTimestamp`, preserving board
 structure and `playRollback`. -/
-theorem applyChainLinkMod_fields (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
-    (mod : ContinuousMod) (dur : Duration) :
-    (applyChainLinkMod s ctrl env mod dur).config = s.config ∧
-    (applyChainLinkMod s ctrl env mod dur).objects = s.objects ∧
-    (applyChainLinkMod s ctrl env mod dur).zones = s.zones ∧
-    (applyChainLinkMod s ctrl env mod dur).nextId = s.nextId ∧
-    (applyChainLinkMod s ctrl env mod dur).playRollback = s.playRollback := by
+theorem applyChainLinkMod_fields (s : GameState) (ctrl : PlayerId) (src : ObjId)
+    (env : List (VarId × Int)) (scope : ModScope) (mod : ContinuousMod) (dur : Duration) :
+    (applyChainLinkMod s ctrl src env scope mod dur).config = s.config ∧
+    (applyChainLinkMod s ctrl src env scope mod dur).objects = s.objects ∧
+    (applyChainLinkMod s ctrl src env scope mod dur).zones = s.zones ∧
+    (applyChainLinkMod s ctrl src env scope mod dur).nextId = s.nextId ∧
+    (applyChainLinkMod s ctrl src env scope mod dur).playRollback = s.playRollback := by
   unfold applyChainLinkMod
   cases dur <;> cases s.combat <;>
     first
@@ -1826,8 +1835,8 @@ def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     ({ s with
         pending := .run ctrl src fromArsenal ((bindVar, Int.ofNat matched) :: env) [cont] ::
           .run ctrl src fromArsenal env more :: rest }, [])
-  | .grant _ mod dur :: more =>
-    let s1 := applyChainLinkMod s ctrl env mod dur
+  | .grant scope mod dur :: more =>
+    let s1 := applyChainLinkMod s ctrl src env scope mod dur
     ({ s1 with pending := .run ctrl src fromArsenal env more :: rest }, [])
   | .custom _ _ :: more =>
     ({ s with pending := .run ctrl src fromArsenal env more :: rest }, [])
@@ -1844,8 +1853,8 @@ theorem interpRunStep_wf {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : 
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact GameState.WF.congr hwf rfl rfl rfl rfl
-    | grant _ mod dur =>
-      have hf := applyChainLinkMod_fields s ctrl env mod dur
+    | grant scope mod dur =>
+      have hf := applyChainLinkMod_fields s ctrl src env scope mod dur
       exact GameState.WF.congr hwf hf.1 hf.2.1 hf.2.2.1 hf.2.2.2.1
     | chooseOne modes =>
       unfold interpRunStep; dsimp only
@@ -1866,8 +1875,8 @@ theorem interpRunStep_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact GameState.OwnerOk.congr hok rfl rfl
-    | grant _ mod dur =>
-      have hf := applyChainLinkMod_fields s ctrl env mod dur
+    | grant scope mod dur =>
+      have hf := applyChainLinkMod_fields s ctrl src env scope mod dur
       exact GameState.OwnerOk.congr hok hf.2.1 hf.2.2.1
     | chooseOne modes =>
       unfold interpRunStep; dsimp only
@@ -1890,7 +1899,7 @@ theorem interpRunStep_physIds {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
     | custom _ _ =>
       exact List.Perm.refl _
     | grant scope mod dur =>
-      have hf := applyChainLinkMod_fields s ctrl env mod dur
+      have hf := applyChainLinkMod_fields s ctrl src env scope mod dur
       have hp : (interpRunStep s ctrl src fromArsenal env (.grant scope mod dur :: more) rest).1.physIds =
           s.physIds := by
         unfold interpRunStep GameState.physIds GameState.zoneIds GameState.playerCount GameState.zone GameState.obj?
@@ -1916,8 +1925,8 @@ theorem interpRunStep_meta {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl 
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | custom _ _ =>
       exact ⟨rfl, rfl⟩
-    | grant _ mod dur =>
-      have hf := applyChainLinkMod_fields s ctrl env mod dur
+    | grant scope mod dur =>
+      have hf := applyChainLinkMod_fields s ctrl src env scope mod dur
       exact ⟨hf.1, hf.2.2.2.2⟩
     | chooseOne modes =>
       unfold interpRunStep; dsimp only

@@ -70,6 +70,8 @@ structure ChainLink where
   defenseBonus : Int := 0
   /-- Keywords dynamically granted to this link's attack (e.g., Go Again, Dominate). -/
   grantedKeywords : List KeywordInst := []
+  /-- Triggered abilities granted to this attack for this chain link. -/
+  grantedAbilities : List Ability := []
   /-- Defending card and equipment `ObjId`s on `Zone.combatChain` defending this link. -/
   defending : List ObjId := []
   /-- Number of cards defended from hand on this link for Dominate (CR 8.3.4) and Reprise (CR 8.3.8). -/
