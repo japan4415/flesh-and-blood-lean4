@@ -388,10 +388,18 @@ def cardResolveEffect (c : CardDef) (modeIdx : Option Nat) : Effect :=
       | none => ed.body
     | none => ed.body
 
+/-- Offer an optional resource cost once targets have been declared (CR 5.1.5). -/
+def cardPaymentFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
+    (modeIdx : Option Nat) (cost : AssetCost) : Frame :=
+  match (s.cardDefOf? layerId).bind (·.front.playEffect) with
+  | some { extraCosts := [{ cost := .payResources extra, optional := true, cond := none }], .. } =>
+    .chooseOptionalResources p layerId fromArsenal modeIdx cost extra
+  | _ => .playPayCost p layerId fromArsenal modeIdx cost
+
 /-- Select target declaration or cost payment after any required mode has been chosen (CR 5.1.4a). -/
 def cardPlayTargetFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (cost : AssetCost) : Frame :=
-  let pay := Frame.playPayCost p layerId fromArsenal modeIdx cost
+  let pay := cardPaymentFrame s p layerId fromArsenal modeIdx cost
   match s.cardDefOf? layerId with
   | none => pay
   | some card =>
@@ -601,6 +609,7 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       modeIdx := modeIdx
       heroTarget := (s.layerMeta.get? layerId.n).bind (·.heroTarget)
       attackTarget := (s.layerMeta.get? layerId.n).bind (·.attackTarget)
+      additionalCostPaid := (s.layerMeta.get? layerId.n).any (·.payAdditionalResources)
       discardedForPlay := discarded
       goAgain := hasGoAgain }
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
@@ -764,7 +773,7 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       let info : LayerInfo := { controller := p, heroTarget := some hero }
       some ({ s with
                 layerMeta := s.layerMeta.insert layerId.n info
-                pending := .playPayCost p layerId fromArsenal modeIdx cost :: rest },
+                pending := cardPaymentFrame s p layerId fromArsenal modeIdx cost :: rest },
             [.targetedHero layerId hero])
     else
       none
@@ -792,6 +801,18 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       some (rollbackPlay s rest, [])
     else
       none
+  | .chooseOptionalResources p layerId fromArsenal modeIdx cost extra :: rest, .player q,
+      .pickMay accept =>
+    if p = q then
+      let total := if accept then { cost with resources := cost.resources + extra } else cost
+      let info := s.layerMeta.getD layerId.n { controller := p }
+      some ({ s with
+                layerMeta := s.layerMeta.insert layerId.n { info with payAdditionalResources := accept }
+                pending := .playPayCost p layerId fromArsenal modeIdx total :: rest }, [])
+    else
+      none
+  | .chooseOptionalResources p _ _ _ _ _ :: rest, .player q, .cancelPlay =>
+    if p = q then some (rollbackPlay s rest, []) else none
   | .chooseMay ctrl src fromArsenal env body ifDone :: rest, .player q, .pickMay choice =>
     if ctrl = q then
       if choice then

@@ -970,6 +970,15 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       unfold rollbackPlay; cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
     · cases h
+  · -- chooseOptionalResources pickMay
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact ⟨rfl, rfl, rfl⟩
+    · cases h
+  · -- chooseOptionalResources cancelPlay
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      unfold rollbackPlay; cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
+    · cases h
   · -- chooseMay pickMay
     split at h
     · split at h <;>

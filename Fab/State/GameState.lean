@@ -41,6 +41,10 @@ structure LayerInfo where
   heroTarget : Option PlayerId := none
   /-- Attack declared in target slot 0 before paying for a card-layer (CR 5.1.4a). -/
   attackTarget : Option ObjId := none
+  /-- Whether to include the optional resources when paying for this layer (CR 5.1.5). -/
+  payAdditionalResources : Bool := false
+  /-- Whether the optional additional cost has actually been paid (CR 5.1.9). -/
+  additionalCostPaid : Bool := false
   /-- Face of the last card discarded to pay for this layer (CR 5.1.9). -/
   discardedForPlay : Option CardFace := none
   /-- Whether this layer has Go Again on resolution (CR 5.3.4, 8.3.5). -/

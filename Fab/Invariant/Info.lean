@@ -397,6 +397,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                     (l.map fun id => Action.mk (.player q) (.pitchCard id)) = [] := by
                 intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
               rw [hnil, hnil]
+          | chooseOptionalResources _ _ _ _ _ _ => rfl
           | chooseMay _ _ _ _ _ _ => rfl
           | chooseModal _ _ _ _ _ => rfl
           | chooseHandToDeck q _ =>

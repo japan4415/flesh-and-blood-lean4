@@ -426,6 +426,16 @@ theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       exact rollbackPlay_preserves hwf hok hrb _
     · cases h
+  · -- chooseOptionalResources pickMay
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · cases h
+  · -- chooseOptionalResources cancelPlay
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact rollbackPlay_preserves hwf hok hrb _
+    · cases h
   · -- chooseMay pickMay
     split at h
     · split at h <;>
@@ -1279,6 +1289,10 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
+    | chooseOptionalResources p _ _ _ _ _ =>
+      cases actor <;> cases kind <;> simp [Actor.isPlayer, eq_comm]
+      rename_i choice
+      cases choice <;> simp
     | chooseMay ctrl _ _ _ _ _ =>
       cases actor with
       | player q =>
@@ -1734,6 +1748,8 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
+    | chooseOptionalResources p _ _ _ _ _ =>
+      cases actor <;> cases kind <;> simp_all
     | chooseMay ctrl _ _ _ _ _ =>
       cases actor with
       | player q =>

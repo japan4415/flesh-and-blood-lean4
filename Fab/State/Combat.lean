@@ -66,6 +66,8 @@ structure ChainLink where
   attackLki : LkiSnapshot
   /-- Face of the last card discarded to pay for this attack (CR 5.1.9). -/
   discardedForPlay : Option CardFace := none
+  /-- Whether the optional additional cost of the attack was paid. -/
+  additionalCostPaid : Bool := false
   /-- Temporary power `{p}` modifier granted to this chain link (Attack Reactions, Combo buffs). -/
   powerBonus : Int := 0
   /-- Power bonuses and their exclusive limits on non-equipment defenders. -/
