@@ -1099,6 +1099,10 @@ meta def overLoopScenario (cardId : String) (power : Int) (blocked : Bool) : Opt
 #guard overLoopScenario "ARC_021_Y" 4 false == some true
 #guard overLoopScenario "ARC_021_Y" 4 true == some true
 
+#guard (earlyPrintingCardId? "ARC022").map (·.val) == some "ARC_022_B"
+#guard overLoopScenario "ARC_022_B" 3 false == some true
+#guard overLoopScenario "ARC_022_B" 3 true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
