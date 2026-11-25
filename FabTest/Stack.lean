@@ -91,7 +91,8 @@ meta def runSteps (s : GameState) : List Action → Option GameState
     let (s3, bellowId) ← placeCard s2 ⟨0⟩ .hand ⟨"WTR_032_R"⟩
     let (s4, tomeId) ← placeCard s3 ⟨0⟩ .hand ⟨"WTR_160_Y"⟩
     let sAfterBellow ← runSteps s4
-      [⟨.player ⟨0⟩, .playCard bellowId⟩, ⟨.player ⟨0⟩, .pass⟩, ⟨.player ⟨1⟩, .pass⟩]
+      [⟨.player ⟨0⟩, .playCard bellowId⟩, ⟨.player ⟨0⟩, .pickHeroTarget ⟨1⟩⟩,
+        ⟨.player ⟨0⟩, .pass⟩, ⟨.player ⟨1⟩, .pass⟩]
     let apRefilled := (sAfterBellow.poolOf ⟨0⟩).actionPoints == 1
     let sAfterTome ← runSteps sAfterBellow
       [⟨.player ⟨0⟩, .playCard tomeId⟩, ⟨.player ⟨0⟩, .pass⟩, ⟨.player ⟨1⟩, .pass⟩]

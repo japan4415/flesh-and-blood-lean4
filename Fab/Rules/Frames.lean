@@ -367,6 +367,29 @@ def cardResolveEffect (c : CardDef) (modeIdx : Option Nat) : Effect :=
       | none => ed.body
     | none => ed.body
 
+/-- Select target declaration or cost payment after any required mode has been chosen (CR 5.1.4a). -/
+def cardPlayTargetFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
+    (modeIdx : Option Nat) (cost : AssetCost) : Frame :=
+  let pay := Frame.playPayCost p layerId fromArsenal modeIdx cost
+  match s.cardDefOf? layerId with
+  | none => pay
+  | some card =>
+    let targets := card.front.playEffect.map fun effect =>
+      (modeIdx.bind (fun idx => effect.modes[idx]?)).map (·.targets) |>.getD effect.targets
+    if targets == some [{ kind := .hero }] &&
+        ((cardResolveEffect card modeIdx).bindIntimidateTarget p).isSome then
+      .choosePlayHero p layerId fromArsenal modeIdx cost
+    else
+      pay
+
+/-- Read the card-layer's resolution effect with its declared hero target bound. -/
+def cardLayerEffect (s : GameState) (layerId : ObjId) (info : LayerInfo) : Effect :=
+  match s.cardDefOf? layerId with
+  | none => .nop
+  | some card =>
+    let effect := cardResolveEffect card info.modeIdx
+    (info.heroTarget.bind effect.bindIntimidateTarget).getD effect
+
 /-- Roll back an in-progress card play to the saved pre-play snapshot (CR 5.1.1), falling back to
 `fallback` if no snapshot was present. -/
 def rollbackPlay (s : GameState) (fallback : List Frame) : GameState :=
@@ -555,7 +578,7 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
           if 0 < modes then
             Frame.chooseMode p layerId fromArsenal modes cost
           else
-            Frame.playPayCost p layerId fromArsenal none cost
+            cardPlayTargetFrame s1 p layerId fromArsenal none cost
         some ({ s1 with playRollback := some snap, pending := nextFrame :: rest' },
               [.moved id layerId srcZone .stack])
     else
@@ -607,10 +630,24 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       none
   | .chooseMode p layerId fromArsenal modeCount cost :: rest, .player q, .pickMode idx =>
     if p = q ∧ idx < modeCount then
-      some ({ s with pending := .playPayCost p layerId fromArsenal (some idx) cost :: rest }, [])
+      some ({ s with pending := cardPlayTargetFrame s p layerId fromArsenal (some idx) cost :: rest }, [])
     else
       none
   | .chooseMode p _ _ _ _ :: rest, .player q, .cancelPlay =>
+    if p = q then
+      some (rollbackPlay s rest, [])
+    else
+      none
+  | .choosePlayHero p layerId fromArsenal modeIdx cost :: rest, .player q, .pickHeroTarget hero =>
+    if p = q ∧ hero ∈ s.turnOrder then
+      let info : LayerInfo := { controller := p, heroTarget := some hero }
+      some ({ s with
+                layerMeta := s.layerMeta.insert layerId.n info
+                pending := .playPayCost p layerId fromArsenal modeIdx cost :: rest },
+            [.targetedHero layerId hero])
+    else
+      none
+  | .choosePlayHero p _ _ _ _ :: rest, .player q, .cancelPlay =>
     if p = q then
       some (rollbackPlay s rest, [])
     else
@@ -809,6 +846,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         { controller := p
           fromArsenal := fromArsenal
           modeIdx := modeIdx
+          heroTarget := (s1.layerMeta.get? layerId.n).bind (·.heroTarget)
           goAgain := hasGoAgain
           attackPowerBonus := nextAttack.1 }
       let triggers := playedCardTriggers s1 layerId p fromArsenal
@@ -837,10 +875,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         let eff :=
           match info.triggerEffect with
           | some teff => teff
-          | none =>
-            match s.cardDefOf? topId with
-            | some c => cardResolveEffect c info.modeIdx
-            | none => .nop
+          | none => cardLayerEffect s topId info
         some ({ s with
                   pending := .run info.controller (resolvingSource s topId) info.fromArsenal [] [eff] ::
                     .finishResolve topId :: rest },
@@ -894,10 +929,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     some ({ s with pending := rest }, [])
   | .combatStep .attack layerId :: rest =>
     let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
-    let eff :=
-      match s.cardDefOf? layerId with
-      | some c => cardResolveEffect c info.modeIdx
-      | none => .nop
+    let eff := cardLayerEffect s layerId info
     let (s1, atkId, es) := enterAttackStep s layerId info.controller
     let tp := s1.active.getD ⟨0⟩
     let effFrames :=

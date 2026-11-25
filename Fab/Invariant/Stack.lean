@@ -267,6 +267,15 @@ theorem progress_m4_decisions {s : GameState} (hres : s.result = none) :
   · intro ctrl src fa env bv br ct rest hp
     exact ⟨⟨.chance, .die6Roll 1⟩, ⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩
 
+/-- **I5**: a player declaring a hero target can always cancel the in-progress play. -/
+theorem progress_choosePlayHero {s : GameState} (hres : s.result = none)
+    {p : PlayerId} {lid : ObjId} {fromArsenal : Bool} {mode : Option Nat} {cost : AssetCost}
+    {rest : List Frame} (hp : s.pending = .choosePlayHero p lid fromArsenal mode cost :: rest) :
+    ∃ a ∈ legalActions s, a.kind ≠ .concede := by
+  refine ⟨⟨.player p, .cancelPlay⟩, ?_, by simp⟩
+  rw [legalActions_iff]
+  exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩
+
 end Fab
 
 end

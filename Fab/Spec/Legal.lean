@@ -45,6 +45,10 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     q = p ∧ idx < modeCount
   | .chooseMode p _ _ _ _ :: _, .player q, .cancelPlay =>
     q = p
+  | .choosePlayHero p _ _ _ _ :: _, .player q, .pickHeroTarget hero =>
+    q = p ∧ hero ∈ s.turnOrder
+  | .choosePlayHero p _ _ _ _ :: _, .player q, .cancelPlay =>
+    q = p
   | .choosePitch p _ _ _ _ :: _, .player q, .pitchCard id =>
     q = p ∧ canPitchCard s p id = true
   | .choosePitch p _ _ _ _ :: _, .player q, .cancelPlay =>

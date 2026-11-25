@@ -37,6 +37,8 @@ structure LayerInfo where
   fromArsenal : Bool := false
   /-- Chosen modal index when the card has play-time `ModeSpec`s (CR 5.1.2a). -/
   modeIdx : Option Nat := none
+  /-- Hero declared as a target before paying for a card-layer (CR 5.1.4a). -/
+  heroTarget : Option PlayerId := none
   /-- Whether this layer has Go Again on resolution (CR 5.3.4, 8.3.5). -/
   goAgain : Bool := false
   /-- Power granted to an attack card before the card enters the combat chain. -/

@@ -294,6 +294,15 @@ def EffectList.ofList : List Effect → EffectList
 def Effect.seqL (es : List Effect) : Effect :=
   .seq (EffectList.ofList es)
 
+/-- Bind a hero declared for a standalone Intimidate or one that starts a sequence (CR 8.5.10b). -/
+def Effect.bindIntimidateTarget (effect : Effect) (hero : PlayerId) : Option Effect :=
+  let intimidate := Effect.prim (.intimidate (.seated hero))
+  match effect with
+  | .prim (.intimidate (.ownerOfSlot 0)) => some intimidate
+  | .seq (.cons (.prim (.intimidate (.ownerOfSlot 0))) rest) =>
+    some (.seq (.cons intimidate rest))
+  | _ => none
+
 /-- Convenience constructor for `Effect.chooseOne` from a `List Effect`. -/
 def Effect.chooseOneL (modes : List Effect) : Effect :=
   .chooseOne (EffectList.ofList modes)

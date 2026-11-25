@@ -82,6 +82,9 @@ def legalFrameActions (s : GameState) : List Action :=
   | .chooseMode p _ _ modeCount _ :: _ =>
     ((List.range modeCount).map fun idx => ⟨.player p, .pickMode idx⟩) ++
       [⟨.player p, .cancelPlay⟩]
+  | .choosePlayHero p _ _ _ _ :: _ =>
+    (s.turnOrder.map fun hero => ⟨.player p, .pickHeroTarget hero⟩) ++
+      [⟨.player p, .cancelPlay⟩]
   | .choosePitch p _ _ _ _ :: _ =>
     ((pitchableCards s p).map fun id => ⟨.player p, .pitchCard id⟩) ++
       [⟨.player p, .cancelPlay⟩]
