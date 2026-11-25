@@ -272,6 +272,12 @@ def canPitchForCost (s : GameState) (p : PlayerId) (cost : AssetCost) : Bool :=
   (0 < (s.poolOf p).resourceDeficit cost || 0 < (s.poolOf p).chiDeficit cost) &&
   !(pitchableCards s p).isEmpty
 
+/-- Whether the defense reaction can defend this link from its original zone (CR 7.4.2d, 8.3.4). -/
+def canLinkTakeDefenseReaction (s : GameState) (link : ChainLink) (p : PlayerId)
+    (fromHand : Bool) : Bool :=
+  link.defender == p &&
+    !(fromHand && linkHasKeyword s link .dominate && 1 ≤ link.defendedFromHandCount)
+
 /-- Whether player `p` may announce playing card `id` from hand or arsenal while holding priority
 (CR 5.1.1, 4.3, 3.2.2, 7.1, 7.4, 7.6).
 - Instants: playable anytime on priority.
@@ -313,9 +319,7 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
         | some cc =>
           cc.step == .reaction &&
           match cc.activeLink? with
-          | some link =>
-            link.defender == p &&
-            !(fromHand && linkHasKeyword s link .dominate && 1 ≤ link.defendedFromHandCount)
+          | some link => canLinkTakeDefenseReaction s link p fromHand
           | none => false
         | none => false
       else
@@ -389,6 +393,28 @@ def cardLayerEffect (s : GameState) (layerId : ObjId) (info : LayerInfo) : Effec
   | some card =>
     let effect := cardResolveEffect card info.modeIdx
     (info.heroTarget.bind effect.bindIntimidateTarget).getD effect
+
+/-- Whether the card-layer is a defense reaction. -/
+def isDefenseReactionLayer (s : GameState) (id : ObjId) : Bool :=
+  (s.cardDefOf? id).any fun card => card.front.hasType .defenseReaction
+
+/-- Recheck whether a defense reaction can become a defender when it resolves (CR 5.3.2b). -/
+def canResolveDefenseReaction (s : GameState) (info : LayerInfo) : Bool :=
+  (s.combat.bind CombatChain.activeLink?).any fun link =>
+    canLinkTakeDefenseReaction s link info.controller !info.fromArsenal
+
+/-- Keep a defense reaction's card-specific modifier when it becomes a defender. The engine
+rekeys the object on this move, while its defense effect still applies (CR 3.0.9, 5.3.6b). -/
+def defenseReactionEffects (effects : List ContinuousEffect) (layer card : ObjId) :
+    List ContinuousEffect :=
+  effects.map fun effect =>
+    match effect.op with
+    | .addDefense _ =>
+      if effect.target == .obj layer && effect.duration == .thisChainLink then
+        { effect with target := .obj card, source := if effect.source == layer then card else effect.source }
+      else
+        effect
+    | _ => effect
 
 /-- Roll back an in-progress card play to the saved pre-play snapshot (CR 5.1.1), falling back to
 `fallback` if no snapshot was present. -/
@@ -873,9 +899,12 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         let info := s.layerMeta.getD topId.n
           { controller := s.active.getD ⟨0⟩ }
         let eff :=
-          match info.triggerEffect with
-          | some teff => teff
-          | none => cardLayerEffect s topId info
+          if isDefenseReactionLayer s topId && !canResolveDefenseReaction s info then
+            .nop
+          else
+            match info.triggerEffect with
+            | some teff => teff
+            | none => cardLayerEffect s topId info
         some ({ s with
                   pending := .run info.controller (resolvingSource s topId) info.fromArsenal [] [eff] ::
                     .finishResolve topId :: rest },
@@ -885,25 +914,26 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       some ({ s with pending := .gameStateProcess :: next }, [])
   | .finishResolve layerId :: rest =>
     let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
+    let isDefReact := isDefenseReactionLayer s layerId
+    let joinsDefense := isDefReact && canResolveDefenseReaction s info
     let s1 :=
-      if info.goAgain then
+      if info.goAgain && (!isDefReact || joinsDefense) then
         s.setPool info.controller ((s.poolOf info.controller).addActionPoints 1)
       else
         s
-    let isDefReact :=
-      match s1.cardDefOf? layerId with
-      | some c => c.front.hasType .defenseReaction && s1.combat.isSome
-      | none => false
     let (s2, es) :=
       if layerId ∈ s1.zone .stack then
-        if isDefReact then
+        if joinsDefense then
           match moveObj s1 layerId .combatChain .top false with
           | some (sMoved, id') =>
             let cc' := sMoved.combat.map fun cc => cc.updateActiveLink fun l =>
               { l with
                 defending := l.defending ++ [id']
                 defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
-            ({ sMoved with combat := cc' }, [.moved layerId id' .stack .combatChain])
+            ({ sMoved with
+                combat := cc'
+                activeEffects := defenseReactionEffects sMoved.activeEffects layerId id' },
+             [.moved layerId id' .stack .combatChain])
           | none => (s1, [])
         else
           match s1.obj? layerId with

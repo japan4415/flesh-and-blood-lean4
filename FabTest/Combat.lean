@@ -749,6 +749,82 @@ meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) : Option 
 #guard checkIntimidateAttack ⟨"WTR_027_Y"⟩ 2 3 6 == some true
 #guard checkIntimidateAttack ⟨"WTR_028_B"⟩ 3 3 5 == some true
 
+/-- Verify Unmovable's own defense and final damage when played from hand or arsenal. -/
+meta def checkUnmovable (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let fundedAttack := m5Base.setPool attacker { actionPoints := 1, resources := 6 }
+  let funded := fundedAttack.setPool defender { resources := 3 }
+  let card ← funded.cards.find? cid
+  let (withBoost, boost) ← cPlace funded attacker .hand ⟨"WTR_223_B"⟩
+  let (withAttack, attack) ← cPlace withBoost attacker .hand ⟨"WTR_188_R"⟩
+  let (ready, reaction) ← cPlace withAttack defender origin cid fromArsenal
+  let defend ← cSteps ready ([⟨.player attacker, .playCard boost⟩] ++ passBoth ++
+    [⟨.player attacker, .playCard attack⟩] ++ passBoth ++ passBoth)
+  let offered ← cSteps defend
+    ([⟨.player defender, .defendDone⟩] ++ passBoth ++ [⟨.player attacker, .pass⟩])
+  let paid ← cSteps offered [⟨.player defender, .playCard reaction⟩]
+  let layer ← (paid.zone .stack).head?
+  let resolved ← cSteps paid [⟨.player defender, .pass⟩, ⟨.player attacker, .pass⟩]
+  let link ← resolved.combat.bind CombatChain.activeLink?
+  let defendingCard ← link.defending.head?
+  let chars ← resolved.characteristics defendingCard
+  let damaged ← cSteps resolved passBoth
+  let closed ← cSteps damaged (passBoth ++ passBoth)
+  let cleared ← (closed.zone (.player defender .graveyard)).head?
+  let effectiveDefense := defense + (if fromArsenal then 1 else 0)
+  pure (card.status == .full && card.front.pitch == some pitch &&
+    (step 64 defend ⟨.player defender, .defendCard reaction⟩).toOption.isNone &&
+    (step 64 offered ⟨.player defender, .playCard reaction⟩).toOption.isSome &&
+    paid.zone (.player defender origin) == [] && (paid.poolOf defender).resources == 0 &&
+    (paid.obj? layer).map (·.faceDown) == some false &&
+    (paid.layerMeta.get? layer.n).map (·.fromArsenal) == some fromArsenal &&
+    resolved.zone .stack == [] && link.defenseBonus == 0 &&
+    link.defendedFromHandCount == (if fromArsenal then 0 else 1) &&
+    chars.baseDefense == some (Int.ofNat defense) &&
+    chars.defense == some (Int.ofNat effectiveDefense) &&
+    linkTotalDefense resolved link == effectiveDefense &&
+    damaged.lifeOf defender == 40 - Int.ofNat (11 - effectiveDefense) &&
+    closed.combat.isNone && closed.activeEffects.isEmpty &&
+    (closed.cardDefOf? cleared).map (·.id) == some cid &&
+    objEffectiveDefense closed cleared == some (Int.ofNat defense))
+
+#guard checkUnmovable ⟨"WTR_212_R"⟩ 1 7 false == some true
+#guard checkUnmovable ⟨"WTR_212_R"⟩ 1 7 true == some true
+
+/-- A stacked defense reaction checks Dominate again after the layer above it defends. -/
+meta def checkUnmovableAgainstDominate (fromArsenal : Bool) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_212_R"⟩
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool defender { resources := 3 }
+  let (withAttack, attack) ← cPlace funded attacker .hand ⟨"WTR_203_R"⟩
+  let (withUnmovable, unmovableId) ← cPlace withAttack defender origin cid fromArsenal
+  let (ready, sink) ← cPlace withUnmovable defender .hand ⟨"WTR_217_B"⟩
+  let defend ← cSteps ready ([⟨.player attacker, .playCard attack⟩] ++ passBoth ++ passBoth)
+  let combat := defend.combat.map fun cc =>
+    cc.updateActiveLink fun link => { link with grantedKeywords := [.dominate] }
+  let dominated := { defend with combat := combat }
+  let stacked ← cSteps dominated ([⟨.player defender, .defendDone⟩] ++ passBoth ++
+    [⟨.player attacker, .pass⟩, ⟨.player defender, .playCard unmovableId⟩,
+     ⟨.player defender, .playCard sink⟩])
+  let upperResolved ← cSteps stacked [⟨.player defender, .pass⟩, ⟨.player attacker, .pass⟩]
+  let bothResolved ← cSteps upperResolved passBoth
+  let link ← bothResolved.combat.bind CombatChain.activeLink?
+  let grave := bothResolved.zone (.player defender .graveyard)
+  pure ((stacked.zone .stack).length == 2 && (upperResolved.zone .stack).length == 1 &&
+    bothResolved.zone .stack == [] && link.defendedFromHandCount == 1 &&
+    link.defending.length == (if fromArsenal then 2 else 1) &&
+    linkTotalDefense bothResolved link == (if fromArsenal then 10 else 2) &&
+    (if fromArsenal then grave == [] else grave.map (fun id => (bothResolved.cardDefOf? id).map (·.id)) ==
+      [some cid]))
+
+#guard checkUnmovableAgainstDominate false == some true
+#guard checkUnmovableAgainstDominate true == some true
+
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
