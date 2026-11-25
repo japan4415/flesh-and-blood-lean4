@@ -1115,6 +1115,7 @@ meta def checkBarragingBeatdown (cid : CardId) (pitch bonus : Nat) : Option Bool
 
 #guard checkBarragingBeatdown ⟨"WTR_017_R"⟩ 1 4 == some true
 #guard checkBarragingBeatdown ⟨"WTR_018_Y"⟩ 2 3 == some true
+#guard checkBarragingBeatdown ⟨"WTR_019_B"⟩ 3 2 == some true
 
 /-- Play an attack with Intimidate and use the remaining hand card to defend. -/
 meta def checkIntimidateAttack (cid : CardId) (pitch cost power : Nat) (discardCost : Bool := false)
