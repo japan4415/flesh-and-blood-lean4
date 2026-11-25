@@ -851,7 +851,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       some ({ s with pending := .choosePitchOrder p :: rest }, [])
   | .endTurnCleanup tp :: rest =>
     let s1 := untapPlayer s tp
-    let s2 := { s1 with pools := ∅ }
+    let s2 := ({ s1 with pools := ∅ }).expireEffects .thisTurn
     let draws := endPhaseDrawFrames s2 tp
     some ({ s2 with pending := draws ++ rest }, [])
   | _ => none

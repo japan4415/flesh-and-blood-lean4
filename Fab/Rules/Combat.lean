@@ -42,7 +42,8 @@ def captureLki (s : GameState) (id : ObjId) (fallbackOwner : PlayerId) : LkiSnap
           minusDefenseCounters := o.minusDefenseCounters,
           plusPowerCounters := o.plusPowerCounters }
 
-/-- Effective power `{p}` of an object on the board (base power + `+1{p}` counters) (CR 2.7). -/
+/-- Effective power `{p}` of an object on the board via the 8-stage continuous-effect evaluator
+(including `+1{p}` counters) (CR 2.7, 6.3.2). -/
 def objEffectivePower (s : GameState) (id : ObjId) : Option Int :=
   match s.obj? id with
   | none => none
@@ -51,18 +52,12 @@ def objEffectivePower (s : GameState) (id : ObjId) : Option Int :=
     | .attackProxy _ (some lki) =>
       lki.power.map (· + Int.ofNat lki.plusPowerCounters)
     | _ =>
-      match s.objectFace? id with
-      | some face => face.power.map (· + Int.ofNat o.plusPowerCounters)
-      | none => none
+      (s.characteristics id).bind (·.power)
 
-/-- Effective defense `{d}` of an object on the board (base defense - `-1{d}` counters) (CR 2.3). -/
+/-- Effective defense `{d}` of an object on the board via the 8-stage continuous-effect evaluator
+(including `-1{d}` counters) (CR 2.3, 6.3.2). -/
 def objEffectiveDefense (s : GameState) (id : ObjId) : Option Int :=
-  match s.obj? id with
-  | none => none
-  | some o =>
-    match s.objectFace? id with
-    | some face => face.defense.map (· - Int.ofNat o.minusDefenseCounters)
-    | none => none
+  (s.characteristics id).bind (·.defense)
 
 /-- Effective attack power `{p}` of a `ChainLink` — falls back to `attackLki` if the attack left
 the combat chain (CR 3.5.4b) — clamped to `Nat` (CR 2.0.3, 7.5.2). -/
@@ -443,10 +438,12 @@ def closeChainList (s : GameState) : List ObjId → GameState × List Event
     (s2, es1 ++ es2)
 
 /-- Complete Close Step (CR 7.7): wear/return equipment and weapons, send non-equipment cards to
-owner's graveyard, remove attack-proxies, and clear `s.combat := none`. -/
+owner's graveyard, remove attack-proxies, expire chain-scoped continuous effects, and clear
+`s.combat := none`. -/
 def closeCombatChainStep (s : GameState) : GameState × List Event :=
   let (s1, es) := closeChainList s (s.zone .combatChain)
-  ({ s1 with combat := none }, es)
+  let s2 := (s1.expireEffects .thisChainLink).expireEffects .thisCombatChain
+  ({ s2 with combat := none }, es)
 
 /-- `closeChainObj` preserves `WF`. -/
 theorem closeChainObj_wf {s : GameState} (hwf : s.WF) (id : ObjId) :
@@ -595,10 +592,15 @@ theorem closeCombatChainStep_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) 
     (closeCombatChainStep s).1.config = s.config ∧
     (closeCombatChainStep s).1.playRollback = s.playRollback := by
   unfold closeCombatChainStep
-  obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := closeChainList_inv (s.zone .combatChain) hwf hok
-  exact ⟨GameState.WF.congr hwf1 rfl rfl rfl rfl,
-         GameState.OwnerOk.congr hok1 rfl rfl,
-         hp1, hc1, hr1⟩
+  have hinv := closeChainList_inv (s.zone .combatChain) hwf hok
+  cases hcl : closeChainList s (s.zone .combatChain) with
+  | mk s1 es =>
+    rw [hcl] at hinv
+    obtain ⟨hwf1, hok1, hp1, hc1, hr1⟩ := hinv
+    dsimp only [GameState.expireEffects]
+    exact ⟨GameState.WF.congr hwf1 rfl rfl rfl rfl,
+           GameState.OwnerOk.congr hok1 rfl rfl,
+           hp1, hc1, hr1⟩
 
 /-- Remove any stale `attackProxy` on `Zone.combatChain` whose `sourceObj` equals `weaponId`
 when the same weapon attacks again on a subsequent Chain Link (CR 1.4.3).
