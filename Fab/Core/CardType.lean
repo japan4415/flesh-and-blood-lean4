@@ -70,6 +70,8 @@ inductive Subtype where
   | attack
   /-- Aura subtype. -/
   | aura
+  /-- Axe weapon subtype (MON: Hatchet of Body, Hatchet of Mind, Ravenous Meataxe). -/
+  | axe
   /-- Base equipment subtype (for Evo). -/
   | base
   /-- Bow weapon subtype. -/
@@ -84,6 +86,8 @@ inductive Subtype where
   | construct
   /-- Dagger weapon subtype (WTR). -/
   | dagger
+  /-- Demon ally subtype (MON: Blasmophet, Ursur). -/
+  | demon
   /-- Evo equipment subtype. -/
   | evo
   /-- Figment subtype. -/

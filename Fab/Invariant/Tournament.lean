@@ -361,108 +361,8 @@ theorem execPrim_ttr (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (env : List (VarId × Int)) (p : Prim) :
     (execPrim s ctrl src env p).1.turn = s.turn ∧
     (execPrim s ctrl src env p).1.tournament = s.tournament ∧
-    ((execPrim s ctrl src env p).1.result = none → s.result = none) := by
-  cases p with
-  | draw _ _ | opt _ _ | weaponAttack | discardRandom _ _ | discardChoice _ _ _
-  | intimidate _ | returnDefendingCardToHand _ | searchDeck _ _ _ _ _ _
-  | shuffleZoneIntoDeck _ _ _ _ _ | revealTopToArsenalIf _ _ | preventNextDamage _ _ _
-  | closeCombatChain | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
-    exact ⟨rfl, rfl, id⟩
-  | loseLife _ _ =>
-    exact checkHeroDefeat_ttr _
-  | dealDamage _ _ _ =>
-    unfold execPrim; dsimp only
-    split
-    · exact ⟨rfl, rfl, id⟩
-    · exact checkHeroDefeat_ttr _
-  | createToken pref tokId n =>
-    have h := createTokens_ttr (evalPlayerRef s ctrl pref) tokId n s
-    exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
-  | destroy oref =>
-    unfold execPrim; dsimp only
-    cases evalObjRef src oref with
-    | none => exact ⟨rfl, rfl, id⟩
-    | some oid =>
-      dsimp only
-      split
-      · rename_i srcZ o _ _
-        cases hm : moveObj s oid (.player o.owner .graveyard) .top false with
-        | none => exact ⟨rfl, rfl, id⟩
-        | some _ =>
-          have h := moveObj_turn_tournament_result hm
-          exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
-      · exact ⟨rfl, rfl, id⟩
-  | banish oref fd =>
-    unfold execPrim; dsimp only
-    cases evalObjRef src oref with
-    | none => exact ⟨rfl, rfl, id⟩
-    | some oid =>
-      dsimp only
-      cases hb : banishOne s oid fd with
-      | none => exact ⟨rfl, rfl, id⟩
-      | some res =>
-        obtain ⟨s1, id1, es1⟩ := res
-        dsimp only
-        unfold banishOne at hb
-        split at hb
-        · rename_i src0 o0 _ _
-          dsimp only at hb
-          cases hm : moveObj s oid (Zone.player o0.owner .banished) .top fd with
-          | none => simp only [hm] at hb; cases hb
-          | some rm =>
-            obtain ⟨sm, idm⟩ := rm
-            simp only [hm, Option.some.injEq, Prod.mk.injEq] at hb
-            obtain ⟨rfl, rfl, rfl⟩ := hb
-            have h := moveObj_turn_tournament_result hm
-            exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
-        · cases hb
-  | moveCard oref dstRef dpos fd =>
-    unfold execPrim; dsimp only
-    cases evalObjRef src oref with
-    | none => exact ⟨rfl, rfl, id⟩
-    | some oid =>
-      dsimp only
-      split
-      · rename_i srcZ o _ _
-        cases zoneOfRef o.owner dstRef with
-        | none => exact ⟨rfl, rfl, id⟩
-        | some dstZ =>
-          dsimp only
-          split
-          · rename_i s1 oid' hm
-            have h := moveObj_turn_tournament_result hm
-            exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
-          · exact ⟨rfl, rfl, id⟩
-      · exact ⟨rfl, rfl, id⟩
-  | putHandOnDeck _ _ =>
-    unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
-  | putArsenalOnDeckBottom pref =>
-    unfold execPrim; dsimp only
-    cases s.zone (.player (evalPlayerRef s ctrl pref) .arsenal) with
-    | nil => exact ⟨rfl, rfl, id⟩
-    | cons aid _ =>
-      dsimp only
-      cases hm : moveObj s aid (.player (evalPlayerRef s ctrl pref) .deck) .bottom false with
-      | none => exact ⟨rfl, rfl, id⟩
-      | some _ =>
-        have h := moveObj_turn_tournament_result hm
-        exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
-  | addCounter oref _ _ =>
-    unfold execPrim; dsimp only
-    cases evalObjRef src oref with
-    | none => exact ⟨rfl, rfl, id⟩
-    | some oid =>
-      dsimp only
-      unfold updateSingleObject
-      cases s.objects[oid.n]? <;> exact ⟨rfl, rfl, id⟩
-  | removeAllCounters oref _ =>
-    unfold execPrim; dsimp only
-    cases evalObjRef src oref with
-    | none => exact ⟨rfl, rfl, id⟩
-    | some oid =>
-      dsimp only
-      unfold updateSingleObject
-      cases s.objects[oid.n]? <;> exact ⟨rfl, rfl, id⟩
+    ((execPrim s ctrl src env p).1.result = none → s.result = none) :=
+  execPrim_ttr_core s ctrl src env p
 
 /-- Helper: `interpRunStep` preserves `turn` and `tournament`, and never clears a set `result`. -/
 theorem interpRunStep_ttr (s : GameState) (ctrl : PlayerId) (src : ObjId)
@@ -549,6 +449,36 @@ theorem gspLoop_result_none :
 /-- Helper: `gspRun` never clears a set `result`. -/
 theorem gspRun_result_none {s : GameState} (hr : (gspRun s).result = none) : s.result = none :=
   gspLoop_result_none (gspMeasure s) hr
+
+/-- Helper: `closeCombatChainStep` preserves `turn`, `tournament`, and `result`. -/
+theorem closeCombatChainStep_ttr (s : GameState) :
+    (closeCombatChainStep s).1.turn = s.turn ∧
+    (closeCombatChainStep s).1.tournament = s.tournament ∧
+    (closeCombatChainStep s).1.result = s.result := by
+  unfold closeCombatChainStep
+  exact closeChainList_turn_tournament_result s (s.zone .combatChain)
+
+/-- Helper: `applyPhantasmClose` preserves `turn`, `tournament`, and `result`. -/
+theorem applyPhantasmClose_ttr (s : GameState) :
+    (applyPhantasmClose s).1.turn = s.turn ∧
+    (applyPhantasmClose s).1.tournament = s.tournament ∧
+    (applyPhantasmClose s).1.result = s.result := by
+  unfold applyPhantasmClose
+  cases s.combat.bind CombatChain.activeLink? with
+  | none =>
+    dsimp only
+    exact closeCombatChainStep_ttr s
+  | some link =>
+    dsimp only
+    cases link.attack with
+    | none =>
+      dsimp only
+      exact closeCombatChainStep_ttr s
+    | some atkId =>
+      dsimp only
+      have hd := destroyObjToGraveyard_ttr s atkId
+      have hcl := closeCombatChainStep_ttr (destroyObjToGraveyard s atkId).1
+      exact ⟨hcl.1.trans hd.1, hcl.2.1.trans hd.2.1, hcl.2.2.trans hd.2.2⟩
 
 /-- Helper: `spendAssetCost` preserves `turn`, `tournament`, and `result`. -/
 theorem spendAssetCost_ttr {s s1 : GameState} {p : PlayerId} {cost : AssetCost}
@@ -773,8 +703,21 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       exact timeLimitBounded_of_eq hb rfl rfl id
   · -- combatStep .reaction
-    simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-    exact timeLimitBounded_of_eq hb rfl rfl id
+    dsimp only at h
+    cases hact : s.combat.bind CombatChain.activeLink? with
+    | none =>
+      rw [hact] at h; dsimp only at h
+      simp only [Bool.false_eq_true, ↓reduceIte, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      exact timeLimitBounded_of_eq hb rfl rfl id
+    | some _ =>
+      rw [hact] at h; dsimp only at h
+      split at h
+      · have hph_ttr := applyPhantasmClose_ttr s
+        simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact timeLimitBounded_gspRun_pending hb hph_ttr.1 hph_ttr.2.1 (fun hr => hph_ttr.2.2 ▸ hr) _
+      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+        exact timeLimitBounded_of_eq hb rfl rfl id
   · -- combatStep .damage
     dsimp only at h
     cases hcc : s.combat with
@@ -789,9 +732,17 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
         exact timeLimitBounded_of_eq hb rfl rfl id
       | some link =>
         rw [hl] at h; dsimp only at h
-        split at h <;>
-        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-          apply timeLimitBounded_gspRun_pending hb <;> first | rfl | exact id
+        have hd_ttr := applyDamageWithPrevention_ttr s link.defender .physical
+          (calcCombatDamage (linkAttackPower s link) (linkTotalDefense s link))
+        cases hd : applyDamageWithPrevention s link.defender .physical
+            (calcCombatDamage (linkAttackPower s link) (linkTotalDefense s link)) with
+        | mk s2 es2 =>
+          rw [hd] at h hd_ttr; dsimp only at h hd_ttr
+          simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          refine timeLimitBounded_gspRun_pending hb ?_ ?_ ?_ _
+          · exact hd_ttr.1
+          · exact hd_ttr.2.1
+          · exact hd_ttr.2.2
   · -- combatStep .resolution
     dsimp only at h
     split at h

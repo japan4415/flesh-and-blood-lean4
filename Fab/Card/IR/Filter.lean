@@ -224,6 +224,10 @@ inductive NumExpr where
   | chainHits
   /-- Half of bound variable `v`, rounded down (Scabskin Leathers, Barkbone Strapping). -/
   | halfRoundDown (v : VarId)
+  /-- Number of cards currently in player `p`'s Soul sub-zone (MON: Boltyn / Light). -/
+  | soulCount (p : PlayerRef)
+  /-- Number of cards currently in player `p`'s Banished zone (MON: Shadow / Chane / Levia). -/
+  | banishedCount (p : PlayerRef)
 deriving DecidableEq, Repr
 
 /-- Boolean condition checked by static abilities, triggers, or `ifThen` combinators. -/
@@ -256,6 +260,12 @@ inductive Condition where
   | sourceNotHitThisTurn
   /-- Source has fewer than `n` counters of kind `k` (Fyendal's Spring Tunic). -/
   | sourceCounterLt (k : CounterKind) (n : Nat)
+  /-- Controller has charged their hero's soul this turn (MON: Light Warrior). -/
+  | chargedThisTurn
+  /-- Controller has banished a card with `≥ 6{p}` this turn (MON: Levia / Shadow Brute). -/
+  | banishedSixPowerThisTurn
+  /-- Source card was played from the banished zone (MON: Shadow / Chane). -/
+  | playedFromBanished
   /-- Conjunction of two conditions. -/
   | and_ (a b : Condition)
   /-- Disjunction of two conditions. -/

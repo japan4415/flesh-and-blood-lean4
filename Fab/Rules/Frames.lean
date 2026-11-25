@@ -828,10 +828,19 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       some ({ s with pending := rest }, [])
   | .combatStep .reaction atkId :: rest =>
     let tp := s.active.getD ⟨0⟩
-    let cc' := s.combat.map fun cc => { cc with step := .reaction }
-    some ({ s with
-              combat := cc'
-              pending := .gameStateProcess :: .priority tp 0 :: .combatStep .damage atkId :: rest }, [])
+    let phantasmHit :=
+      match s.combat.bind CombatChain.activeLink? with
+      | some link => phantasmTriggered s link
+      | none => false
+    if phantasmHit then
+      let (s1, es) := applyPhantasmClose s
+      let s2 := gspRun s1
+      some ({ s2 with pending := .priority tp 0 :: rest }, es)
+    else
+      let cc' := s.combat.map fun cc => { cc with step := .reaction }
+      some ({ s with
+                combat := cc'
+                pending := .gameStateProcess :: .priority tp 0 :: .combatStep .damage atkId :: rest }, [])
   | .combatStep .damage atkId :: rest =>
     let tp := s.active.getD ⟨0⟩
     match s.combat with
@@ -840,18 +849,16 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       | some link =>
         let atkP := linkAttackPower s link
         let totD := linkTotalDefense s link
-        let dmg := calcCombatDamage atkP totD
-        let isHit := didCombatHit dmg
+        let rawDmg := calcCombatDamage atkP totD
+        let (s2, es) := applyDamageWithPrevention s link.defender .physical rawDmg
+        let finalDmg :=
+          match es.reverse.find? fun | .damageDealt _ .physical _ => true | _ => false with
+          | some (.damageDealt _ _ d) => d
+          | _ => 0
+        let isHit := didCombatHit finalDmg
         let cc' := { cc with step := .damage }.updateActiveLink fun l =>
-          { l with hit := isHit, damageDealt := dmg }
-        let s1 := { s with combat := some cc' }
-        let (s2, es) :=
-          if 0 < dmg then
-            (s1.setLife link.defender (s1.lifeOf link.defender - Int.ofNat dmg),
-             [.damageDealt link.defender .physical dmg])
-          else
-            (s1, [])
-        let s3 := gspRun s2
+          { l with hit := isHit, damageDealt := finalDmg }
+        let s3 := gspRun { s2 with combat := some cc' }
         some ({ s3 with pending := .priority tp 0 :: .combatStep .resolution atkId :: rest }, es)
       | none =>
         some ({ s with
@@ -934,7 +941,12 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .endTurnCleanup tp :: rest =>
     let s0 := resetAlliesLife s
     let s1 := untapPlayer s0 tp
-    let s2 := ({ s1 with pools := ∅ }).expireEffects .thisTurn
+    let s2 := ({ s1 with
+      pools := ∅
+      activeReplacements := []
+      chargedThisTurn := []
+      banishedSixPowerThisTurn := []
+      activatedThisTurn := [] }).expireEffects .thisTurn
     let draws := endPhaseDrawFrames s2 tp
     some ({ s2 with pending := draws ++ rest }, [])
   | .flushTriggers :: rest =>
