@@ -302,6 +302,9 @@ theorem HiddenEquiv.linkHasKeyword_eq_of_ne_goAgain {p : PlayerId} {s1 s2 : Game
     linkHasKeyword s1 link kw = linkHasKeyword s2 link kw := by
   unfold linkHasKeyword
   simp only [hgo, false_and, ↓reduceIte]
+  have hmods : linkWeaponAttackModifiers s1 link = linkWeaponAttackModifiers s2 link := by
+    simp only [linkWeaponAttackModifiers, h.activeEffects]
+  rw [hmods]
   cases link.attack with
   | none => rfl
   | some aid => simp [h.characteristics_eq aid]

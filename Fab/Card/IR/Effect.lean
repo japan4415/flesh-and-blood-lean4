@@ -115,6 +115,8 @@ inductive ModScope where
   | obj (ref : ObjRef)
   /-- The paid attack layer bound to an attack-play trigger at runtime (CR 6.6.5). -/
   | paidAttack (id : ObjId)
+  /-- Every attack from the weapon declared in the card's target slot. -/
+  | targetedWeaponAttacks
   /-- The next card matching `f` played by controller during the duration. -/
   | nextCardPlayed (f : CardFilter)
   /-- The next attack matching `f` made by controller during the duration. -/

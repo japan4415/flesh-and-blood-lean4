@@ -295,14 +295,16 @@ def attackReactionCanTarget (s : GameState) (card : CardDef) : Bool :=
 def cardWeaponTargetChoices (s : GameState) (p : PlayerId) (card : CardDef) : Option (List ObjId) := do
   let effect ← card.front.playEffect
   let [spec] := effect.targets | none
-  let .weapon who := spec.kind | none
+  let controller ← match spec.kind with
+    | .weapon who => some (some (evalPlayerRef s p who))
+    | .anyWeapon => some none
+    | _ => none
   if spec.minCount != 1 || spec.maxCount != some 1 then none else
-    let controller := evalPlayerRef s p who
     some ((activationArenaZones s).flatMap s.zone |>.filter fun id =>
       (s.obj? id).any (fun obj => !obj.faceDown) &&
         match s.objectFace? id, s.characteristics id with
         | some face, some chars =>
-          chars.controller == controller && chars.types.contains .weapon &&
+          controller.all (· == chars.controller) && chars.types.contains .weapon &&
             cardFaceMatches spec.filter { face with
               types := chars.types, subtypes := chars.subtypes, keywords := chars.keywords,
               cost := chars.baseCost }

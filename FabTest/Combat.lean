@@ -2195,6 +2195,58 @@ meta def checkSteelbladeSupremacy : Option Bool := do
 
 #guard checkSteelbladeSupremacy == some true
 
+/-- Ironsong Determination applies to every attack by the declared weapon this turn. -/
+meta def checkIronsongDetermination : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_122_Y"⟩
+  let funded := m5Base.setPool player { actionPoints := 2, resources := 2 }
+  let card ← funded.cards.find? cid
+  let (withHero, hero) ← cPlace funded player .hero ⟨"WTR_113"⟩
+  let (withCard, determination) ← cPlace withHero player .hand cid
+  let (withEnemy, enemy) ← cPlace withCard opponent .weapon ⟨"WTR_040"⟩
+  let (armed, sword) ← cPlace withEnemy player .weapon ⟨"WTR_115"⟩
+  let (withBlock, first) ← cPlace armed opponent .hand ⟨"WTR_203_R"⟩
+  let (ready, second) ← cPlace withBlock opponent .hand ⟨"WTR_204_Y"⟩
+  let play : Action := ⟨.player player, .playCard determination⟩
+  let choose (id : ObjId) : Action := ⟨.player player, .pickWeaponTarget id⟩
+  let block (id : ObjId) : Action := ⟨.player opponent, .defendCard id⟩
+  let offered ← cSteps ready [play]
+  let (paid, events) ← (step 64 offered (choose sword)).toOption
+  let layer ← (paid.zone .stack).head?
+  let resolved ← cSteps paid passBoth
+  let other ← cSteps offered (choose enemy :: passBoth)
+  let swing : Action := ⟨.player player, .attackWeapon sword⟩
+  let toDamage := [⟨.player opponent, .defendDone⟩] ++ passBoth ++ passBoth
+  let enter (s : GameState) := cSteps s (swing :: (passBoth ++ passBoth))
+  let attack (s : GameState) := (s.combat.bind CombatChain.activeLink?).map fun l =>
+    (linkAttackPower s l, linkHasKeyword s l .dominate)
+  let defending ← enter resolved
+  let oneBlock ← cSteps defending [block first]
+  let hit ← cSteps defending toDamage
+  let trigger ← hit.pendingTriggers.head?
+  let allowed ← cSteps hit ([⟨.player player, .pickTriggerStart player⟩,
+    ⟨.player player, .pickTrigger trigger.id⟩] ++ passBoth ++
+    [⟨.player player, .pickMay true⟩] ++ passBoth)
+  let secondAttack ← enter allowed
+  let noBonus ← enter other
+  let (expired, _) ← (advance 64 { secondAttack with pending := [.endTurnFinish] } []).toOption
+  pure (card.status == .full && card.front.pitch == some 2 && card.front.defense == some 3 &&
+    !(legalActionsFor player withCard).contains play &&
+    (legalActionsFor player offered).contains (choose sword) &&
+    (legalActionsFor player offered).contains (choose enemy) &&
+    events.contains (.targetedWeapon layer sword) && (paid.poolOf player).resources == 2 &&
+    (resolved.poolOf player).actionPoints == 2 &&
+    objEffectivePower resolved sword == some 3 && objEffectivePower resolved enemy == some 4 &&
+    attack defending == some (4, true) &&
+    !(legalActionsFor opponent oneBlock).contains (block second) &&
+    trigger.source == hero && hit.lifeOf opponent == 36 &&
+    (secondAttack.combat.map (·.links.length)) == some 2 && attack secondAttack == some (4, true) &&
+    attack noBonus == some (3, false) && attack expired == some (3, false) &&
+    expired.activeEffects.isEmpty)
+
+#guard checkIronsongDetermination == some true
+
 /-- Dawnblade's second hit and its counter retention both use the whole turn, across chains. -/
 meta def checkDawnblade : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
