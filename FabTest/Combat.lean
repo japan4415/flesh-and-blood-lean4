@@ -328,3 +328,11 @@ meta def checkBlackoutKick (cid : CardId) (basePower : Nat) : Bool :=
 #guard checkBlackoutKick ⟨"WTR_089_R"⟩ 4
 #guard checkBlackoutKick ⟨"WTR_090_Y"⟩ 3
 #guard checkBlackoutKick ⟨"WTR_091_B"⟩ 2
+
+/-- Rising Knee Thrust gets power and Go Again only immediately after Leg Tap. -/
+meta def checkRisingKneeThrust (cid : CardId) (basePower : Nat) : Bool :=
+  checkComboAttack [⟨"WTR_101_R"⟩] cid (basePower + 2) 2 [.goAgain] == some true &&
+  checkComboAttack [] cid basePower 0 == some true &&
+  checkComboAttack [⟨"WTR_101_R"⟩, ⟨"WTR_203_R"⟩] cid basePower 0 == some true
+
+#guard checkRisingKneeThrust ⟨"WTR_104_R"⟩ 3
