@@ -210,6 +210,8 @@ meta def checkRandomDiscardAttack (cid : CardId) (pitch cost power : Nat) (fromA
 #guard checkRandomDiscardAttack ⟨"WTR_020_R"⟩ 1 1 7 true == some true
 #guard checkRandomDiscardAttack ⟨"WTR_021_Y"⟩ 2 1 6 false == some true
 #guard checkRandomDiscardAttack ⟨"WTR_021_Y"⟩ 2 1 6 true == some true
+#guard checkRandomDiscardAttack ⟨"WTR_022_B"⟩ 3 1 5 false == some true
+#guard checkRandomDiscardAttack ⟨"WTR_022_B"⟩ 3 1 5 true == some true
 
 -- 5. Playing face-down card from Arsenal (CR 3.2.2) triggers `playedFromArsenal` on Tome of Fyendal:
 --    Tome starts face-down in Arsenal, P0 has 1 floating {r}, 1 card in hand & 2 in deck.
