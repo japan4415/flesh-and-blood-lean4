@@ -1071,8 +1071,8 @@ def droneOfBrutality (base : CardDef) : CardDef :=
 def WTR_164_R : CardDef := { droneOfBrutality WTR_164_R_meta with status := .full }
 /-- Drone of Brutality Yellow. -/
 def WTR_165_Y : CardDef := { droneOfBrutality WTR_165_Y_meta with status := .full }
-/-- Drone of Brutality Blue (drafted IR). -/
-def WTR_166_B : CardDef := droneOfBrutality WTR_166_B_meta
+/-- Drone of Brutality Blue. -/
+def WTR_166_B : CardDef := { droneOfBrutality WTR_166_B_meta with status := .full }
 
 /-- Shared 3-color helper for Snatch (onHit draw 1). -/
 def snatchCard (base : CardDef) : CardDef :=
