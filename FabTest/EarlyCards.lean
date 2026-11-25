@@ -1106,6 +1106,39 @@ meta def overLoopScenario (cardId : String) (power : Int) (blocked : Bool) : Opt
 #guard overLoopScenario "ARC_022_B" 3 false == some true
 #guard overLoopScenario "ARC_022_B" 3 true == some true
 
+meta def boostOnlyArcAttackScenario (cardId : String) (power : Int) (cost pitch : Nat) :
+    Option Bool := do
+  let p := earlyAttacker
+  let deck := Zone.player p .deck
+  let banished := Zone.player p .banished
+  let card ← throughArcDB.find? ⟨cardId⟩
+  let (base, attack) ← earlyPlace { earlyBase with cards := throughArcDB } p (.player p .hand) cardId
+  let attempt (topCard : String) (boost gainsGoAgain : Bool) : Option Bool := do
+    let (ready, top) ← earlyPlace base p deck topCard
+    let paid ← earlySteps ready
+      [⟨.player p, .playCard attack⟩, ⟨.player p, .pickMay boost⟩]
+    let attacking ← earlySteps paid (earlyPass ++ earlyPass)
+    let link ← attacking.combat.bind CombatChain.activeLink?
+    let hit ← earlyDamage attacking
+    let resolved ← earlySteps hit earlyPass
+    let removed := (paid.zone banished).map (fun id => (paid.cardDefOf? id).map (·.id.val))
+    let expectedAP := (ready.poolOf p).actionPoints - (if gainsGoAgain then 0 else 1)
+    pure ((paid.poolOf p).resources + cost == (ready.poolOf p).resources &&
+      paid.zone deck == (if boost then [] else [top]) &&
+      removed == (if boost then [some topCard] else []) &&
+      paid.boostsThisTurn == (if boost then [p] else []) &&
+      linkAttackPower attacking link == power && linkHasKeyword attacking link .goAgain == gainsGoAgain &&
+      hit.pendingTriggers.isEmpty && (resolved.poolOf p).actionPoints == expectedAP)
+  let matched ← attempt "ARC_007_B" true true
+  let otherClass ← attempt "WTR_191_R" true false
+  let declined ← attempt "ARC_007_B" false false
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    card.front.keywords == [.boost] && card.front.abilities.isEmpty && card.front.playEffect.isNone &&
+    matched && otherClass && declined)
+
+#guard (earlyPrintingCardId? "ARC023").map (·.val) == some "ARC_023_R"
+#guard boostOnlyArcAttackScenario "ARC_023_R" 6 2 1 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
