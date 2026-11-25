@@ -1069,8 +1069,8 @@ def droneOfBrutality (base : CardDef) : CardDef :=
 
 /-- Drone of Brutality Red. -/
 def WTR_164_R : CardDef := { droneOfBrutality WTR_164_R_meta with status := .full }
-/-- Drone of Brutality Yellow (drafted IR). -/
-def WTR_165_Y : CardDef := droneOfBrutality WTR_165_Y_meta
+/-- Drone of Brutality Yellow. -/
+def WTR_165_Y : CardDef := { droneOfBrutality WTR_165_Y_meta with status := .full }
 /-- Drone of Brutality Blue (drafted IR). -/
 def WTR_166_B : CardDef := droneOfBrutality WTR_166_B_meta
 
