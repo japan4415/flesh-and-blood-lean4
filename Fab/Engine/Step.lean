@@ -108,9 +108,25 @@ def legalFrameActions (s : GameState) : List Action :=
 def concedeActions (s : GameState) : List Action :=
   if s.playerCount = 2 then (allPlayers 2).map fun p => ⟨.player p, .concede⟩ else []
 
+/-- Constructively enumerate legal player tournament actions (Swiss Bo1 Intentional Draw offer,
+accept, or decline) (TRP 4). Clock and judge actions are non-player actors and omitted here. -/
+def tournamentPlayerActions (s : GameState) : List Action :=
+  if s.playerCount = 2 ∧ s.config.ruleSet.allowsIntentionalDraw = true then
+    match s.tournament.idOffer with
+    | none =>
+      (allPlayers 2).map fun p => ⟨.player p, .offerDraw⟩
+    | some q =>
+      ((allPlayers 2).filter fun p => decide (q ≠ p)).flatMap fun p =>
+        [⟨.player p, .acceptDraw⟩, ⟨.player p, .declineDraw⟩]
+  else
+    []
+
 /-- All legal player actions in state `s` (empty once the game has ended). -/
 def legalActions (s : GameState) : List Action :=
-  if s.result = none then legalFrameActions s ++ concedeActions s else []
+  if s.result = none then
+    legalFrameActions s ++ concedeActions s ++ tournamentPlayerActions s
+  else
+    []
 
 end Fab
 

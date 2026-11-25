@@ -6,6 +6,7 @@ public import Fab.State.GameConfig
 public import Fab.State.Event
 public import Fab.State.Phase
 public import Fab.State.Decision
+public import Fab.Tournament.TimeLimit
 public import Fab.Core.Cost
 public import Fab.Card.CardDB
 public import Std.Data.ExtTreeMap
@@ -96,6 +97,8 @@ structure GameState where
   playRollback : Option BoardSnapshot := none
   /-- Active Combat Chain state when a combat chain is open, `none` when closed (CR 3.5, 7.0). -/
   combat : Option CombatChain := none
+  /-- Per-game tournament clock and intentional-draw state (TRP 4). -/
+  tournament : TournamentState := {}
 deriving DecidableEq, Repr
 
 /-- List of every valid zone in an `n`-player game (CR 3.0). -/

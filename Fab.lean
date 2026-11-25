@@ -16,6 +16,9 @@ public import Fab.Card.IR.WF
 public import Fab.Card.CardDB
 public import Fab.Rules.Deck
 public import Fab.Tournament.DeckLegality
+public import Fab.Tournament.TimeLimit
+public import Fab.Tournament.Match
+public import Fab.Tournament.Loop
 public import Fab.State.Zone
 public import Fab.State.Lki
 public import Fab.State.Object
@@ -44,6 +47,7 @@ public import Fab.Invariant.Step
 public import Fab.Invariant.Turn
 public import Fab.Invariant.Stack
 public import Fab.Invariant.Combat
+public import Fab.Invariant.Tournament
 
 /-!
 # Fab

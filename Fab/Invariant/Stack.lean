@@ -183,14 +183,14 @@ theorem cancelPlay_restores_exact {s0 s : GameState} {p : PlayerId} {layerId : O
     (hcfg : s.config = s0.config) (hcards : s.cards = s0.cards)
     (hturn : s.turn = s0.turn) (hact : s.active = s0.active)
     (hord : s.turnOrder = s0.turnOrder) (hph : s.phase = s0.phase)
-    (hres : s.result = s0.result) :
+    (hres : s.result = s0.result) (htourn : s.tournament = s0.tournament) :
     applyFrame s ⟨.player p, .cancelPlay⟩ = some (s0, []) := by
   unfold applyFrame
   rw [hp]
   simp only [↓reduceIte, rollbackPlay, hrb, Option.some.injEq, Prod.mk.injEq, and_true]
   cases s; cases s0
   simp only [GameState.restore, GameState.snapshot] at *
-  subst h0rb hcfg hcards hturn hact hord hph hres
+  subst h0rb hcfg hcards hturn hact hord hph hres htourn
   rfl
 
 /-- **Automatic Rollback Exactness**: when `playPayCost` cannot pay and cannot pitch, it rolls back
@@ -205,7 +205,7 @@ theorem playPayCost_unpayable_restores_exact {s0 s : GameState} {p : PlayerId} {
     (hcfg : s.config = s0.config) (hcards : s.cards = s0.cards)
     (hturn : s.turn = s0.turn) (hact : s.active = s0.active)
     (hord : s.turnOrder = s0.turnOrder) (hph : s.phase = s0.phase)
-    (hres : s.result = s0.result) :
+    (hres : s.result = s0.result) (htourn : s.tournament = s0.tournament) :
     microStep s = some (s0, []) := by
   unfold microStep
   rw [hp]
@@ -215,7 +215,7 @@ theorem playPayCost_unpayable_restores_exact {s0 s : GameState} {p : PlayerId} {
     and_true]
   cases s; cases s0
   simp only [GameState.restore, GameState.snapshot] at *
-  subst h0rb hcfg hcards hturn hact hord hph hres
+  subst h0rb hcfg hcards hturn hact hord hph hres htourn
   rfl
 
 /-- **I5** (Progress on M4 decision frames): every new M4 decision frame on an ongoing state has a

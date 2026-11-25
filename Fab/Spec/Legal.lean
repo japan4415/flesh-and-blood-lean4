@@ -86,10 +86,38 @@ instance decidableLegalConcede (s : GameState) (a : Action) : Decidable (LegalCo
   unfold LegalConcede
   cases a.actor <;> cases a.kind <;> infer_instance
 
+/-- Legality of tournament-level actions (clock time limit, Swiss intentional draw, judge loop
+draw) (TRP 4). -/
+def LegalTournament (s : GameState) (a : Action) : Prop :=
+  match a.actor, a.kind with
+  | .clock, .timeExpired =>
+    s.config.ruleSet.hasTimeLimit = true ∧ s.tournament.timeLimitTurnsLeft = none
+  | .judge, .judgeLoopDraw =>
+    s.config.ruleSet.isTournament = true
+  | .player p, .offerDraw =>
+    s.playerCount = 2 ∧ p.n < 2 ∧ s.config.ruleSet.allowsIntentionalDraw = true ∧
+    s.tournament.idOffer = none
+  | .player p, .acceptDraw =>
+    s.playerCount = 2 ∧ p.n < 2 ∧ s.config.ruleSet.allowsIntentionalDraw = true ∧
+    match s.tournament.idOffer with
+    | some q => q ≠ p
+    | none => False
+  | .player p, .declineDraw =>
+    s.playerCount = 2 ∧ p.n < 2 ∧ s.config.ruleSet.allowsIntentionalDraw = true ∧
+    match s.tournament.idOffer with
+    | some q => q ≠ p
+    | none => False
+  | _, _ => False
+
+instance decidableLegalTournament (s : GameState) (a : Action) : Decidable (LegalTournament s a) := by
+  unfold LegalTournament
+  cases a.actor <;> cases a.kind <;>
+    first | infer_instance | (dsimp only; cases s.tournament.idOffer <;> infer_instance)
+
 /-- Overall legality specification `Legal s a` (design.md §6.3). Nothing is legal after the game
 has ended. -/
 def Legal (s : GameState) (a : Action) : Prop :=
-  s.result = none ∧ (LegalFrame s a ∨ LegalConcede s a)
+  s.result = none ∧ (LegalFrame s a ∨ LegalConcede s a ∨ LegalTournament s a)
 
 instance decidableLegal (s : GameState) (a : Action) : Decidable (Legal s a) := by
   unfold Legal

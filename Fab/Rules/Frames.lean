@@ -7,6 +7,7 @@ public import Fab.Rules.Interp
 public import Fab.Rules.Combat
 public import Fab.Rules.Actions.Draw
 public import Fab.Rules.Actions.Pitch
+public import Fab.Tournament.Loop
 
 /-!
 # Frame transitions and automatic work (`microStep`)
@@ -592,12 +593,23 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       none
   | _, _, _ => none
 
-/-- Apply any legal `Action` (either concession in 1v1 or an answer to the top frame). -/
+/-- Apply any legal `Action` (concession in 1v1, tournament action, or an answer to the top
+frame). -/
 def applyAction (s : GameState) (a : Action) : Option (GameState × List Event) :=
   match a.actor, a.kind with
   | .player p, .concede =>
     let winners := (allPlayers s.playerCount).filter (· != p)
     some ({ s with result := some (.won winners), pending := [], playRollback := none }, [])
+  | .clock, .timeExpired =>
+    some (applyTimeExpired s, [])
+  | .judge, .judgeLoopDraw =>
+    some (applyJudgeLoopDraw s, [])
+  | .player p, .offerDraw =>
+    some (applyOfferDraw s p, [])
+  | .player _, .acceptDraw =>
+    some (applyAcceptDraw s, [])
+  | .player _, .declineDraw =>
+    some (applyDeclineDraw s, [])
   | _, _ => applyFrame s a
 
 /-- Advance a single automatic work frame on top of `s.pending` (non-recursive: design.md §6.1). -/
@@ -615,13 +627,24 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let (s1, es) := drawOne s p
     some ({ s1 with pending := .draw p n :: rest }, es)
   | .beginTurn :: rest =>
-    let tp := turnPlayerAt s.turnOrder s.turn
-    some ({ s with
-              turn := s.turn + 1
-              active := some tp
-              phase := .startPhase
-              pending := turnFrames tp ++ [.beginTurn] ++ rest },
-          [])
+    match s.tournament.tickAtTurnStart with
+    | none =>
+      if s.result.isNone then
+        some ({ s with
+                  result := some (.draw .timeLimit)
+                  pending := []
+                  playRollback := none }, [])
+      else
+        some ({ s with pending := [] }, [])
+    | some ts' =>
+      let tp := turnPlayerAt s.turnOrder s.turn
+      some ({ s with
+                turn := s.turn + 1
+                active := some tp
+                phase := .startPhase
+                tournament := ts'
+                pending := turnFrames tp ++ [.beginTurn] ++ rest },
+            [])
   | .startPhaseWork _ :: rest =>
     some ({ s with phase := .startPhase, pending := rest }, [])
   | .actionPhaseStart tp :: rest =>

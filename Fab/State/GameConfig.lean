@@ -30,6 +30,25 @@ inductive RuleSet where
   | tournament (stage : TournamentStage)
 deriving DecidableEq, Repr, Hashable
 
+/-- Whether `rs` enables Tournament Rules and Policy (TRP 4). -/
+def RuleSet.isTournament : RuleSet → Bool
+  | .coreOnly => false
+  | .tournament _ => true
+
+/-- Whether `rs` uses round time-limit End-of-Round Procedure: Swiss rounds are timed, whereas
+Top Cut / elimination rounds are untimed (TRP 4). -/
+def RuleSet.hasTimeLimit : RuleSet → Bool
+  | .tournament .swiss => true
+  | .tournament .topCut => false
+  | .coreOnly => false
+
+/-- Whether `rs` permits Intentional Draws: allowed in Swiss rounds, prohibited in Top Cut
+(TRP 4). -/
+def RuleSet.allowsIntentionalDraw : RuleSet → Bool
+  | .tournament .swiss => true
+  | .tournament .topCut => false
+  | .coreOnly => false
+
 /-- Fixed configuration of a game, chosen at initial state and unchanged by `step`. -/
 structure GameConfig where
   /-- Core-only or tournament ruleset. -/
