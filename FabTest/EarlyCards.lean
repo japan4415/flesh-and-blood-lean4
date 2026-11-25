@@ -1092,6 +1092,9 @@ meta def overLoopScenario (cardId : String) (power : Int) (blocked : Bool) : Opt
         [some "WTR_191_R", some cardId])
 
 #guard (earlyPrintingCardId? "ARC020").map (·.val) == some "ARC_020_R"
+#guard ["LGS013", "LGS013-P"].all fun number =>
+  ((earlyPrintingCardId? number).bind throughArcDB.find?).any
+    (fun card => card.id == ⟨"ARC_020_R"⟩ && card.status == .full)
 #guard overLoopScenario "ARC_020_R" 5 false == some true
 #guard overLoopScenario "ARC_020_R" 5 true == some true
 
