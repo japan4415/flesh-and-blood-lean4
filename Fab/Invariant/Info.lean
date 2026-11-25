@@ -395,7 +395,9 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
     unfold activationPlan?
     rw [hz, hfind, ho, h.characteristics_eq, (h.cardDef_face id).2, hp, h.playerCount,
       h.phase, h.active, h.combat, h.visibleZones .stack rfl, h.activatedThisTurn]
-    simp only [hresolution, hcanPitch, hcondition]
+    have hcost : nextActionSurcharge s1 p = nextActionSurcharge s2 p := by
+      simp only [nextActionSurcharge, h.activeEffects]
+    simp only [hresolution, hcanPitch, hcondition, hcost]
   have hface (id : ObjId) := (h.cardDef_face id).2
   unfold availableActivations
   simp only [hz, hsources, hface, hplan, htargets]

@@ -309,6 +309,8 @@ inductive EffectTarget where
   | nextAttack (filter : CardFilter)
   /-- The next paid attack of a specific affected player (Debilitate). -/
   | nextAttackBy (p : PlayerId)
+  /-- Additional resources for the specified player's next played or activated action. -/
+  | nextActionBy (p : PlayerId)
   /-- Waits for the controller's next defending card and applies if it matches the filter. -/
   | nextDefend (filter : CardFilter)
   /-- Applies to each paid attack matching the filter while the effect is active. -/
@@ -320,7 +322,8 @@ def EffectTarget.matches (t : EffectTarget) (c : DerivedChars) (id : ObjId) : Bo
   match t with
   | .obj tid => tid == id
   | .objects ids => ids.contains id
-  | .player _ | .nextAttackCard _ | .nextAttack _ | .nextAttackBy _ | .nextDefend _ | .allAttacks _ => false
+  | .player _ | .nextAttackCard _ | .nextAttack _ | .nextAttackBy _ | .nextActionBy _
+  | .nextDefend _ | .allAttacks _ => false
   | .matchingCard controller filter =>
     c.controller == controller && !filter.isWeaponAttack &&
       cardFaceMatches filter {

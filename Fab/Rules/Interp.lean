@@ -1871,6 +1871,11 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | .firstAttackNextTurn player, .addPower delta =>
         let affected := evalPlayerRef s ctrl player
         some (affected, .nextAttackBy affected, .addPower (evalNumExpr s ctrl env delta), true)
+      | .firstActionNextTurn player, .modifyCost delta =>
+        if 0 < delta then
+          let affected := evalPlayerRef s ctrl player
+          some (affected, .nextActionBy affected, .addCostRes delta.toNat, true)
+        else none
       | _, _ => none
     match timed with
     | some (affected, target, op, waits) =>

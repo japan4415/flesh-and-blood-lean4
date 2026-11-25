@@ -45,6 +45,8 @@ structure ActivationPayment where
   oncePerTurn : Bool
   /-- Counters removed from the source as an additional cost. -/
   removeCounters : Option (CounterKind × Nat) := none
+  /-- Whether the announced ability is an Action (CR 8.1.1). -/
+  isAction : Bool := false
 deriving DecidableEq, Repr
 
 /-- Per-layer metadata tracked while a card or ability layer sits on the stack (CR 5.1, 5.3). -/
