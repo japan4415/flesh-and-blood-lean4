@@ -335,6 +335,7 @@ meta def checkSigilOfSolace (cid : CardId) (amount : Nat) : Option Bool := do
 
 #guard checkSigilOfSolace ⟨"WTR_173_R"⟩ 3 == some true
 #guard checkSigilOfSolace ⟨"WTR_174_Y"⟩ 2 == some true
+#guard checkSigilOfSolace ⟨"WTR_175_B"⟩ 1 == some true
 
 /-- Check Disable's damage threshold and the arsenal move after its trigger resolves. -/
 meta def checkDisable (cid : CardId) (power : Nat) : Option Bool := do
