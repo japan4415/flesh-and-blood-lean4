@@ -1733,16 +1733,18 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
   match dur, s.combat with
   | .thisChainLink, some cc =>
     let cc' := cc.updateActiveLink fun link =>
+      let targetsAttack := match scope with
+        | .self_ | .obj .self_ => link.attack == some src
+        | .obj .currentAttack => link.attack.isSome
+        | _ => false
       match mod with
       | .addPower d => { link with powerBonus := link.powerBonus + evalNumExpr s ctrl env d }
       | .addDefense d => { link with defenseBonus := link.defenseBonus + evalNumExpr s ctrl env d }
       | .grantKeyword kw => { link with grantedKeywords := kw :: link.grantedKeywords }
+      | .doubleDamageToHero =>
+        if targetsAttack then { link with damageMultiplier := link.damageMultiplier * 2 } else link
       | .grantTrigger trigger cond body =>
-        let applies := match scope with
-          | .self_ | .obj .self_ => link.attack == some src
-          | .obj .currentAttack => link.attack.isSome
-          | _ => false
-        if applies then
+        if targetsAttack then
           { link with grantedAbilities := link.grantedAbilities ++
               [.triggered trigger false none cond { body := body }] }
         else link

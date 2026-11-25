@@ -881,9 +881,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     | some cc =>
       match cc.activeLink? with
       | some link =>
-        let atkP := linkAttackPower s link
-        let totD := linkTotalDefense s link
-        let rawDmg := calcCombatDamage atkP totD
+        let rawDmg := linkDamageBeforePrevention s link
         let (s2, es) := applyDamageWithPrevention s link.defender .physical rawDmg
         let finalDmg :=
           match es.reverse.find? fun | .damageDealt _ .physical _ => true | _ => false with

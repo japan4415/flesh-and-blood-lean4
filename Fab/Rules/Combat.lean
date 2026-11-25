@@ -79,6 +79,10 @@ def linkTotalDefense (s : GameState) (link : ChainLink) : Nat :=
 def calcCombatDamage (atkPower totalDef : Nat) : Nat :=
   atkPower - totalDef
 
+/-- Combat damage proposed to the defending hero after defense and before prevention (CR 7.5.2). -/
+def linkDamageBeforePrevention (s : GameState) (link : ChainLink) : Nat :=
+  calcCombatDamage (linkAttackPower s link) (linkTotalDefense s link) * link.damageMultiplier
+
 /-- Whether a combat attack hits: strictly positive damage dealt (CR 7.5.3). -/
 def didCombatHit (dmg : Nat) : Bool :=
   decide (0 < dmg)
