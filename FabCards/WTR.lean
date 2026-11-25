@@ -404,8 +404,8 @@ def flusterFist (base : CardDef) : CardDef :=
           (.grant .self_ (.addPower .chainHits) .thisChainLink)
           .nop })
 
-/-- Fluster Fist Red (drafted IR). -/
-def WTR_086_R : CardDef := flusterFist WTR_086_R_meta
+/-- Fluster Fist Red. -/
+def WTR_086_R : CardDef := { flusterFist WTR_086_R_meta with status := .full }
 /-- Fluster Fist Yellow (drafted IR). -/
 def WTR_087_Y : CardDef := flusterFist WTR_087_Y_meta
 /-- Fluster Fist Blue (drafted IR). -/

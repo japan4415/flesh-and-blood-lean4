@@ -651,3 +651,39 @@ meta def checkOpenTheCenter (cid : CardId) (basePower : Nat) : Bool :=
 #guard checkOpenTheCenter ⟨"WTR_095_R"⟩ 5
 #guard checkOpenTheCenter ⟨"WTR_096_Y"⟩ 4
 #guard checkOpenTheCenter ⟨"WTR_097_B"⟩ 3
+
+/-- Fluster Fist counts prior hits, even when the same links were attacked in every case. -/
+meta def checkFlusterFist (cid : CardId) (basePower : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 2 }
+  let card ← funded.cards.find? cid
+  let (withJab, jab) ← cPlace funded attacker .hand ⟨"WTR_098_R"⟩
+  let (withCenter, center) ← cPlace withJab attacker .hand ⟨"WTR_095_R"⟩
+  let (withFist, fist) ← cPlace withCenter attacker .hand cid
+  let (ready, blockId) ← cPlace withFist defender .hand ⟨"WTR_203_R"⟩
+  let enter := fun id => [⟨.player attacker, .playCard id⟩] ++ passBoth ++ passBoth
+  let finish := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let jabDefense ← cSteps ready (enter jab)
+  let jabHit ← cSteps jabDefense finish
+  let jabMiss ← cSteps jabDefense ([⟨.player defender, .defendCard blockId⟩] ++ finish)
+  let twoHits ← cSteps jabHit (enter center ++ finish)
+  let oneHit ← cSteps jabMiss (enter center ++ finish)
+  let (shielded, _, _) := execPrim jabMiss defender ⟨0⟩ []
+    (.preventNextDamage .controller (.const 6) .thisTurn)
+  let noHits ← cSteps shielded (enter center ++ finish)
+  let check := fun (s : GameState) (bonus : Nat) => do
+    let resolved ← cSteps s (enter fist ++ finish)
+    let link ← resolved.combat.bind CombatChain.activeLink?
+    pure (link.powerBonus == Int.ofNat bonus && link.damageDealt == basePower + bonus &&
+      s.lifeOf defender - resolved.lifeOf defender == Int.ofNat (basePower + bonus) &&
+      (resolved.poolOf attacker).actionPoints == 0)
+  let twoOk ← check twoHits 2
+  let oneOk ← check oneHit 1
+  let zeroOk ← check noHits 0
+  let standaloneOk ← check ready 0
+  pure (card.status == .full && twoHits.lifeOf defender == 31 &&
+    oneHit.lifeOf defender == 34 && noHits.lifeOf defender == 40 &&
+    twoOk && oneOk && zeroOk && standaloneOk)
+
+#guard checkFlusterFist ⟨"WTR_086_R"⟩ 4 == some true
