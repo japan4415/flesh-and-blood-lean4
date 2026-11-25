@@ -795,6 +795,8 @@ meta def checkUnmovable (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool
 #guard checkUnmovable ⟨"WTR_212_R"⟩ 1 7 true == some true
 #guard checkUnmovable ⟨"WTR_213_Y"⟩ 2 6 false == some true
 #guard checkUnmovable ⟨"WTR_213_Y"⟩ 2 6 true == some true
+#guard checkUnmovable ⟨"WTR_214_B"⟩ 3 5 false == some true
+#guard checkUnmovable ⟨"WTR_214_B"⟩ 3 5 true == some true
 
 /-- A stacked defense reaction checks Dominate again after the layer above it defends. -/
 meta def checkUnmovableAgainstDominate (fromArsenal : Bool) : Option Bool := do
