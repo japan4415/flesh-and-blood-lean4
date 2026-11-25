@@ -105,6 +105,23 @@ def linkWeaponAttackModifiers (s : GameState) (link : ChainLink) : List EffectOp
     | .weaponAttacks source => if link.attackSource == some source then some effect.op else none
     | _ => none
 
+/-- Live hero modifiers for a specific attack of the turn (CR 6.2.3). -/
+def attackOrdinalPower (s : GameState) (link : ChainLink) : Int :=
+  let heroes := (allPlayers s.playerCount).flatMap fun player => s.zone (.player player .hero)
+  heroes.foldl (fun total id =>
+    if (s.obj? id).any (fun obj => !obj.faceDown) &&
+        (s.characteristics id).any (fun chars => chars.controller == link.attacker && !chars.abilitiesLost) then
+      let abilities := ((s.objectFace? id).map (·.abilities)).getD []
+      abilities.foldl (fun power ability =>
+        match ability with
+        | .static_ condition (.attackOrdinal ordinal) (.addPower amount) =>
+          if ordinal == link.turnAttackOrdinal &&
+              condition.all (evalCondition s link.attacker id false) then
+            power + evalNumExpr s link.attacker [] amount
+          else power
+        | _ => power) total
+    else total) 0
+
 /-- Effective attack power `{p}` of a `ChainLink` — falls back to `attackLki` if the attack left
 the combat chain (CR 3.5.4b) — clamped to `Nat` (CR 2.0.3, 7.5.2). -/
 def linkAttackPower (s : GameState) (link : ChainLink) : Nat :=
@@ -118,7 +135,7 @@ def linkAttackPower (s : GameState) (link : ChainLink) : Nat :=
     match op with
     | .addPower bonus => total + bonus
     | _ => total) 0
-  clampNonNeg (basePow + link.powerBonus + conditionalPower + weaponPower)
+  clampNonNeg (basePow + link.powerBonus + conditionalPower + weaponPower + attackOrdinalPower s link)
 
 /-- Sum of effective defense values `{d}` of all defending cards on a `ChainLink` (CR 7.5.2). -/
 def linkTotalDefense (s : GameState) (link : ChainLink) : Nat :=
@@ -782,6 +799,7 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
   let prevLinks := match s2.combat with | some cc => cc.links | none => []
   let newLink : ChainLink :=
     { linkId := ⟨prevLinks.length + 1⟩
+      turnAttackOrdinal := s.attacksThisTurn.count attacker + 1
       attacker := attacker
       defender := defender
       attack := some atkId
@@ -795,6 +813,7 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
       grantedAbilities := attackInfo.attackAbilities }
   let s3 := { s2 with
     combat := some { step := .attack, links := newLink :: prevLinks }
+    attacksThisTurn := attacker :: s2.attacksThisTurn
     layerMeta := s2.layerMeta.erase layerId.n }
   (s3, atkId, esWep ++ esAtk)
 

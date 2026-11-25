@@ -56,6 +56,7 @@ def ModScope.wfBool (numSlots : Nat) (env : List VarId) : ModScope → Bool
   | .nextCardPlayed _ => true
   | .nextAttack _ => true
   | .allAttacks _ => true
+  | .attackOrdinal n => decide (0 < n)
   | .nextDefend _ => true
   | .allMatching p _ => p.wfBool numSlots
   | .arenaObjectsOfType p _ => p.wfBool numSlots

@@ -1964,6 +1964,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       activatedThisTurn := []
       weaponHitsThisTurn := []
       attackActionHitsThisTurn := []
+      attacksThisTurn := []
       triggeredThisTurn := [] }
     let draws := endPhaseDrawFrames s2 tp
     some ({ s2 with pending := draws ++ [.endTurnFinish] ++ rest }, [])
