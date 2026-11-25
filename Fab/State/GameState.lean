@@ -8,6 +8,8 @@ public import Fab.State.Phase
 public import Fab.State.Decision
 public import Fab.Tournament.TimeLimit
 public import Fab.Rules.Continuous
+public import Fab.Rules.Replacement
+public import Fab.Rules.Triggers
 public import Fab.Core.Cost
 public import Fab.Card.CardDB
 public import Std.Data.ExtTreeMap
@@ -37,6 +39,8 @@ structure LayerInfo where
   modeIdx : Option Nat := none
   /-- Whether this layer has Go Again on resolution (CR 5.3.4, 8.3.5). -/
   goAgain : Bool := false
+  /-- Optional explicit effect body for triggered/activated ability layers (CR 6.6). -/
+  triggerEffect : Option Effect := none
 deriving DecidableEq, Repr
 
 /-- Snapshot of mutable board state saved at the start of playing a card so illegal or unpayable
@@ -62,6 +66,12 @@ structure BoardSnapshot where
   combat : Option CombatChain := none
   /-- Saved active continuous effects. -/
   activeEffects : List ContinuousEffect := []
+  /-- Saved pending triggered abilities. -/
+  pendingTriggers : List PendingTrigger := []
+  /-- Saved delayed triggered abilities. -/
+  delayedTriggers : List DelayedTrigger := []
+  /-- Saved recorded replacement-effect choices. -/
+  chosenReplacements : List (Option Nat) := []
 deriving DecidableEq, Repr
 
 /-- Complete state of a Flesh and Blood game (M2-M5 core). -/
@@ -104,6 +114,12 @@ structure GameState where
   tournament : TournamentState := {}
   /-- Active continuous effects evaluated by the 8-stage `characteristics` engine (CR 6.2-6.3). -/
   activeEffects : List ContinuousEffect := []
+  /-- Pending triggered abilities waiting to be stacked via `flushTriggers` (CR 6.6). -/
+  pendingTriggers : List PendingTrigger := []
+  /-- Active delayed triggers waiting for future phases/events (CR 6.6.3). -/
+  delayedTriggers : List DelayedTrigger := []
+  /-- Replacement-effect choices recorded via `chooseReplacement` (CR 6.5.1). -/
+  chosenReplacements : List (Option Nat) := []
 deriving DecidableEq, Repr
 
 /-- List of every valid zone in an `n`-player game (CR 3.0). -/
@@ -347,7 +363,10 @@ def snapshot (s : GameState) : BoardSnapshot :=
     pending := s.pending
     layerMeta := s.layerMeta
     combat := s.combat
-    activeEffects := s.activeEffects }
+    activeEffects := s.activeEffects
+    pendingTriggers := s.pendingTriggers
+    delayedTriggers := s.delayedTriggers
+    chosenReplacements := s.chosenReplacements }
 
 /-- Restore a saved `BoardSnapshot` and clear `playRollback` (CR 5.1.1). -/
 def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
@@ -362,6 +381,9 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     layerMeta := snap.layerMeta
     combat := snap.combat
     activeEffects := snap.activeEffects
+    pendingTriggers := snap.pendingTriggers
+    delayedTriggers := snap.delayedTriggers
+    chosenReplacements := snap.chosenReplacements
     playRollback := none }
 
 /-- Evaluate the 8-stage derived characteristics of object `id` in state `s` (CR 6.3.2). -/

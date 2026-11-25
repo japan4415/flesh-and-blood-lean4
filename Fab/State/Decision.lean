@@ -3,6 +3,7 @@ module
 public import Fab.State.Zone
 public import Fab.State.Combat
 public import Fab.Core.Cost
+public import Fab.Core.Property
 public import Fab.Card.IR.Effect
 
 /-!
@@ -104,6 +105,12 @@ inductive ActionKind where
   | declineDraw
   /-- Tournament judge declares a draw due to an unbreakable mandatory loop (TRP 4). -/
   | judgeLoopDraw
+  /-- Turn-player picks which seated player starts stacking simultaneous triggers (CR 6.6.6b). -/
+  | pickTriggerStart (start : PlayerId)
+  /-- Player picks one of their pending triggers by ID to place onto the stack (CR 6.6.6b). -/
+  | pickTrigger (trigId : Nat)
+  /-- Affected player chooses an optional/competing replacement effect ID or declines (CR 6.5.1). -/
+  | pickReplacement (choice : Option Nat)
 deriving DecidableEq, Repr
 
 /-- A single decision input paired with its `Actor`. -/
@@ -188,6 +195,17 @@ inductive Frame where
   | choosePitchOrder (p : PlayerId)
   /-- Work frame: untap permanents, clear all asset pools, and draw up to Intellect (CR 4.4.3d, 4.4.3e, 4.4.3f). -/
   | endTurnCleanup (tp : PlayerId)
+  /-- Work frame: flush pending triggered abilities onto the stack via turn-player start choice (CR 6.6.6b). -/
+  | flushTriggers
+  /-- Player decision: turn-player picks which player begins stacking simultaneous triggers (CR 6.6.6b). -/
+  | chooseTriggerStart (turnPlayer : PlayerId)
+  /-- Player decision: player `p` picks one of their pending triggers to stack, then passes clockwise
+  to `remainingPlayers` (CR 6.6.6b). -/
+  | chooseTriggerOrder (p : PlayerId) (remainingPlayers : List PlayerId)
+  /-- Player decision: affected player selects a replacement effect ID (or `none` if optional)
+  at `stage` (CR 6.5.1). -/
+  | chooseReplacement (affected : PlayerId) (stage : ReplacementStage) (candidates : List Nat)
+      (canDecline : Bool)
 deriving DecidableEq, Repr
 
 /-- Whether a frame is an automatic work frame processed by `microStep`. -/
@@ -208,6 +226,7 @@ def Frame.isWork : Frame → Bool
   | .endPhaseStart _ => true
   | .returnPitch _ => true
   | .endTurnCleanup _ => true
+  | .flushTriggers => true
   | _ => false
 
 end Fab
