@@ -281,6 +281,8 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
 inductive EffectTarget where
   /-- Applies specifically to object `id`. -/
   | obj (id : ObjId)
+  /-- Applies to each object selected when the effect was generated (CR 6.2.2c). -/
+  | objects (ids : List ObjId)
   /-- Applies to any object whose derived characteristics satisfy `reqType`/`reqSubtype`/
   `reqSupertype`/`reqMinPower`/`reqName` and optional controller restriction. -/
   | matching
@@ -302,6 +304,7 @@ deriving DecidableEq, Repr
 def EffectTarget.matches (t : EffectTarget) (c : DerivedChars) (id : ObjId) : Bool :=
   match t with
   | .obj tid => tid == id
+  | .objects ids => ids.contains id
   | .nextAttackCard _ | .nextAttack _ | .allAttacks _ => false
   | .matching ctrl reqT reqSub reqSup reqMinP reqName =>
     (match ctrl with | some p => c.controller == p | none => true) &&

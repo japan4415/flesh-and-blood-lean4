@@ -123,6 +123,8 @@ inductive ModScope where
   | nextDefend (f : CardFilter)
   /-- All cards/objects matching `f` controlled by player `p` (Forged for War, Stonewall Confidence). -/
   | allMatching (p : PlayerRef) (f : CardFilter)
+  /-- All arena objects of the given type controlled by player `p` when the effect is generated. -/
+  | arenaObjectsOfType (p : PlayerRef) (kind : CardType)
   /-- Player `p`'s hero (Helm of Isen's Peak, Crush Confidence). -/
   | hero (p : PlayerRef)
   /-- Player `p`'s first action during their next turn (Cartilage Crush). -/

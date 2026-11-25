@@ -49,8 +49,9 @@ def objEffectivePower (s : GameState) (id : ObjId) : Option Int :=
   | none => none
   | some o =>
     match o.kind with
-    | .attackProxy _ (some lki) =>
-      lki.power.map (· + Int.ofNat lki.plusPowerCounters)
+    | .attackProxy source (some lki) =>
+      ((s.characteristics source).bind (·.power)).orElse fun _ =>
+        lki.power.map (· + Int.ofNat lki.plusPowerCounters)
     | _ => do
       let chars ← s.characteristics id
       let power ← chars.power

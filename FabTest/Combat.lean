@@ -442,6 +442,60 @@ meta def checkWeaponReprise (cid : CardId) (pitch cost baseBonus repriseBonus : 
 #guard checkWeaponReprise ⟨"WTR_134_B"⟩ 3 0 0 1 false false == some true
 #guard checkWeaponReprise ⟨"WTR_134_B"⟩ 3 0 0 1 false true == some true
 
+/-- Biting Blade boosts the targeted attack and, on Reprise, both equipped weapons for the turn. -/
+meta def checkBitingBlade (cid : CardId) (pitch bonus : Nat) (fromArsenal : Bool) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool attacker { actionPoints := 3, resources := 4 }
+  let card ← funded.cards.find? cid
+  let (one, first) ← cPlace funded attacker .weapon ⟨"WTR_078"⟩
+  let (two, second) ← cPlace one attacker .weapon ⟨"WTR_078"⟩
+  let (withOther, other) ← cPlace two defender .weapon ⟨"WTR_078"⟩
+  let (withReserve, reserve) ← cPlace withOther attacker .inventory ⟨"WTR_078"⟩
+  let (withGeneric, generic) ← cPlace withReserve attacker .hand ⟨"WTR_203_R"⟩
+  let (withSpare, _) ← cPlace withGeneric attacker .hand ⟨"WTR_205_B"⟩
+  let (withBlade, blade) ← cPlace withSpare attacker origin cid fromArsenal
+  let (ready, block) ← cPlace withBlade defender .hand ⟨"WTR_203_R"⟩
+  let swing id : Action := ⟨.player attacker, .attackWeapon id⟩
+  let play id : Action := ⟨.player attacker, .playCard id⟩
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let toDefense := passBoth ++ passBoth
+  let toReaction := done :: passBoth
+  let finish := passBoth ++ passBoth
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let defense ← cSteps ready (swing first :: toDefense)
+  let bareReaction ← cSteps defense toReaction
+  let (bare, _) ← (step 64 bareReaction (play blade)).toOption
+  let bareResolved ← cSteps bare passBoth
+  let reprising ← cSteps defense (⟨.player defender, .defendCard block⟩ :: toReaction)
+  let paid ← cSteps reprising [play blade]
+  let resolved ← cSteps paid passBoth
+  let firstHit ← cSteps resolved finish
+  let closed ← cSteps firstHit passBoth
+  let genericHit ← cSteps closed (play generic :: (toDefense ++ toReaction ++ finish))
+  let beforeSecond ← cSteps genericHit passBoth
+  let secondHit ← cSteps beforeSecond (swing second :: (toDefense ++ toReaction ++ finish))
+  let doneCombat ← cSteps secondHit passBoth
+  let ended ← cSteps doneCombat (passBoth ++ [⟨.player attacker, .arsenalSkip⟩])
+  let gotPower (s : GameState) (n : Nat) := (active s).map (linkAttackPower s) == some n
+  let damage (s : GameState) := (active s).map (·.damageDealt)
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 3 &&
+    (paid.poolOf attacker).resources == 1 && (paid.poolOf attacker).actionPoints == 2 &&
+    gotPower bareResolved (1 + bonus) && bareResolved.activeEffects.isEmpty &&
+    objEffectivePower bareResolved second == some 1 &&
+    gotPower resolved (2 + bonus) && damage firstHit == some (2 + bonus - 3) &&
+    objEffectivePower resolved first == some 2 && objEffectivePower resolved second == some 2 &&
+    objEffectivePower resolved other == some 1 && objEffectivePower resolved reserve == some 1 &&
+    objEffectivePower resolved generic == some 4 &&
+    damage genericHit == some 4 && damage secondHit == some 2 &&
+    objEffectivePower doneCombat first == some 2 && objEffectivePower doneCombat second == some 2 &&
+    ended.activeEffects.isEmpty && objEffectivePower ended first == some 1 &&
+    objEffectivePower ended second == some 1)
+
+#guard checkBitingBlade ⟨"WTR_135_R"⟩ 1 3 false == some true
+#guard checkBitingBlade ⟨"WTR_135_R"⟩ 1 3 true == some true
+
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
 --    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!
