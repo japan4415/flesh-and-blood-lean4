@@ -1203,6 +1203,7 @@ meta def checkStonewallConfidence (cid : CardId) (pitch : Nat) (bonus : Int) : O
 
 #guard checkStonewallConfidence ⟨"WTR_072_R"⟩ 1 4 == some true
 #guard checkStonewallConfidence ⟨"WTR_073_Y"⟩ 2 3 == some true
+#guard checkStonewallConfidence ⟨"WTR_074_B"⟩ 3 2 == some true
 
 /-- Forged for War gives live equipment defense until the aura leaves the arena. -/
 meta def checkForgedForWar : Option Bool := do
