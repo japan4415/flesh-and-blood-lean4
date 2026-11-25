@@ -1255,8 +1255,8 @@ def pummelCard (base : CardDef) (bonus : Int) : CardDef :=
                       (.prim (.discardChoice .defendingHero CardFilter.any (.const 1))))
                     .thisChainLink ] } ] })
 
-/-- Pummel Red (drafted IR). -/
-def WTR_206_R : CardDef := pummelCard WTR_206_R_meta 4
+/-- Pummel Red. -/
+def WTR_206_R : CardDef := { pummelCard WTR_206_R_meta 4 with status := .full }
 /-- Pummel Yellow (drafted IR). -/
 def WTR_207_Y : CardDef := pummelCard WTR_207_Y_meta 3
 /-- Pummel Blue (drafted IR). -/

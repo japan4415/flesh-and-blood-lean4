@@ -38,7 +38,7 @@ open FabCards
 #guard match wtrDB.find? ⟨"WTR_206_R"⟩ with
   | some c =>
     c.front.name == "Pummel" &&
-    c.status == .drafted &&
+    c.status == .full &&
     match c.front.playEffect with
     | some ed => ed.modes.length == 2
     | none => false

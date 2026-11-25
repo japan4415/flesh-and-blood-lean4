@@ -1161,8 +1161,11 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
       match s.objectFace? id with
       | some face => cardFaceMatches f face
       | none => false
-    let (s1, es) := discardManyObjs s target (matching.take cnt)
-    (s1, es, [])
+    if 0 < cnt && cnt < matching.length then
+      (s, [], [.chooseDiscard target cnt matching []])
+    else
+      let (s1, es) := discardManyObjs s target (matching.take cnt)
+      (s1, es, [])
   | .intimidate pref =>
     let target := evalPlayerRef s ctrl pref
     let hand := Zone.player target .hand
@@ -1421,7 +1424,10 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
   | discardHandPrefix _ =>
     exact discardManyObjs_inv ctrl _ hwf hok
   | discardChoice pref f n =>
-    exact discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok
+    unfold execPrim; dsimp only
+    split
+    · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    · exact discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok
   | intimidate pref =>
     unfold execPrim; dsimp only
     split
@@ -1667,11 +1673,15 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     have h := discardManyObjs_ttr ctrl ((s.zone (.player ctrl .hand)).take cnt) s
     exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
   | discardChoice pref f n =>
-    have h := discardManyObjs_ttr (evalPlayerRef s ctrl pref)
-      (((s.zone (.player (evalPlayerRef s ctrl pref) .hand)).filter fun id =>
-          match s.objectFace? id with | some face => cardFaceMatches f face | none => false).take
-        (clampNonNeg (evalNumExpr s ctrl env n))) s
-    exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+    unfold execPrim; dsimp only
+    split
+    · exact ⟨rfl, rfl, id⟩
+    ·
+      have h := discardManyObjs_ttr (evalPlayerRef s ctrl pref)
+        (((s.zone (.player (evalPlayerRef s ctrl pref) .hand)).filter fun id =>
+            match s.objectFace? id with | some face => cardFaceMatches f face | none => false).take
+          (clampNonNeg (evalNumExpr s ctrl env n))) s
+      exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
   | intimidate pref =>
     unfold execPrim; dsimp only
     split

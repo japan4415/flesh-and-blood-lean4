@@ -1147,6 +1147,17 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
         have hm' := moveObj_turn_tournament_result hm
         exact ⟨hm'.1, hm'.2.1, hm'.2.2⟩
     · cases h
+  · -- chooseDiscard pickDiscardCard
+    split at h
+    · split at h
+      · rename_i p _ _ selected _ _ id _ _ _ _ _
+        have ht := discardManyObjs_ttr p ((id :: selected).reverse) s
+        dsimp only at h
+        cases h
+        exact ⟨ht.1, ht.2.1, ht.2.2⟩
+      · cases h
+        exact ⟨rfl, rfl, rfl⟩
+    · cases h
   · -- chooseShuffleCards pickShuffleCard
     split at h
     · split at h

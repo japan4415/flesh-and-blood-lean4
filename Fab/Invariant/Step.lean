@@ -576,6 +576,19 @@ theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
         have hp := moveObj_preserves hwf hok hrb hm
         exact hp.trans (sameBoard_preserves hp.wf hp.ownerOk hp.rollbackOk rfl rfl rfl rfl rfl)
     · cases h
+  · -- chooseDiscard pickDiscardCard
+    split at h
+    · split at h
+      · rename_i p _ _ selected _ _ id _ _ _ _ _
+        have hinv := discardManyObjs_inv p ((id :: selected).reverse) hwf hok
+        dsimp only at h
+        cases h
+        obtain ⟨hwf1, hok1, hids, hconfig, hrollback⟩ := hinv
+        exact ⟨GameState.WF.congr hwf1 rfl rfl rfl rfl, GameState.OwnerOk.congr hok1 rfl rfl,
+          GameState.RollbackOk.preserve hrb hconfig hrollback hids, hids, hconfig⟩
+      · cases h
+        exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · cases h
   · -- chooseShuffleCards pickShuffleCard
     split at h
     · split at h
@@ -1287,7 +1300,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
             simp [hfin]
         | chanceFirstChooser _ | pickFirstPlayer _ | shuffleOrder _ | pass | playCard _
         | attackWeapon _ | activateAbility _ _ _ | defendCard _ | defendDone
-        | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _
+        | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _
         | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_map, List.mem_filter,
             Action.mk.injEq, Actor.player.injEq, iff_false]
@@ -1358,7 +1371,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
             exact ⟨(source, index, target), hmem, rfl, rfl, rfl, rfl⟩
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | defendCard _ | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _
-        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _
+        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _
         | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
@@ -1399,7 +1412,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
           · intro hq; right; exact hq
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | pickMode _ | pickHeroTarget _
-        | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _
+        | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _
         | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_singleton,
             Action.mk.injEq, iff_false]
@@ -1454,7 +1467,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
           · intro hq; right; exact hq
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
-        | defendDone | pickMode _ | pickHeroTarget _ | pickMay _ | die6Roll _ | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _
+        | defendDone | pickMode _ | pickHeroTarget _ | pickMay _ | die6Roll _ | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _
         | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
@@ -1498,7 +1511,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
           cases b <;> simp [Actor.isPlayer, eq_comm]
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
-        | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | die6Roll _ | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _
+        | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | die6Roll _ | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _
         | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
@@ -1509,6 +1522,9 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
     | chooseHandToDeck p _ =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer]
       grind
+    | chooseDiscard p remaining candidates _ =>
+      by_cases hpos : 0 < remaining <;>
+        cases actor <;> cases kind <;> simp [Actor.isPlayer, hpos] <;> grind
     | chooseShuffleCards p remaining candidates selected _ search =>
       cases remaining <;> cases actor <;> cases kind <;> simp [Actor.isPlayer]
       all_goals
@@ -1525,7 +1541,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
+        | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           simp [Actor.isPlayer]
       | chance | clock | judge =>
         cases kind <;> simp [Actor.isPlayer]
@@ -1568,7 +1584,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
+        | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_singleton,
             Action.mk.injEq, iff_false]
           rintro (hput | ⟨_, hcontra⟩)
@@ -1611,7 +1627,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _
+        | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _
         | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw
         | pickTriggerStart _ | pickReplacement _ =>
           simp [Actor.isPlayer]
@@ -1650,7 +1666,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _
+        | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _
         | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw
         | pickTriggerStart _ | pickTrigger _ _ _ =>
           simp only [Actor.isPlayer, and_true, List.mem_append, List.mem_map,
@@ -1818,7 +1834,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           simp [hfin]
         | chanceFirstChooser _ | pickFirstPlayer _ | shuffleOrder _ | pass | playCard _
         | attackWeapon _ | activateAbility _ _ _ | defendCard _ | defendDone
-        | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _
+        | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _
         | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
       | chance | clock | judge =>
@@ -1876,7 +1892,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           simpa only [↓reduceIte] using startActivation_isSome (rest := rest) hmem
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | defendCard _ | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _
-        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _
+        | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _
         | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
       | chance | clock | judge =>
@@ -1921,7 +1937,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           simp
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | pickMode _ | pickHeroTarget _
-        | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _
+        | pitchCard _ | cancelPlay | pickMay _ | die6Roll _ | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _
         | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
       | chance | clock | judge =>
@@ -1938,7 +1954,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           simp
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
-        | defendDone | pickHeroTarget _ | pitchCard _ | pickMay _ | die6Roll _ | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _
+        | defendDone | pickHeroTarget _ | pitchCard _ | pickMay _ | die6Roll _ | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _
         | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
       | chance | clock | judge =>
@@ -1963,7 +1979,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           simp
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
-        | defendDone | pickMode _ | pickHeroTarget _ | pickMay _ | die6Roll _ | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _
+        | defendDone | pickMode _ | pickHeroTarget _ | pickMay _ | die6Roll _ | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _
         | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
       | chance | clock | judge =>
@@ -2017,7 +2033,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           cases b <;> simp
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
-        | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | die6Roll _ | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _
+        | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | die6Roll _ | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _
         | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
       | chance | clock | judge =>
@@ -2032,7 +2048,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _
+        | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _
         | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
       | chance | clock | judge =>
@@ -2068,10 +2084,13 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
+        | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
+    | chooseDiscard p remaining candidates _ =>
+      cases actor <;> cases kind <;> simp_all
+      split <;> rfl
     | chooseShuffleCards p remaining candidates selected drawSame search =>
       cases actor <;> cases kind <;> try exact False.elim hlf
       rename_i q choice
@@ -2093,7 +2112,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
+        | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | arsenalPut _ | arsenalSkip | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -2122,7 +2141,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
+        | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | pitchReturnPick _ | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -2148,7 +2167,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
+        | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw | pickTriggerStart _ | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
@@ -2162,7 +2181,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _
+        | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _
         | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw
         | pickTrigger _ _ _ | pickReplacement _ =>
           exact False.elim hlf
@@ -2204,7 +2223,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _
+        | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _
         | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw
         | pickTriggerStart _ | pickReplacement _ =>
           exact False.elim hlf
@@ -2224,7 +2243,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         | chanceFirstChooser _ | pickFirstPlayer _ | loadoutEquip _ | loadoutToDeck _
         | loadoutDone | shuffleOrder _ | pass | playCard _ | attackWeapon _ | activateAbility _ _ _ | defendCard _
         | defendDone | pickMode _ | pickHeroTarget _ | pitchCard _ | cancelPlay | pickMay _ | die6Roll _
-        | handToDeckPick _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _
+        | handToDeckPick _ | pickDiscardCard _ | pickShuffleCard _ | pickHandCostCard _ | pickGraveyardCost _ | optPick _ | arsenalPut _ | arsenalSkip | pitchReturnPick _
         | concede | timeExpired | offerDraw | acceptDraw | declineDraw | judgeLoopDraw
         | pickTriggerStart _ | pickTrigger _ _ _ =>
           exact False.elim hlf
