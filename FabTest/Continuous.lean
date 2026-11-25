@@ -113,8 +113,8 @@ meta def testFace : CardFace :=
   let c3 := calcFinalAssetCost base (some 0) [2] [1]        -- set 0 + 2 - 1 = 1
   c1.resources == 2 && c2.resources == 0 && c3.resources == 1
 
--- 6. Live GameState integration: `Effect.grant` (.thisTurn) updates `s.characteristics`
---    and expires cleanly at End Phase (`endTurnCleanup`) (CR 4.4.3, 6.2):
+-- 6. Awakening Bellow's pending bonus leaves Wounding Blow unchanged and expires at turn cleanup
+--    (CR 4.4.3, 6.2).
 #guard match (do
     let s0 : GameState :=
       { config := GameConfig.ccDuel
@@ -127,20 +127,22 @@ meta def testFace : CardFace :=
     let s0 := ((s0.setLife ⟨0⟩ 40).setLife ⟨1⟩ 40).setPool ⟨0⟩ { actionPoints := 2, resources := 2 }
     let (s1, wb) ← addObject s0 (.player ⟨0⟩ .hand)
       { kind := .card ⟨0⟩ ⟨"WTR_203_R"⟩, owner := ⟨0⟩, controller := ⟨0⟩, timestamp := ⟨0⟩ } .top
-    -- Awakening Bellow Red (WTR_032_R): cost 1{r}, Go Again, grants +3{p} until end of turn
+    -- Awakening Bellow Red grants +3{p} to the next Brute attack action played this turn.
     let (s2, bellow) ← addObject s1 (.player ⟨0⟩ .hand)
       { kind := .card ⟨1⟩ ⟨"WTR_032_R"⟩, owner := ⟨0⟩, controller := ⟨0⟩, timestamp := ⟨1⟩ } .top
     -- Play Awakening Bellow Red and let it resolve
     let s3 ← match step 64 s2 ⟨.player ⟨0⟩, .playCard bellow⟩ with | .ok (s', _) => some s' | .error _ => none
     let s4 ← match step 64 s3 ⟨.player ⟨0⟩, .pass⟩ with | .ok (s', _) => some s' | .error _ => none
     let s5 ← match step 64 s4 ⟨.player ⟨1⟩, .pass⟩ with | .ok (s', _) => some s' | .error _ => none
-    -- Wounding Blow Red base power 4 + Awakening Bellow +3 = 7 via 8-stage `characteristics`!
-    let buffedPow := (s5.characteristics wb).bind (·.power)
-    -- Pass Action Phase -> End Phase (skip arsenal) -> `untilEndOfTurn` effect expires!
+    let pendingBonus := match s5.activeEffects with
+      | [e] => e.op == .addPower 3 && e.duration == .thisTurn &&
+          e.target == .nextAttackCard { supertypes := [.class_ .brute], types := [.action], subtypes := [.attack] }
+      | _ => false
+    let handPower := (s5.characteristics wb).bind (·.power)
     let s6 ← match step 64 s5 ⟨.player ⟨0⟩, .pass⟩ with | .ok (s', _) => some s' | .error _ => none
     let s7 ← match step 64 s6 ⟨.player ⟨1⟩, .pass⟩ with | .ok (s', _) => some s' | .error _ => none
     let s8 ← match step 64 s7 ⟨.player ⟨0⟩, .arsenalSkip⟩ with | .ok (s', _) => some s' | .error _ => none
-    let unbuffedPow := (s8.characteristics wb).bind (·.power)
-    pure (buffedPow == some 7 && s8.activeEffects.isEmpty && unbuffedPow == some 4)) with
+    pure (pendingBonus && handPower == some 4 && s8.activeEffects.isEmpty &&
+      (s8.characteristics wb).bind (·.power) == some 4)) with
   | some b => b
   | none => false
