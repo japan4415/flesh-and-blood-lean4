@@ -1,0 +1,8583 @@
+{
+  "source_repo": "the-fab-cube/flesh-and-blood-cards",
+  "source_commit": "3f16c0b4ad8a6d40ea20cfe63b04d46f75d5359b",
+  "set_code": "ARC",
+  "card_count": 219,
+  "cards": [
+    {
+      "card_id": "ARC_000_B",
+      "unique_id": "N77hdGp96fNQnzc79hqN9",
+      "primary_print_id": "ARC000",
+      "name": "Eye of Ophidia",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "resource"
+      ],
+      "subtypes": [
+        "gem"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "legendary"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ANQ",
+        "ARC"
+      ],
+      "type_text": "Generic Resource - Gem",
+      "text_hash": "9e23fe63a64a"
+    },
+    {
+      "card_id": "ARC_001",
+      "unique_id": "6CcjWGnThrTmTQFQ9zHMN",
+      "primary_print_id": "ARC001",
+      "name": "Dash, Inventor Extraordinaire",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "hero"
+      ],
+      "subtypes": [],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": 4,
+      "life": 40,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "CRU",
+        "HER",
+        "WIN"
+      ],
+      "type_text": "Mechanologist Hero",
+      "text_hash": "2ff480400819"
+    },
+    {
+      "card_id": "ARC_002",
+      "unique_id": "kftPnNkrBLJ7rPmFGgQCm",
+      "primary_print_id": "ARC002",
+      "name": "Dash",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "hero"
+      ],
+      "subtypes": [
+        "young"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": 4,
+      "life": 20,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "HER",
+        "PEN",
+        "SDA"
+      ],
+      "type_text": "Mechanologist Hero - Young",
+      "text_hash": "2ff480400819"
+    },
+    {
+      "card_id": "ARC_003",
+      "unique_id": "fNFqtdWLq6tCPnnwjLLWL",
+      "primary_print_id": "ARC003",
+      "name": "Teklo Plasma Pistol",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "weapon"
+      ],
+      "subtypes": [
+        "pistol",
+        "twoHanded"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": 2,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "CRU",
+        "FAB",
+        "LGS"
+      ],
+      "type_text": "Mechanologist Weapon - Pistol (2H)",
+      "text_hash": "dc86d1d4238e"
+    },
+    {
+      "card_id": "ARC_004",
+      "unique_id": "tBqFrtGcBNQt7GnMFTPPB",
+      "primary_print_id": "ARC004",
+      "name": "Teklo Foundry Heart",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "chest"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "battleworn"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "EVO",
+        "FAB"
+      ],
+      "type_text": "Mechanologist Equipment - Chest",
+      "text_hash": "f9d638f72695"
+    },
+    {
+      "card_id": "ARC_005",
+      "unique_id": "C7jcJhrdpQTMfd7F79jK9",
+      "primary_print_id": "ARC005",
+      "name": "Achilles Accelerator",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "legs"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 1
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FAB",
+        "SDA"
+      ],
+      "type_text": "Mechanologist Equipment - Legs",
+      "text_hash": "a5fa4822de56"
+    },
+    {
+      "card_id": "ARC_006_R",
+      "unique_id": "BF7rFRwnNckBK8cMGpKHH",
+      "primary_print_id": "ARC006",
+      "name": "High Octane",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action",
+      "text_hash": "cd0814ccf7ae"
+    },
+    {
+      "card_id": "ARC_007_B",
+      "unique_id": "WhkHHgjnWgncTLFtLDKjn",
+      "primary_print_id": "ARC007",
+      "name": "Teklo Core",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "item"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "specialization",
+          "arg": "Dash"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "LGS"
+      ],
+      "type_text": "Mechanologist Action - Item",
+      "text_hash": "438f86eaa0e7"
+    },
+    {
+      "card_id": "ARC_008_R",
+      "unique_id": "mkDw7d9PKRDtJT7bCCRjh",
+      "primary_print_id": "ARC008",
+      "name": "Maximum Velocity",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 10,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "AIO",
+        "ARC",
+        "EVO"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "cd8a8742703e"
+    },
+    {
+      "card_id": "ARC_009_Y",
+      "unique_id": "tqpr9PgWLMcrmggBmfL9B",
+      "primary_print_id": "ARC009",
+      "name": "Spark of Genius",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "variable_cost_factor": 2,
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "specialization",
+          "arg": "Dash"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action",
+      "text_hash": "44771eff1cc2"
+    },
+    {
+      "card_id": "ARC_010_R",
+      "unique_id": "MNwTgMKtfwcbBTGTLCbzt",
+      "primary_print_id": "ARC010",
+      "name": "Induction Chamber",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "item"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action - Item",
+      "text_hash": "1832429416c7"
+    },
+    {
+      "card_id": "ARC_011_R",
+      "unique_id": "rkKktHBPDLQDfpddktPwn",
+      "primary_print_id": "ARC011",
+      "name": "Pedal to the Metal",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 5,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "ef97336304d3"
+    },
+    {
+      "card_id": "ARC_012_Y",
+      "unique_id": "hqdkcKzDpMTrNrNjKPk7n",
+      "primary_print_id": "ARC012",
+      "name": "Pedal to the Metal",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "ef97336304d3"
+    },
+    {
+      "card_id": "ARC_013_B",
+      "unique_id": "zqpjjkQcPrDPQJGhDKkbC",
+      "primary_print_id": "ARC013",
+      "name": "Pedal to the Metal",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "ef97336304d3"
+    },
+    {
+      "card_id": "ARC_014_R",
+      "unique_id": "MhtpFzdKHmtPPrnLwWhnq",
+      "primary_print_id": "ARC014",
+      "name": "Pour the Mold",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action",
+      "text_hash": "6d01e6031f93"
+    },
+    {
+      "card_id": "ARC_015_Y",
+      "unique_id": "r8TWKrQFMwGwD976H6LN6",
+      "primary_print_id": "ARC015",
+      "name": "Pour the Mold",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action",
+      "text_hash": "6089f9c22abb"
+    },
+    {
+      "card_id": "ARC_016_B",
+      "unique_id": "Nd8DdbchbdmFPFgNLRPDD",
+      "primary_print_id": "ARC016",
+      "name": "Pour the Mold",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action",
+      "text_hash": "4533e02f59f3"
+    },
+    {
+      "card_id": "ARC_017_Y",
+      "unique_id": "b7h97MzpKF8mNqMr8B9Fq",
+      "primary_print_id": "ARC017",
+      "name": "Aether Sink",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "item"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action - Item",
+      "text_hash": "85cfd21bfae3"
+    },
+    {
+      "card_id": "ARC_018_B",
+      "unique_id": "Kqmkn6mpNKLqKQdRPjMmt",
+      "primary_print_id": "ARC018",
+      "name": "Cognition Nodes",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "item"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action - Item",
+      "text_hash": "ed9a6234f799"
+    },
+    {
+      "card_id": "ARC_019_R",
+      "unique_id": "tcQQjwMNMtrMM8jnBHN8Q",
+      "primary_print_id": "ARC019",
+      "name": "Convection Amplifier",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "item"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AIO",
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action - Item",
+      "text_hash": "41de2321a73b"
+    },
+    {
+      "card_id": "ARC_020_R",
+      "unique_id": "RrjhFCHBwjJHg7PQc6Prk",
+      "primary_print_id": "ARC020",
+      "name": "Over Loop",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 5,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "EVO",
+        "LGS",
+        "TCC"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "371769ff6ac2"
+    },
+    {
+      "card_id": "ARC_021_Y",
+      "unique_id": "d8qtfb87mk97GKMDPgDKb",
+      "primary_print_id": "ARC021",
+      "name": "Over Loop",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "EVO",
+        "LGS"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "371769ff6ac2"
+    },
+    {
+      "card_id": "ARC_022_B",
+      "unique_id": "CMTbqWQL99gDnd8L7tthp",
+      "primary_print_id": "ARC022",
+      "name": "Over Loop",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "EVO",
+        "LGS"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "371769ff6ac2"
+    },
+    {
+      "card_id": "ARC_023_R",
+      "unique_id": "BHKdPc9mGc9CtNCzQJHnF",
+      "primary_print_id": "ARC023",
+      "name": "Throttle",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 6,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AIO",
+        "AMX",
+        "ARC",
+        "SDA",
+        "TCC"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "0d791a0a6f01"
+    },
+    {
+      "card_id": "ARC_024_Y",
+      "unique_id": "6bkFRTMhgjKWfftkpqtD6",
+      "primary_print_id": "ARC024",
+      "name": "Throttle",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 5,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "TCC"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "0d791a0a6f01"
+    },
+    {
+      "card_id": "ARC_025_B",
+      "unique_id": "PMqDKT6PGBHdmFKzcnCFB",
+      "primary_print_id": "ARC025",
+      "name": "Throttle",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SDA",
+        "TCC"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "0d791a0a6f01"
+    },
+    {
+      "card_id": "ARC_026_R",
+      "unique_id": "FgPpQpjMRLqL88FKhFPq6",
+      "primary_print_id": "ARC026",
+      "name": "Zero to Sixty",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AIO",
+        "AMX",
+        "ARC",
+        "FAB",
+        "SDA",
+        "TCC"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "0d791a0a6f01"
+    },
+    {
+      "card_id": "ARC_027_Y",
+      "unique_id": "BrHCD9dtfmWcwwRGg7PMj",
+      "primary_print_id": "ARC027",
+      "name": "Zero to Sixty",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AIO",
+        "AMX",
+        "ARC",
+        "SDA"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "0d791a0a6f01"
+    },
+    {
+      "card_id": "ARC_028_B",
+      "unique_id": "wKJrpKpFH8hPhtRrgqKCn",
+      "primary_print_id": "ARC028",
+      "name": "Zero to Sixty",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 2,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AIO",
+        "ARC",
+        "SDA"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "0d791a0a6f01"
+    },
+    {
+      "card_id": "ARC_029_R",
+      "unique_id": "H9hHm8NHT7B6LMrLJ8wbW",
+      "primary_print_id": "ARC029",
+      "name": "Zipper Hit",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 5,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AIO",
+        "AMX",
+        "ARC",
+        "SDA",
+        "TCC",
+        "TNP"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "0d791a0a6f01"
+    },
+    {
+      "card_id": "ARC_030_Y",
+      "unique_id": "nLGBDgFP78ChRnBtmPbHD",
+      "primary_print_id": "ARC030",
+      "name": "Zipper Hit",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AIO",
+        "ARC",
+        "SDA",
+        "TCC",
+        "TNP"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "0d791a0a6f01"
+    },
+    {
+      "card_id": "ARC_031_B",
+      "unique_id": "n6kmDfMCtWLDjQ7jgKW6z",
+      "primary_print_id": "ARC031",
+      "name": "Zipper Hit",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "boost"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AIO",
+        "ARC",
+        "SDA",
+        "TNP"
+      ],
+      "type_text": "Mechanologist Action - Attack",
+      "text_hash": "0d791a0a6f01"
+    },
+    {
+      "card_id": "ARC_032_R",
+      "unique_id": "RBmR6mwf6mzwwg7nwtGzK",
+      "primary_print_id": "ARC032",
+      "name": "Locked and Loaded",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action",
+      "text_hash": "0df30975e0ed"
+    },
+    {
+      "card_id": "ARC_033_Y",
+      "unique_id": "fftHpLKh8HbCDnTzgHbjF",
+      "primary_print_id": "ARC033",
+      "name": "Locked and Loaded",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action",
+      "text_hash": "b2c9638633aa"
+    },
+    {
+      "card_id": "ARC_034_B",
+      "unique_id": "nTqfpprmJbKkPMdNbdhRg",
+      "primary_print_id": "ARC034",
+      "name": "Locked and Loaded",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action",
+      "text_hash": "7bdb921bf366"
+    },
+    {
+      "card_id": "ARC_035_Y",
+      "unique_id": "HGhtMHhF6dqdNccmNK7w8",
+      "primary_print_id": "ARC035",
+      "name": "Dissipation Shield",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "item"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action - Item",
+      "text_hash": "a28f9be0d8b2"
+    },
+    {
+      "card_id": "ARC_036_R",
+      "unique_id": "kRRdnfWFfdCmmKTnjmzNk",
+      "primary_print_id": "ARC036",
+      "name": "Hyper Driver",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "item"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AMX",
+        "ARC",
+        "DYN",
+        "EVO",
+        "SDA"
+      ],
+      "type_text": "Mechanologist Action - Item",
+      "text_hash": "af4c15126852"
+    },
+    {
+      "card_id": "ARC_037_B",
+      "unique_id": "6Wcpcb7DQ8GMGMTwjdQTR",
+      "primary_print_id": "ARC037",
+      "name": "Optekal Monocle",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "mechanologist"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "item"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Mechanologist Action - Item",
+      "text_hash": "5bf4e61bdbc1"
+    },
+    {
+      "card_id": "ARC_038",
+      "unique_id": "PTFnJCdhWD9cFgMMNPqQj",
+      "primary_print_id": "ARC038",
+      "name": "Azalea, Ace in the Hole",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "hero"
+      ],
+      "subtypes": [],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": 4,
+      "life": 40,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AAZ",
+        "ARC",
+        "CRU",
+        "HER",
+        "OUT",
+        "WIN"
+      ],
+      "type_text": "Ranger Hero",
+      "text_hash": "ae2c49443605"
+    },
+    {
+      "card_id": "ARC_039",
+      "unique_id": "Fc8mPQBjrNq6Fg9LW9RLc",
+      "primary_print_id": "ARC039",
+      "name": "Azalea",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "hero"
+      ],
+      "subtypes": [
+        "young"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": 4,
+      "life": 20,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AZL",
+        "HER",
+        "OUT",
+        "PEN",
+        "SAZ"
+      ],
+      "type_text": "Ranger Hero - Young",
+      "text_hash": "ae2c49443605"
+    },
+    {
+      "card_id": "ARC_040",
+      "unique_id": "Nnmtz6GrR6MWMcptb6wD7",
+      "primary_print_id": "ARC040",
+      "name": "Death Dealer",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "weapon"
+      ],
+      "subtypes": [
+        "bow",
+        "twoHanded"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AAZ",
+        "ARC",
+        "CRU",
+        "FAB",
+        "LGS",
+        "SAZ"
+      ],
+      "type_text": "Ranger Weapon - Bow (2H)",
+      "text_hash": "b8ba4d113145"
+    },
+    {
+      "card_id": "ARC_041",
+      "unique_id": "pLT6mqkb86GG9jHh8kFRp",
+      "primary_print_id": "ARC041",
+      "name": "Skullbone Crosswrap",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "head"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 1,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 1
+        },
+        {
+          "kind": "bladeBreak"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FAB"
+      ],
+      "type_text": "Ranger Equipment - Head",
+      "text_hash": "29243844bc35"
+    },
+    {
+      "card_id": "ARC_042",
+      "unique_id": "FLfrm7mBczWhFLBTKmBgJ",
+      "primary_print_id": "ARC042",
+      "name": "Bull's Eye Bracers",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "arms"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 1
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FAB",
+        "SAZ"
+      ],
+      "type_text": "Ranger Equipment - Arms",
+      "text_hash": "fcee0fa5390a"
+    },
+    {
+      "card_id": "ARC_043_R",
+      "unique_id": "FLHmj9MjCgFPBzgFGKRFW",
+      "primary_print_id": "ARC043",
+      "name": "Red in the Ledger",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 5,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "specialization",
+          "arg": "Azalea"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AAZ",
+        "ARC"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "8d7844d544a4"
+    },
+    {
+      "card_id": "ARC_044_R",
+      "unique_id": "KCNwjRzWNtWghDNckgKpP",
+      "primary_print_id": "ARC044",
+      "name": "Three of a Kind",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Ranger Action",
+      "text_hash": "3fc2e4acc0a2"
+    },
+    {
+      "card_id": "ARC_045_R",
+      "unique_id": "qQ9TfqhWK967WMGdfQRLK",
+      "primary_print_id": "ARC045",
+      "name": "Endless Arrow",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "2376cdfce04f"
+    },
+    {
+      "card_id": "ARC_046_B",
+      "unique_id": "zDLrkgc8QGm77T8qPGwqd",
+      "primary_print_id": "ARC046",
+      "name": "Nock the Deathwhistle",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "specialization",
+          "arg": "Azalea"
+        },
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AAZ",
+        "ARC"
+      ],
+      "type_text": "Ranger Action",
+      "text_hash": "8412213dbcf7"
+    },
+    {
+      "card_id": "ARC_047_Y",
+      "unique_id": "DbKkp8BjFgtCBGjQCbwjH",
+      "primary_print_id": "ARC047",
+      "name": "Rapid Fire",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Ranger Action",
+      "text_hash": "fab28184e8e3"
+    },
+    {
+      "card_id": "ARC_048_R",
+      "unique_id": "grtHjPTGHTGG9WkdcktdH",
+      "primary_print_id": "ARC048",
+      "name": "Take Cover",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 4,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Ranger Defense Reaction",
+      "text_hash": "bdc090ec61e3"
+    },
+    {
+      "card_id": "ARC_049_Y",
+      "unique_id": "NrFKWFj7trMRwtfPTzhnd",
+      "primary_print_id": "ARC049",
+      "name": "Take Cover",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Ranger Defense Reaction",
+      "text_hash": "bdc090ec61e3"
+    },
+    {
+      "card_id": "ARC_050_B",
+      "unique_id": "znBDQrJdGgbtkcnTrLhwm",
+      "primary_print_id": "ARC050",
+      "name": "Take Cover",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Ranger Defense Reaction",
+      "text_hash": "bdc090ec61e3"
+    },
+    {
+      "card_id": "ARC_051_R",
+      "unique_id": "jc7QRqTTh6cccdTjFmBf9",
+      "primary_print_id": "ARC051",
+      "name": "Silver the Tip",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Ranger Action",
+      "text_hash": "ca6bc0bcf4bd"
+    },
+    {
+      "card_id": "ARC_052_Y",
+      "unique_id": "JbCKcTKNzdcWKMfQwbrdr",
+      "primary_print_id": "ARC052",
+      "name": "Silver the Tip",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Ranger Action",
+      "text_hash": "5e09c67c9165"
+    },
+    {
+      "card_id": "ARC_053_B",
+      "unique_id": "HDmnNfBFfmgphJMhDCt7T",
+      "primary_print_id": "ARC053",
+      "name": "Silver the Tip",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Ranger Action",
+      "text_hash": "46d0ed8f9b73"
+    },
+    {
+      "card_id": "ARC_054_R",
+      "unique_id": "hFhjbTW96DmWQPBP8C8HF",
+      "primary_print_id": "ARC054",
+      "name": "Take Aim",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "LXI",
+        "SAZ",
+        "TNP"
+      ],
+      "type_text": "Ranger Action",
+      "text_hash": "2ee989a98595"
+    },
+    {
+      "card_id": "ARC_055_Y",
+      "unique_id": "BRqmNMWwQ8JzLDFqm9kHF",
+      "primary_print_id": "ARC055",
+      "name": "Take Aim",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "TNP"
+      ],
+      "type_text": "Ranger Action",
+      "text_hash": "b6c9c42a973b"
+    },
+    {
+      "card_id": "ARC_056_B",
+      "unique_id": "KggmMRjNjrbRHWRTLjjb9",
+      "primary_print_id": "ARC056",
+      "name": "Take Aim",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "TNP"
+      ],
+      "type_text": "Ranger Action",
+      "text_hash": "fc8f2f8fdbf8"
+    },
+    {
+      "card_id": "ARC_057_R",
+      "unique_id": "KjdKWBHLWtqdF66zPzRwG",
+      "primary_print_id": "ARC057",
+      "name": "Head Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SEA"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "44af4aac2393"
+    },
+    {
+      "card_id": "ARC_058_Y",
+      "unique_id": "cDJpRqfcbpFm8NjnhDfCw",
+      "primary_print_id": "ARC058",
+      "name": "Head Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SEA"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "44af4aac2393"
+    },
+    {
+      "card_id": "ARC_059_B",
+      "unique_id": "zNgcmTJjnWHfGKcLmPw8G",
+      "primary_print_id": "ARC059",
+      "name": "Head Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 2,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SEA"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "44af4aac2393"
+    },
+    {
+      "card_id": "ARC_060_R",
+      "unique_id": "9kGkjgLHrhWqGFhfh9h8f",
+      "primary_print_id": "ARC060",
+      "name": "Hamstring Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 5,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "2f17afd9702c"
+    },
+    {
+      "card_id": "ARC_061_Y",
+      "unique_id": "WchNMmcctDfbrfJDpMTC8",
+      "primary_print_id": "ARC061",
+      "name": "Hamstring Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "2f17afd9702c"
+    },
+    {
+      "card_id": "ARC_062_B",
+      "unique_id": "ftMMhmgB7L8mJ7zNR7TMR",
+      "primary_print_id": "ARC062",
+      "name": "Hamstring Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "2f17afd9702c"
+    },
+    {
+      "card_id": "ARC_063_R",
+      "unique_id": "nRKmkHTJRpnDWndNgfTwk",
+      "primary_print_id": "ARC063",
+      "name": "Ridge Rider Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SAZ"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "58fcef451adf"
+    },
+    {
+      "card_id": "ARC_064_Y",
+      "unique_id": "WRqmkMpqpJPWNmrdPzdpT",
+      "primary_print_id": "ARC064",
+      "name": "Ridge Rider Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "58fcef451adf"
+    },
+    {
+      "card_id": "ARC_065_B",
+      "unique_id": "mDmCFWkbbbfR7dD87Fnc8",
+      "primary_print_id": "ARC065",
+      "name": "Ridge Rider Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 2,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "58fcef451adf"
+    },
+    {
+      "card_id": "ARC_066_R",
+      "unique_id": "9pnrkbM9DbqCqqkbDCC8N",
+      "primary_print_id": "ARC066",
+      "name": "Salvage Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 5,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AZL",
+        "RIP",
+        "SEA"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "0fef1ae23adb"
+    },
+    {
+      "card_id": "ARC_067_Y",
+      "unique_id": "d8mzLHtQRkT8GWFcgR78H",
+      "primary_print_id": "ARC067",
+      "name": "Salvage Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SEA"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "0fef1ae23adb"
+    },
+    {
+      "card_id": "ARC_068_B",
+      "unique_id": "bjffjnzNfQhdcGKKCWKCd",
+      "primary_print_id": "ARC068",
+      "name": "Salvage Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SEA"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "0fef1ae23adb"
+    },
+    {
+      "card_id": "ARC_069_R",
+      "unique_id": "GWJzpmmcLCPm6bbfM8zR9",
+      "primary_print_id": "ARC069",
+      "name": "Searing Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "RIP",
+        "SAZ"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "78820c2b527d"
+    },
+    {
+      "card_id": "ARC_070_Y",
+      "unique_id": "bPpNFbJnhrLkgqjMRRFJp",
+      "primary_print_id": "ARC070",
+      "name": "Searing Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "78820c2b527d"
+    },
+    {
+      "card_id": "ARC_071_B",
+      "unique_id": "JmQpWjPbn6JmmppNRDprh",
+      "primary_print_id": "ARC071",
+      "name": "Searing Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 2,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "78820c2b527d"
+    },
+    {
+      "card_id": "ARC_072_R",
+      "unique_id": "TrRC6WMrRhbCtKzpRQLPM",
+      "primary_print_id": "ARC072",
+      "name": "Sic 'Em Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "LGS",
+        "SEA"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "260b02bb5b88"
+    },
+    {
+      "card_id": "ARC_073_Y",
+      "unique_id": "TMBGhtBJMzbWMLPzNJCW9",
+      "primary_print_id": "ARC073",
+      "name": "Sic 'Em Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "LGS",
+        "SEA"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "260b02bb5b88"
+    },
+    {
+      "card_id": "ARC_074_B",
+      "unique_id": "FHfhK9rLHDcNCdQJQ79Wh",
+      "primary_print_id": "ARC074",
+      "name": "Sic 'Em Shot",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "ranger"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "arrow",
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 2,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "LGS",
+        "SEA"
+      ],
+      "type_text": "Ranger Action - Arrow Attack",
+      "text_hash": "260b02bb5b88"
+    },
+    {
+      "card_id": "ARC_075",
+      "unique_id": "TKbRWjjBLJThMmLkTFb6q",
+      "primary_print_id": "ARC075",
+      "name": "Viserai, Rune Blood",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "hero"
+      ],
+      "subtypes": [],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": 4,
+      "life": 40,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AVS",
+        "CRU",
+        "HER",
+        "WIN"
+      ],
+      "type_text": "Runeblade Hero",
+      "text_hash": "80f3f221ede7"
+    },
+    {
+      "card_id": "ARC_076",
+      "unique_id": "RHnFkKb8FKdFzp9rdzGjF",
+      "primary_print_id": "ARC076",
+      "name": "Viserai",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "hero"
+      ],
+      "subtypes": [
+        "young"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": 4,
+      "life": 20,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "HER",
+        "SVI"
+      ],
+      "type_text": "Runeblade Hero - Young",
+      "text_hash": "80f3f221ede7"
+    },
+    {
+      "card_id": "ARC_077",
+      "unique_id": "RWwk8hgBdnRdWfjkrfJHt",
+      "primary_print_id": "ARC077",
+      "name": "Nebula Blade",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "weapon"
+      ],
+      "subtypes": [
+        "sword",
+        "twoHanded"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": 1,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AVS",
+        "CRU",
+        "LGS"
+      ],
+      "type_text": "Runeblade Weapon - Sword (2H)",
+      "text_hash": "c36ddd0ae27d"
+    },
+    {
+      "card_id": "ARC_078",
+      "unique_id": "6WM7PKt9BCGmw7wQzn7k6",
+      "primary_print_id": "ARC078",
+      "name": "Grasp of the Arknight",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "arms"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "battleworn"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FAB"
+      ],
+      "type_text": "Runeblade Equipment - Arms",
+      "text_hash": "4f70170268f4"
+    },
+    {
+      "card_id": "ARC_079",
+      "unique_id": "CQLdjjNmHTMfDnqzW6TLg",
+      "primary_print_id": "ARC079",
+      "name": "Crown of Dichotomy",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "head"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 1
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SBA",
+        "SVI"
+      ],
+      "type_text": "Runeblade Equipment - Head",
+      "text_hash": "7d1e33d43e7d"
+    },
+    {
+      "card_id": "ARC_080_R",
+      "unique_id": "hKGMtQDHtqLhzg8Lzmjmc",
+      "primary_print_id": "ARC080",
+      "name": "Arknight Ascendancy",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 6
+      },
+      "power": 5,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "specialization",
+          "arg": "Viserai"
+        },
+        {
+          "kind": "dominate"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AVS"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "04496a2569f6"
+    },
+    {
+      "card_id": "ARC_081_R",
+      "unique_id": "8djTKwBRrz8W69BGtCbk9",
+      "primary_print_id": "ARC081",
+      "name": "Mordred Tide",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AVS"
+      ],
+      "type_text": "Runeblade Action",
+      "text_hash": "a889406e0436"
+    },
+    {
+      "card_id": "ARC_082_Y",
+      "unique_id": "rz79tn8mdQLDqNnhFdngk",
+      "primary_print_id": "ARC082",
+      "name": "Ninth Blade of the Blood Oath",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 9
+      },
+      "power": 9,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC",
+        "AVS"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "b5fece45e07f"
+    },
+    {
+      "card_id": "ARC_083_B",
+      "unique_id": "FzmdMTfjQrhzn8bNBhhDw",
+      "primary_print_id": "ARC083",
+      "name": "Become the Arknight",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "specialization",
+          "arg": "Viserai"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AVS"
+      ],
+      "type_text": "Runeblade Action",
+      "text_hash": "70d238026fa5"
+    },
+    {
+      "card_id": "ARC_084_B",
+      "unique_id": "cWMCP7TF8MkHKQDgjj6jk",
+      "primary_print_id": "ARC084",
+      "name": "Tome of the Arknight",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC",
+        "AVS"
+      ],
+      "type_text": "Runeblade Action",
+      "text_hash": "ec04e74400f4"
+    },
+    {
+      "card_id": "ARC_085_R",
+      "unique_id": "QnWbfrP7C7ttrrWgtbMcp",
+      "primary_print_id": "ARC085",
+      "name": "Spellblade Assault",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SVI"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "89d3a976490d"
+    },
+    {
+      "card_id": "ARC_086_Y",
+      "unique_id": "nR9RFbHQBGnNffDLqhfLB",
+      "primary_print_id": "ARC086",
+      "name": "Spellblade Assault",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "89d3a976490d"
+    },
+    {
+      "card_id": "ARC_087_B",
+      "unique_id": "mFQfCDptGgjpTkDmdH6FP",
+      "primary_print_id": "ARC087",
+      "name": "Spellblade Assault",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 2,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SVI"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "89d3a976490d"
+    },
+    {
+      "card_id": "ARC_088_R",
+      "unique_id": "mwWD7hrDkKWWkDdchGbc9",
+      "primary_print_id": "ARC088",
+      "name": "Reduce to Runechant",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 4,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "LGS",
+        "SVI"
+      ],
+      "type_text": "Runeblade Defense Reaction",
+      "text_hash": "29deb49b3d70"
+    },
+    {
+      "card_id": "ARC_089_Y",
+      "unique_id": "CGPcNWJRc8pnPfCbQHtwJ",
+      "primary_print_id": "ARC089",
+      "name": "Reduce to Runechant",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "LGS"
+      ],
+      "type_text": "Runeblade Defense Reaction",
+      "text_hash": "29deb49b3d70"
+    },
+    {
+      "card_id": "ARC_090_B",
+      "unique_id": "DNRzWPmnLQdMTb7MGftNw",
+      "primary_print_id": "ARC090",
+      "name": "Reduce to Runechant",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "LGS"
+      ],
+      "type_text": "Runeblade Defense Reaction",
+      "text_hash": "29deb49b3d70"
+    },
+    {
+      "card_id": "ARC_091_R",
+      "unique_id": "rnFwQdqLFTRCDWbtT6Jqm",
+      "primary_print_id": "ARC091",
+      "name": "Oath of the Arknight",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FLR",
+        "ROS"
+      ],
+      "type_text": "Runeblade Action",
+      "text_hash": "2cc612ee17a0"
+    },
+    {
+      "card_id": "ARC_092_Y",
+      "unique_id": "nfmPR87fzQhMLrPCdFTzD",
+      "primary_print_id": "ARC092",
+      "name": "Oath of the Arknight",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "ROS"
+      ],
+      "type_text": "Runeblade Action",
+      "text_hash": "4685628ab9cb"
+    },
+    {
+      "card_id": "ARC_093_B",
+      "unique_id": "GWfQC8Lqd9Jz8dnkNdrwt",
+      "primary_print_id": "ARC093",
+      "name": "Oath of the Arknight",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "ROS"
+      ],
+      "type_text": "Runeblade Action",
+      "text_hash": "2d55741493df"
+    },
+    {
+      "card_id": "ARC_094_R",
+      "unique_id": "GFRQBDGRhL9DMtwzKq7CL",
+      "primary_print_id": "ARC094",
+      "name": "Amplify the Arknight",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 3
+      },
+      "power": 6,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AVS",
+        "SVI"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "b5fece45e07f"
+    },
+    {
+      "card_id": "ARC_095_Y",
+      "unique_id": "zdgkJ9mtbmkbQfpzm9Thc",
+      "primary_print_id": "ARC095",
+      "name": "Amplify the Arknight",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 3
+      },
+      "power": 5,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "b5fece45e07f"
+    },
+    {
+      "card_id": "ARC_096_B",
+      "unique_id": "zmmpt8q8HqPFwPKK66Mjm",
+      "primary_print_id": "ARC096",
+      "name": "Amplify the Arknight",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 3
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AVS"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "b5fece45e07f"
+    },
+    {
+      "card_id": "ARC_097_R",
+      "unique_id": "FWdhrBqFCH9nqqmRGPcTL",
+      "primary_print_id": "ARC097",
+      "name": "Drawn to the Dark Dimension",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC",
+        "AVS"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "20e1662c7a53"
+    },
+    {
+      "card_id": "ARC_098_Y",
+      "unique_id": "fDnDDNRg7WC6tfmFgz9LC",
+      "primary_print_id": "ARC098",
+      "name": "Drawn to the Dark Dimension",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 2,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "20e1662c7a53"
+    },
+    {
+      "card_id": "ARC_099_B",
+      "unique_id": "PMm7cqpbBL7wGwbqcqMcz",
+      "primary_print_id": "ARC099",
+      "name": "Drawn to the Dark Dimension",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 1,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "20e1662c7a53"
+    },
+    {
+      "card_id": "ARC_100_R",
+      "unique_id": "TWm6BC9zbHp69FkFNmbnR",
+      "primary_print_id": "ARC100",
+      "name": "Rune Flash",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 3
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AVS",
+        "SVI"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "4d2334edf7a8"
+    },
+    {
+      "card_id": "ARC_101_Y",
+      "unique_id": "FCJjCLKrKbQ7nhwhHwbHB",
+      "primary_print_id": "ARC101",
+      "name": "Rune Flash",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 3
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "4d2334edf7a8"
+    },
+    {
+      "card_id": "ARC_102_B",
+      "unique_id": "TGPPfm8pTmjLGHjB889bD",
+      "primary_print_id": "ARC102",
+      "name": "Rune Flash",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 3
+      },
+      "power": 2,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AVS"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "4d2334edf7a8"
+    },
+    {
+      "card_id": "ARC_103_R",
+      "unique_id": "WzzfbKbMHQTF7PHFQgnTM",
+      "primary_print_id": "ARC103",
+      "name": "Spellblade Strike",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 4,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "2b4ff2057bb1"
+    },
+    {
+      "card_id": "ARC_104_Y",
+      "unique_id": "gRqjRd9CMnFtj7d8dfjpd",
+      "primary_print_id": "ARC104",
+      "name": "Spellblade Strike",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 3,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "2b4ff2057bb1"
+    },
+    {
+      "card_id": "ARC_105_B",
+      "unique_id": "6LzhNhWTWGWzFLDbCktPt",
+      "primary_print_id": "ARC105",
+      "name": "Spellblade Strike",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 2,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Runeblade Action - Attack",
+      "text_hash": "2b4ff2057bb1"
+    },
+    {
+      "card_id": "ARC_106_R",
+      "unique_id": "qMJTpNtk6pbwMTqkRzhRG",
+      "primary_print_id": "ARC106",
+      "name": "Bloodspill Invocation",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "aura"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Runeblade Action - Aura",
+      "text_hash": "55581c15fb4b"
+    },
+    {
+      "card_id": "ARC_107_Y",
+      "unique_id": "Cww8rKzD9W6Nf7TfwTBwL",
+      "primary_print_id": "ARC107",
+      "name": "Bloodspill Invocation",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "aura"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Runeblade Action - Aura",
+      "text_hash": "2e5651b35964"
+    },
+    {
+      "card_id": "ARC_108_B",
+      "unique_id": "qbzLPGM6RCTWWhGKdnCNf",
+      "primary_print_id": "ARC108",
+      "name": "Bloodspill Invocation",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "aura"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Runeblade Action - Aura",
+      "text_hash": "05b1f4519e3d"
+    },
+    {
+      "card_id": "ARC_109_R",
+      "unique_id": "gt9cjT8zwMBHj77R76H77",
+      "primary_print_id": "ARC109",
+      "name": "Read the Runes",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AVS",
+        "SVI",
+        "TNP"
+      ],
+      "type_text": "Runeblade Action",
+      "text_hash": "d2afdbd71292"
+    },
+    {
+      "card_id": "ARC_110_Y",
+      "unique_id": "McR66NfcGM8bnwMGbPL8H",
+      "primary_print_id": "ARC110",
+      "name": "Read the Runes",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "TNP"
+      ],
+      "type_text": "Runeblade Action",
+      "text_hash": "358893ce4048"
+    },
+    {
+      "card_id": "ARC_111_B",
+      "unique_id": "6QfkfBbmfr77GMbDTTbLw",
+      "primary_print_id": "ARC111",
+      "name": "Read the Runes",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "TNP"
+      ],
+      "type_text": "Runeblade Action",
+      "text_hash": "3648f3957dba"
+    },
+    {
+      "card_id": "ARC_112",
+      "unique_id": "zfrHQjbPkpBmdQGrWcTMB",
+      "primary_print_id": "ARC112",
+      "name": "Runechant",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "runeblade"
+        }
+      ],
+      "types": [
+        "token"
+      ],
+      "subtypes": [
+        "aura"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AUA",
+        "AVS",
+        "CRU",
+        "DTD",
+        "DYN",
+        "EVR",
+        "FAB",
+        "FLR",
+        "ROS",
+        "SBA",
+        "SVI"
+      ],
+      "type_text": "Runeblade Token - Aura",
+      "text_hash": "ff4dba5ffae1"
+    },
+    {
+      "card_id": "ARC_113",
+      "unique_id": "kRPqHdCckKBKfRwjbfzNT",
+      "primary_print_id": "ARC113",
+      "name": "Kano, Dracai of Aether",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "hero"
+      ],
+      "subtypes": [],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": 4,
+      "life": 30,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "CRU",
+        "HER",
+        "WIN"
+      ],
+      "type_text": "Wizard Hero",
+      "text_hash": "449c51d06e13"
+    },
+    {
+      "card_id": "ARC_114",
+      "unique_id": "Q9B8TDhTdfDLN8ccnBThK",
+      "primary_print_id": "ARC114",
+      "name": "Kano",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "hero"
+      ],
+      "subtypes": [
+        "young"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": 4,
+      "life": 15,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "HER",
+        "PEN"
+      ],
+      "type_text": "Wizard Hero - Young",
+      "text_hash": "449c51d06e13"
+    },
+    {
+      "card_id": "ARC_115",
+      "unique_id": "nzDWrNMqGWgmJfgJhChNb",
+      "primary_print_id": "ARC115",
+      "name": "Crucible of Aetherweave",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "weapon"
+      ],
+      "subtypes": [
+        "staff",
+        "twoHanded"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "CRU",
+        "FAB",
+        "LGS",
+        "SBZ",
+        "SIY"
+      ],
+      "type_text": "Wizard Weapon - Staff (2H)",
+      "text_hash": "12a3a98db3a9"
+    },
+    {
+      "card_id": "ARC_116",
+      "unique_id": "hpMnhtBmjM7zFBTDMkf87",
+      "primary_print_id": "ARC116",
+      "name": "Storm Striders",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "legs"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 2
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FAB"
+      ],
+      "type_text": "Wizard Equipment - Legs",
+      "text_hash": "7079af7a871a"
+    },
+    {
+      "card_id": "ARC_117",
+      "unique_id": "CKdtt7jhNp8DK9QzCqGkz",
+      "primary_print_id": "ARC117",
+      "name": "Robe of Rapture",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "chest"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 1
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Equipment - Chest",
+      "text_hash": "3113ffcd5692"
+    },
+    {
+      "card_id": "ARC_118_R",
+      "unique_id": "mjKPwTWCd7MTFkBpg6QzM",
+      "primary_print_id": "ARC118",
+      "name": "Blazing Aether",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "specialization",
+          "arg": "Kano"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "a145d4e84fc6"
+    },
+    {
+      "card_id": "ARC_119_Y",
+      "unique_id": "fbm7LndJccMBQqdCWQmd6",
+      "primary_print_id": "ARC119",
+      "name": "Sonic Boom",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "32d142b3192c"
+    },
+    {
+      "card_id": "ARC_120_R",
+      "unique_id": "jPhJQqDbHFbnGHFPNmntR",
+      "primary_print_id": "ARC120",
+      "name": "Forked Lightning",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 3
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "f3b4649ef4e9"
+    },
+    {
+      "card_id": "ARC_121_Y",
+      "unique_id": "DGNn7nRKwBjzf9f9rmzJM",
+      "primary_print_id": "ARC121",
+      "name": "Lesson in Lava",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "specialization",
+          "arg": "Kano"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "fd596b3e6e27"
+    },
+    {
+      "card_id": "ARC_122_R",
+      "unique_id": "cMM8DcmR9zCpcRPwrhbTc",
+      "primary_print_id": "ARC122",
+      "name": "Tome of Aetherwind",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "14fa06351287"
+    },
+    {
+      "card_id": "ARC_123_R",
+      "unique_id": "dTKDHwdcrLNPPb6ktczmR",
+      "primary_print_id": "ARC123",
+      "name": "Absorb in Aether",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 4,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC",
+        "SBZ",
+        "SIY"
+      ],
+      "type_text": "Wizard Defense Reaction",
+      "text_hash": "ed9bfc7374ac"
+    },
+    {
+      "card_id": "ARC_124_Y",
+      "unique_id": "tWKN9zRJdgFmpw6pmPmkR",
+      "primary_print_id": "ARC124",
+      "name": "Absorb in Aether",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Wizard Defense Reaction",
+      "text_hash": "ed9bfc7374ac"
+    },
+    {
+      "card_id": "ARC_125_B",
+      "unique_id": "WkDkrkTDzRnqWBh7WHJfh",
+      "primary_print_id": "ARC125",
+      "name": "Absorb in Aether",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Wizard Defense Reaction",
+      "text_hash": "ed9bfc7374ac"
+    },
+    {
+      "card_id": "ARC_126_R",
+      "unique_id": "hwTCzg9hgmBpj86czpKMq",
+      "primary_print_id": "ARC126",
+      "name": "Aether Spindle",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SBZ"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "3946bcc76d14"
+    },
+    {
+      "card_id": "ARC_127_Y",
+      "unique_id": "7kLCKQ6thffmpJQpLhzzJ",
+      "primary_print_id": "ARC127",
+      "name": "Aether Spindle",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "0de4d18c3ef8"
+    },
+    {
+      "card_id": "ARC_128_B",
+      "unique_id": "Bd8bgdrphcfzHhTNtbmPr",
+      "primary_print_id": "ARC128",
+      "name": "Aether Spindle",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SBZ"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "728d2189b97c"
+    },
+    {
+      "card_id": "ARC_129_R",
+      "unique_id": "fMdnz9D9MRDrzMrBFf7Kr",
+      "primary_print_id": "ARC129",
+      "name": "Stir the Aetherwinds",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "2b77a9d26470"
+    },
+    {
+      "card_id": "ARC_130_Y",
+      "unique_id": "nPwjcRFWBmzNQWM6BMcgB",
+      "primary_print_id": "ARC130",
+      "name": "Stir the Aetherwinds",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "9e9e70456dc0"
+    },
+    {
+      "card_id": "ARC_131_B",
+      "unique_id": "k8wMFCFHtGTtTRfnzKGqQ",
+      "primary_print_id": "ARC131",
+      "name": "Stir the Aetherwinds",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SIY"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "2ba7661dab59"
+    },
+    {
+      "card_id": "ARC_132_R",
+      "unique_id": "jJchLwfJKhdhk8Hw7R6KP",
+      "primary_print_id": "ARC132",
+      "name": "Aether Flare",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "bcdf8d33fd87"
+    },
+    {
+      "card_id": "ARC_133_Y",
+      "unique_id": "zgkKwhBtRQf9zWz6kpPJR",
+      "primary_print_id": "ARC133",
+      "name": "Aether Flare",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "c21fcdefe167"
+    },
+    {
+      "card_id": "ARC_134_B",
+      "unique_id": "bbGgprKNzmQPQP9P6CQkL",
+      "primary_print_id": "ARC134",
+      "name": "Aether Flare",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "46746651c76f"
+    },
+    {
+      "card_id": "ARC_135_R",
+      "unique_id": "zbnJCMqgMPNLrgCpGkgrq",
+      "primary_print_id": "ARC135",
+      "name": "Index",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "68f4c4bc2f98"
+    },
+    {
+      "card_id": "ARC_136_Y",
+      "unique_id": "g7hJCTWLMLLjNGWM89PzC",
+      "primary_print_id": "ARC136",
+      "name": "Index",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "9b87b2d35b8e"
+    },
+    {
+      "card_id": "ARC_137_B",
+      "unique_id": "KTzNfrpRnQ7cfgKnwgwFt",
+      "primary_print_id": "ARC137",
+      "name": "Index",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "96675c880c2d"
+    },
+    {
+      "card_id": "ARC_138_R",
+      "unique_id": "8qnmTn7hKdCQzbhF7bNHD",
+      "primary_print_id": "ARC138",
+      "name": "Reverberate",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "fc0709fd37e5"
+    },
+    {
+      "card_id": "ARC_139_Y",
+      "unique_id": "nDWTKLbTdknK7Rfbp8mPM",
+      "primary_print_id": "ARC139",
+      "name": "Reverberate",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "c4d1ac31b4e7"
+    },
+    {
+      "card_id": "ARC_140_B",
+      "unique_id": "JBKPrLhtDj77ttccNgnqD",
+      "primary_print_id": "ARC140",
+      "name": "Reverberate",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "1caa3933a7c8"
+    },
+    {
+      "card_id": "ARC_141_R",
+      "unique_id": "jRwfcNHdwMF8wPwzGFdFd",
+      "primary_print_id": "ARC141",
+      "name": "Scalding Rain",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "4e92a1c6bc3c"
+    },
+    {
+      "card_id": "ARC_142_Y",
+      "unique_id": "B6mRfRqMMNH7QC8CmFFmf",
+      "primary_print_id": "ARC142",
+      "name": "Scalding Rain",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "363dc80a900e"
+    },
+    {
+      "card_id": "ARC_143_B",
+      "unique_id": "cMf8rkwkBpMPzWz8NMBKj",
+      "primary_print_id": "ARC143",
+      "name": "Scalding Rain",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "5d3febf8321e"
+    },
+    {
+      "card_id": "ARC_144_R",
+      "unique_id": "NLkgcrjgGCQdWqGdg8gpj",
+      "primary_print_id": "ARC144",
+      "name": "Zap",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "363dc80a900e"
+    },
+    {
+      "card_id": "ARC_145_Y",
+      "unique_id": "cNDwrcdgP7RdhDqDjdknB",
+      "primary_print_id": "ARC145",
+      "name": "Zap",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "5d3febf8321e"
+    },
+    {
+      "card_id": "ARC_146_B",
+      "unique_id": "nGFNqP9BddjFmfBNcQGpq",
+      "primary_print_id": "ARC146",
+      "name": "Zap",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "63da1783c57d"
+    },
+    {
+      "card_id": "ARC_147_R",
+      "unique_id": "WFGKzddHnH99BK6Wqrmb8",
+      "primary_print_id": "ARC147",
+      "name": "Voltic Bolt",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "LGS",
+        "SBZ"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "a8bb379fdea2"
+    },
+    {
+      "card_id": "ARC_148_Y",
+      "unique_id": "rzwzDWjwdGDFHcpnnBKtf",
+      "primary_print_id": "ARC148",
+      "name": "Voltic Bolt",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "LGS"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "4e92a1c6bc3c"
+    },
+    {
+      "card_id": "ARC_149_B",
+      "unique_id": "JHNhMDgMfMRWKQzwnQN88",
+      "primary_print_id": "ARC149",
+      "name": "Voltic Bolt",
+      "supertypes": [
+        {
+          "kind": "class_",
+          "val": "wizard"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "LGS",
+        "SBZ",
+        "SIY"
+      ],
+      "type_text": "Wizard Action",
+      "text_hash": "363dc80a900e"
+    },
+    {
+      "card_id": "ARC_150",
+      "unique_id": "NQDNdGfjP6bd8WHP8QNnt",
+      "primary_print_id": "ARC150",
+      "name": "Arcanite Skullcap",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "head"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 1,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 3
+        },
+        {
+          "kind": "battleworn"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC",
+        "EVR",
+        "FAB"
+      ],
+      "type_text": "Generic Equipment - Head",
+      "text_hash": "e89513d701e1"
+    },
+    {
+      "card_id": "ARC_151",
+      "unique_id": "JTNgbmMDfnz69RKFpjrrR",
+      "primary_print_id": "ARC151",
+      "name": "Talismanic Lens",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "head"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FAB",
+        "SAZ",
+        "SBZ"
+      ],
+      "type_text": "Generic Equipment - Head",
+      "text_hash": "a1de57e98931"
+    },
+    {
+      "card_id": "ARC_152",
+      "unique_id": "dcMMQNzjpzQ76GQPpnQwz",
+      "primary_print_id": "ARC152",
+      "name": "Vest of the First Fist",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "chest"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FAB"
+      ],
+      "type_text": "Generic Equipment - Chest",
+      "text_hash": "072fb8daaaf9"
+    },
+    {
+      "card_id": "ARC_153",
+      "unique_id": "c9BtftttMG7WNrKgnfJFt",
+      "primary_print_id": "ARC153",
+      "name": "Bracers of Belief",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "arms"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "AZL"
+      ],
+      "type_text": "Generic Equipment - Arms",
+      "text_hash": "73ac455339af"
+    },
+    {
+      "card_id": "ARC_154",
+      "unique_id": "T6b7mmKBRHjBq9TQwfRB7",
+      "primary_print_id": "ARC154",
+      "name": "Mage Master Boots",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "legs"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "APR",
+        "ARC",
+        "FAB",
+        "SGB"
+      ],
+      "type_text": "Generic Equipment - Legs",
+      "text_hash": "c0344467dbfa"
+    },
+    {
+      "card_id": "ARC_155",
+      "unique_id": "9DNnTrggQrJWn8CMFJJhf",
+      "primary_print_id": "ARC155",
+      "name": "Nullrune Hood",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "head"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 1
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FAB",
+        "LGS",
+        "SDA",
+        "SDO",
+        "SEN",
+        "SIY",
+        "SKA",
+        "SLY"
+      ],
+      "type_text": "Generic Equipment - Head",
+      "text_hash": "2fa2d91cc50d"
+    },
+    {
+      "card_id": "ARC_156",
+      "unique_id": "TKd8jdfqgWnjdNRBmkKfB",
+      "primary_print_id": "ARC156",
+      "name": "Nullrune Robe",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "chest"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 1
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FAB",
+        "LGS",
+        "SAR",
+        "SBL",
+        "SBR",
+        "SDO",
+        "SEN",
+        "SGB",
+        "SKA",
+        "SLY"
+      ],
+      "type_text": "Generic Equipment - Chest",
+      "text_hash": "2fa2d91cc50d"
+    },
+    {
+      "card_id": "ARC_157",
+      "unique_id": "9bWHjnFmfDBDtkmKtCCrw",
+      "primary_print_id": "ARC157",
+      "name": "Nullrune Gloves",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "arms"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 1
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FAB",
+        "LGS",
+        "SBR",
+        "SDA",
+        "SDO",
+        "SGB",
+        "SIY",
+        "SKA",
+        "SVI"
+      ],
+      "type_text": "Generic Equipment - Arms",
+      "text_hash": "2fa2d91cc50d"
+    },
+    {
+      "card_id": "ARC_158",
+      "unique_id": "n8rcTcmmLzzwTWHCwgtRP",
+      "primary_print_id": "ARC158",
+      "name": "Nullrune Boots",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "equipment"
+      ],
+      "subtypes": [
+        "legs"
+      ],
+      "color": null,
+      "pitch": null,
+      "cost": null,
+      "power": null,
+      "defense": 0,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 1
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "FAB",
+        "LGS",
+        "SBL",
+        "SBR",
+        "SVI"
+      ],
+      "type_text": "Generic Equipment - Legs",
+      "text_hash": "2fa2d91cc50d"
+    },
+    {
+      "card_id": "ARC_159_R",
+      "unique_id": "kMRjHHLzPtgLw7j7PmQqf",
+      "primary_print_id": "ARC159",
+      "name": "Command and Conquer",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 6,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ANQ",
+        "ARC",
+        "DYN",
+        "FAB",
+        "HNT",
+        "PEN"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "ea1b32e07fe1"
+    },
+    {
+      "card_id": "ARC_160_Y",
+      "unique_id": "G7bRDqbhCJD76fH77Mfm7",
+      "primary_print_id": "ARC160",
+      "name": "Art of War",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "instant"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 1
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "JDG"
+      ],
+      "type_text": "Generic Instant",
+      "text_hash": "384a804483d7"
+    },
+    {
+      "card_id": "ARC_161_B",
+      "unique_id": "PFbQN9BfpLzzgrmGMrBzb",
+      "primary_print_id": "ARC161",
+      "name": "Pursuit of Knowledge",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 4,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC",
+        "LGS"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "c45cc5811cf2"
+    },
+    {
+      "card_id": "ARC_162_R",
+      "unique_id": "kmWrWK6PhLjLdr86QDDWP",
+      "primary_print_id": "ARC162",
+      "name": "Chains of Eminence",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "aura"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC",
+        "JDG"
+      ],
+      "type_text": "Generic Action - Aura",
+      "text_hash": "15e887789cd6"
+    },
+    {
+      "card_id": "ARC_163_B",
+      "unique_id": "CCwMfr7DptzKNpLPDwtDc",
+      "primary_print_id": "ARC163",
+      "name": "Rusted Relic",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "item"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "arcaneBarrier",
+          "arg": 1
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ANQ",
+        "ARC"
+      ],
+      "type_text": "Generic Action - Item",
+      "text_hash": "2fa2d91cc50d"
+    },
+    {
+      "card_id": "ARC_164_R",
+      "unique_id": "qqzmLCbJJ6nwQGtzrJMcL",
+      "primary_print_id": "ARC164",
+      "name": "Life for a Life",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 4,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SEA"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "1cf936317e30"
+    },
+    {
+      "card_id": "ARC_165_Y",
+      "unique_id": "9HfD8KjKKWFc6CfCjKp9p",
+      "primary_print_id": "ARC165",
+      "name": "Life for a Life",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 3,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "1cf936317e30"
+    },
+    {
+      "card_id": "ARC_166_B",
+      "unique_id": "qGLzQjzncCQztM6QrtwPn",
+      "primary_print_id": "ARC166",
+      "name": "Life for a Life",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 2,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "1cf936317e30"
+    },
+    {
+      "card_id": "ARC_167_R",
+      "unique_id": "cjpL88F8RRRbwDm8bwqqJ",
+      "primary_print_id": "ARC167",
+      "name": "Enchanting Melody",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "aura"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Action - Aura",
+      "text_hash": "76a4141d306f"
+    },
+    {
+      "card_id": "ARC_168_Y",
+      "unique_id": "LKNtHHFMTDbfMHnGLM9Wm",
+      "primary_print_id": "ARC168",
+      "name": "Enchanting Melody",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "aura"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Action - Aura",
+      "text_hash": "f46548a6fafe"
+    },
+    {
+      "card_id": "ARC_169_B",
+      "unique_id": "8NnRnhhcQHKqCL97TN8gP",
+      "primary_print_id": "ARC169",
+      "name": "Enchanting Melody",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "aura"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Action - Aura",
+      "text_hash": "e9c610206937"
+    },
+    {
+      "card_id": "ARC_170_R",
+      "unique_id": "fwF67FGHHq7rCKdPRz77f",
+      "primary_print_id": "ARC170",
+      "name": "Plunder Run",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "9e31ed7d1f82"
+    },
+    {
+      "card_id": "ARC_171_Y",
+      "unique_id": "7MGt8wLQqdFk9F8LBQnD9",
+      "primary_print_id": "ARC171",
+      "name": "Plunder Run",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "8d582003f98c"
+    },
+    {
+      "card_id": "ARC_172_B",
+      "unique_id": "rpFFbrjQdDFGHgtwmjqKP",
+      "primary_print_id": "ARC172",
+      "name": "Plunder Run",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "fd1217509b59"
+    },
+    {
+      "card_id": "ARC_173_R",
+      "unique_id": "6KnWFFJk9CkMRMMc8LJ8n",
+      "primary_print_id": "ARC173",
+      "name": "Eirina's Prayer",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "instant"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 1
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Instant",
+      "text_hash": "bd1639a75fec"
+    },
+    {
+      "card_id": "ARC_174_Y",
+      "unique_id": "kmz8jrQKpgQbqpTJFzJ6N",
+      "primary_print_id": "ARC174",
+      "name": "Eirina's Prayer",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "instant"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 1
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Instant",
+      "text_hash": "433785c0257d"
+    },
+    {
+      "card_id": "ARC_175_B",
+      "unique_id": "CMGR6k8cP8rmnMww6JrKK",
+      "primary_print_id": "ARC175",
+      "name": "Eirina's Prayer",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "instant"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 1
+      },
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Instant",
+      "text_hash": "8a812d1bc5fb"
+    },
+    {
+      "card_id": "ARC_176_R",
+      "unique_id": "kFW8PcC89jw6rGKkhfpBt",
+      "primary_print_id": "ARC176",
+      "name": "Back Alley Breakline",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 5,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "7e635a54e555"
+    },
+    {
+      "card_id": "ARC_177_Y",
+      "unique_id": "cDffzzbmtNH8rNmk9TpQW",
+      "primary_print_id": "ARC177",
+      "name": "Back Alley Breakline",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 4,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "7e635a54e555"
+    },
+    {
+      "card_id": "ARC_178_B",
+      "unique_id": "RkMDk6MdKNGzhKnnPkLnD",
+      "primary_print_id": "ARC178",
+      "name": "Back Alley Breakline",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 3,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "AGB",
+        "ARC",
+        "SGB"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "7e635a54e555"
+    },
+    {
+      "card_id": "ARC_179_R",
+      "unique_id": "9N8KCpFCwjdCgn8CBMQfg",
+      "primary_print_id": "ARC179",
+      "name": "Cadaverous Contraband",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 6,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "22804ced0c8d"
+    },
+    {
+      "card_id": "ARC_180_Y",
+      "unique_id": "RKW7z89gLBwpKqrWPfgHH",
+      "primary_print_id": "ARC180",
+      "name": "Cadaverous Contraband",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 5,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "22804ced0c8d"
+    },
+    {
+      "card_id": "ARC_181_B",
+      "unique_id": "wzF9jpgGN8tPLtfrtrHfm",
+      "primary_print_id": "ARC181",
+      "name": "Cadaverous Contraband",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 4,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "22804ced0c8d"
+    },
+    {
+      "card_id": "ARC_182_R",
+      "unique_id": "cDDzQzMWRRDWjQdBC6PqN",
+      "primary_print_id": "ARC182",
+      "name": "Fervent Forerunner",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 3,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "ef0e03024fad"
+    },
+    {
+      "card_id": "ARC_183_Y",
+      "unique_id": "qJTwtcgqMDCBwTqNWjNHJ",
+      "primary_print_id": "ARC183",
+      "name": "Fervent Forerunner",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 2,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "ef0e03024fad"
+    },
+    {
+      "card_id": "ARC_184_B",
+      "unique_id": "zQMMbcBbbRKKJcTwcCPPQ",
+      "primary_print_id": "ARC184",
+      "name": "Fervent Forerunner",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 1,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "ef0e03024fad"
+    },
+    {
+      "card_id": "ARC_185_R",
+      "unique_id": "mhLrKM6RbWGGHNrTGjtMw",
+      "primary_print_id": "ARC185",
+      "name": "Moon Wish",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 5,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "7f453fbf450f"
+    },
+    {
+      "card_id": "ARC_186_Y",
+      "unique_id": "B6bKcfDKzkQrTgCnbQKW7",
+      "primary_print_id": "ARC186",
+      "name": "Moon Wish",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 4,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "7f453fbf450f"
+    },
+    {
+      "card_id": "ARC_187_B",
+      "unique_id": "KdMNrGqDGQ9JPMbWjrr8M",
+      "primary_print_id": "ARC187",
+      "name": "Moon Wish",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 3,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "7f453fbf450f"
+    },
+    {
+      "card_id": "ARC_188_R",
+      "unique_id": "JgbBkhwf8bRTnJCB6HLrD",
+      "primary_print_id": "ARC188",
+      "name": "Push the Point",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 4,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "794ee96a9722"
+    },
+    {
+      "card_id": "ARC_189_Y",
+      "unique_id": "fqF87f9FWqhtqnNDkKcBB",
+      "primary_print_id": "ARC189",
+      "name": "Push the Point",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 3,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "794ee96a9722"
+    },
+    {
+      "card_id": "ARC_190_B",
+      "unique_id": "MCf7PDzNkfQQrkwJmL9mp",
+      "primary_print_id": "ARC190",
+      "name": "Push the Point",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 2,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "794ee96a9722"
+    },
+    {
+      "card_id": "ARC_191_R",
+      "unique_id": "RpjM6dFbhwh7WPQkNLbbF",
+      "primary_print_id": "ARC191",
+      "name": "Ravenous Rabble",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 5,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "AAZ",
+        "ANQ",
+        "ARC",
+        "AZL",
+        "DRO",
+        "FAB",
+        "OUT",
+        "RIP",
+        "SAZ",
+        "SBA",
+        "SEA"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "941980aa50d9"
+    },
+    {
+      "card_id": "ARC_192_Y",
+      "unique_id": "Nqzb8D8Kkdw8pjk9R9Wb7",
+      "primary_print_id": "ARC192",
+      "name": "Ravenous Rabble",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 4,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "OUT"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "941980aa50d9"
+    },
+    {
+      "card_id": "ARC_193_B",
+      "unique_id": "gBWrqJjBJrKJHBCdmBtcC",
+      "primary_print_id": "ARC193",
+      "name": "Ravenous Rabble",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": 3,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "OUT"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "941980aa50d9"
+    },
+    {
+      "card_id": "ARC_194_R",
+      "unique_id": "fbKhDHT7dDzFfh7cpBjkJ",
+      "primary_print_id": "ARC194",
+      "name": "Rifting",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 6,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "4b6574e76f32"
+    },
+    {
+      "card_id": "ARC_195_Y",
+      "unique_id": "ngDCfBTHCC9RGG6mQFcQp",
+      "primary_print_id": "ARC195",
+      "name": "Rifting",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 5,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "4b6574e76f32"
+    },
+    {
+      "card_id": "ARC_196_B",
+      "unique_id": "jNHCpjQbFbfjnj8KD9rjg",
+      "primary_print_id": "ARC196",
+      "name": "Rifting",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 2
+      },
+      "power": 4,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "4b6574e76f32"
+    },
+    {
+      "card_id": "ARC_197_R",
+      "unique_id": "dQR8fwBWNN6HPz7tzBCbk",
+      "primary_print_id": "ARC197",
+      "name": "Vigor Rush",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 4,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "69b03a58586f"
+    },
+    {
+      "card_id": "ARC_198_Y",
+      "unique_id": "8p8KrLDmJnf6rMpTjQ6R6",
+      "primary_print_id": "ARC198",
+      "name": "Vigor Rush",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 3,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "69b03a58586f"
+    },
+    {
+      "card_id": "ARC_199_B",
+      "unique_id": "tjqTCGp8GFF7FzTHqzBhW",
+      "primary_print_id": "ARC199",
+      "name": "Vigor Rush",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [
+        "attack"
+      ],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": 2,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action - Attack",
+      "text_hash": "69b03a58586f"
+    },
+    {
+      "card_id": "ARC_200_R",
+      "unique_id": "rHQbwp8qrzCcfGm9GQFqp",
+      "primary_print_id": "ARC200",
+      "name": "Fate Foreseen",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 4,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ANQ",
+        "ARC",
+        "FAB",
+        "JDG"
+      ],
+      "type_text": "Generic Defense Reaction",
+      "text_hash": "b57cacf58b80"
+    },
+    {
+      "card_id": "ARC_201_Y",
+      "unique_id": "w8QN7hhNck8pQJHcc9rFj",
+      "primary_print_id": "ARC201",
+      "name": "Fate Foreseen",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Defense Reaction",
+      "text_hash": "b57cacf58b80"
+    },
+    {
+      "card_id": "ARC_202_B",
+      "unique_id": "mbF7WMCnnpGHh9bwBwBKf",
+      "primary_print_id": "ARC202",
+      "name": "Fate Foreseen",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "defenseReaction"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 0,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC"
+      ],
+      "type_text": "Generic Defense Reaction",
+      "text_hash": "b57cacf58b80"
+    },
+    {
+      "card_id": "ARC_203_R",
+      "unique_id": "NMBKG8cj7JTF6z9FWHhMw",
+      "primary_print_id": "ARC203",
+      "name": "Come to Fight",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "OUT"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "fdb47226294e"
+    },
+    {
+      "card_id": "ARC_204_Y",
+      "unique_id": "qr8WW79Hrfcj8DkpKzRfd",
+      "primary_print_id": "ARC204",
+      "name": "Come to Fight",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "OUT"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "c76bc2f969b9"
+    },
+    {
+      "card_id": "ARC_205_B",
+      "unique_id": "Dc8cHfKHFHkg98Pwn6H96",
+      "primary_print_id": "ARC205",
+      "name": "Come to Fight",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "OUT",
+        "RVD"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "e69e07934bb6"
+    },
+    {
+      "card_id": "ARC_206_R",
+      "unique_id": "RN8gkCHTdn6DLWt7BzNfW",
+      "primary_print_id": "ARC206",
+      "name": "Force Sight",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "dad057a5d6e3"
+    },
+    {
+      "card_id": "ARC_207_Y",
+      "unique_id": "gfNtDbBpfqGJPKHGqdJWH",
+      "primary_print_id": "ARC207",
+      "name": "Force Sight",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "65877156bcd3"
+    },
+    {
+      "card_id": "ARC_208_B",
+      "unique_id": "W86QwWGnpPRqPmcjKjkrb",
+      "primary_print_id": "ARC208",
+      "name": "Force Sight",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 1
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "eb3b3a03dbf3"
+    },
+    {
+      "card_id": "ARC_209_R",
+      "unique_id": "qcTNqDCwM6jHP7QjBb7tN",
+      "primary_print_id": "ARC209",
+      "name": "Lead the Charge",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "1c8522e6c4f6"
+    },
+    {
+      "card_id": "ARC_210_Y",
+      "unique_id": "PBLrCPQwdHtqcFgWbR9qk",
+      "primary_print_id": "ARC210",
+      "name": "Lead the Charge",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "1c047f5f5cfe"
+    },
+    {
+      "card_id": "ARC_211_B",
+      "unique_id": "86rPJjLKBzfmJm76C9z8N",
+      "primary_print_id": "ARC211",
+      "name": "Lead the Charge",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "e81c8718d376"
+    },
+    {
+      "card_id": "ARC_212_R",
+      "unique_id": "QqKLnDCDCgnqtz8bzgFRt",
+      "primary_print_id": "ARC212",
+      "name": "Sun Kiss",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "8878d44981fd"
+    },
+    {
+      "card_id": "ARC_213_Y",
+      "unique_id": "tnCRf6pBMHN7tLRBMRB9p",
+      "primary_print_id": "ARC213",
+      "name": "Sun Kiss",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "f44da2359dd6"
+    },
+    {
+      "card_id": "ARC_214_B",
+      "unique_id": "rcCgrhCWrcPC9RGFqMqm9",
+      "primary_print_id": "ARC214",
+      "name": "Sun Kiss",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 2,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "bee2e3442f21"
+    },
+    {
+      "card_id": "ARC_215_R",
+      "unique_id": "6MRRLJw7g9wgwWPMDhzmT",
+      "primary_print_id": "ARC215",
+      "name": "Whisper of the Oracle",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "red",
+      "pitch": 1,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SBZ"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "9bde28b88b07"
+    },
+    {
+      "card_id": "ARC_216_Y",
+      "unique_id": "HpcmJjndDjCmChMWWDnnc",
+      "primary_print_id": "ARC216",
+      "name": "Whisper of the Oracle",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SBZ"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "7cccfb2cd06d"
+    },
+    {
+      "card_id": "ARC_217_B",
+      "unique_id": "CdP6DCmhLMzBWKB7tWcNJ",
+      "primary_print_id": "ARC217",
+      "name": "Whisper of the Oracle",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "action"
+      ],
+      "subtypes": [],
+      "color": "blue",
+      "pitch": 3,
+      "cost": {
+        "actionPoints": 1,
+        "resources": 0
+      },
+      "power": null,
+      "defense": 3,
+      "intellect": null,
+      "life": null,
+      "keywords": [
+        {
+          "kind": "goAgain"
+        }
+      ],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "1HP",
+        "ARC",
+        "SBZ"
+      ],
+      "type_text": "Generic Action",
+      "text_hash": "52cacf1c35b7"
+    },
+    {
+      "card_id": "ARC_218_Y",
+      "unique_id": "Dbhn6rRcrbdRnKbqdPdwh",
+      "primary_print_id": "ARC218",
+      "name": "Cracked Bauble",
+      "supertypes": [
+        {
+          "kind": "generic"
+        }
+      ],
+      "types": [
+        "resource"
+      ],
+      "subtypes": [],
+      "color": "yellow",
+      "pitch": 2,
+      "cost": null,
+      "power": null,
+      "defense": null,
+      "intellect": null,
+      "life": null,
+      "keywords": [],
+      "sets": [
+        "ARC"
+      ],
+      "all_print_sets": [
+        "ARC",
+        "CRU",
+        "ELE",
+        "HNT",
+        "HVY",
+        "LGS",
+        "MON",
+        "MST",
+        "OMN",
+        "OUT",
+        "ROS",
+        "SEA",
+        "SUP",
+        "UPR",
+        "WTR"
+      ],
+      "type_text": "Generic Resource",
+      "text_hash": "2e0661d23069"
+    }
+  ]
+}

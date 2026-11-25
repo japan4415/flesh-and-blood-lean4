@@ -143,12 +143,19 @@ def extract_keywords(card: dict) -> list[dict]:
     result: list[dict] = []
 
     for kw in raw_kws:
-        if kw in EFFECT_ONLY_KEYWORDS:
+        if kw in EFFECT_ONLY_KEYWORDS or kw == "Reload" or kw.startswith("Opt "):
             continue
         if kw == "Go again":
             # Only treat as printed static keyword if 'Go again' stands on its own line.
             if any(ln == "Go again" for ln in lines):
                 result.append({"kind": "goAgain"})
+        elif kw == "Boost":
+            result.append({"kind": "boost"})
+        elif kw.startswith("Arcane Barrier "):
+            amount = kw.removeprefix("Arcane Barrier ")
+            if not amount.isdecimal():
+                raise ValueError(f"Invalid Arcane Barrier amount {amount!r}")
+            result.append({"kind": "arcaneBarrier", "arg": int(amount)})
         elif kw == "Dominate":
             if any(ln == "Dominate" for ln in lines):
                 result.append({"kind": "dominate"})
@@ -205,7 +212,9 @@ def normalize_card(card: dict) -> dict:
 
     pitch = parse_opt_int(card.get("pitch"))
     color = PITCH_SUFFIX[pitch][1] if pitch in PITCH_SUFFIX else None
-    cost_res = parse_opt_int(card.get("cost"))
+    printed_cost = card.get("cost")
+    variable_factor = len(printed_cost) if printed_cost in ("X", "XX") else 0
+    cost_res = 0 if variable_factor else parse_opt_int(printed_cost)
     is_action_card = "action" in card_types and "token" not in card_types
     cost = (
         {"actionPoints": 1 if is_action_card else 0, "resources": cost_res}
@@ -229,6 +238,7 @@ def normalize_card(card: dict) -> dict:
         "color": color,
         "pitch": pitch,
         "cost": cost,
+        **({"variable_cost_factor": variable_factor} if variable_factor else {}),
         "power": parse_opt_int(card.get("power")),
         "defense": parse_opt_int(card.get("defense")),
         "intellect": parse_opt_int(card.get("intelligence")),
@@ -246,10 +256,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--in", dest="in_path", default="data/raw/wtr_cards.json")
     parser.add_argument("--out", dest="out_path", default="data/normalized/wtr_cards.json")
+    parser.add_argument("--metadata-only", action="store_true", help="Omit functional text from the output")
     args = parser.parse_args()
 
     raw = json.loads(pathlib.Path(args.in_path).read_text(encoding="utf-8"))
     norm_cards = [normalize_card(c) for c in raw["cards"]]
+
+    if args.metadata_only:
+        for card in norm_cards:
+            del card["functional_text"]
 
     # Verify uniqueness of (card_id) and (name, pitch)
     ids = [c["card_id"] for c in norm_cards]
