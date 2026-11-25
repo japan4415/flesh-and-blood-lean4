@@ -228,11 +228,11 @@ def WTR_042 : CardDef :=
     [ .activated .action false { actionPoints := 1, resources := 1 } [{ cost := .destroySelf }] none false
         { body := .grant (.hero .controller) (.addIntellect 1) .thisTurn } ]
 
-/-- Crippling Crush (drafted IR). -/
+/-- Crippling Crush. -/
 def WTR_043_R : CardDef :=
-  draftCard WTR_043_R_meta
-    [ .triggered (.onDealDamage 4 true) false none none
-        { body := .prim (.discardRandom .defendingHero (.const 2)) } ]
+  { draftCard WTR_043_R_meta
+      [ .triggered .onCrush false none none
+          { body := .prim (.discardRandom .defendingHero (.const 2)) } ] with status := .full }
 
 /-- Spinal Crush (drafted IR). -/
 def WTR_044_R : CardDef :=

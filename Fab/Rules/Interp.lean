@@ -1055,8 +1055,14 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
   | .discardRandom pref n =>
     let target := evalPlayerRef s ctrl pref
     let cnt := clampNonNeg (evalNumExpr s ctrl env n)
-    let toDisc := (s.zone (.player target .hand)).take cnt
-    let (s1, es) := discardManyObjs s target toDisc
+    let hand := Zone.player target .hand
+    if 0 < cnt ∧ cnt < (s.zone hand).length then
+      (s, [], [.chanceShuffle hand, .run target src false [] [.prim (.discardHandPrefix cnt)]])
+    else
+      let (s1, es) := discardManyObjs s target ((s.zone hand).take cnt)
+      (s1, es, [])
+  | .discardHandPrefix cnt =>
+    let (s1, es) := discardManyObjs s ctrl ((s.zone (.player ctrl .hand)).take cnt)
     (s1, es, [])
   | .discardChoice pref f n =>
     let target := evalPlayerRef s ctrl pref
@@ -1322,7 +1328,12 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
              by rw [updateSingleObject_physIds s oid (fun o => Object.clearCounterVal_kind o k)],
              hm.1, hm.2⟩
   | discardRandom pref n =>
-    exact discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok
+    unfold execPrim; dsimp only
+    split
+    · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+    · exact discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok
+  | discardHandPrefix _ =>
+    exact discardManyObjs_inv ctrl _ hwf hok
   | discardChoice pref f n =>
     exact discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok
   | intimidate pref =>
@@ -1589,8 +1600,15 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
       dsimp only; unfold updateSingleObject
       cases s.objects[oid.n]? <;> exact ⟨rfl, rfl, id⟩
   | discardRandom pref n =>
-    have h := discardManyObjs_ttr (evalPlayerRef s ctrl pref)
-      ((s.zone (.player (evalPlayerRef s ctrl pref) .hand)).take (clampNonNeg (evalNumExpr s ctrl env n))) s
+    unfold execPrim; dsimp only
+    split
+    · exact ⟨rfl, rfl, id⟩
+    · have h := discardManyObjs_ttr (evalPlayerRef s ctrl pref)
+        ((s.zone (.player (evalPlayerRef s ctrl pref) .hand)).take
+          (clampNonNeg (evalNumExpr s ctrl env n))) s
+      exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+  | discardHandPrefix cnt =>
+    have h := discardManyObjs_ttr ctrl ((s.zone (.player ctrl .hand)).take cnt) s
     exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
   | discardChoice pref f n =>
     have h := discardManyObjs_ttr (evalPlayerRef s ctrl pref)
