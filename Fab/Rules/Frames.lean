@@ -1180,7 +1180,8 @@ def finishBoostedPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArse
           effect := trigger.effect }
       some (pending, false)
     else none
-  let queued := queueCardTriggers boosted delayed
+  let installed := if paid.isSome then installedCardTriggers boosted p (· == .onBoost) else []
+  let queued := queueCardTriggers boosted (delayed ++ installed)
   (finishPaidPlay queued p layerId fromArsenal modeIdx rest none paid, events)
 
 /-- The declarations and payment for a supported activated ability (CR 5.2.2). -/

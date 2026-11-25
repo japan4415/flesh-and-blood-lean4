@@ -268,6 +268,20 @@ def ARC_035_Y : CardDef :=
             { body := .prim (.preventDamageOnce .controller (.sourceCounterCount .steam)) } ] }
     status := .full }
 
+/-- Hyper Driver (ARC036). -/
+def ARC_036_R : CardDef :=
+  { Meta.ARC_036_R_meta with
+    front := { Meta.ARC_036_R_meta.front with
+      entryCounters := [(.steam, 3)]
+      abilities :=
+        [ .triggered (.onCountersEmptied .steam) false none none
+            { body := .prim (.destroy .self_) }
+        , .triggered .onBoost true none none
+            { body := .seqL
+                [ .prim (.removeCounter .self_ .steam (.const 1))
+                , .prim (.gainResource .controller (.const 1)) ] } ] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -276,7 +290,7 @@ def arcCards : List CardDef :=
    ARC_023_R, ARC_024_Y, ARC_025_B,
    ARC_026_R, ARC_027_Y, ARC_028_B,
    ARC_029_R, ARC_030_Y, ARC_031_B,
-   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y]
+   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R]
 
 end FabCards.ARC
 

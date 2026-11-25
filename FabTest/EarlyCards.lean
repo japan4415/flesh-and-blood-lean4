@@ -1298,6 +1298,63 @@ meta def fixedPreventionDirectDamageScenario (kind : DamageKind) : Option Bool :
 #guard fixedPreventionDirectDamageScenario .physical == some true
 #guard fixedPreventionDirectDamageScenario .arcane == some true
 
+#guard ((earlyPrintingCardId? "ARC036").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Hyper Driver" && card.status == .full)
+
+meta def hyperDriverScenario : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let arena := Zone.player p .permanent
+  let deck := Zone.player p .deck
+  let reserve := ["ARC_007_B", "ARC_007_B", "ARC_007_B", "WTR_191_R"]
+  let withDeck ← reserve.foldlM
+    (fun s id => (earlyPlace s p deck id).map Prod.fst) { earlyBase with cards := throughArcDB }
+  let (withFirst, first) ← earlyPlace withDeck p hand "ARC_026_R"
+  let (withSecond, second) ← earlyPlace withFirst p hand "ARC_026_R"
+  let (withThird, third) ← earlyPlace withSecond p hand "ARC_026_R"
+  let (withFourth, fourth) ← earlyPlace withThird p hand "ARC_026_R"
+  let (ready, item) ← earlyPlace withFourth p hand "ARC_036_R"
+  let installed ← earlySteps ready (⟨.player p, .playCard item⟩ :: earlyPass)
+  let driver ← (installed.zone arena).head?
+  let steam (s : GameState) := (s.obj? driver).map (·.counterCount .steam)
+  let attack (id : ObjId) (s : GameState) :=
+    earlySteps s [⟨.player p, .playCard id⟩, ⟨.player p, .pickMay true⟩]
+  let resolveTrigger (s : GameState) := do
+    let trigger ← s.pendingTriggers.head?
+    earlySteps s ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let close (s : GameState) := do
+    let attacking ← earlySteps s (earlyPass ++ earlyPass)
+    let hit ← earlyDamage attacking
+    earlySteps hit (earlyPass ++ earlyPass)
+  let nextTurn (s : GameState) := do
+    let (ended, _) ← microStep { s with pending := [.endTurnCleanup p] }
+    return { ended.setPool p { actionPoints := 4 } with
+      turn := s.turn + 2, pending := [.priority p 0], active := some p }
+  let skipped ← earlySteps installed [⟨.player p, .playCard first⟩, ⟨.player p, .pickMay false⟩]
+  let firstPaid ← attack first installed
+  let firstUsed ← resolveTrigger firstPaid
+  let firstClosed ← close firstUsed
+  let secondPaid ← attack second firstClosed
+  let secondClosed ← close secondPaid
+  let thirdPaid ← (nextTurn secondClosed).bind (attack third)
+  let thirdUsed ← resolveTrigger thirdPaid
+  let thirdClosed ← close thirdUsed
+  let fourthPaid ← (nextTurn thirdClosed).bind (attack fourth)
+  let empty ← resolveTrigger fourthPaid
+  let destroyed ← resolveTrigger empty
+  let firstBanished ← (firstPaid.zone (.player p .banished)).head?
+  pure (steam installed == some 3 && skipped.pendingTriggers.isEmpty && skipped.boostsThisTurn.isEmpty &&
+    steam skipped == some 3 && firstPaid.pendingTriggers.length == 1 &&
+    (firstPaid.cardDefOf? firstBanished).any (fun c => c.id == ⟨"WTR_191_R"⟩) &&
+    steam firstUsed == some 2 && (firstUsed.poolOf p).resources == (installed.poolOf p).resources + 1 &&
+    secondPaid.pendingTriggers.isEmpty && steam secondPaid == some 2 &&
+    (secondPaid.poolOf p).resources == (firstUsed.poolOf p).resources &&
+    steam thirdUsed == some 1 && (thirdUsed.poolOf p).resources == 1 &&
+    steam empty == some 0 && empty.pendingTriggers.length == 1 &&
+    (empty.poolOf p).resources == 1 && destroyed.zone arena == [])
+
+#guard hyperDriverScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
