@@ -155,6 +155,7 @@ def DieBranchList.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Die
 def ContinuousMod.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : ContinuousMod → Bool
   | .addPower d => d.wfBool numSlots env hasX
   | .addDefense d => d.wfBool numSlots env hasX
+  | .addDefenseWhileDefending _ => true
   | .addIntellect _ => true
   | .modifyCost _ => true
   | .grantKeyword _ => true

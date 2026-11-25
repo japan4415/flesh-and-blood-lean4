@@ -265,6 +265,8 @@ inductive ContinuousMod where
   | addPower (delta : NumExpr)
   /-- Modify defense `{d}` by `delta`. -/
   | addDefense (delta : NumExpr)
+  /-- Static defense bonus that applies only while the affected card is defending (CR 7.3). -/
+  | addDefenseWhileDefending (delta : Int)
   /-- Modify hero intellect `{i}` by `delta` (Helm of Isen's Peak). -/
   | addIntellect (delta : Int)
   /-- Modify resource cost `{r}` by `delta` (negative reduces, positive increases; Seismic Surge, Cartilage Crush). -/

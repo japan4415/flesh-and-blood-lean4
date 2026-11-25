@@ -245,13 +245,13 @@ private theorem HiddenEquiv.characteristics_eq {p : PlayerId} {s1 s2 : GameState
     s1.characteristics id = s2.characteristics id := by
   have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
   have hsource : s1.arenaDefenseSourceEffects = s2.arenaDefenseSourceEffects := by
-    funext source
+    funext defending source
     have hobj : s1.obj? source = s2.obj? source := by simp [GameState.obj?, h.objects]
     unfold GameState.arenaDefenseSourceEffects
     rw [hobj, (h.cardDef_face source).1, h.activeEffects]
   have hstatic : s1.arenaDefenseEffects id = s2.arenaDefenseEffects id := by
     unfold GameState.arenaDefenseEffects
-    rw [h.arenaContents_eq, hsource, h.activeEffects]
+    rw [h.arenaContents_eq, h.combat, hsource, h.activeEffects]
   unfold GameState.characteristics
   rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic]
 

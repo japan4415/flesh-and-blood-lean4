@@ -404,6 +404,16 @@ def WTR_070_Y : CardDef := { emergingPower WTR_070_Y_meta 2 with status := .full
 /-- Emerging Power Blue. -/
 def WTR_071_B : CardDef := { emergingPower WTR_071_B_meta 1 with status := .full }
 
+
+/-- Give defending cards at the printed cost threshold a defense bonus. -/
+def stonewallConfidence (base : CardDef) (bonus : Int) : CardDef :=
+  draftCard base
+    [ .static_ none (.allMatching .controller { minCost := some 3 }) (.addDefenseWhileDefending bonus)
+    , .triggered .onStartOfActionPhase false none none { body := .prim (.destroy .self_) } ]
+
+/-- Stonewall Confidence Red. -/
+def WTR_072_R : CardDef := { stonewallConfidence WTR_072_R_meta 4 with status := .full }
+
 /-- Seismic Surge reduces the cost of the next Guardian attack action. -/
 def WTR_075 : CardDef :=
   { draftCard WTR_075_meta
@@ -1220,7 +1230,7 @@ def draftedCards : List CardDef :=
   , WTR_032_R, WTR_033_Y, WTR_034_B, WTR_035_R, WTR_036_Y, WTR_037_B
   , WTR_038, WTR_039, WTR_040, WTR_041, WTR_042, WTR_043_R, WTR_044_R, WTR_045_B, WTR_046_Y
   , WTR_048_R, WTR_049_Y, WTR_050_B, WTR_051_R, WTR_052_Y, WTR_053_B
-  , WTR_054_R, WTR_055_Y, WTR_056_B, WTR_057_R, WTR_058_Y, WTR_059_B, WTR_069_R, WTR_070_Y, WTR_071_B, WTR_075
+  , WTR_054_R, WTR_055_Y, WTR_056_B, WTR_057_R, WTR_058_Y, WTR_059_B, WTR_069_R, WTR_070_Y, WTR_071_B, WTR_072_R, WTR_075
   , WTR_076, WTR_077, WTR_078, WTR_079, WTR_080, WTR_081_B, WTR_082_R, WTR_084_Y, WTR_085_R
   , WTR_086_R, WTR_087_Y, WTR_088_B, WTR_089_R, WTR_090_Y, WTR_091_B, WTR_092_R, WTR_093_Y, WTR_094_B
   , WTR_095_R, WTR_096_Y, WTR_097_B

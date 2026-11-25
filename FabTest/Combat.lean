@@ -1143,6 +1143,66 @@ meta def checkSeismicSurge : Option Bool := do
 
 #guard checkSeismicSurge == some true
 
+/-- Stonewall Confidence boosts defenders at the printed cost threshold while the aura is active. -/
+meta def checkStonewallConfidence (cid : CardId) (pitch : Nat) (bonus : Int) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let arena := Zone.player player .permanent
+  let grave := Zone.player player .graveyard
+  let funded := m5Base.setPool player { actionPoints := 1, resources := 2 }
+  let base : GameState := { funded with pending := funded.pending ++ [.beginTurn] }
+  let card ← base.cards.find? cid
+  let (withAura, aura) ← cPlace base player .hand cid
+  let (withHigh, high) ← cPlace withAura player .hand ⟨"WTR_188_R"⟩
+  let (withLow, low) ← cPlace withHigh player .hand ⟨"WTR_107_R"⟩
+  let (ready, attack) ← cPlace withLow opponent .hand ⟨"WTR_203_R"⟩
+  let placed ← cSteps ready (⟨.player player, .playCard aura⟩ :: passBoth)
+  let source ← (placed.zone arena).head?
+  let turn ← cSteps placed (passBoth ++ [⟨.player player, .arsenalSkip⟩])
+  let defending ← cSteps turn
+    (⟨.player opponent, .playCard attack⟩ :: (passBoth.reverse ++ passBoth.reverse))
+  let block id : Action := ⟨.player player, .defendCard id⟩
+  let highBlocked ← cSteps defending [block high]
+  let lowBlocked ← cSteps defending [block low]
+  let link (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let highLink ← link highBlocked
+  let lowLink ← link lowBlocked
+  let highDefender ← highLink.defending.head?
+  let lowDefender ← lowLink.defending.head?
+  let (removed, _) ← moveObj highBlocked source grave .top false
+  let finish : Action := ⟨.player player, .defendDone⟩
+  let (withReaction, reaction) ← cPlace defending player .hand ⟨"WTR_214_B"⟩
+  let fundedReaction := withReaction.setPool player { resources := 3 }
+  let response ← cSteps fundedReaction (finish :: (passBoth.reverse ++ [⟨.player opponent, .pass⟩]))
+  let reactionPaid ← cSteps response [⟨.player player, .playCard reaction⟩]
+  let reactionLayer ← (reactionPaid.zone .stack).head?
+  let reactionResolved ← cSteps reactionPaid passBoth
+  let reactionDefender ← (link reactionResolved).bind (·.defending.head?)
+  let playThrough := finish :: (List.replicate 4 passBoth.reverse).flatten
+  let closed ← cSteps highBlocked playThrough
+  let lower ← cSteps lowBlocked playThrough
+  let prompt ← cSteps closed passBoth.reverse
+  let trigger ← prompt.pendingTriggers.head?
+  let stacked ← cSteps prompt
+    [⟨.player player, .pickTriggerStart player⟩, ⟨.player player, .pickTrigger trigger.id⟩]
+  let resolved ← cSteps stacked passBoth
+  let spent ← (resolved.zone grave).head?
+  pure (card.status == .full && card.front.pitch == some pitch &&
+    (placed.poolOf player).actionPoints == 1 && (placed.poolOf player).resources == 0 &&
+    objEffectiveDefense placed high == some 3 && objEffectiveDefense defending high == some 3 &&
+    objEffectiveDefense highBlocked highDefender == some (3 + bonus) &&
+    objEffectiveDefense lowBlocked lowDefender == some 2 &&
+    objEffectiveDefense removed highDefender == some 3 &&
+    objEffectiveDefense reactionPaid reactionLayer == some 5 &&
+    objEffectiveDefense reactionResolved reactionDefender == some (5 + bonus) &&
+    linkTotalDefense highBlocked highLink == (3 + bonus).toNat &&
+    linkTotalDefense lowBlocked lowLink == 2 &&
+    closed.lifeOf player == 40 && lower.lifeOf player == 38 &&
+    prompt.active == some player && trigger.source == source &&
+    resolved.zone arena == [] && (resolved.cardDefOf? spent).map (·.id) == some cid)
+
+#guard checkStonewallConfidence ⟨"WTR_072_R"⟩ 1 4 == some true
+
 /-- Forged for War gives live equipment defense until the aura leaves the arena. -/
 meta def checkForgedForWar : Option Bool := do
   let player : PlayerId := ⟨0⟩
