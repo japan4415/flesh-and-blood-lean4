@@ -88,6 +88,8 @@ def legalFrameActions (s : GameState) : List Action :=
   | .choosePitch p _ _ _ _ :: _ =>
     ((pitchableCards s p).map fun id => ⟨.player p, .pitchCard id⟩) ++
       [⟨.player p, .cancelPlay⟩]
+  | .chooseOptionalResources p _ _ _ _ _ :: _ =>
+    [⟨.player p, .pickMay true⟩, ⟨.player p, .pickMay false⟩, ⟨.player p, .cancelPlay⟩]
   | .chooseMay ctrl _ _ _ _ _ :: _ =>
     [⟨.player ctrl, .pickMay true⟩, ⟨.player ctrl, .pickMay false⟩]
   | .chooseModal ctrl _ _ _ modes :: _ =>

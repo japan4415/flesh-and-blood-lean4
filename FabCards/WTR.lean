@@ -337,8 +337,8 @@ def staunchResponse (base : CardDef) : CardDef :=
           (.grant .self_ (.addDefense (.const 3)) .thisChainLink)
           .nop })
 
-/-- Staunch Response Red (drafted IR). -/
-def WTR_051_R : CardDef := staunchResponse WTR_051_R_meta
+/-- Staunch Response Red. -/
+def WTR_051_R : CardDef := { staunchResponse WTR_051_R_meta with status := .full }
 /-- Staunch Response Yellow (drafted IR). -/
 def WTR_052_Y : CardDef := staunchResponse WTR_052_Y_meta
 /-- Staunch Response Blue (drafted IR). -/

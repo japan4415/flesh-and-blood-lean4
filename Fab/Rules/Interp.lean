@@ -276,7 +276,12 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     match s.combat.bind CombatChain.activeLink? with
     | some cur => decide (nonEquipmentDefenderCount s cur < n)
     | none => false
-  | .additionalCostPaid => false
+  | .additionalCostPaid =>
+    match s.layerMeta.get? src.n with
+    | some info => info.additionalCostPaid
+    | none =>
+      (s.combat.bind CombatChain.activeLink?).any fun link =>
+        link.attack == some src && link.additionalCostPaid
   | .lastDiscardedMatches filter =>
     let discarded := match s.layerMeta.get? src.n with
       | some info => info.discardedForPlay

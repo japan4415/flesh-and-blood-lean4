@@ -165,6 +165,9 @@ inductive Frame where
   /-- Player decision: pitch a card from hand while paying `cost`, or cancel play (CR 1.14.3, 5.1.6). -/
   | choosePitch (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
       (cost : AssetCost)
+  /-- Player decision: accept an optional additional resource cost or waive it (CR 5.1.5). -/
+  | chooseOptionalResources (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
+      (modeIdx : Option Nat) (cost : AssetCost) (extra : Nat)
   /-- Work frame: begin resolving the top layer of the stack LIFO (CR 5.3). -/
   | resolveStack
   /-- Work frame: finish resolving `layerId` (Go Again +1 AP, move to graveyard/arena, priority to active) (CR 5.3.4, 5.3.5). -/

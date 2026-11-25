@@ -650,6 +650,75 @@ meta def checkStrokeOfForesight (cid : CardId) (pitch bonus : Nat) (fromArsenal 
 #guard checkStrokeOfForesight ⟨"WTR_140_B"⟩ 3 1 false == some true
 #guard checkStrokeOfForesight ⟨"WTR_140_B"⟩ 3 1 true == some true
 
+/-- Staunch Response pays its extra cost before resolving, including payments made by pitching. -/
+meta def checkStaunchResponse (cid : CardId) (pitch printedDefense : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let defenderPitch := Zone.player defender .pitch
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let base := m5Base.setPool attacker { actionPoints := 1, resources := 3 }
+  let card ← base.cards.find? cid
+  let (withAttack, attack) ← cPlace base attacker .hand ⟨"WTR_188_R"⟩
+  let (bare, response) ← cPlace withAttack defender origin cid fromArsenal
+  let (firstReserve, first) ← cPlace bare defender .hand ⟨"WTR_205_B"⟩
+  let (withPitch, second) ← cPlace firstReserve defender .hand ⟨"WTR_190_B"⟩
+  let play p id : Action := ⟨.player p, .playCard id⟩
+  let pick value : Action := ⟨.player defender, .pickMay value⟩
+  let pitchCard id : Action := ⟨.player defender, .pitchCard id⟩
+  let cancel : Action := ⟨.player defender, .cancelPlay⟩
+  let resolve := [⟨.player defender, .pass⟩, ⟨.player attacker, .pass⟩]
+  let preparer (s : GameState) :=
+    cSteps s (play attacker attack :: (passBoth ++ passBoth ++
+      [⟨.player defender, .defendDone⟩] ++ passBoth ++ [⟨.player attacker, .pass⟩]))
+  let reactionWindow ← preparer (bare.setPool defender { resources := 6 })
+  let choosing ← cSteps reactionWindow [play defender response]
+  let layer ← (choosing.zone .stack).head?
+  let declined ← cSteps choosing [pick false]
+  let accepted ← cSteps choosing [pick true]
+  let cancelled ← cSteps choosing [cancel]
+  let unpayable ← preparer (bare.setPool defender { resources := 2 })
+  let unpayableChoice ← cSteps unpayable [play defender response]
+  let rolledBack ← cSteps unpayableChoice [pick true]
+  let pitchWindow ← preparer withPitch
+  let pitchChoice ← cSteps pitchWindow [play defender response, pick true]
+  let partPaid ← cSteps pitchChoice [pitchCard first]
+  let partialLayer ← (partPaid.zone .stack).head?
+  let cancelledPitch ← cSteps partPaid [cancel]
+  let fullyPitched ← cSteps partPaid [pitchCard second]
+  let link (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let resultingDefense (s : GameState) (defn : Nat) := do
+    let defended ← cSteps s resolve
+    let active ← link defended
+    let cardId ← active.defending.head?
+    let damaged ← cSteps defended passBoth
+    pure (active.defending.length == 1 &&
+      (defended.cardDefOf? cardId).map (·.id) == some cid &&
+      objEffectiveDefense defended cardId == some (Int.ofNat defn) &&
+      linkTotalDefense defended active == defn &&
+      (link damaged).map (·.damageDealt) == some (7 - defn) &&
+      (damaged.poolOf defender).actionPoints == 0)
+  let declinedOk ← resultingDefense declined printedDefense
+  let bonusOk ← resultingDefense accepted (printedDefense + 3)
+  let pitchedOk ← resultingDefense fullyPitched (printedDefense + 3)
+  pure (card.status == .full && card.front.pitch == some pitch &&
+    card.front.defense == some printedDefense &&
+    (choosing.poolOf defender).resources == 6 && choosing.playRollback.isSome &&
+    (legalActionsFor defender choosing).contains (pick false) &&
+    (legalActionsFor defender choosing).contains (pick true) &&
+    (step 64 choosing ⟨.player attacker, .pickMay true⟩).toOption.isNone &&
+    (declined.poolOf defender).resources == 4 && (accepted.poolOf defender).resources == 0 &&
+    ((declined.layerMeta.get? layer.n).map (·.additionalCostPaid)) == some false &&
+    ((accepted.layerMeta.get? layer.n).map (·.additionalCostPaid)) == some true &&
+    decide (cancelled = reactionWindow) && decide (rolledBack = unpayable) &&
+    (partPaid.poolOf defender).resources == 3 && (partPaid.zone defenderPitch).length == 1 &&
+    !evalCondition partPaid defender partialLayer fromArsenal .additionalCostPaid &&
+    decide (cancelledPitch = pitchWindow) && (fullyPitched.zone defenderPitch).length == 2 &&
+    (fullyPitched.poolOf defender).resources == 0 && declinedOk && bonusOk && pitchedOk)
+
+#guard checkStaunchResponse ⟨"WTR_051_R"⟩ 1 7 false == some true
+#guard checkStaunchResponse ⟨"WTR_051_R"⟩ 1 7 true == some true
+
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
 --    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!
