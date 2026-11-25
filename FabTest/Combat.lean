@@ -291,3 +291,38 @@ meta def checkSnatch (cid : CardId) (power : Nat) : Option Bool := do
 #guard checkSnatch ⟨"WTR_167_R"⟩ 4 == some true
 #guard checkSnatch ⟨"WTR_168_Y"⟩ 3 == some true
 #guard checkSnatch ⟨"WTR_169_B"⟩ 2 == some true
+
+/-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
+meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
+    (keywords : List KeywordInst := []) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let s0 := m5Base.setPool attacker { actionPoints := preceding.length + 1, resources := 8 }
+  let card ← s0.cards.find? cid
+  let (s1, id) ← cPlace s0 attacker .hand cid
+  let finishAttack : List Action := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let enterAttack := fun (source : ObjId) => [⟨.player attacker, .playCard source⟩] ++ passBoth ++ passBoth
+  let ready ← preceding.foldlM (fun s prior => do
+    let (withPrior, priorId) ← cPlace s attacker .hand prior
+    cSteps withPrior (enterAttack priorId ++ finishAttack)) s1
+  let defending ← cSteps ready (enterAttack id)
+  let active ← defending.combat.bind CombatChain.activeLink?
+  let attack ← active.attack
+  let resolved ← cSteps defending finishAttack
+  let result ← resolved.combat.bind CombatChain.activeLink?
+  pure (card.status == .full && (defending.cardDefOf? attack).map (·.id) == some cid &&
+    defending.combat.map (·.links.length) == some (preceding.length + 1) &&
+    active.powerBonus == bonus && result.damageDealt == power &&
+    defending.lifeOf defender - resolved.lifeOf defender == Int.ofNat power &&
+    linkHasKeyword defending active .goAgain == keywords.contains .goAgain &&
+    linkHasKeyword defending active .dominate == keywords.contains .dominate &&
+    (resolved.poolOf attacker).actionPoints == (defending.poolOf attacker).actionPoints +
+      (if keywords.contains .goAgain then 1 else 0))
+
+/-- Blackout Kick checks the immediately preceding attack, even when an earlier link matches. -/
+meta def checkBlackoutKick (cid : CardId) (basePower : Nat) : Bool :=
+  checkComboAttack [⟨"WTR_104_R"⟩] cid (basePower + 3) 3 == some true &&
+  checkComboAttack [] cid basePower 0 == some true &&
+  checkComboAttack [⟨"WTR_104_R"⟩, ⟨"WTR_203_R"⟩] cid basePower 0 == some true
+
+#guard checkBlackoutKick ⟨"WTR_089_R"⟩ 4
