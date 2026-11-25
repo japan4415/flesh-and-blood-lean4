@@ -2110,6 +2110,51 @@ meta def checkDawnblade : Option Bool := do
 
 #guard checkDawnblade == some true
 
+/-- Braveforge Bracers rewards a weapon hit once per turn and buffs the next weapon only. -/
+meta def checkBraveforgeBracers : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_116"⟩
+  let card ← m5Base.cards.find? cid
+  let funded := m5Base.setPool attacker { actionPoints := 3, resources := 4 }
+  let (equipped, bracers) ← cPlace funded attacker .arms cid
+  let (withDagger, first) ← cPlace equipped attacker .weapon ⟨"WTR_078"⟩
+  let (withTwo, second) ← cPlace withDagger attacker .weapon ⟨"WTR_078"⟩
+  let (withBlock, block) ← cPlace withTwo defender .hand ⟨"WTR_205_B"⟩
+  let (withArmor, defendingBracers) ← cPlace withBlock defender .arms cid
+  let (ready, attack) ← cPlace withArmor attacker .hand ⟨"WTR_203_R"⟩
+  let activate : Action := ⟨.player attacker, .activateAbility bracers 0⟩
+  let swing (id : ObjId) : Action := ⟨.player attacker, .attackWeapon id⟩
+  let play : Action := ⟨.player attacker, .playCard attack⟩
+  let defend (id : ObjId) : Action := ⟨.player defender, .defendCard id⟩
+  let enter := passBoth ++ passBoth
+  let fight := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let firstSwing ← cSteps ready (swing first :: enter)
+  let blocked ← cSteps firstSwing (defend block :: (fight ++ passBoth))
+  let hit ← cSteps firstSwing (fight ++ passBoth)
+  let ordinaryHit ← cSteps ready (play :: (enter ++ fight ++ passBoth))
+  let worn ← cSteps ready (play :: (enter ++ [defend defendingBracers] ++ fight ++ passBoth))
+  let paid ← cSteps hit [activate]
+  let buffed ← cSteps paid passBoth
+  let afterCard ← cSteps buffed (play :: (enter ++ fight ++ passBoth))
+  let enhanced ← cSteps afterCard (swing second :: (enter ++ fight))
+  let link ← enhanced.combat.bind CombatChain.activeLink?
+  pure (card.status == .full && card.front.defense == some 2 && card.front.keywords.contains .battleworn &&
+    !(legalActionsFor attacker ready).contains activate &&
+    !(legalActionsFor attacker blocked).contains activate &&
+    !(legalActionsFor attacker ordinaryHit).contains activate &&
+    (legalActionsFor attacker hit).contains activate && hit.weaponHitsThisTurn == [first] &&
+    (paid.poolOf attacker).actionPoints == 1 && (paid.poolOf attacker).resources == 2 &&
+    (buffed.poolOf attacker).actionPoints == 2 &&
+    buffed.activeEffects.map (·.target) == [.nextAttack CardFilter.weaponAttack] &&
+    !(legalActionsFor attacker buffed).contains activate && (step 64 buffed activate).toOption.isNone &&
+    afterCard.lifeOf defender == 35 && afterCard.activeEffects == buffed.activeEffects &&
+    link.attackSource == some second && link.damageDealt == 2 && enhanced.activeEffects.isEmpty &&
+    worn.zone (.player defender .arms) == [defendingBracers] &&
+    objEffectiveDefense worn defendingBracers == some 1)
+
+#guard checkBraveforgeBracers == some true
+
 /-- Heartened Cross Strap pays for up to two resources of the next attack action card. -/
 meta def checkHeartenedCrossStrap : Option Bool := do
   let player : PlayerId := ⟨0⟩

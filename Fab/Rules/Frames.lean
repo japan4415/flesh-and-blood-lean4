@@ -887,6 +887,12 @@ def activationResolution? (s : GameState) (effect : EffectDef) (target : Option 
     else none
   | _, _, _ => none
 
+/-- Check supported activation requirements using public turn information (CR 5.2.2). -/
+def activationConditionMet (s : GameState) (p : PlayerId) : Option Condition → Bool
+  | none => true
+  | some .weaponHitThisTurn => hasWeaponHitThisTurn s p
+  | some _ => false
+
 /-- Read the announced ability and its payable costs from a visible arena source (CR 5.2.2). -/
 def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat) (target : Option ObjId) :
     Option ActivationPlan := do
@@ -896,7 +902,7 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
   let terms ← (do
     let chars ← s.characteristics source
     let face ← s.objectFace? source
-    let .activated speed once cost extra none goAgain effect ← face.abilities[index]? | none
+    let .activated speed once cost extra condition goAgain effect ← face.abilities[index]? | none
     let timely := match speed with
       | .action => s.phase == .actionPhase && s.active == some p && s.combat.isNone && (s.zone .stack).isEmpty
       | .instant => true
@@ -904,7 +910,7 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
         s.combat.any fun cc => cc.step == .reaction && cc.activeLink?.any (fun link => link.attacker == p)
       | _ => false
     let destroy := extra == [{ cost := .destroySelf }]
-    if !timely || chars.abilitiesLost || chars.controller != p ||
+    if !timely || chars.abilitiesLost || chars.controller != p || !activationConditionMet s p condition ||
         (once && s.activatedThisTurn.contains (source, index)) ||
         !(extra.isEmpty || destroy) ||
         !(effect.modes.isEmpty && effect.extraCosts.isEmpty) ||
