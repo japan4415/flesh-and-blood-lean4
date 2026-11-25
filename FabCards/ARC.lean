@@ -248,6 +248,9 @@ def lockedAndLoaded (base : CardDef) (bonus : Int) : CardDef :=
 /-- Locked and Loaded (ARC032). -/
 def ARC_032_R : CardDef := { lockedAndLoaded Meta.ARC_032_R_meta 3 with status := .full }
 
+/-- Locked and Loaded (ARC033). -/
+def ARC_033_Y : CardDef := { lockedAndLoaded Meta.ARC_033_Y_meta 2 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -256,7 +259,7 @@ def arcCards : List CardDef :=
    ARC_023_R, ARC_024_Y, ARC_025_B,
    ARC_026_R, ARC_027_Y, ARC_028_B,
    ARC_029_R, ARC_030_Y, ARC_031_B,
-   ARC_032_R]
+   ARC_032_R, ARC_033_Y]
 
 end FabCards.ARC
 

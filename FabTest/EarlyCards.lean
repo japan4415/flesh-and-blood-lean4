@@ -1197,6 +1197,10 @@ meta def lockedAndLoadedScenario (cardId : String) (bonus : Int) (boosted : Bool
 #guard lockedAndLoadedScenario "ARC_032_R" 3 false == some true
 #guard lockedAndLoadedScenario "ARC_032_R" 3 true == some true
 
+#guard (earlyPrintingCardId? "ARC033").map (·.val) == some "ARC_033_Y"
+#guard lockedAndLoadedScenario "ARC_033_Y" 2 false == some true
+#guard lockedAndLoadedScenario "ARC_033_Y" 2 true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
