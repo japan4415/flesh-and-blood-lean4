@@ -1047,7 +1047,8 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
   | .gainLife pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n)
-    (s.setLife target (s.lifeOf target + Int.ofNat amt), [], [])
+    let events := if amt = 0 then [] else [.lifeGained target amt]
+    (s.setLife target (s.lifeOf target + Int.ofNat amt), events, [])
   | .loseLife pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n)
