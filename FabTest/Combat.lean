@@ -438,6 +438,40 @@ meta def checkWoundedBull (cid : CardId) (power : Nat) : Option Bool := do
 #guard checkWoundedBull ⟨"WTR_201_Y"⟩ 6 == some true
 #guard checkWoundedBull ⟨"WTR_202_B"⟩ 5 == some true
 
+/-- Play Scar for a Scar from arsenal on an open chain and test its on-play Go Again. -/
+meta def checkScarForAScar (cid : CardId) (power : Nat) : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let funded := m5Base.setLife attacker 34
+  let card ← funded.cards.find? cid
+  let (withJab, jab) ← cPlace funded attacker .hand ⟨"WTR_098_R"⟩
+  let (withScar, scar) ← cPlace withJab attacker .arsenal cid true
+  let (oneBlock, first) ← cPlace withScar defender .hand ⟨"WTR_203_R"⟩
+  let (ready, second) ← cPlace oneBlock defender .hand ⟨"WTR_204_Y"⟩
+  let finish := [⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth ++ passBoth
+  let prior ← cSteps ready ([⟨.player attacker, .playCard jab⟩] ++ passBoth ++ passBoth ++ finish)
+  let playScar : Action := ⟨.player attacker, .playCard scar⟩
+  let paid ← cSteps prior [playScar]
+  let trigger ← paid.pendingTriggers.head?
+  let boosted ← cSteps paid ([⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩] ++ passBoth)
+  let defense ← cSteps boosted (passBoth ++ passBoth)
+  let hit ← cSteps defense finish
+  let blocked ← cSteps defense ([⟨.player defender, .defendCard first⟩,
+    ⟨.player defender, .defendCard second⟩] ++ finish)
+  let paidEqual ← cSteps (prior.setLife attacker (prior.lifeOf defender)) [playScar]
+  let equal ← cSteps paidEqual (passBoth ++ passBoth ++ finish)
+  pure (card.status == .full && prior.lifeOf defender == 37 && trigger.fromArsenal &&
+    paid.pendingTriggers.length == 1 && paid.zone (.player attacker .arsenal) == [] &&
+    paidEqual.pendingTriggers.isEmpty &&
+    hit.lifeOf defender == 37 - Int.ofNat power && equal.lifeOf defender == hit.lifeOf defender &&
+    blocked.lifeOf defender == 37 &&
+    hit.combat.map (fun cc => (cc.step, cc.links.length)) == some (.resolution, 2) &&
+    (hit.poolOf attacker).actionPoints == 1 && (blocked.poolOf attacker).actionPoints == 1 &&
+    (equal.poolOf attacker).actionPoints == 0)
+
+#guard checkScarForAScar ⟨"WTR_191_R"⟩ 4 == some true
+
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
