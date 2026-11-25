@@ -79,8 +79,8 @@ def legalFrameActions (s : GameState) : List Action :=
           fun id => ⟨.player defender, .defendCard id⟩
       | none => []
     defs ++ [⟨.player defender, .defendDone⟩]
-  | .chooseMode p _ _ modeCount _ :: _ =>
-    ((List.range modeCount).map fun idx => ⟨.player p, .pickMode idx⟩) ++
+  | .chooseMode p layerId _ modeCount _ :: _ =>
+    (((List.range modeCount).filter (canPickCardMode s layerId)).map fun idx => ⟨.player p, .pickMode idx⟩) ++
       [⟨.player p, .cancelPlay⟩]
   | .choosePlayHero p _ _ _ _ :: _ =>
     (s.turnOrder.map fun hero => ⟨.player p, .pickHeroTarget hero⟩) ++

@@ -41,8 +41,8 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     | none => False
   | .defendPick defender :: _, .player q, .defendDone =>
     q = defender
-  | .chooseMode p _ _ modeCount _ :: _, .player q, .pickMode idx =>
-    q = p ∧ idx < modeCount
+  | .chooseMode p layerId _ modeCount _ :: _, .player q, .pickMode idx =>
+    q = p ∧ idx < modeCount ∧ canPickCardMode s layerId idx = true
   | .chooseMode p _ _ _ _ :: _, .player q, .cancelPlay =>
     q = p
   | .choosePlayHero p _ _ _ _ :: _, .player q, .pickHeroTarget hero =>

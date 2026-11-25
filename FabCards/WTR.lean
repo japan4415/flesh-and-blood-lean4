@@ -435,14 +435,14 @@ def WTR_081_B : CardDef :=
             , .grant .self_ (.addPower .xValue) .thisChainLink ])
           .nop })
 
-/-- Ancestral Empowerment (drafted IR). -/
+/-- Ancestral Empowerment. -/
 def WTR_082_R : CardDef :=
-  draftCard WTR_082_R_meta []
-    (some
-      { targets := [{ kind := .attackAction, filter := ninjaAttackAction }]
-        body := .seqL
-          [ .grant (.obj (.slot 0)) (.addPower (.const 1)) .thisChainLink
-          , .prim (.draw .controller (.const 1)) ] })
+  { draftCard WTR_082_R_meta []
+      (some
+        { targets := [{ kind := .attackAction, filter := ninjaAttackAction }]
+          body := .seqL
+            [ .grant (.obj (.slot 0)) (.addPower (.const 1)) .thisChainLink
+            , .prim (.draw .controller (.const 1)) ] }) with status := .full }
 
 /-- Hurricane Technique. -/
 def WTR_084_Y : CardDef :=

@@ -127,6 +127,29 @@ def cardFaceMatches (f : CardFilter) (face : CardFace) : Bool :=
     | none => true
     | some col => face.color == some col)
 
+/-- The required single-attack target of a card or its chosen mode (CR 5.1.4a). -/
+def singleAttackTargetSpec (card : CardDef) (modeIdx : Option Nat) : Option TargetSpec := do
+  let effect ← card.front.playEffect
+  let targets := (modeIdx.bind (fun idx => effect.modes[idx]?)).map (·.targets) |>.getD effect.targets
+  match targets with
+  | [spec@{ kind := .attackAction, minCount := 1, maxCount := some 1, .. }]
+  | [spec@{ kind := .weaponAttack, minCount := 1, maxCount := some 1, .. }] => some spec
+  | _ => none
+
+/-- The only attack a reaction can target on the active link, if it matches the slot (CR 7.4). -/
+def matchingActiveAttack (s : GameState) (link : ChainLink) (spec : TargetSpec) : Option ObjId := do
+  let attack ← link.attack
+  if !(s.zone .combatChain).contains attack then none else
+    match spec.kind, link.attackSource with
+    | .attackAction, none =>
+      let face ← s.objectFace? attack
+      if face.hasType .action && face.hasSubtype .attack && cardFaceMatches spec.filter face then
+        some attack else none
+    | .weaponAttack, some source =>
+      let face ← s.objectFace? source
+      if face.hasType .weapon && cardFaceMatches spec.filter face then some attack else none
+    | _, _ => none
+
 /-- Map an IR `ZoneRef` for player `p` to a concrete `Zone`. -/
 def zoneOfRef (p : PlayerId) : ZoneRef → Option Zone
   | .hand => some (.player p .hand)
@@ -1805,6 +1828,15 @@ def defenseReactionGrant (s : GameState) (ctrl : PlayerId) (src : ObjId)
              duration := dur
              timestamp := ⟨s.nextTimestamp⟩ }
 
+/-- Recheck the identity and eligibility of the declared attack before applying a targeted effect. -/
+def declaredAttackStillMatches (s : GameState) (src : ObjId) (link : ChainLink) : Bool :=
+  (do
+    let info ← s.layerMeta.get? src.n
+    let target ← info.attackTarget
+    let card ← s.cardDefOf? src
+    let spec ← singleAttackTargetSpec card info.modeIdx
+    pure (matchingActiveAttack s link spec == some target) : Option Bool).getD false
+
 /-- Apply combat buffs to a pending attack card or the active `ChainLink`, and register
 turn- and chain-scoped continuous effects in `s.activeEffects` (CR 6.2-6.3, 7.4). -/
 def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
@@ -1816,11 +1848,15 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
   else match dur, s.combat with
   | .thisChainLink, some cc =>
     let cc' := cc.updateActiveLink fun link =>
+      let targetSlotOk := match scope with
+        | .obj (.slot i) => i == 0 && declaredAttackStillMatches s src link
+        | _ => true
       let targetsAttack := match scope with
         | .self_ | .obj .self_ => link.attack == some src
         | .obj .currentAttack => link.attack.isSome
+        | .obj (.slot _) => targetSlotOk
         | _ => false
-      match mod with
+      if !targetSlotOk then link else match mod with
       | .addPower d => { link with powerBonus := link.powerBonus + evalNumExpr s ctrl env d }
       | .addDefense d => { link with defenseBonus := link.defenseBonus + evalNumExpr s ctrl env d }
       | .grantKeyword kw =>

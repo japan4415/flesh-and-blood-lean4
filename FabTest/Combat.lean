@@ -175,16 +175,16 @@ meta def checkIronrot (cid : CardId) (slot : ZoneKind) : Option Bool := do
 
 -- 3. Reaction Step: Attack Reaction (Ancestral Empowerment +1{p}, draw 1) + Defense Reaction
 --    (Sink Below Red, 4{d}) join combat before Damage Step (CR 7.4, 7.5)!
---    Wounding Blow Red (4{p}) + Ancestral (+1{p} = 5{p}) vs 3{d} hand card + Sink Below (4{d} = 7{d}) -> 0 dmg!
+--    Head Jab Red (3{p}) + Ancestral (+1{p} = 4{p}) vs 2{d} hand card + Sink Below (4{d}) -> 0 dmg.
 #guard match (do
     let (s1, _) ← cPlace m5Base ⟨0⟩ .deck ⟨"WTR_188_R"⟩
-    let (s2, wbAtk) ← cPlace s1 ⟨0⟩ .hand ⟨"WTR_203_R"⟩
+    let (s2, jab) ← cPlace s1 ⟨0⟩ .hand ⟨"WTR_098_R"⟩
     let (s3, ancId) ← cPlace s2 ⟨0⟩ .hand ⟨"WTR_082_R"⟩
     let (s4, defHand) ← cPlace s3 ⟨1⟩ .hand ⟨"WTR_098_R"⟩  -- Head Jab Red (2{d})
     let (s5, sinkId) ← cPlace s4 ⟨1⟩ .hand ⟨"WTR_215_R"⟩   -- Sink Below Red (4{d})
     -- Enter Defend Step, defend with defHand (2{d}), advance to Reaction Step
     let sReact ← cSteps s5
-      ([⟨.player ⟨0⟩, .playCard wbAtk⟩] ++ passBoth ++ passBoth ++
+      ([⟨.player ⟨0⟩, .playCard jab⟩] ++ passBoth ++ passBoth ++
        [⟨.player ⟨1⟩, .defendCard defHand⟩, ⟨.player ⟨1⟩, .defendDone⟩] ++ passBoth)
     let onReact := sReact.combat.map (·.step) == some .reaction
     -- P0 plays Ancestral Empowerment (+1{p} & draw 1), both pass -> resolves
@@ -193,14 +193,69 @@ meta def checkIronrot (cid : CardId) (slot : ZoneKind) : Option Bool := do
     let sAfterSink ← cSteps sAfterAnc
       [⟨.player ⟨0⟩, .pass⟩, ⟨.player ⟨1⟩, .playCard sinkId⟩,
        ⟨.player ⟨1⟩, .pass⟩, ⟨.player ⟨0⟩, .pass⟩]
-    -- Both pass Reaction Step -> Damage Step (5{p} vs 6{d} = 0 dmg, hit = false)
+    -- Both pass Reaction Step -> Damage Step (4{p} vs 6{d} = 0 dmg, hit = false)
     let sDmg ← cSteps sAfterSink passBoth
     pure (onReact &&
       (sAfterAnc.zone (.player ⟨0⟩ .hand)).length == 1 &&
+      (sAfterAnc.combat.bind CombatChain.activeLink?).map (linkAttackPower sAfterAnc) == some 4 &&
       sDmg.lifeOf ⟨1⟩ == 40 &&
       (sDmg.combat.bind CombatChain.activeLink?).map (fun l => (l.hit, l.damageDealt)) == some (false, 0))) with
   | some b => b
   | none => false
+
+/-- Ancestral Empowerment declares a Ninja attack action and draws even if it loses that target. -/
+meta def checkAncestralEmpowerment (fromArsenal : Bool) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let hand := Zone.player player .hand
+  let deck := Zone.player player .deck
+  let grave := Zone.player player .graveyard
+  let cid : CardId := ⟨"WTR_082_R"⟩
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool player { actionPoints := 1, resources := 1 }
+  let card ← funded.cards.find? cid
+  let (withTop, _) ← cPlace funded player .deck ⟨"WTR_188_R"⟩
+  let (withNinja, ninja) ← cPlace withTop player .hand ⟨"WTR_098_R"⟩
+  let (withGeneric, generic) ← cPlace withNinja player .hand ⟨"WTR_203_R"⟩
+  let (withWeapon, weapon) ← cPlace withGeneric player .weapon ⟨"WTR_078"⟩
+  let (ready, reaction) ← cPlace withWeapon player origin cid fromArsenal
+  let play id : Action := ⟨.player player, .playCard id⟩
+  let toReaction := passBoth ++ passBoth ++ [⟨.player opponent, .defendDone⟩] ++ passBoth
+  let ninjaReaction ← cSteps ready (play ninja :: toReaction)
+  let genericReaction ← cSteps ready (play generic :: toReaction)
+  let weaponReaction ← cSteps ready (⟨.player player, .attackWeapon weapon⟩ :: toReaction)
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let link ← active ninjaReaction
+  let target ← link.attack
+  let (declared, events) ← (step 64 ninjaReaction (play reaction)).toOption
+  let layer ← (declared.zone .stack).head?
+  let resolved ← cSteps declared passBoth
+  let (lost, lostId) ← moveObj declared target grave .top false
+  let (newAttack, replacement) ← moveObj lost lostId .combatChain .top false
+  let replacementChain := newAttack.combat.map fun chain =>
+    chain.updateActiveLink fun ln => { ln with attack := some replacement }
+  let replaced := { newAttack with combat := replacementChain }
+  let lostResolved ← cSteps lost passBoth
+  let replacedResolved ← cSteps replaced passBoth
+  let hit ← cSteps resolved (passBoth ++ passBoth)
+  let denied (s : GameState) :=
+    !(legalActionsFor player s).contains (play reaction) && (step 64 s (play reaction)).toOption.isNone
+  let draws (s : GameState) :=
+    (s.zone deck).isEmpty && ((s.zone hand).head?.bind s.cardDefOf?).map (·.id) == some ⟨"WTR_188_R"⟩
+  pure (card.status == .full && card.front.pitch == some 1 && card.front.defense == some 3 &&
+    denied ready && denied genericReaction && denied weaponReaction &&
+    (legalActionsFor player ninjaReaction).contains (play reaction) &&
+    events.contains (.targetedAttack layer target) &&
+    ((declared.layerMeta.get? layer.n).bind (·.attackTarget)) == some target &&
+    (declared.poolOf player).resources == 1 && (declared.poolOf player).actionPoints == 0 &&
+    declared.zone deck == ready.zone deck && draws resolved && draws lostResolved && draws replacedResolved &&
+    (active resolved).map (linkAttackPower resolved) == some 4 &&
+    (active lostResolved).map (·.powerBonus) == some 0 &&
+    (active replacedResolved).map (linkAttackPower replacedResolved) == some 3 &&
+    (active hit).map (·.damageDealt) == some 4)
+
+#guard checkAncestralEmpowerment false == some true
+#guard checkAncestralEmpowerment true == some true
 
 -- 4. Dominate Hook (CR 8.3.4):
 --    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->

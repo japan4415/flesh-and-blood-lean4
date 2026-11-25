@@ -189,6 +189,28 @@ theorem HiddenEquiv.loadoutEquipDest {p : PlayerId} {s1 s2 : GameState} (h : Hid
   unfold loadoutEquipDest?
   rw [hinv, (h.cardDef_face id).1, hhe, hch, har, hle, hwe, h2h]
 
+/-- The cards and active combat link determine whether an attack target can be declared. -/
+theorem HiddenEquiv.hasRequiredAttackTarget_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) (card : CardDef) (modeIdx : Option Nat) :
+    hasRequiredAttackTarget s1 card modeIdx = hasRequiredAttackTarget s2 card modeIdx := by
+  have hm (link : ChainLink) (spec : TargetSpec) :
+      matchingActiveAttack s1 link spec = matchingActiveAttack s2 link spec := by
+    unfold matchingActiveAttack
+    rw [h.visibleZones .combatChain rfl]
+    cases link.attack with
+    | none => rfl
+    | some attack =>
+      cases link.attackSource with
+      | none => cases spec.kind <;> simp [(h.cardDef_face attack).2]
+      | some source => cases spec.kind <;> simp [(h.cardDef_face source).2]
+  simp only [hasRequiredAttackTarget, h.combat, hm]
+
+/-- Helper: `HiddenEquiv p s1 s2` preserves `canPickCardMode`. -/
+theorem HiddenEquiv.canPickCardMode_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) (layerId : ObjId) (idx : Nat) :
+    canPickCardMode s1 layerId idx = canPickCardMode s2 layerId idx := by
+  simp only [canPickCardMode, (h.cardDef_face layerId).1, h.hasRequiredAttackTarget_eq]
+
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canPlayCard s p id`. -/
 theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : HiddenEquiv p s1 s2)
     (id : ObjId) :
@@ -207,7 +229,7 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     | some aid => simp [(h.cardDef_face aid).2]
   unfold canPlayCard
   rw [hh, ha, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat]
-  simp only [canLinkTakeDefenseReaction, hkw]
+  simp only [canLinkTakeDefenseReaction, hkw, attackReactionCanTarget, h.hasRequiredAttackTarget_eq]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canAttackWithWeapon s p wid`. -/
 theorem HiddenEquiv.canAttackWithWeapon_eq {p : PlayerId} {s1 s2 : GameState}
@@ -353,7 +375,10 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                 | cons x xs ih => simp [hne, ih]
               cases s1.combat.bind CombatChain.activeLink? <;>
                 cases s2.combat.bind CombatChain.activeLink? <;> simp [hnil]
-          | chooseMode _ _ _ _ _ => rfl
+          | chooseMode _ layerId _ _ _ =>
+            dsimp only
+            rw [show canPickCardMode s1 layerId = canPickCardMode s2 layerId from
+              funext (h.canPickCardMode_eq layerId)]
           | choosePlayHero _ _ _ _ _ =>
             dsimp only
             rw [h.turnOrder]
