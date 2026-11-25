@@ -901,9 +901,9 @@ def WTR_161_B : CardDef :=
               [ .grant .self_ (.addPower (.const 4)) .thisChainLink
               , .grant .self_ (.grantKeyword .goAgain) .thisChainLink ] } ] with status := .full }
 
-/-- Crazy Brew (drafted IR — 6-sided die branches 1-2 / 3-4 / 5-6). -/
+/-- Crazy Brew. -/
 def WTR_162_B : CardDef :=
-  draftCard WTR_162_B_meta
+  { draftCard WTR_162_B_meta
     [ .activated .action false { actionPoints := 1 } [{ cost := .destroySelf }] none false
         { body := .rollDie6 ⟨0⟩
             (.cons 1 2 (.seqL [.prim (.loseLife .controller (.const 2)), .prim (.gainAP .controller (.const 1))])
@@ -913,7 +913,7 @@ def WTR_162_B : CardDef :=
               , .prim (.gainAP .controller (.const 2))
               , .grant (.nextAttack CardFilter.any) (.addPower (.const 2)) .thisTurn ])
             .nil)))
-            .nop } ]
+            .nop } ] with status := .full }
 
 /-- Remembrance (drafted IR). -/
 def WTR_163_Y : CardDef :=
