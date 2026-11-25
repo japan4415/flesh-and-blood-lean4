@@ -1045,6 +1045,8 @@ meta def checkEmergingPower (cid : CardId) (pitch bonus : Nat) : Option Bool := 
 
 #guard checkEmergingPower ⟨"WTR_069_R"⟩ 1 3 == some true
 
+#guard checkEmergingPower ⟨"WTR_070_Y"⟩ 2 2 == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do
