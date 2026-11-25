@@ -337,3 +337,4 @@ meta def checkRisingKneeThrust (cid : CardId) (basePower : Nat) : Bool :=
 
 #guard checkRisingKneeThrust ⟨"WTR_104_R"⟩ 3
 #guard checkRisingKneeThrust ⟨"WTR_105_Y"⟩ 2
+#guard checkRisingKneeThrust ⟨"WTR_106_B"⟩ 1
