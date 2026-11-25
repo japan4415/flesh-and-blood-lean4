@@ -519,6 +519,13 @@ def WTR_090_Y : CardDef := { blackoutKick WTR_090_Y_meta with status := .full }
 /-- Blackout Kick Blue. -/
 def WTR_091_B : CardDef := { blackoutKick WTR_091_B_meta with status := .full }
 
+/-- Flic Flak can strengthen the next card its controller defends with. -/
+def flicFlak (base : CardDef) : CardDef :=
+  draftCard base [] (some { body := .grant (.nextDefend comboFilter) (.addDefense (.const 2)) .thisTurn })
+
+/-- Flic Flak Red. -/
+def WTR_092_R : CardDef := { flicFlak WTR_092_R_meta with status := .full }
+
 /-- Shared Combo effect for Open the Center. -/
 def openTheCenter (base : CardDef) : CardDef :=
   comboAttack base "Head Jab" (.seqL
@@ -1164,7 +1171,7 @@ def draftedCards : List CardDef :=
   , WTR_048_R, WTR_049_Y, WTR_050_B, WTR_051_R, WTR_052_Y, WTR_053_B
   , WTR_054_R, WTR_055_Y, WTR_056_B, WTR_057_R, WTR_058_Y, WTR_059_B, WTR_069_R, WTR_070_Y, WTR_071_B, WTR_075
   , WTR_076, WTR_077, WTR_078, WTR_079, WTR_080, WTR_081_B, WTR_082_R, WTR_084_Y, WTR_085_R
-  , WTR_086_R, WTR_087_Y, WTR_088_B, WTR_089_R, WTR_090_Y, WTR_091_B
+  , WTR_086_R, WTR_087_Y, WTR_088_B, WTR_089_R, WTR_090_Y, WTR_091_B, WTR_092_R
   , WTR_095_R, WTR_096_Y, WTR_097_B
   , WTR_098_R, WTR_099_Y, WTR_100_B, WTR_101_R, WTR_102_Y, WTR_103_B
   , WTR_104_R, WTR_105_Y, WTR_106_B

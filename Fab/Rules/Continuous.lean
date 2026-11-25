@@ -296,6 +296,8 @@ inductive EffectTarget where
   | nextAttackCard (filter : CardFilter)
   /-- Waits for the controller to pay for an attack matching the filter, including an attack-proxy. -/
   | nextAttack (filter : CardFilter)
+  /-- Waits for the controller's next defending card and applies if it matches the filter. -/
+  | nextDefend (filter : CardFilter)
   /-- Applies to each paid attack matching the filter while the effect is active. -/
   | allAttacks (filter : CardFilter)
 deriving DecidableEq, Repr
@@ -305,7 +307,7 @@ def EffectTarget.matches (t : EffectTarget) (c : DerivedChars) (id : ObjId) : Bo
   match t with
   | .obj tid => tid == id
   | .objects ids => ids.contains id
-  | .nextAttackCard _ | .nextAttack _ | .allAttacks _ => false
+  | .nextAttackCard _ | .nextAttack _ | .nextDefend _ | .allAttacks _ => false
   | .matching ctrl reqT reqSub reqSup reqMinP reqName =>
     (match ctrl with | some p => c.controller == p | none => true) &&
     (match reqT with | some ty => c.types.contains ty | none => true) &&

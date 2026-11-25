@@ -767,7 +767,8 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
                 defendedFromHandCount := l.defendedFromHandCount + (if !info.fromArsenal then 1 else 0) }
             ({ sMoved with
                 combat := cc'
-                activeEffects := defenseReactionEffects sMoved.activeEffects layerId id' },
+                activeEffects := defenseReactionEffects
+                  (nextDefendEffects sMoved info.controller id' (some layerId)) layerId id' },
              [Event.moved layerId id' .stack .combatChain])
           | none => (s1, [])
         else
