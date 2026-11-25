@@ -601,14 +601,21 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
       have hs1 := spendAssetCost_ttr hsp
       dsimp only at h
       split at h
-      · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
-        exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
       · split at h
         · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
           exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
         · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
           unfold rollbackPlay
           cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
+      · split at h
+        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
+        · split at h
+          · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+            exact timeLimitBounded_of_eq hb hs1.1 hs1.2.1 (fun hr => hs1.2.2 ▸ hr)
+          · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+            unfold rollbackPlay
+            cases s.playRollback <;> exact timeLimitBounded_of_eq hb rfl rfl id
     · split at h
       · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
         exact timeLimitBounded_of_eq hb rfl rfl id
@@ -975,6 +982,25 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact ⟨rfl, rfl, rfl⟩
     · cases h
   · -- chooseOptionalResources cancelPlay
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      unfold rollbackPlay; cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
+    · cases h
+  · -- chooseHandCardCost pickHandCostCard
+    split at h
+    · split at h
+      · dsimp only at h
+        split at h
+        · rename_i moved newId hm
+          simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+          have hm' := moveObj_turn_tournament_result hm
+          exact ⟨hm'.1, hm'.2.1, hm'.2.2⟩
+        · cases h
+      · split at h
+        · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact ⟨rfl, rfl, rfl⟩
+        · cases h
+    · cases h
+  · -- chooseHandCardCost cancelPlay
     split at h
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       unfold rollbackPlay; cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩

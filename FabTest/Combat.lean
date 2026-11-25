@@ -725,28 +725,62 @@ meta def checkStaunchResponse (cid : CardId) (pitch printedDefense : Nat) (fromA
 #guard checkStaunchResponse ⟨"WTR_053_B"⟩ 3 5 false == some true
 #guard checkStaunchResponse ⟨"WTR_053_B"⟩ 3 5 true == some true
 
--- 4. Dominate Hook (CR 8.3.4):
---    Demolition Crew Red (Dominate, 6{p}, cost 2{r}): P1 defends with 1st hand card ->
---    attempting a 2nd hand card is ILLEGAL, while defending additionally with Equipment IS legal!
-#guard match (do
-    let s0 := m5Base.setPool ⟨0⟩ { actionPoints := 1, resources := 2 }
-    let (s1, demoId) ← cPlace s0 ⟨0⟩ .hand ⟨"WTR_179_R"⟩
-    let (s2, h1) ← cPlace s1 ⟨1⟩ .hand ⟨"WTR_203_R"⟩
-    let (s3, h2) ← cPlace s2 ⟨1⟩ .hand ⟨"WTR_188_R"⟩
-    let (s4, eqId) ← cPlace s3 ⟨1⟩ .chest ⟨"WTR_041"⟩
-    let sDef1 ← cSteps s4 ([⟨.player ⟨0⟩, .playCard demoId⟩] ++ passBoth ++ passBoth ++
-      [⟨.player ⟨1⟩, .defendCard h1⟩])
-    let secondHandRejected :=
-      match step 64 sDef1 ⟨.player ⟨1⟩, .defendCard h2⟩ with
-      | .error .illegal => true
-      | _ => false
-    let equipAccepted :=
-      match step 64 sDef1 ⟨.player ⟨1⟩, .defendCard eqId⟩ with
-      | .ok _ => true
-      | .error _ => false
-    pure (secondHandRejected && equipAccepted)) with
-  | some b => b
-  | none => false
+/-- Demolition Crew reveals a qualifying card without moving it and attacks with Dominate. -/
+meta def checkDemolitionCrew (cid : CardId) (pitch power : Nat) (fromArsenal : Bool) :
+    Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player attacker .hand
+  let origin : ZoneKind := if fromArsenal then .arsenal else .hand
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 2 }
+  let card ← funded.cards.find? cid
+  let (bare, attack) ← cPlace funded attacker origin cid fromArsenal
+  let (below, low) ← cPlace bare attacker .hand ⟨"WTR_101_R"⟩
+  let boundaryId : CardId := ⟨"WTR_107_R"⟩
+  let highId : CardId := ⟨"WTR_190_B"⟩
+  let (withChoice, boundary) ← cPlace below attacker .hand boundaryId
+  let (withPitch, high) ← cPlace withChoice attacker .hand highId
+  let (withBlock, block) ← cPlace withPitch defender .hand ⟨"WTR_203_R"⟩
+  let (withSecond, second) ← cPlace withBlock defender .hand ⟨"WTR_188_R"⟩
+  let (ready, armor) ← cPlace withSecond defender .chest ⟨"WTR_041"⟩
+  let play : Action := ⟨.player attacker, .playCard attack⟩
+  let pick id : Action := ⟨.player attacker, .pickHandCostCard id⟩
+  let defend id : Action := ⟨.player defender, .defendCard id⟩
+  let cancel : Action := ⟨.player attacker, .cancelPlay⟩
+  let failed ← cSteps below [play]
+  let choosing ← cSteps ready [play]
+  let cancelled ← cSteps choosing [cancel]
+  let (paid, events) ← (step 64 choosing (pick boundary)).toOption
+  let (paidHigh, highEvents) ← (step 64 choosing (pick high)).toOption
+  let needsPitch ← cSteps (ready.setPool attacker { actionPoints := 1 }) [play]
+  let gathered ← cSteps needsPitch [⟨.player attacker, .pitchCard high⟩]
+  let paidByPitch ← cSteps gathered [pick boundary]
+  let defense ← cSteps paid (passBoth ++ passBoth)
+  let active ← defense.combat.bind CombatChain.activeLink?
+  let blocked ← cSteps defense [defend block]
+  let defended ← cSteps blocked [defend armor]
+  let finished ← cSteps defended ([⟨.player defender, .defendDone⟩] ++ passBoth ++ passBoth)
+  let hit ← finished.combat.bind CombatChain.activeLink?
+  pure (card.status == .full && card.front.pitch == some pitch && card.front.defense == some 2 &&
+    decide (failed = below) && decide (cancelled = ready) &&
+    (legalActionsFor attacker choosing).contains (pick boundary) &&
+    (legalActionsFor attacker choosing).contains (pick high) &&
+    !(legalActionsFor attacker choosing).contains (pick low) &&
+    (step 64 choosing (pick low)).toOption.isNone &&
+    (step 64 choosing (pick attack)).toOption.isNone &&
+    (step 64 choosing ⟨.player defender, .pickHandCostCard boundary⟩).toOption.isNone &&
+    (step 64 gathered (pick high)).toOption.isNone &&
+    (paidByPitch.poolOf attacker).resources == 1 &&
+    (paid.poolOf attacker).resources == 0 && (paid.poolOf attacker).actionPoints == 0 &&
+    events == [.revealed attacker boundary boundaryId] &&
+    highEvents == [.revealed attacker high highId] &&
+    paid.zone hand == [high, boundary, low] && paidHigh.zone hand == paid.zone hand &&
+    linkHasKeyword defense active .dominate && linkAttackPower defense active == power &&
+    (step 64 blocked (defend second)).toOption.isNone &&
+    hit.defending.length == 2 && hit.damageDealt == power - 5)
+
+#guard checkDemolitionCrew ⟨"WTR_179_R"⟩ 1 6 false == some true
+#guard checkDemolitionCrew ⟨"WTR_179_R"⟩ 1 6 true == some true
 
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/

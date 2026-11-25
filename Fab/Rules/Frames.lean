@@ -596,6 +596,27 @@ def cardPlayRandomDiscardCost (s : GameState) (layerId : ObjId) : Nat :=
     count
   | _ => 0
 
+/-- Read the supported single, required hand-card cost (CR 5.1.9). -/
+def cardPlayHandCost? (s : GameState) (layerId : ObjId) : Option HandCardCost :=
+  match (s.cardDefOf? layerId).bind (·.front.playEffect) with
+  | some { extraCosts := [{ cost := .putHandCardOnDeckBottom, optional := false, cond := none }], .. } =>
+    some .bottomDeck
+  | some { extraCosts := [{ cost := .revealHandCard f, optional := false, cond := none }], .. } =>
+    some (.reveal f)
+  | _ => none
+
+/-- Read the public identity of a card that meets a reveal cost. -/
+def revealCostCard? (s : GameState) (id : ObjId) (filter : CardFilter) : Option CardId := do
+  let face ← s.objectFace? id
+  if cardFaceMatches filter face then (s.cardDefOf? id).map (·.id) else none
+
+/-- A cost card must be in the payer's current hand (CR 5.1.9). -/
+def canPickHandCostCard (s : GameState) (p : PlayerId) (cost : HandCardCost) (id : ObjId) : Bool :=
+  (s.zone (.player p .hand)).contains id &&
+    match cost with
+    | .bottomDeck => true
+    | .reveal filter => (revealCostCard? s id filter).isSome
+
 /-- Finalize a paid layer, then stack triggers queued during play and return priority (CR 5.1.10, 6.6.6). -/
 def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (rest : List Frame) (discarded : Option CardFace := none) : GameState :=
@@ -813,6 +834,24 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       none
   | .chooseOptionalResources p _ _ _ _ _ :: rest, .player q, .cancelPlay =>
     if p = q then some (rollbackPlay s rest, []) else none
+  | .chooseHandCardCost p layerId fromArsenal modeIdx cost :: rest, .player q, .pickHandCostCard id =>
+    if p = q ∧ canPickHandCostCard s p cost id = true then
+      match cost with
+      | .bottomDeck =>
+        let deck := Zone.player p .deck
+        match moveObj s id deck .bottom false with
+        | some (moved, newId) =>
+          some (finishPaidPlay moved p layerId fromArsenal modeIdx rest,
+            [.moved id newId (.player p .hand) deck])
+        | none => none
+      | .reveal filter =>
+        match revealCostCard? s id filter with
+        | some card =>
+          some (finishPaidPlay s p layerId fromArsenal modeIdx rest, [.revealed p id card])
+        | none => none
+    else none
+  | .chooseHandCardCost p _ _ _ _ :: rest, .player q, .cancelPlay =>
+    if p = q then some (rollbackPlay s rest, []) else none
   | .chooseMay ctrl src fromArsenal env body ifDone :: rest, .player q, .pickMay choice =>
     if ctrl = q then
       if choice then
@@ -985,16 +1024,23 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
   | .playPayCost p layerId fromArsenal modeIdx cost :: rest =>
     match spendAssetCost s p cost with
     | some s1 =>
-      let count := cardPlayRandomDiscardCost s layerId
-      if count = 0 then
-        some (finishPaidPlay s1 p layerId fromArsenal modeIdx rest, [])
-      else if count ≤ (s1.zone (.player p .hand)).length then
-        let hand := Zone.player p .hand
-        let pay := Frame.payRandomDiscard p layerId fromArsenal modeIdx count :: rest
-        let next := if count < (s1.zone hand).length then .chanceShuffle hand :: pay else pay
-        some ({ s1 with pending := next }, [])
-      else
-        some (rollbackPlay s rest, [])
+      match cardPlayHandCost? s layerId with
+      | some handCost =>
+        if (s1.zone (.player p .hand)).any (canPickHandCostCard s1 p handCost) then
+          some ({ s1 with pending := .chooseHandCardCost p layerId fromArsenal modeIdx handCost :: rest }, [])
+        else
+          some (rollbackPlay s rest, [])
+      | none =>
+        let count := cardPlayRandomDiscardCost s layerId
+        if count = 0 then
+          some (finishPaidPlay s1 p layerId fromArsenal modeIdx rest, [])
+        else if count ≤ (s1.zone (.player p .hand)).length then
+          let hand := Zone.player p .hand
+          let pay := Frame.payRandomDiscard p layerId fromArsenal modeIdx count :: rest
+          let next := if count < (s1.zone hand).length then .chanceShuffle hand :: pay else pay
+          some ({ s1 with pending := next }, [])
+        else
+          some (rollbackPlay s rest, [])
     | none =>
       if canPitchForCost s p cost then
         some ({ s with pending := .choosePitch p layerId fromArsenal modeIdx cost :: rest }, [])
