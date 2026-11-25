@@ -35,8 +35,26 @@ def IRA_002 : CardDef :=
     sets := [⟨"IRA"⟩]
     status := .full }
 
+/-- Shared printed attributes for Ira Welcome Deck attack action cards. -/
+def iraAttackCard (id name : String) (supertype : Supertype) (pitch cost : Nat)
+    (power defense : Int) (keywords : List KeywordInst := [])
+    (abilities : List Ability := []) (playEffect : Option EffectDef := none) : CardDef :=
+  { id := ⟨id⟩
+    front := { name, supertypes := [supertype], types := [.action], subtypes := [.attack]
+               color := some (if pitch == 1 then .red else if pitch == 2 then .yellow else .blue)
+               pitch := some pitch, cost := some { actionPoints := 1, resources := cost }
+               power := some power, defense := some defense, keywords, abilities, playEffect }
+    sets := [⟨"IRA"⟩]
+    status := .full }
+
+/-- Whirling Mist Blossom. -/
+def IRA_003_Y : CardDef :=
+  iraAttackCard "IRA_003_Y" "Whirling Mist Blossom" (.class_ .ninja) 2 1 2 2
+    [.specialization "Ira", .goAgain]
+    [.triggered (.onConsecutiveHitLink 2) false none none { body := .prim (.draw .controller (.const 2)) }]
+
 /-- Logical cards first published in the Ira Welcome Deck. -/
-def iraCards : List CardDef := [IRA_001, IRA_002]
+def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y]
 
 end IRA
 end FabCards

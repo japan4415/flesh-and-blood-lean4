@@ -78,3 +78,23 @@ meta def edgeOfAutumnScenario : Option Bool := do
     (finished.poolOf p).actionPoints == 4 && (finished.poolOf p).resources == 7 &&
     !(canAttackWithWeapon finished p sword))
 #guard edgeOfAutumnScenario == some true
+
+meta def blossomScenario : Option Bool := do
+  let p := earlyAttacker
+  let deck := Zone.player p .deck
+  let handZone := Zone.player p .hand
+  let (one, _) ← earlyPlace earlyBase p deck "WTR_100_B"
+  let (two, _) ← earlyPlace one p deck "WTR_100_B"
+  let (hand, jab) ← earlyPlace two p handZone "WTR_100_B"
+  let (ready, blossom) ← earlyPlace hand p (.player p .hand) "IRA_003_Y"
+  let opening ← earlyAttack ready (.playCard blossom)
+  let openingHit ← earlyDamage opening
+  let prior ← (earlyAttack ready (.playCard jab)).bind earlyDamage
+  let next ← (earlySteps prior earlyPass).bind (earlyAttack · (.playCard blossom))
+  let hit ← earlyDamage next
+  let trigger ← hit.pendingTriggers.head?
+  let resolved ← earlySteps hit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  pure (openingHit.pendingTriggers.isEmpty && hit.pendingTriggers.length == 1 &&
+    (resolved.zone deck).isEmpty && (resolved.zone handZone).length == 2)
+#guard blossomScenario == some true
