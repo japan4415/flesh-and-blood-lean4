@@ -47,6 +47,8 @@ structure ActivationPayment where
   removeCounters : Option (CounterKind × Nat) := none
   /-- Whether the announced ability is an Action (CR 8.1.1). -/
   isAction : Bool := false
+  /-- Player and the face-down arsenal card to expose as an activation cost. -/
+  turnArsenalFaceUp : Option (PlayerId × ObjId) := none
 deriving DecidableEq, Repr
 
 /-- Per-layer metadata tracked while a card or ability layer sits on the stack (CR 5.1, 5.3). -/

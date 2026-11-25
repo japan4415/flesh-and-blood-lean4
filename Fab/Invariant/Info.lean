@@ -443,6 +443,11 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
         | rfl
         | simp only [activationConditionMet, hasWeaponHitThisTurn,
             h.weaponHitsThisTurn, h.characteristics_eq, h.boostsThisTurn]
+  have ha : s1.zone (.player p .arsenal) = s2.zone (.player p .arsenal) :=
+    h.visibleZones _ (by simp [Zone.isSecretTo])
+  have hturn : canTurnArsenalCardFaceUp s1 p = canTurnArsenalCardFaceUp s2 p := by
+    funext id
+    simp only [canTurnArsenalCardFaceUp, ha, GameState.obj?, h.objects, (h.cardDef_face id).1]
   have hplan (id : ObjId) (index : Nat) (target : Option ObjId) :
       activationPlan? s1 p id index target = activationPlan? s2 p id index target := by
     have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
@@ -452,10 +457,10 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
       h.phase, h.active, h.combat, h.visibleZones .stack rfl, h.activatedThisTurn]
     have hcost : nextActionSurcharge s1 p = nextActionSurcharge s2 p := by
       simp only [nextActionSurcharge, h.activeEffects]
-    simp only [hresolution, hcanPitch, hcondition, hcost]
+    simp only [hresolution, hcanPitch, hcondition, hcost, hturn]
   have hface (id : ObjId) := (h.cardDef_face id).2
   unfold availableActivations
-  simp only [hz, hsources, hface, hplan, htargets]
+  simp only [hz, hsources, hface, hplan, htargets, ha]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canDefendWith s link p id`. -/
 theorem HiddenEquiv.canDefendWith_eq {p : PlayerId} {s1 s2 : GameState}

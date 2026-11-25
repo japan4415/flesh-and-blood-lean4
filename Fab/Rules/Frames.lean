@@ -1250,6 +1250,11 @@ def activationConditionMet (s : GameState) (p : PlayerId) : Option Condition →
   | some (.boostedThisTurn n) => decide (n ≤ s.boostsThisTurn.count p)
   | some _ => false
 
+/-- A player can pay a face-up cost with a face-down card in their arsenal (CR 3.3, 5.2.2b). -/
+def canTurnArsenalCardFaceUp (s : GameState) (p : PlayerId) (card : ObjId) : Bool :=
+  (s.zone (.player p .arsenal)).contains card &&
+    (s.obj? card).any (·.faceDown) && (s.cardDefOf? card).isSome
+
 /-- Read the announced ability and its payable costs from a visible arena source (CR 5.2.2). -/
 def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat) (target : Option ObjId) :
     Option ActivationPlan := do
@@ -1270,22 +1275,27 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
     let removeCounters := match extra with
       | [{ cost := .removeCounters kind n, optional := false, cond := none }] => some (kind, n)
       | _ => none
+    let turnArsenalFaceUp := extra == [{ cost := .turnArsenalFaceUp }]
+    let arsenalCard := if turnArsenalFaceUp then target.filter (canTurnArsenalCardFaceUp s p) else none
     let canRemove := removeCounters.any fun (kind, n) => decide (n ≤ obj.counterCount kind)
     if !timely || chars.abilitiesLost || chars.controller != p || !activationConditionMet s p condition ||
         (once && s.activatedThisTurn.contains (source, index)) ||
-        !(extra.isEmpty || destroy || canRemove) ||
+        !(extra.isEmpty || destroy || canRemove || arsenalCard.isSome) ||
         !(effect.modes.isEmpty && effect.extraCosts.isEmpty) ||
         effect.body == .prim .weaponAttack then none else
-    let (body, declared) ← activationResolution? s effect target
-    some (speed, once, cost, destroy, removeCounters, goAgain, body, declared))
-  let (speed, once, cost, destroy, removeCounters, goAgain, body, declared) := terms
+    let (body, declared) ← activationResolution? s effect (if turnArsenalFaceUp then none else target)
+    some (speed, once, cost, destroy, removeCounters, arsenalCard, goAgain, body, declared))
+  let (speed, once, cost, destroy, removeCounters, arsenalCard, goAgain, body, declared) := terms
   let isAction := speed == .action
   let cost := if isAction then
       { cost with actionPoints := max cost.actionPoints 1, resources := cost.resources + nextActionSurcharge s p }
     else cost
   let pool := s.poolOf p
   if cost.actionPoints ≤ pool.actionPoints && (pool.canPay cost || canPitchForCost s p cost) then
-    some ⟨⟨source, index, origin, obj.owner, destroy, once, removeCounters, isAction⟩, cost, goAgain, body, declared⟩
+    let payment : ActivationPayment :=
+      { source, index, origin, owner := obj.owner, destroySource := destroy, oncePerTurn := once,
+        removeCounters, isAction, turnArsenalFaceUp := arsenalCard.map (p, ·) }
+    some ⟨payment, cost, goAgain, body, declared⟩
   else none
 
 /-- The indexed abilities currently available to a player holding priority. -/
@@ -1295,8 +1305,10 @@ def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat × 
     let abilities := ((s.objectFace? source).map (·.abilities)).getD []
     abilities.zipIdx.flatMap fun (ability, index) =>
       match ability with
-      | .activated _ _ _ _ _ _ effect =>
-        if effect.targets.isEmpty then [(source, index, none)]
+      | .activated _ _ _ extra _ _ effect =>
+        if extra == [{ cost := .turnArsenalFaceUp }] then
+          (s.zone (.player p .arsenal)).map (fun id => (source, index, some id))
+        else if effect.targets.isEmpty then [(source, index, none)]
         else ((activationTargetZones s).flatMap s.zone).map fun id => (source, index, some id)
       | _ => []
   candidates.filter fun (source, index, target) => (activationPlan? s p source index target).isSome
@@ -1304,19 +1316,27 @@ def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat × 
 /-- Pay the cost taken from an activation's source before returning priority (CR 5.2.2b). -/
 def payActivationSource (s : GameState) (payment : ActivationPayment) :
     Option (GameState × List Event) := do
-  if !payment.destroySource then
-    match payment.removeCounters with
-    | none => some (s, [])
-    | some (kind, n) =>
-      if (s.obj? payment.source).any (fun o => decide (n ≤ o.counterCount kind)) then
-        let events := counterRemovalEvents s payment.source kind n
-        let paid := updateSingleObject s payment.source (fun o => o.removeCounterVal kind n)
-        some (queueRuleEventTriggers paid events, events)
-      else none
-  else
-    let graveyard := Zone.player payment.owner .graveyard
-    let (paid, spent) ← moveRuleObj s payment.source graveyard .top false
-    some (paid, ruleMoveEvents s payment.source spent payment.origin graveyard)
+  match payment.turnArsenalFaceUp with
+  | some (p, id) =>
+    if canTurnArsenalCardFaceUp s p id then
+      let card ← s.cardDefOf? id
+      let paid := updateSingleObject s id (fun obj => { obj with faceDown := false })
+      some (paid, [.revealed p id card.id])
+    else none
+  | none =>
+    if !payment.destroySource then
+      match payment.removeCounters with
+      | none => some (s, [])
+      | some (kind, n) =>
+        if (s.obj? payment.source).any (fun o => decide (n ≤ o.counterCount kind)) then
+          let events := counterRemovalEvents s payment.source kind n
+          let paid := updateSingleObject s payment.source (fun o => o.removeCounterVal kind n)
+          some (queueRuleEventTriggers paid events, events)
+        else none
+    else
+      let graveyard := Zone.player payment.owner .graveyard
+      let (paid, spent) ← moveRuleObj s payment.source graveyard .top false
+      some (paid, ruleMoveEvents s payment.source spent payment.origin graveyard)
 
 /-- Finish an activation after paying its assets and effect-costs (CR 5.2.2b). -/
 def finishPaidActivation (s : GameState) (p : PlayerId) (layerId : ObjId)

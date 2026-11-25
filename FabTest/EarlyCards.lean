@@ -1496,6 +1496,40 @@ meta def deathDealerScenario : Option Bool := do
 
 #guard deathDealerScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC041").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Skullbone Crosswrap" && card.status == .full &&
+    card.front.keywords.contains (.arcaneBarrier 1) && card.front.keywords.contains .bladeBreak)
+
+meta def skullboneCrosswrapScenario : Option Bool := do
+  let p := earlyAttacker
+  let arsenal := Zone.player p .arsenal
+  let deck := Zone.player p .deck
+  let state := { earlyBase with cards := throughArcDB }
+  let (withHead, head) ← earlyPlace state p (.player p .head) "ARC_041"
+  let (withBottom, bottom) ← earlyPlace withHead p deck "WTR_193_B"
+  let (empty, top) ← earlyPlace withBottom p deck "WTR_192_Y"
+  let (ready, down) ← addObject empty arsenal
+    { kind := .card ⟨empty.nextId⟩ ⟨"WTR_191_R"⟩, owner := p, controller := p,
+      timestamp := ⟨0⟩, faceDown := true } .top
+  let (faceUp, up) ← earlyPlace empty p arsenal "WTR_191_R"
+  let use (target : Option ObjId) : Action := ⟨.player p, .activateAbility head 0 target⟩
+  let (paid, events) ← (step 64 ready (use (some down))).toOption
+  let viewed ← earlySteps paid earlyPass
+  let .chooseOpt player viewedId _ _ _ :: _ := viewed.pending | none
+  let done ← earlySteps viewed [⟨.player p, .optPick false none⟩]
+  pure (viewZone earlyDefender ready arsenal == .entries [some .faceDown] &&
+    viewZone earlyDefender paid arsenal != .entries [some .faceDown] &&
+    paid.zone arsenal == [down] && (paid.obj? down).any (fun card => !card.faceDown) &&
+    events.contains (.revealed p down ⟨"WTR_191_R"⟩) &&
+    paid.zone deck == [top, bottom] && player == p && viewedId == top &&
+    done.zone deck == [bottom, top] && (done.poolOf p) == (ready.poolOf p) &&
+    ((step 64 empty (use none)).isOk == false) &&
+    ((step 64 ready (use none)).isOk == false) &&
+    ((step 64 faceUp (use (some up))).isOk == false) &&
+    !((step 64 done (use (some down))).isOk))
+
+#guard skullboneCrosswrapScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

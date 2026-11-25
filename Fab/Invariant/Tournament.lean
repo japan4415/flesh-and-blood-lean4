@@ -570,16 +570,23 @@ private theorem payActivationSource_turn_tournament_result {s paid : GameState}
   unfold payActivationSource at h
   split at h
   · split at h
+    · obtain ⟨_, _, h⟩ := Option.bind_eq_some_iff.mp h
+      cases h
+      unfold updateSingleObject
+      split <;> exact ⟨rfl, rfl, rfl⟩
     · cases h
-      exact ⟨rfl, rfl, rfl⟩
+  · split at h
     · split at h
       · cases h
-        unfold updateSingleObject
-        split <;> exact ⟨rfl, rfl, rfl⟩
-      · cases h
-  · obtain ⟨⟨moved, spent⟩, hm, h⟩ := Option.bind_eq_some_iff.mp h
-    cases h
-    exact moveObj_turn_tournament_result hm
+        exact ⟨rfl, rfl, rfl⟩
+      · split at h
+        · cases h
+          unfold updateSingleObject
+          split <;> exact ⟨rfl, rfl, rfl⟩
+        · cases h
+    · obtain ⟨⟨moved, spent⟩, hm, h⟩ := Option.bind_eq_some_iff.mp h
+      cases h
+      exact moveObj_turn_tournament_result hm
 
 private theorem finishBoostedPlay_ttr {s s' : GameState} {p : PlayerId} {layerId : ObjId}
     {fa : Bool} {modeIdx : Option Nat} {rest : List Frame} {es : List Event}
