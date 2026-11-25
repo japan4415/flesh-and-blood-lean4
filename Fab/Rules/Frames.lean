@@ -1128,8 +1128,8 @@ def payActivationSource (s : GameState) (payment : ActivationPayment) :
       else none
   else
     let graveyard := Zone.player payment.owner .graveyard
-    let (paid, spent) ← moveObj s payment.source graveyard .top false
-    some (paid, [.moved payment.source spent payment.origin graveyard])
+    let (paid, spent) ← moveRuleObj s payment.source graveyard .top false
+    some (paid, ruleMoveEvents s payment.source spent payment.origin graveyard)
 
 /-- Finish an activation after paying its assets and effect-costs (CR 5.2.2b). -/
 def finishPaidActivation (s : GameState) (p : PlayerId) (layerId : ObjId)
@@ -1807,8 +1807,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
                 | none => false
               let dst := if isPerm then Zone.player info.controller .permanent
                          else Zone.player o.owner .graveyard
-              match moveObj s1 layerId dst .top false with
-              | some (sMoved, id') => (sMoved, [.moved layerId id' .stack dst])
+              match moveRuleObj s1 layerId dst .top false with
+              | some (sMoved, id') => (sMoved, ruleMoveEvents s1 layerId id' .stack dst)
               | none => (s1, [])
           | none => (s1, [])
       else

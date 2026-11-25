@@ -113,6 +113,66 @@ def moveObj (s : GameState) (id : ObjId) (dst : Zone) (pos : Pos := .top)
       some (s1, id)
   | _, _ => none
 
+/-- Whether the card replaces moving into its controller's graveyard with the bottom of the
+owner's deck. Private cards become public for the proposed move (CR 1.7.4j, 3.0.7a, 3.0.8). -/
+def replacesGraveyardWithDeckBottom (s : GameState) (id : ObjId) : Bool :=
+  let hasReplacement := (s.objectFace? id).any fun face =>
+    face.abilities.any fun
+      | .replacement .standard (.selfWouldGoToGraveyard .any)
+          { body := .prim (.moveCard .self_ .deck .bottom true), .. } => true
+      | _ => false
+  hasReplacement && (s.obj? id).any fun obj =>
+    (s.characteristics id).any (fun chars => !chars.abilitiesLost && chars.controller == obj.owner)
+
+/-- Resolve the destination, insertion position and facing of a proposed rule movement
+(CR 3.0.8a, 6.4). -/
+def ruleMoveParameters (s : GameState) (id : ObjId) (dst : Zone) (pos : Pos) (fd : Bool) :
+    Zone × Pos × Bool :=
+  match dst with
+  | .player player .graveyard =>
+    let owner := ((s.obj? id).map (·.owner)).getD player
+    let graveyard := Zone.player owner .graveyard
+    if s.locate id != some graveyard && replacesGraveyardWithDeckBottom s id then
+      (.player owner .deck, .bottom, true)
+    else (graveyard, pos, fd)
+  | _ => (dst, pos, fd)
+
+/-- Apply card replacements before handing the resulting move to the structural primitive. -/
+abbrev moveRuleObj (s : GameState) (id : ObjId) (dst : Zone) (pos : Pos := .top)
+    (fd : Bool := false) : Option (GameState × ObjId) :=
+  let args := ruleMoveParameters s id dst pos fd
+  moveObj s id args.1 args.2.1 args.2.2
+
+/-- A card in a private zone, or face down in a zone that can contain private cards, becomes public
+when the proposed graveyard move is redirected to a private destination (CR 3.0.8a). -/
+def replacementPublicEvent (s : GameState) (id : ObjId) (src : Zone) : List Event :=
+  let isPrivate := match src with
+    | .player _ .hand | .player _ .deck | .player _ .inventory => true
+    | .player _ .arsenal | .player _ .banished => (s.obj? id).any Object.faceDown
+    | _ => false
+  if isPrivate then
+    ((s.obj? id).bind fun obj =>
+      (s.cardDefOf? id).map fun card => Event.madePublic obj.owner id (CardDef.id card)).toList
+  else []
+
+/-- Emit the visibility change and actual destination of a successful rule movement (CR 3.0.8a). -/
+def ruleMoveEvents (s : GameState) (id id' : ObjId) (src dst : Zone) : List Event :=
+  let actual := (ruleMoveParameters s id dst .top false).1
+  let normalized := ((s.obj? id).map fun obj => Zone.normalize obj.owner actual).getD actual
+  let reveal := match dst, actual with
+    | .player _ .graveyard, .player _ .deck => replacementPublicEvent s id src
+    | _, _ => []
+  reveal ++ [.moved id id' src normalized]
+
+/-- Clearing a card still goes to a non-arena zone, regardless of a graveyard replacement. -/
+theorem graveyardRuleDestination (s : GameState) (id : ObjId) (p : PlayerId) (pos : Pos) (fd : Bool)
+    (o : Object) (ho : s.obj? id = some o) :
+    let dst := (ruleMoveParameters s id (.player p .graveyard) pos fd).1
+    Zone.normalize o.owner dst = dst ∧
+      (dst = .player o.owner .graveyard ∨ dst = .player o.owner .deck) := by
+  simp only [ruleMoveParameters, ho, Option.map_some, Option.getD_some]
+  split <;> simp [Zone.normalize, ZoneKind.isArena]
+
 /-- Everything outside zones, objects, counters, pools, and hero life is unchanged
 (config, cards, turn, active, and future metadata fields). -/
 def SameMeta (s s' : GameState) : Prop :=

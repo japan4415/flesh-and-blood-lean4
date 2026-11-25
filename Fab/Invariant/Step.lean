@@ -956,8 +956,8 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
                 | none => false
               let dst := if isPerm then Zone.player info.controller .permanent
                          else Zone.player o.owner .graveyard
-              match moveObj s1 layerId dst .top false with
-              | some (sMoved, id') => (sMoved, [Event.moved layerId id' .stack dst])
+              match moveRuleObj s1 layerId dst .top false with
+              | some (sMoved, id') => (sMoved, ruleMoveEvents s1 layerId id' .stack dst)
               | none => (s1, [])
           | none => (s1, [])
       else
@@ -985,7 +985,7 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
                      hrp, hrm.1⟩
             | card _ _ | token _ | attackProxy _ _ =>
               dsimp only
-              cases hm : moveObj s1 layerId _ .top false with
+              cases hm : moveRuleObj s1 layerId _ .top false with
               | none => exact StepPreserves.refl hp1.wf hp1.ownerOk hp1.rollbackOk
               | some res => exact moveObj_preserves hp1.wf hp1.ownerOk hp1.rollbackOk hm
       · exact StepPreserves.refl hp1.wf hp1.ownerOk hp1.rollbackOk

@@ -157,7 +157,7 @@ def gspStep (s : GameState) : Option GameState :=
           if o.kind.phys?.isNone then
             some (removeNonPhysObj s id)
           else
-            match moveObj s id (.player o.owner .graveyard) .top false with
+            match moveRuleObj s id (.player o.owner .graveyard) .top false with
             | some (s', _) => some s'
             | none => none
         | none => none
@@ -408,83 +408,64 @@ theorem gspStep_measure_lt {s s' : GameState} (hwf : s.WF) (h : gspStep s = some
             unfold gspMeasure
             rw [hres, hna_eq]
             omega
-          · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+          · cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
             | none => rw [hm] at h; cases h
             | some res =>
               obtain ⟨s1, id1⟩ := res
               rw [hm] at h
               simp only [Option.some.injEq] at h
               subst h
-              have hcfg_res : s1.config = s.config ∧ s1.result = s.result := by
-                unfold moveObj at hm
-                split at hm
-                · dsimp only at hm
-                  split at hm
-                  · cases hm
-                  · split at hm <;>
-                    · simp only [Option.some.injEq] at hm
-                      obtain ⟨rfl, rfl⟩ := hm; exact ⟨rfl, rfl⟩
-                · cases hm
-              have hcfg : s1.config = s.config := hcfg_res.1
-              have hres : s1.result = s.result := hcfg_res.2
-              have hcount : s1.playerCount = s.playerCount := by simp [GameState.playerCount, hcfg]
-              have hnorm : Zone.normalize o.owner (.player o.owner .graveyard) =
-                  .player o.owner .graveyard := by
-                simp [Zone.normalize, ZoneKind.isArena]
-              have hgy_valid : (Zone.player o.owner .graveyard).Valid s.playerCount := by
-                unfold moveObj at hm
-                rw [hloc, ho] at hm
-                dsimp only at hm
-                rw [hnorm] at hm
-                split at hm
-                · cases hm
-                · rename_i hnot
-                  simp only [not_or, Decidable.not_not] at hnot
-                  exact hnot.2
+              obtain ⟨source, dst, move, movedObj, hobj, hdst⟩ := moveObj_spec_dst hm
+              have hsource : source = .player p .permanent :=
+                Option.some.inj (move.locate.symm.trans hloc)
+              subst source
+              have hsame : movedObj = o := Option.some.inj (hobj.symm.trans ho)
+              subst movedObj
+              have hchoice := graveyardRuleDestination s id o.owner .top false o ho
+              have hnon : dst.isArena = false := by
+                rw [hdst, hchoice.1]
+                rcases hchoice.2 with hdest | hdest <;> simp [hdest, Zone.isArena, ZoneKind.isArena]
+              have hp_ne (q : PlayerId) : Zone.player q .permanent ≠ dst := by
+                intro hEq
+                rw [← hEq] at hnon
+                simp [Zone.isArena, ZoneKind.isArena] at hnon
+              have hcount : s1.playerCount = s.playerCount := by
+                simp [GameState.playerCount, move.config]
+              let pos := (ruleMoveParameters s id (.player o.owner .graveyard) .top false).2.1
               have hzones : ∀ z, s1.zone z =
-                  if z = .player o.owner .graveyard then id1 :: s.zone (.player o.owner .graveyard)
+                  if z = dst then pos.insert id1 (s.zone dst)
                   else if z = .player p .permanent then (s.zone (.player p .permanent)).erase id
                   else s.zone z := by
                 intro z
-                unfold moveObj at hm
-                rw [hloc, ho] at hm
-                dsimp only at hm
-                rw [hnorm] at hm
-                split at hm
-                · cases hm
-                · have hne_pg : Zone.player p .permanent ≠ Zone.player o.owner .graveyard := by
-                    intro heq; cases heq
-                  split at hm <;>
-                  · simp only [Option.some.injEq, Prod.mk.injEq] at hm
-                    obtain ⟨rfl, rfl⟩ := hm
-                    exact GameState.zone_move hne_pg _ _ z
+                have hz : s1.zone z = ((s.setZone (.player p .permanent)
+                    ((s.zone (.player p .permanent)).erase id)).setZone dst
+                    (pos.insert id1 (s.zone dst))).zone z := by
+                  unfold GameState.zone
+                  rw [move.zones]
+                  rfl
+                rw [hz, GameState.zone_move (hp_ne p)]
               have hp_lt_cnt : permanentObjCount s1 < permanentObjCount s := by
                 unfold permanentObjCount
                 rw [hcount, length_flatMap_sum, length_flatMap_sum]
                 apply sum_map_lt_of_one (allPlayers_nodup s.playerCount) hp_in
                 · rw [hzones (.player p .permanent)]
-                  have hne : Zone.player p .permanent ≠ Zone.player o.owner .graveyard := by
-                    intro heq; cases heq
-                  simp only [hne, ↓reduceIte]
+                  simp only [hp_ne p, ↓reduceIte]
                   exact length_erase_lt hid_perm
                 · intro q _ hqp
                   rw [hzones (.player q .permanent)]
-                  have hne1 : Zone.player q .permanent ≠ Zone.player o.owner .graveyard := by
-                    intro heq; cases heq
-                  have hne2 : Zone.player q .permanent ≠ Zone.player p .permanent := by
+                  have hne : Zone.player q .permanent ≠ Zone.player p .permanent := by
                     intro heq; cases heq; exact hqp rfl
-                  simp [hne1, hne2]
+                  simp [hp_ne q, hne]
               have hna_le : nonArenaObjCount s1 ≤ nonArenaObjCount s + 1 := by
                 unfold nonArenaObjCount
                 rw [hcount, length_flatMap_sum, length_flatMap_sum]
                 have hnd : ((allZones s.playerCount).filter fun z => !z.isArena).Nodup :=
                   (allZones_nodup s.playerCount).filter _
-                have hgy_in : Zone.player o.owner .graveyard ∈
-                    (allZones s.playerCount).filter fun z => !z.isArena :=
-                  List.mem_filter.mpr ⟨hgy_valid, by simp [Zone.isArena, ZoneKind.isArena]⟩
-                apply sum_map_le_add_one hnd hgy_in
-                · rw [hzones (.player o.owner .graveyard)]
-                  simp
+                have hd_in : dst ∈ (allZones s.playerCount).filter (fun z => !z.isArena) :=
+                  List.mem_filter.mpr ⟨move.dst_mem, by simp [hnon]⟩
+                apply sum_map_le_add_one hnd hd_in
+                · simpa only [hzones dst, ↓reduceIte, Pos.insert_length] using
+                    Nat.le_refl ((s.zone dst).length + 1)
                 · intro z hz hzne
                   rw [hzones z]
                   rw [List.mem_filter] at hz
@@ -492,7 +473,7 @@ theorem gspStep_measure_lt {s s' : GameState} (hwf : s.WF) (h : gspStep s = some
                     intro heq; subst heq; simp [Zone.isArena, ZoneKind.isArena] at hz
                   simp [hzne, hnep]
               unfold gspMeasure
-              rw [hres]
+              rw [move.other.result]
               omega
 
 /-- `gspStep` preserves `WF`. -/
@@ -516,7 +497,7 @@ theorem gspStep_wf {s s' : GameState} (hwf : s.WF) (h : gspStep s = some s') : s
           rw [ho] at h; dsimp only at h
           split at h
           · simp only [Option.some.injEq] at h; subst h; exact removeNonPhysObj_wf hwf id
-          · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+          · cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
             | none => rw [hm] at h; cases h
             | some res =>
               rw [hm] at h; simp only [Option.some.injEq] at h; subst h
@@ -544,7 +525,7 @@ theorem gspStep_ownerOk {s s' : GameState} (hwf : s.WF) (hok : s.OwnerOk)
           rw [ho] at h; dsimp only at h
           split at h
           · simp only [Option.some.injEq] at h; subst h; exact removeNonPhysObj_ownerOk hok id
-          · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+          · cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
             | none => rw [hm] at h; cases h
             | some res =>
               rw [hm] at h; simp only [Option.some.injEq] at h; subst h
@@ -572,7 +553,7 @@ theorem gspStep_physIds {s s' : GameState} (hwf : s.WF) (h : gspStep s = some s'
           rw [ho] at h; dsimp only at h
           split at h
           · simp only [Option.some.injEq] at h; subst h; exact removeNonPhysObj_physIds hwf id
-          · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+          · cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
             | none => rw [hm] at h; cases h
             | some res =>
               rw [hm] at h; simp only [Option.some.injEq] at h; subst h
@@ -606,11 +587,11 @@ theorem gspStep_meta {s s' : GameState} (h : gspStep s = some s') :
           rw [ho] at h; dsimp only at h
           split at h
           · simp only [Option.some.injEq] at h; subst h; exact removeNonPhysObj_meta s id
-          · cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+          · cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
             | none => rw [hm] at h; cases h
             | some res =>
               rw [hm] at h; simp only [Option.some.injEq] at h; subst h
-              unfold moveObj at hm
+              unfold moveRuleObj moveObj at hm
               split at hm
               · dsimp only at hm
                 split at hm
@@ -667,20 +648,25 @@ theorem settled_of_gspStep_none {s : GameState} (hwf : s.WF)
             · cases h
             · have hloc : s.locate id = some (.player p .permanent) :=
                 GameState.locate_eq hwf hz_perm hid_perm
-              have hgy_valid : (Zone.player o.owner .graveyard).Valid s.playerCount :=
-                Zone.valid_player (hown_seated id o ho) .graveyard
-              have hnorm : Zone.normalize o.owner (.player o.owner .graveyard) =
-                  .player o.owner .graveyard := by simp [Zone.normalize, ZoneKind.isArena]
-              have hmove_some : (moveObj s id (.player o.owner .graveyard) .top false).isSome = true := by
-                unfold moveObj
+              have hmove_some :
+                  (moveRuleObj s id (.player o.owner .graveyard) .top false).isSome = true := by
+                have hchoice := graveyardRuleDestination s id o.owner .top false o ho
+                unfold moveRuleObj moveObj
                 rw [hloc, ho]
                 dsimp only
-                rw [hnorm]
-                have hne : Zone.player p .permanent ≠ Zone.player o.owner .graveyard := by
-                  intro heq; cases heq
-                simp only [hne, false_or, hgy_valid, not_true_eq_false, ↓reduceIte]
-                split <;> rfl
-              cases hm : moveObj s id (.player o.owner .graveyard) .top false with
+                rw [hchoice.1]
+                rcases hchoice.2 with hdst | hdst
+                · rw [hdst]
+                  have hvalid := Zone.valid_player (hown_seated id o ho) .graveyard
+                  have hne : Zone.player p .permanent ≠ Zone.player o.owner .graveyard := by
+                    intro heq; cases heq
+                  simp [hne, hvalid, Zone.crosses, Zone.isArena, ZoneKind.isArena]
+                · rw [hdst]
+                  have hvalid := Zone.valid_player (hown_seated id o ho) .deck
+                  have hne : Zone.player p .permanent ≠ Zone.player o.owner .deck := by
+                    intro heq; cases heq
+                  simp [hne, hvalid, Zone.crosses, Zone.isArena, ZoneKind.isArena]
+              cases hm : moveRuleObj s id (.player o.owner .graveyard) .top false with
               | none => rw [hm] at hmove_some; simp at hmove_some
               | some _ => rw [hm] at h; cases h
 

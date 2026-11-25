@@ -1065,10 +1065,10 @@ def WTR_163_Y : CardDef :=
 def droneOfBrutality (base : CardDef) : CardDef :=
   draftCard base
     [ .replacement .standard (.selfWouldGoToGraveyard .any)
-        { body := .prim (.moveCard .self_ .deck .bottom false) } ]
+        { body := .prim (.moveCard .self_ .deck .bottom true) } ]
 
-/-- Drone of Brutality Red (drafted IR). -/
-def WTR_164_R : CardDef := droneOfBrutality WTR_164_R_meta
+/-- Drone of Brutality Red. -/
+def WTR_164_R : CardDef := { droneOfBrutality WTR_164_R_meta with status := .full }
 /-- Drone of Brutality Yellow (drafted IR). -/
 def WTR_165_Y : CardDef := droneOfBrutality WTR_165_Y_meta
 /-- Drone of Brutality Blue (drafted IR). -/
