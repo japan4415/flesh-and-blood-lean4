@@ -42,17 +42,23 @@ def captureLki (s : GameState) (id : ObjId) (fallbackOwner : PlayerId) : LkiSnap
           minusDefenseCounters := o.minusDefenseCounters,
           plusPowerCounters := o.plusPowerCounters }
 
+/-- Find self-scoped static modifiers that are active on the weapon (CR 1.4.3a, 6.3.1). -/
+def weaponStaticModifiers (s : GameState) (source : ObjId) (chars : DerivedChars) :
+    List ContinuousMod :=
+  if (s.obj? source).any (·.faceDown) || chars.abilitiesLost then [] else
+    let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+    abilities.filterMap fun
+      | .static_ cond scope mod =>
+        if scope.isSelf && (cond.map (evalCondition s chars.controller source false)).getD true
+        then some mod else none
+      | _ => none
+
 /-- Apply the active weapon's self-scoped static power to its live characteristics (CR 1.4.3a). -/
 def weaponStaticPower (s : GameState) (source : ObjId) (chars : DerivedChars) (power : Int) : Int :=
-  if (s.obj? source).any (·.faceDown) || chars.abilitiesLost || chars.powerLocked then power
-  else
-    let abilities := ((s.objectFace? source).map (·.abilities)).getD []
-    abilities.foldl (fun total ability =>
-      match ability with
-      | .static_ cond scope (.addPower amount) =>
-        if scope.isSelf && (cond.map (evalCondition s chars.controller source false)).getD true then
-          total + evalNumExpr s chars.controller [] amount
-        else total
+  if chars.powerLocked then power else
+    (weaponStaticModifiers s source chars).foldl (fun total modifier =>
+      match modifier with
+      | .addPower amount => total + evalNumExpr s chars.controller [] amount
       | _ => total) power
 
 /-- Effective power `{p}` of an object on the board via the 8-stage continuous-effect evaluator
@@ -151,11 +157,21 @@ theorem CombatDamageSpec.unique {p d dmg1 dmg2 : Nat} {hit1 hit2 : Bool}
     dmg1 = dmg2 ∧ hit1 = hit2 := by
   cases h1 <;> cases h2 <;> first | exact ⟨rfl, rfl⟩ | omega
 
+/-- A weapon proxy inherits Go Again from the source's current static abilities (CR 1.4.3a). -/
+def weaponAttackHasGoAgain (s : GameState) (link : ChainLink) : Bool :=
+  let hasGoAgain : Option Bool := do
+    let attack ← link.attack.bind s.obj?
+    let .attackProxy source _ := attack.kind | none
+    let chars ← s.characteristics source
+    return (weaponStaticModifiers s source chars).contains (.grantKeyword .goAgain)
+  hasGoAgain.getD false
+
 /-- Whether a `ChainLink`'s attack has keyword `kw` — dynamically granted, printed on the
 live attack card, or preserved in `attackLki` (CR 3.5.4b). -/
 def linkHasKeyword (s : GameState) (link : ChainLink) (kw : KeywordInst) : Bool :=
   link.grantedKeywords.contains kw ||
   link.attackLki.keywords.contains kw ||
+  (if kw = .goAgain then weaponAttackHasGoAgain s link else false) ||
   match link.attack.bind s.objectFace? with
   | some face => face.keywords.contains kw
   | none => false

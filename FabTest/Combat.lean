@@ -1191,6 +1191,48 @@ meta def checkAnothos : Option Bool := do
 
 #guard checkAnothos == some true
 
+/-- Each Kodachi may attack once and gains Go Again from a defined zero-cost pitch card. -/
+meta def checkHarmonizedKodachi : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_078"⟩
+  let card ← m5Base.cards.find? cid
+  let funded := m5Base.setPool player { actionPoints := 1, resources := 2 }
+  let (armed, first) ← cPlace funded player .weapon cid
+  let (paired, second) ← cPlace armed player .weapon cid
+  let (withBauble, _) ← cPlace paired player .pitch ⟨"WTR_224_Y"⟩
+  let (withCostOne, _) ← cPlace withBauble player .pitch ⟨"WTR_101_R"⟩
+  let (withRazor, razor) ← cPlace withCostOne player .hand ⟨"WTR_209_R"⟩
+  let (ready, latePitch) ← cPlace withRazor player .hand ⟨"WTR_205_B"⟩
+  let (withCostZero, _) ← cPlace ready player .pitch ⟨"WTR_203_R"⟩
+  let swing id : Action := ⟨.player player, .attackWeapon id⟩
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let beginAttack := passBoth ++ passBoth
+  let finish := done :: (passBoth ++ passBoth ++ passBoth)
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let without ← cSteps ready (swing first :: (beginAttack ++ finish))
+  let firstHit ← cSteps withCostZero (swing first :: (beginAttack ++ finish))
+  let firstClosed ← cSteps firstHit passBoth
+  let secondHit ← cSteps firstClosed (swing second :: (beginAttack ++ finish))
+  let lateStart := ready.setPool player { actionPoints := 1, resources := 1 }
+  let reaction ← cSteps lateStart (swing first :: (beginAttack ++ [done] ++ passBoth))
+  let unpaid ← cSteps reaction
+    [⟨.player player, .playCard razor⟩, ⟨.player player, .pickMode 0⟩]
+  let paid ← cSteps unpaid [⟨.player player, .pitchCard latePitch⟩]
+  let lateHit ← cSteps paid (passBoth ++ passBoth ++ passBoth)
+  let delayedCheck (s : GameState) := (active s).any (fun link => linkHasKeyword s link .goAgain)
+  pure (card.status == .full && card.front.power == some 1 &&
+    !delayedCheck without && (without.poolOf player).actionPoints == 0 &&
+    delayedCheck firstHit && (firstHit.poolOf player).actionPoints == 1 &&
+    !(legalActionsFor player firstClosed).contains (swing first) &&
+    (legalActionsFor player firstClosed).contains (swing second) &&
+    delayedCheck secondHit && (secondHit.poolOf player).actionPoints == 1 &&
+    secondHit.activatedThisTurn == [(first, 0), (second, 0)] &&
+    !delayedCheck reaction && delayedCheck paid && delayedCheck lateHit &&
+    (active lateHit).map (·.damageDealt) == some 4 && (lateHit.poolOf player).actionPoints == 1)
+
+#guard checkHarmonizedKodachi == some true
+
 -- 5. Multi-Link Ninja Combo Chain with Go Again (CR 7.6, 8.3.6).
 /-- Check the power, Go Again, and hit trigger granted by Whelming Gustwave's combo. -/
 meta def checkWhelmingGustwave (cid : CardId) (basePower : Nat) : Option Bool := do

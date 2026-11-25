@@ -213,6 +213,16 @@ theorem HiddenEquiv.canPickCardMode_eq {p : PlayerId} {s1 s2 : GameState}
     canPickCardMode s1 layerId idx = canPickCardMode s2 layerId idx := by
   simp only [canPickCardMode, (h.cardDef_face layerId).1, h.hasRequiredAttackTarget_eq]
 
+/-- The attack keywords used to check defense legality agree under `HiddenEquiv`. -/
+theorem HiddenEquiv.linkHasKeyword_eq_of_ne_goAgain {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) (link : ChainLink) (kw : KeywordInst) (hgo : kw ≠ .goAgain) :
+    linkHasKeyword s1 link kw = linkHasKeyword s2 link kw := by
+  unfold linkHasKeyword
+  simp only [ite_eq_right hgo]
+  cases link.attack with
+  | none => rfl
+  | some aid => simp [(h.cardDef_face aid).2]
+
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canPlayCard s p id`. -/
 theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : HiddenEquiv p s1 s2)
     (id : ObjId) :
@@ -223,15 +233,11 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     h.visibleZones _ (by simp [Zone.isSecretTo])
   have hs : s1.zone .stack = s2.zone .stack := h.visibleZones _ rfl
   have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
-  have hkw : ∀ link kw, linkHasKeyword s1 link kw = linkHasKeyword s2 link kw := by
-    intro link kw
-    unfold linkHasKeyword
-    cases link.attack with
-    | none => rfl
-    | some aid => simp [(h.cardDef_face aid).2]
+  have hdom (link : ChainLink) : linkHasKeyword s1 link .dominate = linkHasKeyword s2 link .dominate :=
+    h.linkHasKeyword_eq_of_ne_goAgain link .dominate (by decide)
   unfold canPlayCard
   rw [hh, ha, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat]
-  simp only [canLinkTakeDefenseReaction, hkw, attackReactionCanTarget, h.hasRequiredAttackTarget_eq]
+  simp only [canLinkTakeDefenseReaction, hdom, attackReactionCanTarget, h.hasRequiredAttackTarget_eq]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canAttackWithWeapon s p wid`. -/
 theorem HiddenEquiv.canAttackWithWeapon_eq {p : PlayerId} {s1 s2 : GameState}
@@ -252,14 +258,10 @@ theorem HiddenEquiv.canDefendWith_eq {p : PlayerId} {s1 s2 : GameState}
   have heq : equipZoneIds s1 p = equipZoneIds s2 p := by
     unfold equipZoneIds
     rw [h.visibleZones _ rfl, h.visibleZones _ rfl, h.visibleZones _ rfl, h.visibleZones _ rfl]
-  have hkw : ∀ kw, linkHasKeyword s1 link kw = linkHasKeyword s2 link kw := by
-    intro kw; unfold linkHasKeyword
-    cases link.attack with
-    | none => rfl
-    | some aid => simp [(h.cardDef_face aid).2]
   unfold canDefendWith
   rw [hh, heq, (h.cardDef_face id).2]
-  simp only [hkw]
+  rw [h.linkHasKeyword_eq_of_ne_goAgain link .dominate (by decide),
+      h.linkHasKeyword_eq_of_ne_goAgain link .overpower (by decide)]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canPitchCard s p id`. -/
 theorem HiddenEquiv.canPitchCard_eq {p : PlayerId} {s1 s2 : GameState}

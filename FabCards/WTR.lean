@@ -420,12 +420,13 @@ def WTR_076 : CardDef := draftCard WTR_076_meta katsuAbility
 /-- Katsu (Young, drafted IR). -/
 def WTR_077 : CardDef := draftCard WTR_077_meta katsuAbility
 
-/-- Harmonized Kodachi (drafted IR). -/
+/-- Harmonized Kodachi. -/
 def WTR_078 : CardDef :=
-  draftCard WTR_078_meta
-    [ weaponAttackAbility 1
-    , .static_ (some (.zoneCountGe .controller .pitch { maxCost := some 0 } 1)) .self_
-        (.grantKeyword .goAgain) ]
+  { draftCard WTR_078_meta
+      [ weaponAttackAbility 1
+      , .static_ (some (.zoneCountGe .controller .pitch { maxCost := some 0 } 1)) .self_
+          (.grantKeyword .goAgain) ]
+    with status := .full }
 
 /-- Mask of Momentum (drafted IR). -/
 def WTR_079 : CardDef :=
