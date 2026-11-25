@@ -338,6 +338,7 @@ meta def checkDisable (cid : CardId) (power : Nat) : Option Bool := do
 
 #guard checkDisable ⟨"WTR_048_R"⟩ 9 == some true
 #guard checkDisable ⟨"WTR_049_Y"⟩ 8 == some true
+#guard checkDisable ⟨"WTR_050_B"⟩ 7 == some true
 
 /-- Play a sequence of prior attacks on one chain, then check the tested attack's combo and damage. -/
 meta def checkComboAttack (preceding : List CardId) (cid : CardId) (power : Nat) (bonus : Int)
