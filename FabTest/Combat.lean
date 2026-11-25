@@ -2317,6 +2317,96 @@ meta def checkSingingSteelblade : Option Bool := do
 
 #guard checkSingingSteelblade == some true
 
+/-- Katsu uses the actual first hit of an attack action card and grants play for the rest of the turn. -/
+meta def checkKatsu (cid : CardId) (life : Nat) : Option Bool := do
+  let player : PlayerId := ⟨0⟩
+  let opponent : PlayerId := ⟨1⟩
+  let hand := Zone.player player .hand
+  let grave := Zone.player player .graveyard
+  let deck := Zone.player player .deck
+  let banished := Zone.player player .banished
+  let funded := m5Base.setPool player { actionPoints := 4, resources := 4 }
+  let card ← funded.cards.find? cid
+  let (withHero, hero) ← cPlace funded player .hero cid
+  let (armed, kodachi) ← cPlace withHero player .weapon ⟨"WTR_078"⟩
+  let (withJab, jab) ← cPlace armed player .hand ⟨"WTR_098_R"⟩
+  let (withNext, nextJab) ← cPlace withJab player .hand ⟨"WTR_098_R"⟩
+  let (withRed, zeroRed) ← cPlace withNext player .hand ⟨"WTR_203_R"⟩
+  let (withYellow, zeroYellow) ← cPlace withRed player .hand ⟨"WTR_204_Y"⟩
+  let (withCost, nonzero) ← cPlace withYellow player .hand ⟨"WTR_197_R"⟩
+  let (withCombo, combo) ← cPlace withCost player .deck ⟨"WTR_095_R"⟩
+  let (withDeck, noncombo) ← cPlace withCombo player .deck ⟨"WTR_203_R"⟩
+  let (ready, blocker) ← cPlace withDeck opponent .hand ⟨"WTR_203_R"⟩
+  let play (id : ObjId) : Action := ⟨.player player, .playCard id⟩
+  let discard (id : ObjId) : Action := ⟨.player player, .pickDiscardCard id⟩
+  let pick (id : Option ObjId) : Action := ⟨.player player, .pickShuffleCard id⟩
+  let enter (s : GameState) (a : Action) := cSteps s (a :: (passBoth ++ passBoth))
+  let toDamage := [⟨.player opponent, .defendDone⟩] ++ passBoth ++ passBoth
+  let hit (s : GameState) (a : Action) := (enter s a).bind (cSteps · toDamage)
+  let resolve (s : GameState) := do
+    let trigger ← s.pendingTriggers.head?
+    cSteps s ([⟨.player player, .pickTriggerStart player⟩, ⟨.player player, .pickTrigger trigger.id⟩] ++
+      passBoth)
+  let first ← hit ready (play jab)
+  let trigger ← first.pendingTriggers.head?
+  let offered ← resolve first
+  let choice ← cSteps offered [⟨.player player, .pickMay true⟩]
+  let declined ← cSteps offered (⟨.player player, .pickMay false⟩ :: passBoth)
+  let afterDeclining ← hit declined (play nextJab)
+  let (search, es) ← (step 64 choice (discard zeroRed)).toOption
+  let discarded ← (search.zone grave).head?
+  let paid ← cSteps search [pick (some combo), pick none]
+  let chosen ← (paid.zone banished).head?
+  let afterSearch ← cSteps paid [⟨.chance, .shuffleOrder [noncombo]⟩]
+  let enabled ← cSteps afterSearch passBoth
+  let linked ← enter enabled (play chosen)
+  let link ← linked.combat.bind CombatChain.activeLink?
+  let closed ← cSteps enabled passBoth
+  let (expired, _) ← (advance 64 { closed with pending := [.endTurnCleanup player] } []).toOption
+  let weaponHit ← hit ready ⟨.player player, .attackWeapon kodachi⟩
+  let afterWeapon ← cSteps weaponHit passBoth
+  let firstAfterWeapon ← hit afterWeapon (play jab)
+  let defending ← enter ready (play jab)
+  let blocked ← cSteps defending (⟨.player opponent, .defendCard blocker⟩ :: (toDamage ++ passBoth))
+  let firstAfterBlock ← hit blocked (play nextJab)
+  let poor ← [nextJab, zeroRed, zeroYellow].foldlM (fun s id =>
+    (moveObj s id grave .top false).map Prod.fst) ready
+  let poorHit ← hit poor (play jab)
+  let poorResolved ← resolve poorHit
+  let silence : ContinuousEffect :=
+    { id := ready.nextTimestamp, source := hero, controller := opponent, target := .obj hero
+      op := .loseAllAbilities, duration := .thisTurn, timestamp := ⟨ready.nextTimestamp⟩ }
+  let suppressed ← hit { ready with activeEffects := [silence] } (play jab)
+  let restored ← cSteps { suppressed with activeEffects := [] } passBoth
+  let secondAfterSilence ← hit restored (play nextJab)
+  pure (card.status == .full && card.front.life == some life && card.front.intellect == some 4 &&
+    first.pendingTriggers.length == 1 && trigger.source == hero && first.attackActionHitsThisTurn == [player] &&
+    (legalActionsFor player choice).contains (discard zeroRed) &&
+    (legalActionsFor player choice).contains (discard zeroYellow) &&
+    !(legalActionsFor player choice).contains (discard nonzero) &&
+    (step 64 choice (discard nonzero)).toOption.isNone &&
+    es.contains (.discarded player discarded) && search.zone hand == [nonzero, zeroYellow, nextJab] &&
+    (search.cardDefOf? discarded).map (·.id) == some ⟨"WTR_203_R"⟩ &&
+    (legalActionsFor player search).contains (pick (some combo)) &&
+    (step 64 search (pick (some noncombo))).toOption.isNone &&
+    (paid.cardDefOf? chosen).map (·.id) == some ⟨"WTR_095_R"⟩ &&
+    enabled.zone deck == [noncombo] && (legalActionsFor player enabled).contains (play chosen) &&
+    link.powerBonus == 1 && linkHasKeyword linked link .dominate && linked.zone banished == [] &&
+    closed.combat.isNone && (legalActionsFor player closed).contains (play chosen) &&
+    expired.zone banished == [chosen] && !(canPlayFromBanished expired player chosen) &&
+    expired.attackActionHitsThisTurn.isEmpty &&
+    afterDeclining.pendingTriggers.isEmpty && afterDeclining.attackActionHitsThisTurn == [player, player] &&
+    weaponHit.pendingTriggers.isEmpty && weaponHit.attackActionHitsThisTurn.isEmpty &&
+    firstAfterWeapon.pendingTriggers.length == 1 && firstAfterWeapon.attackActionHitsThisTurn == [player] &&
+    blocked.pendingTriggers.isEmpty && blocked.attackActionHitsThisTurn.isEmpty &&
+    firstAfterBlock.pendingTriggers.length == 1 &&
+    poorHit.pendingTriggers.length == 1 && poorResolved.zone deck == poor.zone deck &&
+    !(legalActionsFor player poorResolved).contains ⟨.player player, .pickMay true⟩ &&
+    suppressed.pendingTriggers.isEmpty && suppressed.attackActionHitsThisTurn == [player] &&
+    secondAfterSilence.pendingTriggers.isEmpty && secondAfterSilence.attackActionHitsThisTurn == [player, player])
+
+#guard checkKatsu ⟨"WTR_076"⟩ 40 == some true
+
 /-- Dawnblade's second hit and its counter retention both use the whole turn, across chains. -/
 meta def checkDawnblade : Option Bool := do
   let attacker : PlayerId := ⟨0⟩
