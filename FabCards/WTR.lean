@@ -723,8 +723,8 @@ def scarForAScar (base : CardDef) : CardDef :=
 
 /-- Scar for a Scar Red. -/
 def WTR_191_R : CardDef := { scarForAScar WTR_191_R_meta with status := .full }
-/-- Scar for a Scar Yellow (drafted IR). -/
-def WTR_192_Y : CardDef := scarForAScar WTR_192_Y_meta
+/-- Scar for a Scar Yellow. -/
+def WTR_192_Y : CardDef := { scarForAScar WTR_192_Y_meta with status := .full }
 /-- Scar for a Scar Blue (drafted IR). -/
 def WTR_193_B : CardDef := scarForAScar WTR_193_B_meta
 

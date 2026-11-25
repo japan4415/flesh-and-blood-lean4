@@ -471,6 +471,7 @@ meta def checkScarForAScar (cid : CardId) (power : Nat) : Option Bool := do
     (equal.poolOf attacker).actionPoints == 0)
 
 #guard checkScarForAScar ⟨"WTR_191_R"⟩ 4 == some true
+#guard checkScarForAScar ⟨"WTR_192_Y"⟩ 3 == some true
 
 /-- Play Sink Below in reaction and inspect both choices and an empty defender hand. -/
 meta def checkSinkBelow (cid : CardId) (defenseValue : Nat) : Option Bool := do
