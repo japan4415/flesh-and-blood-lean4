@@ -252,3 +252,4 @@ meta def checkLegTap (cid : CardId) (power : Nat) : Option Bool := do
 
 #guard checkLegTap ⟨"WTR_101_R"⟩ 4 == some true
 #guard checkLegTap ⟨"WTR_102_Y"⟩ 3 == some true
+#guard checkLegTap ⟨"WTR_103_B"⟩ 2 == some true
