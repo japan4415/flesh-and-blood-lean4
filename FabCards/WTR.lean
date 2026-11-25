@@ -162,6 +162,9 @@ def savageFeast (base : CardDef) : CardDef :=
 /-- Savage Feast Red. -/
 def WTR_014_R : CardDef := { savageFeast WTR_014_R_meta with status := .full }
 
+/-- Savage Feast Yellow. -/
+def WTR_015_Y : CardDef := { savageFeast WTR_015_Y_meta with status := .full }
+
 /-- Shared 3-color helper for Barraging Beatdown (+4/+3/+2 if <2 non-equip defenders). -/
 def barragingBeatdown (base : CardDef) (bonus : Int) : CardDef :=
   draftCard base []
@@ -963,7 +966,7 @@ def WTR_225 : CardDef :=
 def draftedCards : List CardDef :=
   [ WTR_000_B
   , WTR_001, WTR_002, WTR_003, WTR_004, WTR_005, WTR_006_R, WTR_007_Y, WTR_008_B, WTR_010_Y
-  , WTR_011_R, WTR_012_Y, WTR_013_B, WTR_014_R
+  , WTR_011_R, WTR_012_Y, WTR_013_B, WTR_014_R, WTR_015_Y
   , WTR_017_R, WTR_018_Y, WTR_019_B, WTR_020_R, WTR_021_Y, WTR_022_B
   , WTR_023_R, WTR_024_Y, WTR_025_B, WTR_026_R, WTR_027_Y, WTR_028_B, WTR_029_R, WTR_030_Y, WTR_031_B
   , WTR_032_R, WTR_033_Y, WTR_034_B

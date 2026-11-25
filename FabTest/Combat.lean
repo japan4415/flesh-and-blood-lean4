@@ -785,6 +785,8 @@ meta def checkSavageFeast (cid : CardId) (pitch power : Nat) (fromArsenal : Bool
 
 #guard checkSavageFeast ⟨"WTR_014_R"⟩ 1 6 false == some true
 #guard checkSavageFeast ⟨"WTR_014_R"⟩ 1 6 true == some true
+#guard checkSavageFeast ⟨"WTR_015_Y"⟩ 2 5 false == some true
+#guard checkSavageFeast ⟨"WTR_015_Y"⟩ 2 5 true == some true
 
 /-- A weapon gets Go Again only when its granted hit trigger resolves. -/
 meta def checkWarriorsValor (cid : CardId) (pitch bonus : Nat) : Option Bool := do
