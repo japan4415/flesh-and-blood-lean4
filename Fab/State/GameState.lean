@@ -538,11 +538,19 @@ def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
 def expireEffects (s : GameState) (dur : Duration) : GameState :=
   { s with activeEffects := s.activeEffects.filter fun e => e.duration != dur }
 
+/-- Test whether this is the turn marked for a delayed effect's activation or expiration. -/
+def isScheduledEffectTurn (s : GameState) (e : ContinuousEffect) : Bool :=
+  e.endAfterTurnOf.any fun (p, createdTurn) => s.active == some p && decide (createdTurn < s.turn)
+
+/-- Start effects waiting for this player's next turn, before start-of-turn triggers (CR 4.2.2). -/
+def startTurnEffects (s : GameState) : GameState :=
+  { s with activeEffects := s.activeEffects.map fun e =>
+      if e.waitsForNextTurn && s.isScheduledEffectTurn e then { e with waitsForNextTurn := false } else e }
+
 /-- Expire effects that finish with this turn, after the end-phase refill (CR 4.4.4). -/
 def finishTurnEffects (s : GameState) : GameState :=
   { s with activeEffects := s.activeEffects.filter fun e =>
-      e.duration != .thisTurn &&
-        !(e.endAfterTurnOf.any fun (p, createdTurn) => s.active == some p && decide (createdTurn < s.turn)) }
+      e.duration != .thisTurn && !s.isScheduledEffectTurn e }
 
 /-- Start restrictions scheduled for this player's action phase (CR 4.3). -/
 def startActionPhaseEffects (s : GameState) (p : PlayerId) : GameState :=

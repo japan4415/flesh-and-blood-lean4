@@ -684,6 +684,8 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
         { trigger with effect := .grant (.hero (.seated link.defender)) mod dur }
       | .grant (.playerActionsAndAttacks .defendingHero) mod dur =>
         { trigger with effect := .grant (.playerActionsAndAttacks (.seated link.defender)) mod dur }
+      | .grant (.firstAttackNextTurn .defendingHero) mod dur =>
+        { trigger with effect := .grant (.firstAttackNextTurn (.seated link.defender)) mod dur }
       | _ => trigger
 
 /-- Collect the card's own on-play triggers once its costs have been paid (CR 5.1, 6.6.5). -/
@@ -720,13 +722,17 @@ def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo
   | some (face, isProxy) =>
     let isWeapon := isProxy && face.hasType .weapon
     s.activeEffects.foldr (fun effect (layer, rest) =>
+      let affected := match effect.target with
+        | .nextAttackBy player => player
+        | _ => effect.controller
       let eligible := match effect.target with
         | .nextAttackCard filter =>
           !isProxy && !filter.isWeaponAttack && cardFaceMatches filter face
         | .nextAttack filter | .allAttacks filter =>
           (!filter.isWeaponAttack || isWeapon) && cardFaceMatches filter face
+        | .nextAttackBy _ => true
         | _ => false
-      if effect.controller == info.controller && eligible then
+      if affected == info.controller && eligible && !effect.waitsForNextTurn then
         match effect.op with
         | .addPower bonus =>
           let remaining := match effect.target with
@@ -1463,7 +1469,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
                 pending := turnFrames tp ++ [.beginTurn] ++ rest },
             [])
   | .startPhaseWork tp :: rest =>
-    let starting := { s with phase := .startPhase }
+    let starting := { s.startTurnEffects with phase := .startPhase }
     let queued := queueCardTriggers starting (installedCardTriggers starting tp (· == .onStartOfTurn))
     let triggers := if queued.pendingTriggers.isEmpty then [] else [.flushTriggers, .resolveStack]
     some ({ queued with pending := triggers ++ rest }, [])
