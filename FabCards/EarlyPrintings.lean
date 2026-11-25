@@ -28,6 +28,7 @@ def earlyPrintingCardId? : String → Option CardId
   | "IRA004" | "IRA004-P" => some ⟨"IRA_004_Y"⟩
   | "IRA005" | "IRA005-P" => some ⟨"IRA_005_Y"⟩
   | "IRA006" | "IRA006-P" => some ⟨"IRA_006_R"⟩
+  | "IRA007" | "IRA007-P" => some ⟨"IRA_007_R"⟩
   | _ => none
 
 end FabCards

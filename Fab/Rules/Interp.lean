@@ -248,6 +248,9 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     match s.combat.bind CombatChain.prevLink? with
     | some prev => prev.attackLki.name == name
     | none => false
+  | .chainLinkAtLeast minimum =>
+    (s.combat.bind CombatChain.activeLink?).any fun link =>
+      link.attack == some src && decide (minimum ≤ link.linkId.n)
   | .defendedFromHandThisLink =>
     match s.combat.bind CombatChain.activeLink? with
     | some cur => decide (0 < cur.defendedFromHandCount)

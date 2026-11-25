@@ -70,8 +70,15 @@ def IRA_006_R : CardDef :=
     [.triggered .onHit false none none
       { body := .grant .self_ (.grantKeyword .goAgain) .thisChainLink }]
 
+/-- Flying Kick. -/
+def IRA_007_R : CardDef :=
+  iraAttackCard "IRA_007_R" "Flying Kick" (.class_ .ninja) 1 2 5 3
+    (playEffect := some
+      { body := .ifThen (.chainLinkAtLeast 3)
+          (.grant .self_ (.addPower (.const 2)) .thisChainLink) .nop })
+
 /-- Logical cards first published in the Ira Welcome Deck. -/
-def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y, IRA_005_Y, IRA_006_R]
+def iraCards : List CardDef := [IRA_001, IRA_002, IRA_003_Y, IRA_004_Y, IRA_005_Y, IRA_006_R, IRA_007_R]
 
 end IRA
 end FabCards
