@@ -1171,24 +1171,28 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     else intimidateHandFront s ctrl target
   | .intimidateHandFront target => intimidateHandFront s ctrl target
   | .returnDefendingCardToHand f =>
+    let choices := ((s.combat.bind CombatChain.activeLink?).map (·.defending)).getD []
+    let choices := choices.filter fun id =>
+      s.locate id == some .combatChain && (s.objectFace? id).any (cardFaceMatches f)
+    if choices.isEmpty then (s, [], [])
+    else (s, [], [.chooseModal ctrl src false env
+      (.nop :: choices.map (fun id => .prim (.returnChosenDefendingCard id)))])
+  | .returnChosenDefendingCard id =>
     match s.combat.bind CombatChain.activeLink? with
     | none => (s, [], [])
     | some link =>
-      match link.defending.find? fun did =>
-        match s.objectFace? did with
-        | some face => cardFaceMatches f face
-        | none => false with
-      | none => (s, [], [])
-      | some did =>
-        match s.obj? did with
+      if link.defending.contains id && s.locate id == some .combatChain then
+        match s.obj? id with
         | none => (s, [], [])
         | some o =>
-          match moveObj s did (.player o.owner .hand) .top false with
+          let isAction := (s.objectFace? id).any (·.hasType .action)
+          match moveObj s id (.player o.owner .hand) .top false with
           | none => (s, [], [])
           | some (s1, id') =>
             let cc' := s1.combat.map fun cc => cc.updateActiveLink fun l =>
-              { l with defending := l.defending.filter (· != did) }
-            ({ s1 with combat := cc' }, [.moved did id' .combatChain (.player o.owner .hand)], [])
+              l.removeDefender id isAction
+            ({ s1 with combat := cc' }, [.moved id id' .combatChain (.player o.owner .hand)], [])
+      else (s, [], [])
   | .searchDeck pref f maxCount dstRef reveal _ shuffleAfter =>
     let target := evalPlayerRef s ctrl pref
     match zoneOfRef target dstRef with
@@ -1426,19 +1430,19 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
   | intimidateHandFront target => exact intimidateHandFront_inv ctrl target hwf hok
   | returnDefendingCardToHand f =>
     unfold execPrim; dsimp only
+    split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | returnChosenDefendingCard id =>
+    unfold execPrim; dsimp only
     cases s.combat.bind CombatChain.activeLink? with
     | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     | some link =>
       dsimp only
-      cases link.defending.find? (fun did => match s.objectFace? did with | some face => cardFaceMatches f face | none => false) with
-      | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-      | some did =>
-        dsimp only
-        cases s.obj? did with
+      split
+      · cases s.obj? id with
         | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
         | some o =>
           dsimp only
-          cases hm : moveObj s did (.player o.owner .hand) .top false with
+          cases hm : moveObj s id (.player o.owner .hand) .top false with
           | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
           | some res =>
             obtain ⟨s1, id'⟩ := res
@@ -1448,6 +1452,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
             exact ⟨GameState.WF.congr (moveObj_wf hwf hm) rfl rfl rfl rfl,
                    GameState.OwnerOk.congr (moveObj_ownerOk hwf hok hm) rfl rfl,
                    hp, hmeta.1, hmeta.2⟩
+      · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | searchDeck pref f maxCount dstRef _ _ _ =>
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
@@ -1675,15 +1680,15 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
   | intimidateHandFront target => exact intimidateHandFront_ttr s ctrl target
   | returnDefendingCardToHand f =>
     unfold execPrim; dsimp only
+    split <;> exact ⟨rfl, rfl, id⟩
+  | returnChosenDefendingCard did =>
+    unfold execPrim; dsimp only
     cases s.combat.bind CombatChain.activeLink? with
     | none => exact ⟨rfl, rfl, id⟩
     | some link =>
       dsimp only
-      cases link.defending.find? (fun did => match s.objectFace? did with | some face => cardFaceMatches f face | none => false) with
-      | none => exact ⟨rfl, rfl, id⟩
-      | some did =>
-        dsimp only
-        cases s.obj? did with
+      split
+      · cases s.obj? did with
         | none => exact ⟨rfl, rfl, id⟩
         | some o =>
           dsimp only
@@ -1692,6 +1697,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
           | some _ =>
             have h := moveObj_ttr_core hm
             exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+      · exact ⟨rfl, rfl, id⟩
   | searchDeck pref f maxCount dstRef _ _ _ =>
     unfold execPrim; dsimp only
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with

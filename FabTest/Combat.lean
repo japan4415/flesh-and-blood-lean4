@@ -3792,8 +3792,9 @@ meta def checkBarragingBeatdown (cid : CardId) (pitch bonus : Nat) : Option Bool
   let resolved ← cSteps reactionStep [⟨.player defender, .playCard reaction⟩,
     ⟨.player defender, .pass⟩, ⟨.player attacker, .pass⟩]
   let resolvedLink ← activeLink resolved
+  let toReturn ← resolvedLink.defending[1]?
   let (removed, _, _) := execPrim resolved attacker weapon []
-    (.returnDefendingCardToHand CardFilter.nonEquipment)
+    (.returnChosenDefendingCard toReturn)
   let removedLink ← activeLink removed
   let (cardReady, brute) ← cPlace beforeBrute attacker .hand ⟨"WTR_020_R"⟩
   let (readyWithCost, _) ← cPlace cardReady attacker .hand ⟨"WTR_204_Y"⟩
@@ -3856,8 +3857,9 @@ meta def checkBarragingBrawnhide (cid : CardId) (pitch power : Nat) : Option Boo
   let copy ← mixedLink.defending.getLast?
   let withTwo ← cSteps defending [defend defendingCopy, defend second]
   let twoLink ← active withTwo
+  let toReturn ← twoLink.defending.head?
   let (oneRemoved, _, _) := execPrim withTwo attacker activeAttack []
-    (.returnDefendingCardToHand CardFilter.nonEquipment)
+    (.returnChosenDefendingCard toReturn)
   let removedLink ← active oneRemoved
   let lose : ContinuousEffect :=
     { id := 0, timestamp := ⟨0⟩, source := activeAttack, controller := defender,
@@ -4069,6 +4071,83 @@ meta def checkUnmovableAgainstDominate (fromArsenal : Bool) : Option Bool := do
 
 #guard checkUnmovableAgainstDominate false == some true
 #guard checkUnmovableAgainstDominate true == some true
+
+/-- Rout chooses a live non-equipment defender when it resolves and preserves Reprise history. -/
+meta def checkRout : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let hand := Zone.player defender .hand
+  let cid : CardId := ⟨"WTR_120_R"⟩
+  let funded := (m5Base.setPool attacker { actionPoints := 1, resources := 3 }).setPool defender
+    { resources := 6 }
+  let card ← funded.cards.find? cid
+  let (armed, weapon) ← cPlace funded attacker .weapon ⟨"WTR_115"⟩
+  let (withRout, rout) ← cPlace armed attacker .hand cid
+  let (withResponse, response) ← cPlace withRout attacker .hand ⟨"WTR_132_R"⟩
+  let (withAttack, plain) ← cPlace withResponse attacker .hand ⟨"WTR_203_R"⟩
+  let (withArmor, armor) ← cPlace withAttack defender .chest ⟨"WTR_041"⟩
+  let (firstBlock, first) ← cPlace withArmor defender .hand ⟨"WTR_203_R"⟩
+  let (secondBlock, second) ← cPlace firstBlock defender .hand ⟨"WTR_204_Y"⟩
+  let (ready, unmovable) ← cPlace secondBlock defender .hand ⟨"WTR_212_R"⟩
+  let active (s : GameState) := s.combat.bind CombatChain.activeLink?
+  let play (id : ObjId) : Action := ⟨.player attacker, .playCard id⟩
+  let block (id : ObjId) : Action := ⟨.player defender, .defendCard id⟩
+  let pick (idx : Nat) : Action := ⟨.player attacker, .pickMode idx⟩
+  let done : Action := ⟨.player defender, .defendDone⟩
+  let toDefend := passBoth ++ passBoth
+  let toReaction := done :: passBoth
+  let defend ← cSteps ready (⟨.player attacker, .attackWeapon weapon⟩ :: toDefend)
+  let blocks ← cSteps defend ([block armor, block first, block second] ++ toReaction)
+  let [_, def1, def2] := (← active blocks).defending | none
+  let paid ← cSteps blocks [play rout]
+  let offered ← cSteps paid passBoth
+  let skipped ← cSteps offered [pick 0]
+  let returnedFirst ← cSteps offered [pick 1]
+  let returnedSecond ← cSteps offered [pick 2]
+  let link ← active returnedSecond
+  let returned ← (returnedSecond.zone hand).head?
+  let fromEquipment ← cSteps defend (block armor :: (toReaction ++ (play rout :: passBoth)))
+  let unqualifiedAttack ← cSteps ready (play plain :: (toDefend ++ toReaction))
+  let attack ← (← active paid).attack
+  let invalid ← cSteps (removeNonPhysObj paid attack) passBoth
+  let combat := defend.combat.map fun cc =>
+    cc.updateActiveLink fun l => { l with grantedKeywords := [.dominate] }
+  let dominated := { defend with combat := combat }
+  let reaction ← cSteps dominated (toReaction ++ [play rout, ⟨.player attacker, .pass⟩,
+    ⟨.player defender, .playCard unmovable⟩])
+  let blockResolved ← cSteps reaction passBoth.reverse
+  let blockLink ← active blockResolved
+  let offeredAfterReaction ← cSteps blockResolved passBoth
+  let returnedReaction ← cSteps offeredAfterReaction [pick 1]
+  let linkAfterReaction ← active returnedReaction
+  let reactionAgain ← (returnedReaction.zone hand).head?
+  let reprise ← cSteps returnedReaction (play response :: passBoth)
+  let target ← active reprise
+  let playAgain : Action := ⟨.player defender, .playCard reactionAgain⟩
+  let secondDefense ← cSteps reprise (⟨.player attacker, .pass⟩ :: playAgain :: passBoth.reverse)
+  let secondLink ← active secondDefense
+  pure (card.status == .full && card.front.pitch == some 1 && card.front.defense == some 3 &&
+    (paid.poolOf attacker).resources == 0 && (active offered).map (·.powerBonus) == some 3 &&
+    (legalActionsFor attacker offered).filter (·.kind != .concede) == [pick 0, pick 1, pick 2] &&
+    (step 64 offered (pick 3)).toOption.isNone &&
+    (active skipped).map (·.defending) == some [armor, def1, def2] &&
+    (active returnedFirst).map (·.defending) == some [armor, def2] && link.defending == [armor, def1] &&
+    link.defendedActionCount == 1 && link.defendingFromHand == [def1] &&
+    link.defendedFromHandCount == 2 && returnedSecond.locate def2 == none &&
+    (returnedSecond.cardDefOf? returned).map (·.id) == some ⟨"WTR_204_Y"⟩ &&
+    (returnedSecond.obj? returned).any (fun obj => obj.owner == defender) &&
+    (active fromEquipment).map (fun l => (l.powerBonus, l.defending)) == some (3, [armor]) &&
+    !(legalActionsFor attacker fromEquipment).contains (pick 0) &&
+    !(legalActionsFor attacker unqualifiedAttack).contains (play rout) &&
+    (active invalid).map (fun l => (l.powerBonus, l.defending)) == some (0, [armor, def1, def2]) &&
+    (legalActionsFor attacker invalid).contains (pick 0) &&
+    blockLink.defendingFromHand.length == 1 &&
+    (legalActionsFor attacker offeredAfterReaction).contains (pick 1) &&
+    linkAfterReaction.defending.isEmpty && linkAfterReaction.defendingFromHand.isEmpty &&
+    linkAfterReaction.defendedFromHandCount == 1 && target.powerBonus == 6 &&
+    secondLink.defendingFromHand.length == 1 && secondLink.defendedFromHandCount == 2)
+
+#guard checkRout == some true
 
 /-- Shunt deals one point of generic damage as it resolves against a weapon. -/
 meta def checkSteelbladeShunt (cid : CardId) (pitch defense : Nat) (fromArsenal : Bool) :

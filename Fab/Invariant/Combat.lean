@@ -182,13 +182,13 @@ theorem bladeBreak_destroys {s : GameState} {id : ObjId} {o : Object} {c : CardD
   rw [hz]
   rfl
 
-/-- **I11** (Dominate defense hook) (CR 8.3.4): once a Dominate attack has been defended by at least
-1 card from hand, no further card from hand may be declared in Defend Step. -/
+/-- **I11** (Dominate defense hook) (CR 8.3.4): while at least one card from hand is defending a
+Dominate attack, no further card from hand may be declared in Defend Step. -/
 theorem dominate_blocks_second_hand_card {s : GameState} {link : ChainLink}
     {p : PlayerId} {id : ObjId}
     (hhand : id ∈ s.zone (.player p .hand))
     (hdom : linkHasKeyword s link .dominate = true)
-    (hcnt : 1 ≤ link.defendedFromHandCount) :
+    (hcnt : 1 ≤ link.defendingFromHand.length) :
     canDefendWith s link p id = false := by
   unfold canDefendWith
   split

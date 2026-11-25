@@ -179,8 +179,10 @@ inductive Prim where
   | putHandOnDeck (p : PlayerRef) (pos : DeckPos)
   /-- Put a card from player `p`'s arsenal on the bottom of its owner's deck (Disable). -/
   | putArsenalOnDeckBottom (p : PlayerRef)
-  /-- Return a non-equipment defending card on the current chain link to its owner's hand (Rout). -/
+  /-- Choose a matching defending card on the active link to return to its owner's hand (Rout). -/
   | returnDefendingCardToHand (f : CardFilter)
+  /-- Return the defending card picked during resolution. -/
+  | returnChosenDefendingCard (id : ObjId)
   /-- Search `p`'s deck for up to `maxCount` cards matching `f`, move to `dst`, optionally reveal,
   and normally shuffle; optionally allow playing the banished card for `playableDuration`. -/
   | searchDeck (p : PlayerRef) (f : CardFilter) (maxCount : Option Nat) (dst : ZoneRef)
