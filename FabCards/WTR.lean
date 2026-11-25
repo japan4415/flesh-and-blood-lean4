@@ -708,8 +708,8 @@ def WTR_174_Y : CardDef := sigilOfSolace WTR_174_Y_meta 2
 /-- Sigil of Solace Blue (drafted IR). -/
 def WTR_175_B : CardDef := sigilOfSolace WTR_175_B_meta 1
 
-/-- Raging Onslaught Red (vanilla, drafted IR). -/
-def WTR_188_R : CardDef := draftVanilla WTR_188_R_meta
+/-- Raging Onslaught Red. -/
+def WTR_188_R : CardDef := { WTR_188_R_meta with status := .full }
 /-- Raging Onslaught Yellow (vanilla, drafted IR). -/
 def WTR_189_Y : CardDef := draftVanilla WTR_189_Y_meta
 /-- Raging Onslaught Blue (vanilla, drafted IR). -/
