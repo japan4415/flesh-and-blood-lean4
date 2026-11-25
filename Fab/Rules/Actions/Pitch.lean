@@ -26,9 +26,8 @@ def GameState.activeFace? (s : GameState) (o : Object) : Option CardFace :=
       | .front => some def_.front
       | .back => def_.back
 
-/-- Pitch card `id` from player `p`'s hand into `p`'s pitch zone, adding its pitch value to
-`p`'s asset pool (Chi `{c}` if the active face is a Resource card, otherwise generic Resource
-points `{r}`) (CR 1.14.3, 2.8, 3.14). -/
+/-- Pitch card `id` from player `p`'s hand into `p`'s pitch zone, adding the value and kind of its
+active face's printed pitch assets (CR 1.14.3, 2.8.2, 3.14). -/
 def pitchOne (s : GameState) (p : PlayerId) (id : ObjId) :
     Option (GameState × ObjId × List Event) :=
   if id ∈ s.zone (.player p .hand) then
@@ -44,7 +43,7 @@ def pitchOne (s : GameState) (p : PlayerId) (id : ObjId) :
           match moveObj s id (.player p .pitch) .top false with
           | none => none
           | some (s1, id') =>
-            let isChi := face.hasType .resource
+            let isChi := face.pitchAsset == .chi
             let r := if isChi then 0 else v
             let c := if isChi then v else 0
             let pool' := ((s1.poolOf p).addResources r).addChi c
@@ -155,7 +154,7 @@ theorem pitchOne_adds_assets {s s' : GameState} {p : PlayerId} {id id' : ObjId}
         simp [GameState.poolOf, hs.pools]
       constructor
       · rw [GameState.poolOf_setPool_self, hpool1 p]
-        cases face.hasType .resource <;>
+        cases face.pitchAsset <;>
           simp [AssetPool.totalEnergy, AssetPool.addResources, AssetPool.addChi] <;> omega
       · intro q hqp
         rw [GameState.poolOf_setPool_ne _ hqp, hpool1 q]
