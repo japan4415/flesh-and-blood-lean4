@@ -646,8 +646,8 @@ def overpowerCard (base : CardDef) (baseBonus repriseBonus : Int) : CardDef :=
           (.grant (.obj (.slot 0)) (.addPower (.const repriseBonus)) .thisChainLink)
           (.grant (.obj (.slot 0)) (.addPower (.const baseBonus)) .thisChainLink) })
 
-/-- Overpower Red (drafted IR). -/
-def WTR_123_R : CardDef := overpowerCard WTR_123_R_meta 4 6
+/-- Overpower Red. -/
+def WTR_123_R : CardDef := { overpowerCard WTR_123_R_meta 4 6 with status := .full }
 /-- Overpower Yellow (drafted IR). -/
 def WTR_124_Y : CardDef := overpowerCard WTR_124_Y_meta 3 5
 /-- Overpower Blue (drafted IR). -/
