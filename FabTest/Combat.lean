@@ -474,6 +474,43 @@ meta def checkScarForAScar (cid : CardId) (power : Nat) : Option Bool := do
 #guard checkScarForAScar ⟨"WTR_192_Y"⟩ 3 == some true
 #guard checkScarForAScar ⟨"WTR_193_B"⟩ 2 == some true
 
+/-- Last Ditch Effort's trigger uses the deck at play time, before responses. -/
+meta def checkLastDitchEffort : Option Bool := do
+  let attacker : PlayerId := ⟨0⟩
+  let defender : PlayerId := ⟨1⟩
+  let cid : CardId := ⟨"WTR_161_B"⟩
+  let deck := Zone.player attacker .deck
+  let funded := m5Base.setPool attacker { actionPoints := 1, resources := 3 }
+  let card ← funded.cards.find? cid
+  let (withAttack, attack) ← cPlace funded attacker .hand cid
+  let (ready, reserve) ← cPlace withAttack attacker .hand ⟨"WTR_203_R"⟩
+  let play := [⟨.player attacker, .playCard attack⟩]
+  let paidEmpty ← cSteps ready play
+  let trigger ← paidEmpty.pendingTriggers.head?
+  let (replenished, _) ← moveObj paidEmpty reserve deck .bottom false
+  let stacked ← cSteps replenished [⟨.player attacker, .pickTriggerStart attacker⟩,
+    ⟨.player attacker, .pickTrigger trigger.id⟩]
+  let buffed ← cSteps stacked passBoth
+  let (withDeck, deckCard) ← cPlace ready attacker .deck ⟨"WTR_204_Y"⟩
+  let paidNonempty ← cSteps withDeck play
+  let (depleted, _) ← moveObj paidNonempty deckCard (.player attacker .hand) .top false
+  let finish := passBoth ++ passBoth ++ [⟨.player defender, .defendDone⟩] ++
+    passBoth ++ passBoth ++ passBoth
+  let boostedHit ← cSteps buffed finish
+  let normalHit ← cSteps depleted finish
+  let boostedLink ← boostedHit.combat.bind CombatChain.activeLink?
+  let normalLink ← normalHit.combat.bind CombatChain.activeLink?
+  pure (card.status == .full && card.front.pitch == some 3 && card.front.defense == some 3 &&
+    (paidEmpty.poolOf attacker).resources == 0 && (paidEmpty.poolOf attacker).actionPoints == 0 &&
+    paidEmpty.zone deck == [] && paidEmpty.pendingTriggers.length == 1 &&
+    (replenished.zone deck).length == 1 && paidNonempty.pendingTriggers.isEmpty &&
+    depleted.zone deck == [] && boostedLink.powerBonus == 4 && normalLink.powerBonus == 0 &&
+    linkHasKeyword boostedHit boostedLink .goAgain && !linkHasKeyword normalHit normalLink .goAgain &&
+    boostedHit.lifeOf defender == 32 && normalHit.lifeOf defender == 36 &&
+    (boostedHit.poolOf attacker).actionPoints == 1 && (normalHit.poolOf attacker).actionPoints == 0)
+
+#guard checkLastDitchEffort == some true
+
 /-- Verify the first qualifying attack claims the bonus, including across plays and turn cleanup. -/
 meta def checkNextAttackCardPower (cid : CardId) (cost bonus : Nat) (lowCost : Bool) : Option Bool := do
   let attacker : PlayerId := ⟨0⟩

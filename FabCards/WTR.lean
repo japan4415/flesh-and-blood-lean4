@@ -660,6 +660,14 @@ def WTR_160_Y : CardDef :=
               (.prim (.gainLife .controller (.handCount .controller)))
               .nop ] }) with status := .full }
 
+/-- Last Ditch Effort. -/
+def WTR_161_B : CardDef :=
+  { draftCard WTR_161_B_meta
+      [ .triggered .onPlay false none (some (.zoneEmpty .controller .deck))
+          { body := .seqL
+              [ .grant .self_ (.addPower (.const 4)) .thisChainLink
+              , .grant .self_ (.grantKeyword .goAgain) .thisChainLink ] } ] with status := .full }
+
 /-- Crazy Brew (drafted IR — 6-sided die branches 1-2 / 3-4 / 5-6). -/
 def WTR_162_B : CardDef :=
   draftCard WTR_162_B_meta
@@ -864,7 +872,7 @@ def draftedCards : List CardDef :=
   , WTR_113, WTR_114, WTR_115, WTR_116, WTR_117, WTR_118_B, WTR_119_R, WTR_120_R
   , WTR_123_R, WTR_124_Y, WTR_125_B, WTR_141_R, WTR_142_Y, WTR_143_B
   , WTR_150, WTR_151, WTR_154, WTR_155, WTR_156, WTR_157, WTR_158
-  , WTR_159_R, WTR_160_Y, WTR_162_B, WTR_163_Y
+  , WTR_159_R, WTR_160_Y, WTR_161_B, WTR_162_B, WTR_163_Y
   , WTR_164_R, WTR_165_Y, WTR_166_B, WTR_167_R, WTR_168_Y, WTR_169_B
   , WTR_173_R, WTR_174_Y, WTR_175_B, WTR_188_R, WTR_189_Y, WTR_190_B
   , WTR_191_R, WTR_192_Y, WTR_193_B, WTR_200_R, WTR_201_Y, WTR_202_B
