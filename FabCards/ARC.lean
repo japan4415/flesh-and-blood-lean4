@@ -146,10 +146,13 @@ def pourTheMold (base : CardDef) (maxCost : Nat) : CardDef :=
 /-- Pour the Mold (ARC014). -/
 def ARC_014_R : CardDef := { pourTheMold Meta.ARC_014_R_meta 0 with status := .full }
 
+/-- Pour the Mold (ARC015). -/
+def ARC_015_Y : CardDef := { pourTheMold Meta.ARC_015_Y_meta 1 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
-   ARC_008_R, ARC_009_Y, ARC_010_R, ARC_011_R, ARC_012_Y, ARC_013_B, ARC_014_R]
+   ARC_008_R, ARC_009_Y, ARC_010_R, ARC_011_R, ARC_012_Y, ARC_013_B, ARC_014_R, ARC_015_Y]
 
 end FabCards.ARC
 

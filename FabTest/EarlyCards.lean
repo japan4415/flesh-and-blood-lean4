@@ -867,6 +867,37 @@ meta def pourTheMoldScenario (boosted : Bool) : Option Bool := do
 #guard pourTheMoldScenario false == some true
 #guard pourTheMoldScenario true == some true
 
+meta def pourTheMoldCostScenario (moldId : String) (maxCost : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let item : CardDef :=
+    { id := ⟨"One resource item fixture"⟩
+      front :=
+        { name := "One resource item fixture"
+          supertypes := [.class_ .mechanologist]
+          types := [.action]
+          subtypes := [.item]
+          cost := some { actionPoints := 1, resources := 1 } }
+      status := .full }
+  let cards : CardDB := ⟨item :: throughArcDB.cards⟩
+  let (withZero, zero) ← earlyPlace { earlyBase with cards, boostsThisTurn := [p] } p hand "ARC_007_B"
+  let (withOne, one) ← earlyPlace withZero p hand item.id.val
+  let (withTwo, two) ← earlyPlace withOne p hand "ARC_010_R"
+  let (ready, mold) ← earlyPlace withTwo p hand moldId
+  let choosing ← earlySteps ready (⟨.player p, .playCard mold⟩ :: earlyPass)
+  let pick (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let eligible := if maxCost == 1 then [one, zero] else [two, one, zero]
+  let wanted := if maxCost == 1 then one else two
+  let resolved ← earlySteps choosing [pick (some wanted), pick none]
+  let entered ← (resolved.zone (.player p .permanent)).head?
+  pure ((view p choosing).selectionChoices.map Prod.fst == eligible &&
+    (maxCost != 1 || (earlySteps choosing [pick (some two)]).isNone) &&
+    (resolved.cardDefOf? entered).map (·.id) == (choosing.cardDefOf? wanted).map (·.id) &&
+    (resolved.obj? entered).any (fun obj => obj.counterCount .steam == 1))
+
+#guard (earlyPrintingCardId? "ARC015").map (·.val) == some "ARC_015_Y"
+#guard pourTheMoldCostScenario "ARC_015_Y" 1 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
