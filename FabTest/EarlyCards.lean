@@ -3338,6 +3338,56 @@ meta def aetherFlareScenario (name : String) (damage : Nat) : Option Bool := do
   (fun card => card.front.hasType .action && card.front.pitch == some 3 && card.status == .full)
 #guard aetherFlareScenario "ARC_134_B" 1 == some true
 
+#guard ((earlyPrintingCardId? "ARC135").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 1 && card.status == .full)
+
+meta def indexDeckScenario (name : String) (count : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let initial := { earlyBase with cards := throughArcDB }
+  let (withCard, indexCard) ← earlyPlace initial p hand name
+  let (withOne, only) ← earlyPlace withCard p deck "WTR_221_R"
+  let withDeck ← (List.range 6).foldlM (fun s _ =>
+    (earlyPlace s p deck "WTR_221_R").map Prod.fst) withOne
+  let original := withDeck.zone deck
+  let cast (s : GameState) :=
+    earlySteps s (⟨.player p, .playCard indexCard⟩ :: earlyPass)
+  let choose (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let choosing ← cast withDeck
+  let .chooseShuffleCards chooser 1 candidates [] false (some options) :: _ := choosing.pending | none
+  let top ← candidates.getLast?
+  let selected ← earlySteps choosing [choose (some top)]
+  let (ordering, topEvents) ← (step 64 selected (choose none)).toOption
+  let .chooseShuffleCards orderer size remaining [] false (some orderOptions) :: _ := ordering.pending | none
+  let order := remaining.reverse
+  let ordered ← earlySteps ordering (order.map (fun id => choose (some id)))
+  let (finished, bottomEvents) ← (step 64 ordered (choose none)).toOption
+  let empty ← cast withCard
+  let one ← cast withOne
+  let onlyChosen ← earlySteps one [choose (some only), choose none]
+  let revealed := (topEvents ++ bottomEvents).any fun event =>
+    match event with
+    | .revealed _ _ _ => true
+    | _ => false
+  pure (chooser == p && candidates == original.take count &&
+    !options.searchesDeck && !options.shuffleAfter &&
+    ((view p choosing).selectionChoices.map Prod.fst) == candidates &&
+    (view q choosing).selectionChoices.isEmpty &&
+    (earlySteps choosing [choose none]).isNone &&
+    (earlySteps choosing [choose (some only)]).isNone &&
+    orderer == p && size == count - 1 && remaining == candidates.erase top &&
+    orderOptions.bottomSelection == some (.order size) &&
+    (view q ordering).selectionChoices.isEmpty &&
+    (earlySteps ordering [choose none]).isNone &&
+    (ordering.zone deck).head? == some top && finished.zone deck == top :: (original.drop count ++ order) &&
+    !revealed && (finished.poolOf p).resources == 8 && (finished.poolOf p).actionPoints == 3 &&
+    (empty.zone deck).isEmpty && !(legalActions empty).contains (choose none) &&
+    onlyChosen.zone deck == [only] && !(legalActions onlyChosen).contains (choose none))
+
+#guard indexDeckScenario "ARC_135_R" 5 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

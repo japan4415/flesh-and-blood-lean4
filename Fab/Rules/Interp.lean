@@ -1374,6 +1374,14 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         { destination := arsenal, reveal := false, mayFail := true,
           shuffleAfter := false, searchesDeck := false, bottomSelection := some (.lookedAt viewed) }
       (s, [], [.chooseShuffleCards player 1 candidates [] false (some choice)])
+  | .lookDeckToTopAndBottom pref count =>
+    let player := evalPlayerRef s ctrl pref
+    let deck := Zone.player player .deck
+    let viewed := (s.zone deck).take count
+    let choice : DeckSearchChoice :=
+      { destination := deck, reveal := false, mayFail := false, shuffleAfter := false,
+        searchesDeck := false, putOnTopAfterShuffle := true, bottomSelection := some (.lookedAt viewed) }
+    (s, [], if viewed.isEmpty then [] else [.chooseShuffleCards player 1 viewed [] false (some choice)])
   | .lookTopToBanishedAsInstant pref filter discountFromDamage =>
     let discount := if discountFromDamage then s.arcaneDamageFrom src else 0
     let player := evalPlayerRef s ctrl pref
@@ -1737,6 +1745,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | searchDeckToTop _ _ _ | reload _ | lookTopToBanishedAsInstant _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | lookDeckToTopAndBottom _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | lookDeckToArsenal _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | revealTopPairToHand pref first second =>
@@ -2051,6 +2060,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     let ids := matchingRevealedPair s first second ((s.zone (.player player .deck)).take 2)
     have ht := moveManyObjs_ttr (.player player .hand) .top false ids s
     exact ⟨ht.1, ht.2.1, fun hr => ht.2.2 ▸ hr⟩
+  | lookDeckToTopAndBottom _ _ => exact ⟨rfl, rfl, id⟩
   | putChosenDeckCardOnTop _ _ | lookDeckToArsenal _ _ _ | putChosenDeckCardsOnBottom _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | putHandPermanent _ _ _ => exact ⟨rfl, rfl, id⟩

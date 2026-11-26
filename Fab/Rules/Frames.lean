@@ -1643,7 +1643,7 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
   let putOnTop := search.any (·.putOnTopAfterShuffle)
   let movers := if search.any (·.keepsSelectedInZone) then [] else selected.reverse
   let moved := moveManyObjs s movers destination position false
-  let placeAfterShuffle := if putOnTop then selected.head?.toList.map (fun id =>
+  let placeOnTop := if putOnTop then selected.head?.toList.map (fun id =>
       Frame.run p id false [] [.prim (.putChosenDeckCardOnTop (.seated p) id)])
     else []
   let events := moved.2
@@ -1652,7 +1652,8 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
   let shuffle := if search.all (·.shuffleAfter) then [.chanceShuffle deck] else []
   let bottomSelection := match search.bind (·.bottomSelection) with
     | some (.lookedAt viewed) =>
-      let remaining := viewed.filter (moved.1.zone deck).contains
+      let remaining := viewed.filter fun id =>
+        (moved.1.zone deck).contains id && (!putOnTop || !(selected.contains id))
       if remaining.isEmpty then [] else
         let choice : DeckSearchChoice :=
           { destination := deck, reveal := false, mayFail := false, shuffleAfter := false,
@@ -1686,7 +1687,7 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
         { id := timestamp, source, controller := p, target := .arsenalCard id
           op := .addPower amount, timestamp := ⟨timestamp⟩ }
   let finished := { entered with
-    pending := shuffle ++ placeAfterShuffle ++ bottomSelection ++ draw ++ rest
+    pending := shuffle ++ placeOnTop ++ bottomSelection ++ draw ++ rest
     activeEffects := entered.activeEffects ++ permissions ++ bonuses
     nextTimestamp := entered.nextTimestamp + permissions.length + bonuses.length }
   let recorded := revealed ++ events ++ banished.map (fun id => .banished p id false)

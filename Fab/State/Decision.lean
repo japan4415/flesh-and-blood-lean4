@@ -151,7 +151,7 @@ inductive HandCardCost where
   | reveal (filter : CardFilter)
 deriving DecidableEq, Repr
 
-/-- Two decisions when looking at the deck, optionally loading one card, and ordering the rest. -/
+/-- Stages of selecting one viewed deck card and ordering those left for the bottom. -/
 inductive DeckBottomSelection where
   /-- The chooser may see all these cards but may only select an eligible card. -/
   | lookedAt (cards : List ObjId)
@@ -183,7 +183,7 @@ structure DeckSearchChoice where
   entryCounter : Option CounterKind := none
   /-- Source and power bonus for the card selected into arsenal until the end of this turn. -/
   arsenalPowerBonus : Option (ObjId × Int) := none
-  /-- Keep the selected deck card for placement on top after the shuffle. -/
+  /-- Keep the selected card in its deck and place it on top after any shuffle. -/
   putOnTopAfterShuffle : Bool := false
   /-- Look at the deck or order the viewed cards that remain there. -/
   bottomSelection : Option DeckBottomSelection := none

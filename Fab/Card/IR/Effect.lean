@@ -221,11 +221,13 @@ inductive Prim where
       (exactCost : Option NumExpr := none)
   /-- Search for one matching card, optionally bounded by resource cost, and put it on top after shuffling. -/
   | searchDeckToTop (p : PlayerRef) (f : CardFilter) (maxCost : Option NumExpr := none)
-  /-- Place a selected object still in its player's deck at the top (search continuation). -/
+  /-- Place a selected object still in its player's deck at the top. -/
   | putChosenDeckCardOnTop (p : PlayerRef) (id : ObjId)
   /-- If arsenal is empty, look at up to `count` cards, optionally load one matching
   card face up, then put the rest on the bottom in the chooser's order. -/
   | lookDeckToArsenal (p : PlayerRef) (count : Nat) (f : CardFilter)
+  /-- Privately look at up to `count` cards, place one on top and order the others on the bottom. -/
+  | lookDeckToTopAndBottom (p : PlayerRef) (count : Nat)
   /-- Privately look at the top card and optionally banish a match to play as an instant this turn.
   With `discountFromDamage`, this requires the source to have dealt positive arcane damage
   and reduces the selected card's resource cost by that amount. -/
