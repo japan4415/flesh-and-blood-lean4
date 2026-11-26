@@ -1,0 +1,63 @@
+name: Release Build
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Build Lean targets
+        uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: true
+          build-args: Fab FabCards FabDriver FabTest --wfail
+          use-github-cache: false
+          use-mathlib-cache: false
+
+  wasm:
+    runs-on: ubuntu-latest
+    env:
+      LEAN_NUM_THREADS: 4
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Lean
+        uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          use-github-cache: false
+          use-mathlib-cache: false
+      - name: Set up Emscripten
+        uses: emscripten-core/setup-emsdk@v16
+        with:
+          version: '4.0.23'
+      - name: Build WebAssembly
+        run: bash scripts/build-wasm.sh
+      - name: Check WTR booster opening
+        run: |
+          indices=(0 1 2 3 0 1 2 3 4 5 6 0 1 0 0 1)
+          lake exe fab-wasm "${indices[@]}" > "$RUNNER_TEMP/fab-native.txt"
+          node .lake/wasm/output/fab.js "${indices[@]}" > "$RUNNER_TEMP/fab-wasm.txt"
+          test "$(wc -l < "$RUNNER_TEMP/fab-wasm.txt")" -eq 16
+          diff -u "$RUNNER_TEMP/fab-native.txt" "$RUNNER_TEMP/fab-wasm.txt"
+      - name: Upload WebAssembly artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: fab-wasm
+          path: |
+            .lake/wasm/output/fab.js
+            .lake/wasm/output/fab.wasm
+          include-hidden-files: true
+          if-no-files-found: error

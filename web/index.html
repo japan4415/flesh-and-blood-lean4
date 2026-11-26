@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>パック開封シミュレーター | Welcome to Rathe</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="frame header-inner">
+        <div class="identity">
+          <span class="mark" aria-hidden="true"></span>
+          <span>パック開封シミュレーター</span>
+        </div>
+        <div class="runtime" id="runtime" role="status">WASMを読み込み中</div>
+      </div>
+    </header>
+    <main class="frame">
+      <section class="hero" aria-labelledby="set-title">
+        <div class="hero-copy">
+          <p class="set-code">WTR <span>•</span> 16枚入り</p>
+          <h1 id="set-title">Welcome<br>to Rathe</h1>
+          <p class="description">ブースターを1パック開封して、封入枠ごとのカードを確認できます。</p>
+          <button id="open-pack" type="button" aria-controls="cards" disabled>
+            <span id="button-label">パックを開封</span><span aria-hidden="true">↗</span>
+          </button>
+          <p class="sampling">各枠の候補から均等に抽選します。</p>
+        </div>
+        <div class="pack-stage" aria-hidden="true">
+          <div class="pack"><div class="pack-emblem"></div></div>
+        </div>
+      </section>
+      <section class="results" aria-labelledby="result-title">
+        <header class="results-header">
+          <h2 id="result-title">開封結果</h2>
+          <p id="result-status" role="status">パックを開封すると、ここにカードが並びます。</p>
+        </header>
+        <ol id="cards" class="cards" role="list" aria-label="封入枠順のカード"></ol>
+      </section>
+    </main>
+    <footer class="frame site-footer">
+      <a href="https://cardvault.fabtcg.com/" target="_blank" rel="noopener noreferrer">公式カードデータベース ↗</a>
+      <span>Flesh and Bloodの非公式シミュレーター</span>
+    </footer>
+  </body>
+</html>
