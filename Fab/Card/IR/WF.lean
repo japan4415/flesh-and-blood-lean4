@@ -97,6 +97,7 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .intimidate p => p.wfBool numSlots
   | .intimidateHandFront _ => true
   | .opt p _ => p.wfBool numSlots
+  | .optValue p n => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .openBoosters _ => true
   | .createToken p _ _ | .createTokenForAttackDamage p _ => p.wfBool numSlots
   | .destroy o => o.wfBool numSlots env
