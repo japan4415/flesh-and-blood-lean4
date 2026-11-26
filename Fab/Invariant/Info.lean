@@ -376,6 +376,16 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
   have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
   have hdom (link : ChainLink) : linkHasKeyword s1 link .dominate = linkHasKeyword s2 link .dominate :=
     h.linkHasKeyword_eq_of_ne_goAgain link .dominate (by decide)
+  have hdefense (link : ChainLink) :
+      linkForbidsDefenseReactions s1 link = linkForbidsDefenseReactions s2 link := by
+    have hchain : s1.zone .combatChain = s2.zone .combatChain := h.visibleZones _ rfl
+    have habilities : activeAttackPrintedAbilities s1 = activeAttackPrintedAbilities s2 := by
+      funext source
+      have ho : s1.obj? source = s2.obj? source := by simp [GameState.obj?, h.objects]
+      unfold activeAttackPrintedAbilities
+      rw [hchain, ho, h.characteristics_eq source, (h.cardDef_face source).2]
+    unfold linkForbidsDefenseReactions
+    rw [habilities]
   have hweapon (card : CardDef) : cardWeaponTargetChoices s1 p card = cardWeaponTargetChoices s2 p card := by
     have hobj (id : ObjId) : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
     have hface (id : ObjId) : s1.objectFace? id = s2.objectFace? id := (h.cardDef_face id).2
@@ -387,7 +397,7 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
   simp only [hbanished]
   rw [hh, ha, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat,
     h.boostsThisTurn, h.canTakeAction_eq, h.activeEffects]
-  simp only [canLinkTakeDefenseReaction, hdom, attackReactionCanTarget, h.hasRequiredAttackTarget_eq,
+  simp only [canLinkTakeDefenseReaction, hdom, hdefense, attackReactionCanTarget, h.hasRequiredAttackTarget_eq,
     hweapon, h.characteristics_eq, h.arenaContents_eq, GameState.obj?, h.objects] <;> rfl
 
 /-- The current weapon attack candidates depend on the visible weapon zone and combat chain. -/
