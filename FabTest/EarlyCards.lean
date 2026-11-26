@@ -2681,6 +2681,51 @@ meta def drawnToDarkDimensionScenario (name : String) (power : Nat) : Option Boo
 #guard spellbladeRunechantScenario "ARC_104_Y" 3 1 1 == some true
 #guard spellbladeRunechantScenario "ARC_105_B" 2 1 1 == some true
 
+meta def bloodspillInvocationScenario (name : String) (count : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let arena := Zone.player p .permanent
+  let token := FabCards.ARC.runechantToken.id
+  let (withCard, invocation) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) name
+  let (withAttack, attack) ← earlyPlace withCard p (.player p .hand) "WTR_203_R"
+  let (withWeapon, sword) ← earlyPlace withAttack p (.player p .weapon) "WTR_115"
+  let (ready, enemyAttack) ← earlyPlace withWeapon q (.player q .hand) "WTR_203_R"
+  let buffed ← earlySteps ready (⟨.player p, .playCard invocation⟩ :: earlyPass)
+  let aura ← (buffed.zone arena).head?
+  let attacking ← earlyAttack buffed (.playCard attack)
+  let hit ← earlyDamage attacking
+  let hitTrigger ← hit.pendingTriggers.head?
+  let resolveHit ← earlySteps hit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger hitTrigger.id⟩] ++ earlyPass)
+  let weaponHit ← (earlyAttack buffed (.attackWeapon sword)).bind earlyDamage
+  let enemyTurn := { (buffed.setPool q { actionPoints := 1, resources := 4 }) with
+    active := some q, pending := [.priority q 0] }
+  let enemyPass : List Action := [⟨.player q, .pass⟩, ⟨.player p, .pass⟩]
+  let incoming ← earlySteps enemyTurn (⟨.player q, .playCard enemyAttack⟩ :: enemyPass ++ enemyPass)
+  let physical ← earlySteps incoming (⟨.player p, .defendDone⟩ :: enemyPass ++ enemyPass)
+  let received (s : GameState) := s.pendingTriggers.any fun trigger =>
+    trigger.source == aura && trigger.effect == .prim (.destroy .self_)
+  let arcane (s : GameState) : Option GameState :=
+    ((advance 64 { s with pending :=
+      [.run q attack false [] [.prim (.dealDamage .arcane (.seated p) (.const 1))],
+        .priority p 0] } []).toOption).map Prod.fst
+  let unprotected ← arcane buffed
+  let (barrierBoard, _) ← earlyPlace buffed p (.player p .head) "ARC_079"
+  let prevention ← arcane barrierBoard
+  let .chooseReplacement defender .prevention [barrier] true :: _ := prevention.pending | none
+  let prevented ← earlySteps prevention [⟨.player p, .pickReplacement (some barrier)⟩]
+  let declined ← earlySteps prevention [⟨.player p, .pickReplacement none⟩]
+  pure ((buffed.poolOf p).actionPoints == 4 && (buffed.poolOf p).resources == 7 &&
+    hitTrigger.source == aura && controlledPermanentCount resolveHit p token == count &&
+    (resolveHit.zone arena).length == count && weaponHit.pendingTriggers.isEmpty &&
+    weaponHit.zone arena == [aura] && physical.lifeOf p < buffed.lifeOf p && received physical &&
+    unprotected.lifeOf p == buffed.lifeOf p - 1 && received unprotected &&
+    defender == p && prevented.lifeOf p == buffed.lifeOf p && !received prevented &&
+    declined.lifeOf p == buffed.lifeOf p - 1 && received declined)
+
+#guard bloodspillInvocationScenario "ARC_106_R" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

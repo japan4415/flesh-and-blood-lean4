@@ -73,6 +73,8 @@ inductive Trigger where
   | onStartOfEndPhase
   /-- When an attack action card you control hits (Katsu). -/
   | onAttackActionHit
+  /-- The controlling hero was actually dealt positive damage after prevention. -/
+  | onControllerDamaged
   /-- When a weapon attack you control hits (Dorinthea, Refraction Bolters). -/
   | onWeaponAttackHit
   /-- When you play an attack action card or activate a weapon attack (Quicken). -/
