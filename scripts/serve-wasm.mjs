@@ -12,6 +12,7 @@ const paths = new Map([
   ["/draft", ["web/draft.html", "text/html; charset=utf-8"]],
   ["/draft.js", ["web/draft.js", "text/javascript; charset=utf-8"]],
   ["/draft-play.js", ["web/draft-play.js", "text/javascript; charset=utf-8"]],
+  ["/duel.js", ["web/duel.js", "text/javascript; charset=utf-8"]],
   ["/draft.css", ["web/draft.css", "text/css; charset=utf-8"]],
   ["/wasm/fab.js", [".lake/wasm/output/fab.js", "text/javascript; charset=utf-8"]],
   ["/wasm/fab.wasm", [".lake/wasm/output/fab.wasm", "application/wasm"]],

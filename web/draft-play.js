@@ -1,4 +1,5 @@
 import { cardMedia, loadCards } from "./cards.js";
+import { createDuelBoard, decodeDuel } from "./duel.js";
 import { loadWasm, sampleIndex } from "./wasm.js";
 
 function decodeView(encoded) {
@@ -14,6 +15,7 @@ function decodeView(encoded) {
 
 function makeEngine(wasm) {
   const call = (method, result, types, args) => wasm.ccall(`fab_web_draft_${method}`, result, types, args);
+  const duel = (method, result, types, args) => wasm.ccall(`fab_web_duel_${method}`, result, types, args);
   return {
     start() {
       const bounds = wasm.ccall("fab_web_bounds", "string").split(" ").map(Number);
@@ -25,8 +27,16 @@ function makeEngine(wasm) {
     pick: (seat, card) => call("pick", "number", ["number", "string"], [seat - 1, card]) === 1,
     next: () => call("next", "number") === 1,
     reset: () => call("reset", null),
+    heroes: (seat) => duel("heroes", "string", ["number"], [seat - 1]).split(" ").filter(Boolean),
+    startDuel: (pair, [first, second]) => duel("start", "number", ["number", "string", "string", "number"],
+      [pair, first, second, crypto.getRandomValues(new Uint32Array(1))[0]]) === 1,
+    duelView: (seat) => duel("view", "string", ["number"], [seat - 1]),
+    move: (seat, index) => duel("move", "number", ["number", "number"], [seat - 1, index]) === 1,
   };
 }
+
+const pairIndex = (seat) => Math.floor((seat - 1) / 2);
+const pairSide = (seat) => (seat - 1) % 2;
 
 export function createDraftPlay({ session, connected, lock, send }) {
   const start = document.querySelector("#draft-start");
@@ -44,8 +54,23 @@ export function createDraftPlay({ session, connected, lock, send }) {
   let paused = false;
   let epoch = 0;
   let displayed;
+  let displayedKey;
   let hostLink;
   let awaitingView = false;
+  let duelView;
+  let duelPending = false;
+  const duelBoard = createDuelBoard((choice) => {
+    refresh();
+    if (!duelView || paused || awaitingView || duelPending) return;
+    const message = { kind: "draft-duel", epoch, revision: duelView.revision, ...choice };
+    if (pod) {
+      if (!acceptDuel(1, message)) duelBoard.reject();
+    } else {
+      duelPending = send(connected()[0], message);
+      if (!duelPending) duelBoard.reject();
+      refresh();
+    }
+  });
 
   function renderCards() {
     const ids = view?.pack ?? view?.picks ?? [];
@@ -89,17 +114,18 @@ export function createDraftPlay({ session, connected, lock, send }) {
         // A restored link needs the latest projection even if its cards did not change.
         for (const previous of pod.live) if (previous && !live.includes(previous)) pod.sent.delete(previous);
         pod.live = live;
-        const interrupted = view?.phase !== "complete" && live.some((peer) => !peer);
+        const interrupted = live.some((peer) => !peer);
         if (interrupted && !pod.paused) pod.epoch++;
         pod.paused = interrupted;
         publishViews();
       }
     } else if (room && !host && hostLink !== peers[0]) {
       hostLink = peers[0];
-      awaitingView = Boolean(view && view.phase !== "complete");
+      awaitingView = Boolean(view);
       if (hostLink) send(hostLink, { kind: "draft-sync" });
     }
     const stopped = paused || awaitingView;
+    duelBoard.show(duelView, stopped, duelPending);
     start.hidden = !host || Boolean(view);
     start.disabled = peers.length !== 7 || starting;
     next.hidden = !host || view?.phase !== "review";
@@ -137,16 +163,30 @@ export function createDraftPlay({ session, connected, lock, send }) {
     paused = packet.paused;
     epoch = packet.epoch;
     awaitingView = false;
-    if (displayed === key && !resynced) return;
-    displayed = key;
-    show(decodeView(packet.view));
+    if (displayedKey === key && !resynced) return;
+    if (displayed?.view !== packet.view || displayed?.epoch !== packet.epoch || resynced) show(decodeView(packet.view));
+    displayed = packet;
+    displayedKey = key;
+    duelView = packet.duel ? decodeDuel(packet.duel) : undefined;
+    duelPending = false;
   }
 
   function publishViews(force) {
     const current = pod;
-    const packet = (seat) => ({
-      kind: "draft-view", view: current.engine.view(seat), paused: current.paused, epoch: current.epoch,
-    });
+    const packet = (seat) => {
+      const encoded = current.engine.view(seat);
+      const match = current.matches[pairIndex(seat)];
+      const side = pairSide(seat);
+      const duel = encoded.startsWith("complete\n")
+        ? {
+            seat, revision: match.revision,
+            heroes: match.started ? [] : current.engine.heroes(seat),
+            selected: match.heroes[side],
+            board: match.started ? current.engine.duelView(seat) : "",
+          }
+        : undefined;
+      return { kind: "draft-view", view: encoded, paused: current.paused, epoch: current.epoch, duel };
+    };
     showPacket(packet(1));
     for (const peer of current.live) {
       if (!peer) continue;
@@ -155,6 +195,34 @@ export function createDraftPlay({ session, connected, lock, send }) {
       if (peer !== force && current.sent.get(peer) === key) continue;
       if (send(peer, message)) current.sent.set(peer, key);
     }
+  }
+
+  function acceptDuel(seat, message) {
+    refresh();
+    if (pod.paused || message.epoch !== pod.epoch || view?.phase !== "complete") return false;
+    const pair = pairIndex(seat);
+    const match = pod.matches[pair];
+    const side = pairSide(seat);
+    if (match.revision !== message.revision) return false;
+    if (match.started) {
+      if (!Number.isSafeInteger(message.index) || message.index < 0 || message.index > 0xffffffff ||
+          !pod.engine.move(seat, message.index)) return false;
+      match.revision++;
+    } else {
+      if (match.heroes[side] || !pod.engine.heroes(seat).includes(message.hero)) return false;
+      match.heroes[side] = message.hero;
+      if (match.heroes.every(Boolean)) {
+        if (!pod.engine.startDuel(pair, match.heroes)) {
+          match.heroes[side] = undefined;
+          return false;
+        }
+        match.started = true;
+        match.revision++;
+      }
+    }
+    publishViews();
+    refresh();
+    return true;
   }
 
   function acceptPick(seat, message) {
@@ -183,7 +251,8 @@ export function createDraftPlay({ session, connected, lock, send }) {
       if (!engine.start()) throw new Error("Leanでドラフトを開始できませんでした。");
       await lock(room, peers);
       if (room !== session()) return;
-      pod = { engine, ids: peers.map((peer) => peer.id), live: [], sent: new WeakMap(), paused: false, epoch: 0 };
+      const matches = Array.from({ length: 4 }, () => ({ heroes: [undefined, undefined], started: false, revision: 0 }));
+      pod = { engine, ids: peers.map((peer) => peer.id), live: [], sent: new WeakMap(), paused: false, epoch: 0, matches };
       refresh();
     } catch (error) {
       if (room === session()) feedback.textContent = error.message;
@@ -217,6 +286,7 @@ export function createDraftPlay({ session, connected, lock, send }) {
 
   void loadCards().then((data) => {
     catalog = data;
+    duelBoard.setCatalog(data);
     if (view) renderCards();
   }).catch(() => {});
 
@@ -228,8 +298,11 @@ export function createDraftPlay({ session, connected, lock, send }) {
       paused = false;
       awaitingView = false;
       epoch = 0;
+      duelView = undefined;
+      duelPending = false;
       hostLink = undefined;
       displayed = undefined;
+      displayedKey = undefined;
       show(undefined);
       refresh();
     },
@@ -237,6 +310,9 @@ export function createDraftPlay({ session, connected, lock, send }) {
       if (message.kind === "draft-pick") {
         if (!pod?.ids.includes(peer.id) || !connected().includes(peer)) return;
         if (!acceptPick(peer.seat, message)) send(peer, { kind: "draft-rejected", epoch: message.epoch });
+      } else if (message.kind === "draft-duel") {
+        if (!pod?.ids.includes(peer.id) || !connected().includes(peer)) return;
+        if (!acceptDuel(peer.seat, message)) send(peer, { kind: "draft-duel-rejected", epoch: message.epoch });
       } else if (message.kind === "draft-sync" && pod?.ids.includes(peer.id)) {
         refresh();
         publishViews(peer);
@@ -244,6 +320,10 @@ export function createDraftPlay({ session, connected, lock, send }) {
         if (message.kind === "draft-rejected" && message.epoch === epoch) {
           pending = false;
           feedback.textContent = "そのピックは受け付けられませんでした。";
+          refresh();
+        } else if (message.kind === "draft-duel-rejected" && message.epoch === epoch) {
+          duelPending = false;
+          duelBoard.reject();
           refresh();
         } else if (message.kind === "draft-view" && typeof message.paused === "boolean" &&
                    Number.isSafeInteger(message.epoch) && message.epoch >= epoch && decodeView(message.view)) {

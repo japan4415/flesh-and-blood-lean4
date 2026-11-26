@@ -39,8 +39,12 @@ const play = createDraftPlay({
   lock: (room, peers) => signal({ ...room, action: "lock", peers: peers.map((peer) => peer.id) }),
   send(link, message) {
     if (!ready(link)) return false;
-    link.channel.send(JSON.stringify(message));
-    return true;
+    try {
+      link.channel.send(JSON.stringify(message));
+      return true;
+    } catch {
+      return false;
+    }
   },
 });
 
@@ -74,7 +78,8 @@ function render() {
 }
 
 function receive(link, data) {
-  if (typeof data !== "string" || data.length > 4096 || links.get(link.id) !== link) return;
+  const maxLength = session?.seat === 1 ? 4096 : 64 * 1024;
+  if (typeof data !== "string" || data.length > maxLength || links.get(link.id) !== link) return;
   let message;
   try { message = JSON.parse(data); } catch { return; }
   if (typeof message?.kind !== "string") return;
@@ -321,7 +326,9 @@ leave.addEventListener("click", () => {
 });
 reconnect.addEventListener("click", reconnectGuest);
 inviteUrl.addEventListener("click", () => inviteUrl.select());
-window.addEventListener("pagehide", () => stop(true));
+window.addEventListener("pagehide", (event) => {
+  if (!event.persisted) stop(true);
+});
 if (invitedRoom) {
   enter.textContent = sessionStorage.getItem(savedSeat) ? "同じ席に再接続" : "ルームに参加";
   status.textContent = "参加するとホストとの接続を開始します。";

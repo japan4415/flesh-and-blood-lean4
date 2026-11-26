@@ -75,3 +75,55 @@
 .draft-choice:active { filter: brightness(.85); }
 .draft-choice[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 3px; }
 .draft-card-label { display: block; margin-top: .5rem; }
+
+#duel-seats, .duel-zone h4 { color: var(--muted); }
+#duel-status { margin-block: .6rem; }
+#duel[data-paused] #duel-status, #duel-feedback:not(:empty) { color: #ffc9a1; }
+#duel-controls:not(:empty) {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #1b2721;
+  padding-block: .45rem;
+}
+#duel-controls :is([data-action="first"], [data-action="ready"], [data-action="fill"]):enabled {
+  background: var(--accent);
+  color: #23190c;
+}
+.duel-side { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+.duel-side h3 { margin: 0; font-size: 1.05rem; }
+.duel-zones { display: flex; flex-wrap: wrap; gap: .6rem 1rem; margin-top: .5rem; }
+.duel-zone h4 { margin: 0 0 .25rem; font-size: .82rem; font-weight: 600; }
+.duel-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.duel-cards > li { width: 7.3rem; min-width: 0; overflow-wrap: anywhere; }
+.duel-cards .card-media {
+  display: grid;
+  place-items: center;
+  margin-bottom: .25rem;
+}
+.duel-card-name { display: block; font-size: .85rem; }
+.duel-card-actions { gap: .3rem; margin-top: .25rem; }
+.duel-card-actions button, .duel-heroes button {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: .35rem;
+  border: 1px solid var(--line);
+  border-radius: .45rem;
+  background: #26382d;
+  color: inherit;
+  font-size: .84rem;
+  cursor: pointer;
+}
+.duel-heroes button:enabled { background: var(--accent); color: #23190c; font-weight: 700; }
+.duel-card-actions button:disabled, .duel-heroes button:disabled { color: var(--muted); cursor: default; }
+@media (max-width: 34rem) {
+  .duel-cards > li { width: clamp(5.9rem, 25vw, 7.3rem); }
+  #duel-controls:not(:empty) { position: static; }
+}

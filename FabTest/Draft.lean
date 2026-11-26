@@ -4,10 +4,12 @@ import Fab.Rules.Setup
 import FabCards.Booster
 import FabCards.Draft
 import FabCards.ThroughArc
+import FabDriver.BrowserDuel
 meta import Fab.Rules.Setup
 meta import FabCards.Booster
 meta import FabCards.Draft
 meta import FabCards.ThroughArc
+meta import FabDriver.BrowserDuel
 
 /-!
 # Booster Draft regression tests
@@ -167,5 +169,33 @@ private def openAndDraftWtr : Except Error Bool := do
     picks.length == 45 && picks.count heart == 3 && !picks.contains token
 
 #guard openAndDraftWtr.toOption == some true
+
+private def browserDuel : Option Bool := do
+  let hero := "WTR_039"
+  let brute : CardId := ⟨"WTR_005"⟩
+  let done ← (draftAll throughArcDB wtrDraft .optional (sameBoosters (List.replicate 15 brute))).toOption
+  let duel ← FabDriver.startBrowserDuel done 0 hero hero 17
+  let move (duel : FabDriver.BrowserDuel) (p : PlayerId) (kind : ActionKind) := do
+    let (_, index) ← (legalActionsFor p duel.game).zipIdx.find? fun (action, _) => action.kind == kind
+    FabDriver.browserDuelMove duel (UInt32.ofNat p.n) (UInt32.ofNat index)
+  let .player chooser ← (legalFrameActions duel.game).head?.map (·.actor) | none
+  let duel ← move duel chooser (.pickFirstPlayer ⟨0⟩)
+  let complete (duel : FabDriver.BrowserDuel) (p : PlayerId) := do
+    let fill := (legalActionsFor p duel.game).length
+    let duel ← FabDriver.browserDuelMove duel (UInt32.ofNat p.n) (UInt32.ofNat fill)
+    move duel p .loadoutDone
+  let duel ← complete duel ⟨0⟩
+  let duel ← complete duel ⟨1⟩
+  let firstView := (FabDriver.browserDuelView duel 0).splitOn "\n"
+  let secondView := (FabDriver.browserDuelView duel 1).splitOn "\n"
+  let hidden (rows : List String) :=
+    rows.contains "z\topponent.hand\t4\t" && rows.contains "z\tself.deck\t26\t"
+  let finished ← move duel ⟨1⟩ .concede
+  return done.phase == .complete && duel.game.phase == .actionPhase &&
+    hidden firstView && hidden secondView &&
+    (FabDriver.browserDuelMove duel 0 0xffffffff).isNone &&
+    finished.game.result == some (.won [⟨0⟩])
+
+#guard browserDuel == some true
 
 end FabTest
