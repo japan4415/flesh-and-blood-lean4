@@ -4566,6 +4566,10 @@ meta def moonWishScenario (card : String) (power : Nat) : Option Bool := do
 
 #guard moonWishScenario "ARC_185_R" 5 == some true
 
+#guard ((earlyPrintingCardId? "ARC186").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 4 && card.front.pitch == some 2 && card.status == .full)
+#guard moonWishScenario "ARC_186_Y" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
