@@ -2270,6 +2270,37 @@ meta def viseraiRunechantScenario (heroId : String) : Option Bool := do
 
 #guard viseraiRunechantScenario "ARC_076" == some true
 
+#guard ((earlyPrintingCardId? "ARC077-T").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Nebula Blade" && card.front.power == some 1 &&
+    weaponAttackSpec? card == some (0, true, { actionPoints := 1, resources := 2 }))
+
+meta def nebulaBladeScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let arena := Zone.player p .permanent
+  let (withSword, sword) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .weapon) "ARC_077"
+  let (ready, utility) ← earlyPlace withSword p (.player p .hand) "WTR_218_R"
+  let boosted ← earlySteps ready (⟨.player p, .playCard utility⟩ :: earlyPass)
+  let unboostedAttack ← earlyAttack ready (.attackWeapon sword)
+  let attack ← earlyAttack boosted (.attackWeapon sword)
+  let unboostedLink ← unboostedAttack.combat.bind CombatChain.activeLink?
+  let link ← attack.combat.bind CombatChain.activeLink?
+  let damaged ← earlyDamage attack
+  let onHit ← damaged.pendingTriggers.head?
+  let after ← earlySteps damaged
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger onHit.id⟩] ++ earlyPass)
+  let token ← (after.zone arena).head?
+  pure (linkAttackPower unboostedAttack unboostedLink == 1 &&
+    linkAttackPower { unboostedAttack with nonAttackActionsThisTurn := [p, p] } unboostedLink == 4 &&
+    linkAttackPower attack link == 4 && (attack.poolOf p).resources == (boosted.poolOf p).resources - 2 &&
+    attack.activatedThisTurn.contains (sword, 0) && onHit.source == sword &&
+    damaged.lifeOf q == ready.lifeOf q - 4 && (damaged.zone arena).isEmpty &&
+    (after.zone arena).length == 1 &&
+    (after.cardDefOf? token).any (fun card => card.id == FabCards.ARC.runechantToken.id))
+
+#guard nebulaBladeScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
