@@ -457,6 +457,16 @@ def ARC_061_Y : CardDef := { hamstringShot Meta.ARC_061_Y_meta with status := .f
 /-- Hamstring Shot (ARC062). -/
 def ARC_062_B : CardDef := { hamstringShot Meta.ARC_062_B_meta with status := .full }
 
+/-- Ridge Rider Shot opts when it enters arsenal face up. -/
+def ridgeRiderShot (card : CardDef) : CardDef :=
+  let ability := Ability.triggered .onArsenalFaceUp false none none
+    { body := .prim (.opt .controller 1) }
+  { card with
+    front := { card.front with abilities := [ability] } }
+
+/-- Ridge Rider Shot (ARC063). -/
+def ARC_063_R : CardDef := { ridgeRiderShot Meta.ARC_063_R_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -465,7 +475,7 @@ def arcCards : List CardDef :=
    ARC_023_R, ARC_024_Y, ARC_025_B,
    ARC_026_R, ARC_027_Y, ARC_028_B,
    ARC_029_R, ARC_030_Y, ARC_031_B,
-   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R, ARC_037_B, ARC_038, ARC_039, ARC_040, ARC_041, ARC_042, ARC_043_R, ARC_044_R, ARC_045_R, ARC_046_B, ARC_047_Y, ARC_048_R, ARC_049_Y, ARC_050_B, ARC_051_R, ARC_052_Y, ARC_053_B, ARC_054_R, ARC_055_Y, ARC_056_B, ARC_057_R, ARC_058_Y, ARC_059_B, ARC_060_R, ARC_061_Y, ARC_062_B]
+   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R, ARC_037_B, ARC_038, ARC_039, ARC_040, ARC_041, ARC_042, ARC_043_R, ARC_044_R, ARC_045_R, ARC_046_B, ARC_047_Y, ARC_048_R, ARC_049_Y, ARC_050_B, ARC_051_R, ARC_052_Y, ARC_053_B, ARC_054_R, ARC_055_Y, ARC_056_B, ARC_057_R, ARC_058_Y, ARC_059_B, ARC_060_R, ARC_061_Y, ARC_062_B, ARC_063_R]
 
 end FabCards.ARC
 
