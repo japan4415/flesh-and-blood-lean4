@@ -3567,6 +3567,40 @@ meta def arcaniteSkullcapScenario : Option Bool := do
 
 #guard arcaniteSkullcapScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC151").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .head && card.front.defense == some 0 && card.status == .full)
+
+meta def talismanicLensScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let head := Zone.player p .head
+  let graveyard := Zone.player p .graveyard
+  let funded := earlyBase.setPool p {}
+  let initial := { funded with cards := throughArcDB, active := some q }
+  let (geared, lens) ← earlyPlace initial p head "ARC_151"
+  let (withBottom, bottom) ← earlyPlace geared p deck "WTR_221_R"
+  let (withSecond, second) ← earlyPlace withBottom p deck "WTR_221_R"
+  let (ready, first) ← earlyPlace withSecond p deck "WTR_221_R"
+  let activate : Action := ⟨.player p, .activateAbility lens 0 none⟩
+  let paid ← earlySteps ready [activate]
+  let opting ← earlySteps paid earlyPass
+  let .chooseOpt chooser top [another] 0 0 :: _ := opting.pending | none
+  let putTop : Action := ⟨.player p, .optPick true (some second)⟩
+  let putBottom : Action := ⟨.player p, .optPick false⟩
+  let result ← earlySteps opting [putTop, putBottom]
+  let empty ← earlySteps geared (activate :: earlyPass)
+  pure ((paid.zone head).isEmpty && (paid.zone graveyard).length == 1 &&
+    paid.poolOf p == ready.poolOf p && (earlySteps paid [activate]).isNone &&
+    chooser == p && top == first && another == second &&
+    (view q opting).selectionChoices.isEmpty &&
+    ((view p opting).selectionChoices.map Prod.fst) == [first, second] &&
+    !(legalActions opting).contains ⟨.player p, .optPick true (some bottom)⟩ &&
+    result.zone deck == [second, bottom, first] && result.poolOf p == ready.poolOf p &&
+    (empty.zone deck).isEmpty && !(legalActions empty).contains putBottom)
+
+#guard talismanicLensScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
