@@ -4301,6 +4301,11 @@ meta def eirinasPrayerScenario (card : String) (topCard : Option String) (amount
 #guard eirinasPrayerScenario "ARC_174_Y" (some "WTR_205_B") 2 == some true
 #guard eirinasPrayerScenario "ARC_174_Y" none 5 == some true
 
+#guard ((earlyPrintingCardId? "ARC175").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .instant && card.front.pitch == some 3 && card.status == .full)
+#guard eirinasPrayerScenario "ARC_175_B" (some "WTR_205_B") 1 == some true
+#guard eirinasPrayerScenario "ARC_175_B" none 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
