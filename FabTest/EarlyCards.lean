@@ -1894,6 +1894,51 @@ meta def silverTheTipScenario (cardId : String) (count : Nat) : Option Bool := d
 
 #guard silverTheTipScenario "ARC_053_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC054").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Take Aim" && card.front.pitch == some 1 && card.status == .full)
+
+meta def takeAimScenario (cardId : String) (expectedPower : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let arsenal := Zone.player p .arsenal
+  let state := { earlyBase with cards := throughArcDB }
+  let (withBow, bow) ← earlyPlace state p (.player p .weapon) "ARC_040"
+  let (withDeck, _) ← earlyPlace withBow p (.player p .deck) "WTR_192_Y"
+  let (withGeneric, generic) ← earlyPlace withDeck p hand "WTR_203_R"
+  let (withSecond, second) ← earlyPlace withGeneric p hand "ARC_045_R"
+  let (empty, spell) ← earlyPlace withSecond p hand cardId
+  let (ready, first) ← earlyPlace empty p arsenal "ARC_045_R"
+  let use : Action := ⟨.player p, .playCard spell⟩
+  let gained ← earlySteps ready (use :: earlyPass)
+  let viaReload ← earlySteps empty (use :: (earlyPass ++ [⟨.player p, .arsenalPut generic⟩]))
+  let reserve ← (viaReload.zone arsenal).head?
+  let genericAttack ← earlyAttack gained (.playCard generic)
+  let genericLink ← genericAttack.combat.bind CombatChain.activeLink?
+  let genericHit ← earlyDamage genericAttack
+  let closed ← earlySteps genericHit (earlyPass ++ earlyPass)
+  let expired ← earlyAttack gained.finishTurnEffects (.playCard first)
+  let expiredLink ← expired.combat.bind CombatChain.activeLink?
+  let arrowAttack ← earlyAttack closed (.playCard first)
+  let arrowLink ← arrowAttack.combat.bind CombatChain.activeLink?
+  let arrowHit ← earlyDamage arrowAttack
+  let trigger ← arrowHit.pendingTriggers.head?
+  let returned ← earlySteps arrowHit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let finished ← earlySteps returned (earlyPass ++ earlyPass)
+  let reloaded ← earlySteps finished
+    (⟨.player p, .activateAbility bow 0 none⟩ ::
+      (earlyPass ++ [⟨.player p, .pickShuffleCard (some second)⟩, ⟨.player p, .pickShuffleCard none⟩]))
+  let nextArrow ← (reloaded.zone arsenal).head?
+  let lastAttack ← earlyAttack reloaded (.playCard nextArrow)
+  let lastLink ← lastAttack.combat.bind CombatChain.activeLink?
+  pure (gained.zone arsenal == [first] && (gained.poolOf p) == (ready.poolOf p) &&
+    (viaReload.obj? reserve).any (·.faceDown) &&
+    (viaReload.cardDefOf? reserve).any (fun c => c.id == ⟨"WTR_203_R"⟩) &&
+    linkAttackPower genericAttack genericLink == 4 && linkAttackPower expired expiredLink == 4 &&
+    linkAttackPower arrowAttack arrowLink == expectedPower && linkAttackPower lastAttack lastLink == 4)
+
+#guard takeAimScenario "ARC_054_R" 7 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
