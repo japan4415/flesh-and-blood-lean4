@@ -1252,6 +1252,9 @@ def rifting (base : CardDef) : CardDef :=
 /-- Rifting Red (ARC194). -/
 def ARC_194_R : CardDef := { rifting Meta.ARC_194_R_meta with status := .full }
 
+/-- Rifting Yellow (ARC195). -/
+def ARC_195_Y : CardDef := { rifting Meta.ARC_195_Y_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1285,7 +1288,7 @@ def arcCards : List CardDef :=
    ARC_168_Y, ARC_169_B, ARC_170_R, ARC_171_Y, ARC_172_B, ARC_173_R,
    ARC_174_Y, ARC_175_B, ARC_176_R, ARC_177_Y, ARC_178_B, ARC_179_R, ARC_180_Y, ARC_181_B,
    ARC_182_R, ARC_183_Y, ARC_184_B, ARC_185_R, ARC_186_Y, ARC_187_B, ARC_188_R, ARC_189_Y, ARC_190_B,
-   ARC_191_R, ARC_192_Y, ARC_193_B, ARC_194_R]
+   ARC_191_R, ARC_192_Y, ARC_193_B, ARC_194_R, ARC_195_Y]
 
 end FabCards.ARC
 
