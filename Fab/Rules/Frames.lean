@@ -1424,7 +1424,8 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
   let revealed := if search.any (·.reveal) then selected.reverse.filterMap (fun id =>
     (s.cardDefOf? id).map (fun card => Event.revealed p id card.id)) else []
   let putOnTop := search.any (·.putOnTopAfterShuffle)
-  let moved := moveManyObjs s (if putOnTop then [] else selected.reverse) destination position false
+  let movers := if search.any (·.keepsSelectedInZone) then [] else selected.reverse
+  let moved := moveManyObjs s movers destination position false
   let placeAfterShuffle := if putOnTop then selected.head?.toList.map (fun id =>
       Frame.run p id false [] [.prim (.putChosenDeckCardOnTop (.seated p) id)])
     else []
@@ -1432,6 +1433,17 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
   let entered := applySelectionEntryCounter moved.1 events search
   let draw := if drawSame && !events.isEmpty then [.draw p events.length] else []
   let shuffle := if search.all (·.shuffleAfter) then [.chanceShuffle deck] else []
+  let bottomSelection := match search.bind (·.bottomSelection) with
+    | some (.lookedAt viewed) =>
+      let remaining := viewed.filter (moved.1.zone deck).contains
+      if remaining.isEmpty then [] else
+        let choice : DeckSearchChoice :=
+          { destination := deck, reveal := false, mayFail := false, shuffleAfter := false,
+            searchesDeck := false, bottomSelection := some (.order remaining.length) }
+        [.chooseShuffleCards p remaining.length remaining [] false (some choice)]
+    | some (.order _) =>
+      [.run p ⟨0⟩ false [] [.prim (.putChosenDeckCardsOnBottom (.seated p) selected.reverse)]]
+    | none => []
   let banished := events.filterMap fun
     | .moved _ id _ (.player owner .banished) => if owner == p then some id else none
     | _ => none
@@ -1457,7 +1469,7 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
         { id := timestamp, source, controller := p, target := .arsenalCard id
           op := .addPower amount, timestamp := ⟨timestamp⟩ }
   ({ entered with
-      pending := shuffle ++ placeAfterShuffle ++ draw ++ rest
+      pending := shuffle ++ placeAfterShuffle ++ bottomSelection ++ draw ++ rest
       activeEffects := entered.activeEffects ++ permissions ++ bonuses
       nextTimestamp := entered.nextTimestamp + permissions.length + bonuses.length },
     revealed ++ events ++ banished.map (fun id => .banished p id false))

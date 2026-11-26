@@ -150,6 +150,14 @@ inductive HandCardCost where
   | reveal (filter : CardFilter)
 deriving DecidableEq, Repr
 
+/-- Two decisions when looking at the deck, optionally loading one card, and ordering the rest. -/
+inductive DeckBottomSelection where
+  /-- The chooser may see all these cards but may only select an eligible card. -/
+  | lookedAt (cards : List ObjId)
+  /-- The chooser must select every remaining viewed card in the final bottom-deck order. -/
+  | order (count : Nat)
+deriving DecidableEq, Repr
+
 /-- Completion instructions for moving selected cards, including deck searches (CR 8.5.19). -/
 structure DeckSearchChoice where
   /-- Zone that receives the chosen cards before the deck is shuffled. -/
@@ -170,11 +178,22 @@ structure DeckSearchChoice where
   arsenalPowerBonus : Option (ObjId × Int) := none
   /-- Keep the selected deck card for placement on top after the shuffle. -/
   putOnTopAfterShuffle : Bool := false
+  /-- Look at the deck or order the viewed cards that remain there. -/
+  bottomSelection : Option DeckBottomSelection := none
 deriving DecidableEq, Repr
 
-/-- A filtered deck search may fail, while an unrestricted search must select a card if possible. -/
+/-- These selections reorder cards in their present deck. -/
+def DeckSearchChoice.keepsSelectedInZone (choice : DeckSearchChoice) : Bool :=
+  choice.putOnTopAfterShuffle || match choice.bottomSelection with
+    | some (.order _) => true
+    | _ => false
+
+/-- Order choices require every card; searches may fail if their completion instructions permit it. -/
 def shuffleSelectionCanConfirm (selected : List ObjId) (search : Option DeckSearchChoice) : Bool :=
-  search.all (fun choice => choice.mayFail || !selected.isEmpty)
+  search.all fun choice =>
+    match choice.bottomSelection with
+    | some (.order count) => selected.length == count
+    | _ => choice.mayFail || !selected.isEmpty
 
 /-- The continuation of the prevention stage of an arcane damage event (CR 6.5.1, 8.3.8). -/
 inductive ArcaneDamageStep where

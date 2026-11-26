@@ -107,14 +107,17 @@ deriving DecidableEq, Repr
 
 /-- Compute observer `p`'s observable view `view p s` of `GameState` `s` (**I10**). -/
 def view (p : PlayerId) (s : GameState) : PlayerView :=
+  let identify (q : PlayerId) (ids : List ObjId) :=
+    if p == q then ids.filterMap (fun id => (s.cardDefOf? id).map (fun card => (id, card.id)))
+    else []
   let selectionChoices := match s.pending with
-    | .chooseShuffleCards q _ candidates _ _ _ :: _
-    | .chooseDiscard q _ candidates _ :: _ =>
-      if p == q then candidates.filterMap (fun id => (s.cardDefOf? id).map (fun card => (id, card.id)))
-      else []
-    | .chooseOpt q first others _ _ :: _ =>
-      if p == q then (first :: others).filterMap (fun id => (s.cardDefOf? id).map (fun card => (id, card.id)))
-      else []
+    | .chooseShuffleCards q _ candidates _ _ search :: _ =>
+      let viewed := match search.bind (·.bottomSelection) with
+        | some (.lookedAt cards) => cards
+        | _ => candidates
+      identify q viewed
+    | .chooseDiscard q _ candidates _ :: _ => identify q candidates
+    | .chooseOpt q first others _ _ :: _ => identify q (first :: others)
     | _ => []
   { config := s.config
     zones := (allZones s.playerCount).map fun z => (z, viewZone p s z)
@@ -131,7 +134,8 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
     pending := s.pending.map fun frame =>
       match frame with
       | .chooseShuffleCards q _ _ _ drawSame search =>
-        if p == q then frame else .chooseShuffleCards q 0 [] [] drawSame search
+        if p == q then frame else
+          .chooseShuffleCards q 0 [] [] drawSame (search.map (fun choice => { choice with bottomSelection := none }))
       | .chooseDiscard q _ _ _ =>
         if p == q then frame else .chooseDiscard q 0 [] []
       | .chooseOpt q _ _ _ _ =>

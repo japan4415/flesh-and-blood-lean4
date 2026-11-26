@@ -209,6 +209,11 @@ inductive Prim where
   | searchDeckToTop (p : PlayerRef) (f : CardFilter)
   /-- Place a selected object still in its player's deck at the top (search continuation). -/
   | putChosenDeckCardOnTop (p : PlayerRef) (id : ObjId)
+  /-- If arsenal is empty, look at up to `count` cards, optionally load one matching
+  card face up, then put the rest on the bottom in the chooser's order. -/
+  | lookDeckToArsenal (p : PlayerRef) (count : Nat) (f : CardFilter)
+  /-- Put the chosen deck cards on the bottom in the given order. -/
+  | putChosenDeckCardsOnBottom (p : PlayerRef) (cards : List ObjId)
   /-- If the arsenal is empty, optionally put a card from hand into it face down. -/
   | reload (p : PlayerRef)
   /-- Optionally put one matching card from hand into the arena with an additional entry counter. -/

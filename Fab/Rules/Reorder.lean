@@ -40,6 +40,17 @@ theorem optDeckOrder_perm (deck : List ObjId) (topCount : Nat) (card : ObjId) (p
       simpa only [List.take_append_drop] using erased.append_left (deck.take topCount)
   · exact List.Perm.refl _
 
+/-- Put cards on the bottom in choice order, keeping the other cards in order. -/
+def deckBottomOrder (deck chosen : List ObjId) : List ObjId :=
+  chosen.foldl (fun order card => optDeckOrder order 0 card false) deck
+
+/-- Putting viewed cards on the bottom preserves the deck's multiset. -/
+theorem deckBottomOrder_perm (deck chosen : List ObjId) : (deckBottomOrder deck chosen).Perm deck := by
+  induction chosen generalizing deck with
+  | nil => exact List.Perm.refl _
+  | cons id rest ih =>
+    exact (ih (optDeckOrder deck 0 id false)).trans (optDeckOrder_perm deck 0 id false)
+
 namespace GameState
 
 /-- Replace the contents of zone `z` by a rearrangement `l` of its objects. -/

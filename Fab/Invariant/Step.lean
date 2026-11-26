@@ -383,7 +383,7 @@ private theorem confirmShuffleCards_preserves {s : GameState} (hwf : s.WF) (hok 
     (hrb : s.RollbackOk) (p : PlayerId) (selected : List ObjId) (drawSame : Bool)
     (search : Option DeckSearchChoice) (rest : List Frame) :
     StepPreserves s (confirmShuffleCards s p selected drawSame search rest).1 := by
-  let movers := if search.any (·.putOnTopAfterShuffle) then [] else selected.reverse
+  let movers := if search.any (·.keepsSelectedInZone) then [] else selected.reverse
   obtain ⟨hw, ho, hp, hc, hr⟩ := moveManyObjs_inv
     ((search.map (·.destination)).getD (.player p .deck))
     (if search.isSome then .top else .bottom) false movers hwf hok
