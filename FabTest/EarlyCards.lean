@@ -2564,6 +2564,7 @@ meta def spellbladeAssaultScenario (name : String) (power : Nat) : Option Bool :
     (resolved.poolOf p).resources == 6)
 
 #guard spellbladeAssaultScenario "ARC_085_R" 4 == some true
+#guard spellbladeAssaultScenario "ARC_086_Y" 3 == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
