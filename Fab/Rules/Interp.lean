@@ -2151,7 +2151,9 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .nextAttack filter, .addPowerIfFewerDefenders _ _ => .nextAttack filter
         | .nextDefend filter, .addDefense _ => .nextDefend filter
         | .allAttacks filter, .addPower _ => .allAttacks filter
-        | .self_, .addPower _ | .obj .self_, .addPower _ => .obj src
+        | .self_, .addPower _ | .obj .self_, .addPower _ =>
+          if s.locate src == some (.player ctrl .arsenal) &&
+              (s.obj? src).any (fun card => !card.faceDown) then .arsenalCard src else .obj src
         | .self_, .grantKeyword _ | .obj .self_, .grantKeyword _ => .obj src
         | .obj .currentAttack, .allowWeaponAttack =>
           (((s.combat.bind CombatChain.activeLink?).bind (·.attackSource)).map EffectTarget.obj).getD (.objects [])

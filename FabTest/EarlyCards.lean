@@ -1949,6 +1949,49 @@ meta def takeAimScenario (cardId : String) (expectedPower : Nat) : Option Bool :
 
 #guard takeAimScenario "ARC_056_B" 5 == some true
 
+#guard ((earlyPrintingCardId? "ARC057").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Head Shot" && card.front.pitch == some 1 && card.status == .full)
+
+meta def headShotScenario (cardId : String) (basePower : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let deck := Zone.player p .deck
+  let hand := Zone.player p .hand
+  let arsenal := Zone.player p .arsenal
+  let state := { earlyBase with cards := throughArcDB }
+  let (withBow, bow) ← earlyPlace state p (.player p .weapon) "ARC_040"
+  let (withHead, head) ← earlyPlace withBow p (.player p .head) "ARC_041"
+  let (withDeck, top) ← earlyPlace withHead p deck "WTR_192_Y"
+  let (ready, arrow) ← earlyPlace withDeck p hand cardId
+  let choose : Action := ⟨.player p, .pickShuffleCard (some arrow)⟩
+  let confirm : Action := ⟨.player p, .pickShuffleCard none⟩
+  let loaded ← earlySteps ready
+    (⟨.player p, .activateAbility bow 0 none⟩ :: (earlyPass ++ [choose, confirm]))
+  let loadedId ← (loaded.zone arsenal).head?
+  let trigger ← loaded.pendingTriggers.head?
+  let resolve (s : GameState) (id : Nat) :=
+    earlySteps s ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger id⟩] ++ earlyPass)
+  let buffed ← resolve loaded trigger.id
+  let attack ← earlyAttack buffed (.playCard loadedId)
+  let link ← attack.combat.bind CombatChain.activeLink?
+  let expired ← earlyAttack buffed.finishTurnEffects (.playCard loadedId)
+  let expiredLink ← expired.combat.bind CombatChain.activeLink?
+  let (faceDown, hidden) ← addObject withDeck arsenal
+    { kind := .card ⟨withDeck.nextId⟩ ⟨cardId⟩, owner := p, controller := p,
+      timestamp := ⟨0⟩, faceDown := true } .top
+  let exposed ← earlySteps faceDown
+    [⟨.player p, .activateAbility head 0 (some hidden)⟩]
+  let flipped ← earlySteps exposed (earlyPass ++ [⟨.player p, .optPick true none⟩])
+  let flippedAttack ← earlyAttack flipped (.playCard hidden)
+  let flippedLink ← flippedAttack.combat.bind CombatChain.activeLink?
+  pure ((loaded.zone deck).isEmpty &&
+    (loaded.zone hand).any (fun id => (loaded.cardDefOf? id).any (fun card => card.id == ⟨"WTR_192_Y"⟩)) &&
+    trigger.source == loadedId && loaded.pendingTriggers.length == 1 &&
+    linkAttackPower attack link == basePower + 2 && linkAttackPower expired expiredLink == basePower &&
+    (exposed.obj? hidden).any (fun card => !card.faceDown) && exposed.pendingTriggers.isEmpty &&
+    flipped.zone deck == [top] && linkAttackPower flippedAttack flippedLink == basePower)
+
+#guard headShotScenario "ARC_057_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

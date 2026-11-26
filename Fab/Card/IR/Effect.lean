@@ -47,6 +47,8 @@ inductive Trigger where
   | onChainClose
   /-- When this enters the arena (CR 3.0.5). -/
   | onEnterArena
+  /-- When this card moves into its owner’s arsenal face up. -/
+  | onArsenalFaceUp
   /-- When this leaves the arena (CR 3.0.5). -/
   | onLeaveArena
   /-- When this is destroyed (CR 1.10). -/
