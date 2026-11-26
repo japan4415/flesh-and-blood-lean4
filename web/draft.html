@@ -29,6 +29,26 @@
           </div>
           <p id="duel-status" role="status" tabindex="-1"></p>
         </header>
+        <div id="swiss-results" hidden>
+          <div class="draft-actions">
+            <button id="swiss-next" type="button" hidden>次のラウンドへ</button>
+          </div>
+          <details id="swiss-details">
+            <summary id="swiss-summary"></summary>
+            <div class="swiss-tables">
+              <table>
+                <caption id="swiss-caption">順位</caption>
+                <thead><tr><th scope="col">順位</th><th scope="col">席</th><th scope="col">勝</th><th scope="col">敗</th><th scope="col">分</th></tr></thead>
+                <tbody id="swiss-standings"></tbody>
+              </table>
+              <table>
+                <caption>このラウンドの対戦</caption>
+                <thead><tr><th scope="col">卓</th><th scope="col">席</th><th scope="col">席</th><th scope="col">結果</th></tr></thead>
+                <tbody id="swiss-tables"></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
         <div id="duel-board"></div>
         <div class="duel-bottom">
           <div id="duel-hand"></div>

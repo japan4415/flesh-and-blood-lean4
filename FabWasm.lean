@@ -2,7 +2,7 @@ module
 
 public import Fab.Tournament.Draft
 import FabCards.Booster
-import FabDriver.BrowserDuel
+import FabDriver.BrowserSwiss
 
 public section
 

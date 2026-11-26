@@ -1,6 +1,7 @@
 module
 
 public import FabDriver.Run
+public import Fab.Tournament.Match
 
 public section
 
@@ -28,7 +29,6 @@ private def draftChoice (draft : BoosterDraft.State) (seat : PlayerId)
   return choice
 
 /-- Young heroes available to this seat for a duel from its completed WTR draft. -/
-@[export fab_duel_heroes]
 def browserDraftHeroes (draft : BoosterDraft.State) (seat : UInt32) : String :=
   let options := draft.product.basics.filter fun id =>
     (draft.db.find? id).any CardDef.isYoungHero && (draftChoice draft ⟨seat.toNat⟩ id).isSome
@@ -56,17 +56,15 @@ private def chance : Nat → BrowserDuel → Option BrowserDuel
       let result ← (step 2048 duel.game ⟨.chance, kind⟩).toOption
       chance n ⟨result.1, rng⟩
 
-/-- Start a two-player Lean game from the adjacent pair's own drafted cards and basic supplies. -/
-@[export fab_duel_start]
-def startBrowserDuel (draft : BoosterDraft.State) (pair : UInt32) (first second : String)
+/-- Start a Swiss best-of-one game from two seats' drafted cards and basic supplies. -/
+def startBrowserDuel (draft : BoosterDraft.State) (firstSeat secondSeat : Nat) (first second : String)
     (seed : UInt32) : Option BrowserDuel := do
-  if pair ≥ 4 then none else do
-    let a : PlayerId := ⟨pair.toNat * 2⟩
-    let b : PlayerId := ⟨a.n + 1⟩
-    let first ← draftChoice draft a ⟨first⟩
-    let second ← draftChoice draft b ⟨second⟩
-    let game ← GameState.initialDraft draft (a, first) (b, second)
-    chance 16 ⟨game, ⟨seed.toUInt64⟩⟩
+  let a : PlayerId := ⟨firstSeat⟩
+  let b : PlayerId := ⟨secondSeat⟩
+  let first ← draftChoice draft a ⟨first⟩
+  let second ← draftChoice draft b ⟨second⟩
+  let game ← GameState.initialDraft draft (a, first) (b, second) MatchState.swissBo1.gameConfig.ruleSet
+  chance 16 ⟨game, ⟨seed.toUInt64⟩⟩
 
 private def actionPreview : ActionKind → String × Option ObjId × String
   | .pickFirstPlayer p => ("first", none, toString p.n)
@@ -98,6 +96,9 @@ private def actionPreview : ActionKind → String × Option ObjId × String
   | .arsenalSkip => ("skipArsenal", none, "")
   | .pitchReturnPick id => ("pitchReturn", some id, "")
   | .concede => ("concede", none, "")
+  | .offerDraw => ("offerDraw", none, "")
+  | .acceptDraw => ("acceptDraw", none, "")
+  | .declineDraw => ("declineDraw", none, "")
   | .pickTriggerStart p => ("triggerStart", none, toString p.n)
   | .pickTrigger trigger hero equipment =>
     ("trigger", equipment, toString trigger ++ " " ++ ((hero.map (toString ∘ (·.n))).getD "-"))
@@ -148,7 +149,6 @@ private def canFill (s : GameState) (p : PlayerId) : Bool :=
   s.pending.head? == some (.chooseLoadout p) && !loadoutCanFinish s p
 
 /-- Submit an index in the requesting player's current list of legal actions. -/
-@[export fab_duel_move]
 def browserDuelMove (duel : BrowserDuel) (seat index : UInt32) : Option BrowserDuel := do
   if seat ≥ 2 then none else do
     let p : PlayerId := ⟨seat.toNat⟩
@@ -163,7 +163,6 @@ def browserDuelMove (duel : BrowserDuel) (seat index : UInt32) : Option BrowserD
       chance 16 { duel with game := next.1 }
 
 /-- Encode the requesting player's board projection and legal controls for a browser duel. -/
-@[export fab_duel_view]
 def browserDuelView (duel : BrowserDuel) (seat : UInt32) : String :=
   if seat ≥ 2 then "" else
     let s := duel.game

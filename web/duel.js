@@ -17,6 +17,7 @@ const actionLabels = {
   handCost: "コストに使う", graveCost: "コストで追放する", top: "山札の上へ", bottom: "山札の下へ",
   arsenal: "アーセナルに置く", skipArsenal: "アーセナルに置かない", pitchReturn: "山札の下へ戻す",
   concede: "投了", triggerStart: "誘発の開始席", trigger: "誘発効果", graveTarget: "墓地から選ぶ",
+  offerDraw: "引き分けを提案", acceptDraw: "引き分けを承諾", declineDraw: "引き分けを断る",
   replacement: "置換効果", choose: "選ぶ",
 };
 
@@ -109,8 +110,7 @@ export function createDuelBoard(submit) {
     inspect.showModal();
   }
 
-  const side = () => String((current.seat - 1) % 2);
-  const otherSeat = () => current.seat % 2 ? current.seat + 1 : current.seat - 1;
+  const side = () => current.side;
   const person = (id) => id === side() ? "自分" : "相手";
 
   function actionButton(move, withCard = false) {
@@ -305,7 +305,7 @@ export function createDuelBoard(submit) {
     if (!current) return;
     const board = current.board;
     panel.dataset.stage = !board ? "hero" : board.phase === "setup" ? "setup" : "play";
-    seats.textContent = `自分 席 ${current.seat} ／ 相手 席 ${otherSeat()}`;
+    seats.textContent = `第${current.round} / ${current.rounds}ラウンド · 自分 席 ${current.seat} ／ 相手 席 ${current.opponent}`;
     if (!board) {
       const cards = node("ul", "", "duel-cards duel-heroes");
       for (const id of current.heroes) {
@@ -337,12 +337,16 @@ export function createDuelBoard(submit) {
     if (!current) return;
     const board = current.board;
     let summary;
-    if (board && Object.hasOwn(results, board.result)) summary = results[board.result];
+    if (current.status === "final") summary = `${current.rounds}ラウンド完了 · 自分の最終順位 ${current.rank}位`;
     else if (paused) summary = "一時停止中 · 全員の再接続を待っています。";
+    else if (board && Object.hasOwn(results, board.result)) {
+      const waiting = current.status === "review" ? "次のラウンドの開始を待っています。" : "ほかの卓の終了を待っています。";
+      summary = `${results[board.result]} · ${waiting}`;
+    }
     else if (pending) summary = "ホストの確認を待っています…";
     else if (!board) {
       summary = current.selected ? `${cardInfo(current.selected).name}を選択済み · 相手の準備を待っています。`
-        : "ヒーローを選ぶと、取得カードの中からデッキを組めます。";
+        : `${current.rounds}ラウンドで使うヒーローを選んでください。`;
     } else if (board.phase === "setup") {
       summary = board.acting !== side() ? "相手の準備を待っています。"
         : board.actions.some(({ action }) => action === "first") ? "先攻を選んでください。"
@@ -359,17 +363,18 @@ export function createDuelBoard(submit) {
     show(data, stopped, waiting) {
       const opened = Boolean(data && !current);
       const changed = data?.seat !== current?.seat || data?.revision !== current?.revision ||
-        data?.selected !== current?.selected;
+        data?.selected !== current?.selected || data?.round !== current?.round;
       const advanceFocus = changed && panel.contains(document.activeElement) && !inspect.open;
       if (changed) {
-        current = data;
         confirming = undefined;
         selectedCard = undefined;
         notice.textContent = "";
       }
+      current = data;
       paused = stopped;
       pending = waiting;
       panel.hidden = !data;
+      panel.toggleAttribute("data-event-finished", data?.status === "final");
       if (!data && inspect.open) inspect.close();
       if (changed && data) draw();
       setDisabled();

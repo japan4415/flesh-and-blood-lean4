@@ -97,6 +97,26 @@
 #duel-seats { color: var(--muted); font-size: .86rem; }
 #duel-status { font-size: .92rem; }
 #duel[data-paused] #duel-status, #duel-feedback { color: #ffc9a1; }
+#swiss-results {
+  padding: .35rem clamp(.65rem, 2.5vw, 1.45rem);
+  border-bottom: 1px solid var(--duel-line);
+  background: #18261e;
+}
+#swiss-summary { width: fit-content; min-height: 2.75rem; padding: .55rem .1rem; cursor: pointer; }
+#swiss-next:not([hidden]) { background: var(--accent); color: #23190c; margin-top: .35rem; }
+#swiss-next:disabled { background: #203028; color: var(--muted); }
+.swiss-tables {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: .65rem 1.1rem;
+  padding-bottom: .65rem;
+}
+.swiss-tables table { width: 100%; border-collapse: collapse; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.swiss-tables caption { text-align: start; color: var(--muted); padding-bottom: .35rem; }
+.swiss-tables :is(th, td) { text-align: start; padding: .42rem .32rem; border-bottom: 1px solid var(--duel-line); }
+.swiss-tables tr[data-mine] { background: #293c2f; color: #f3dbad; font-weight: 700; }
+#duel[data-event-finished] :is(#duel-board, .duel-bottom) { display: none; }
 #duel-board {
   display: grid;
   gap: .45rem;
@@ -300,6 +320,7 @@ button.duel-card:disabled { cursor: default; }
 #duel-inspect-image { width: min(100%, 44dvh); margin: .65rem auto 0; }
 
 @media (max-width: 46rem) {
+  .swiss-tables { grid-template-columns: minmax(0, 1fr); }
   .duel-player-field { grid-template-columns: minmax(0, 1fr); }
   .duel-piles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .duel-gear { grid-template-columns: repeat(4, minmax(0, 1fr)); }
