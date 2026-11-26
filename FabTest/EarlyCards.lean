@@ -3945,6 +3945,44 @@ meta def artOfWarDefenseScenario : Option Bool := do
 
 #guard artOfWarDefenseScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC161").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .attack && card.front.pitch == some 3 && card.status == .full)
+
+meta def pursuitOfKnowledgeScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let hand := Zone.player p .hand
+  let (withHero, _) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hero) "WTR_001"
+  let (withAttack, card) ← earlyPlace withHero p hand "ARC_161_B"
+  let (withFirst, first) ← earlyPlace withAttack q (.player q .hand) "WTR_203_R"
+  let (withSecond, second) ← earlyPlace withFirst q (.player q .hand) "WTR_203_R"
+  let ready ← (List.range 6).foldlM (fun s _ =>
+    (earlyPlace s p deck "WTR_203_R").map Prod.fst) withSecond
+  let attacking ← earlyAttack ready (.playCard card)
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let source ← link.attack
+  let hit ← earlyDamage attacking
+  let triggered ← hit.pendingTriggers.find? (·.source == source)
+  let stacked ← earlySteps hit
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger triggered.id⟩]
+  let buffed ← earlySteps stacked earlyPass
+  let defended ← earlySteps attacking
+    [⟨.player q, .defendCard first⟩, ⟨.player q, .defendCard second⟩]
+  let blocked ← earlyDamage defended
+  let (ending, _) ← microStep { buffed with pending := [.endTurnCleanup p] }
+  let (ended, _) ← (advance 64 ending []).toOption
+  let (blockedEnd, _) ← (advance 64 { blocked with pending := [.endTurnCleanup p] } []).toOption
+  pure (hit.lifeOf q == ready.lifeOf q - 4 &&
+    ready.intellectOf p == 4 && hit.intellectOf p == 4 && buffed.intellectOf p == 5 &&
+    buffed.intellectOf q == ready.intellectOf q && ending.pending == [.draw p 5, .endTurnFinish] &&
+    (ended.zone hand).length == 5 && (ended.zone deck).length == 1 &&
+    ended.intellectOf p == 4 && blocked.pendingTriggers.all (·.source != source) &&
+    (blockedEnd.zone hand).length == 4 && blockedEnd.intellectOf p == 4)
+
+#guard pursuitOfKnowledgeScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
