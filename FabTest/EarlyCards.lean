@@ -3179,6 +3179,39 @@ meta def absorbInAetherScenario (card : String) (defense : Int) : Option Bool :=
   (fun card => card.front.hasType .defenseReaction && card.front.defense == some 2 && card.status == .full)
 #guard absorbInAetherScenario "ARC_125_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC126").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 1 && card.status == .full)
+
+meta def aetherSpindleScenario (name : String) (damage : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let initial := { earlyBase with cards := throughArcDB }
+  let loaded ← (List.range 4).foldlM (fun s _ =>
+    (earlyPlace s p deck "WTR_221_R").map Prod.fst) initial
+  let (ready, spindle) ← earlyPlace loaded p (.player p .hand) name
+  let (withBarrier, _) ← earlyPlace (ready.setPool q { resources := 1 }) q (.player q .chest) "ARC_117"
+  let cast (s : GameState) :=
+    earlySteps s ([⟨.player p, .playCard spindle⟩, ⟨.player p, .pickHeroTarget q⟩] ++ earlyPass)
+  let prevention ← cast withBarrier
+  let .chooseReplacement defender .prevention [barrier] true :: _ := prevention.pending | none
+  let opt ← earlySteps prevention [⟨.player q, .pickReplacement (some barrier)⟩]
+  let .chooseOpt player first others 0 0 :: _ := opt.pending | none
+  let outside ← (ready.zone deck)[damage - 1]?
+  let valid : Action := ⟨.player p, .optPick true⟩
+  let illegal : Action := ⟨.player p, .optPick false (some outside)⟩
+  let stop : ReplacementEffect :=
+    { id := 100, source := spindle, controller := q, stage := .prevention, action := .fixedPrevent damage }
+  let prevented ← cast { ready with activeReplacements := [stop] }
+  pure (defender == q && opt.lifeOf q == ready.lifeOf q - Int.ofNat (damage - 1) &&
+    player == p && first :: others == (ready.zone deck).take (damage - 1) &&
+    (legalActions opt).contains valid && !(legalActions opt).contains illegal &&
+    (earlySteps opt [illegal]).isNone &&
+    prevented.lifeOf q == ready.lifeOf q && !(legalActions prevented).contains valid &&
+    prevented.zone deck == ready.zone deck)
+
+#guard aetherSpindleScenario "ARC_126_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
