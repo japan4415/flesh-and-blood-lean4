@@ -4963,6 +4963,10 @@ meta def leadTheChargeScenario (card : String) (minCost : Nat) : Option Bool := 
   (fun card => card.front.defense == some 2 && card.front.pitch == some 2 && card.status == .full)
 #guard leadTheChargeScenario "ARC_210_Y" 1 == some true
 
+#guard ((earlyPrintingCardId? "ARC211").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 2 && card.front.pitch == some 3 && card.status == .full)
+#guard leadTheChargeScenario "ARC_211_B" 2 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

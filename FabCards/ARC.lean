@@ -1331,6 +1331,9 @@ def ARC_209_R : CardDef := { leadTheCharge Meta.ARC_209_R_meta 0 with status := 
 /-- Lead the Charge Yellow (ARC210). -/
 def ARC_210_Y : CardDef := { leadTheCharge Meta.ARC_210_Y_meta 1 with status := .full }
 
+/-- Lead the Charge Blue (ARC211). -/
+def ARC_211_B : CardDef := { leadTheCharge Meta.ARC_211_B_meta 2 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1366,7 +1369,7 @@ def arcCards : List CardDef :=
    ARC_182_R, ARC_183_Y, ARC_184_B, ARC_185_R, ARC_186_Y, ARC_187_B, ARC_188_R, ARC_189_Y, ARC_190_B,
    ARC_191_R, ARC_192_Y, ARC_193_B, ARC_194_R, ARC_195_Y, ARC_196_B, ARC_197_R, ARC_198_Y, ARC_199_B,
    ARC_200_R, ARC_201_Y, ARC_202_B, ARC_203_R, ARC_204_Y, ARC_205_B, ARC_206_R, ARC_207_Y, ARC_208_B,
-   ARC_209_R, ARC_210_Y]
+   ARC_209_R, ARC_210_Y, ARC_211_B]
 
 end FabCards.ARC
 
