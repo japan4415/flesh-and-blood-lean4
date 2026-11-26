@@ -622,9 +622,9 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
             dsimp only
             rw [show canPickCardMode s1 layerId = canPickCardMode s2 layerId from
               funext (h.canPickCardMode_eq layerId)]
-          | choosePlayHero _ _ _ _ _ =>
+          | choosePlayHero _ layerId _ _ _ =>
             dsimp only
-            rw [h.turnOrder]
+            simp only [cardPlayHeroChoices, (h.cardDef_face layerId).1, h.turnOrder]
           | choosePitch q _ _ _ _ =>
             dsimp only
             by_cases hqp : q = p

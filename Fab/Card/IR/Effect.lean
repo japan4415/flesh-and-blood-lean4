@@ -222,8 +222,10 @@ inductive Prim where
   /-- If arsenal is empty, look at up to `count` cards, optionally load one matching
   card face up, then put the rest on the bottom in the chooser's order. -/
   | lookDeckToArsenal (p : PlayerRef) (count : Nat) (f : CardFilter)
-  /-- Privately look at the top card and optionally banish a match to play as an instant this turn. -/
-  | lookTopToBanishedAsInstant (p : PlayerRef) (filter : CardFilter)
+  /-- Privately look at the top card and optionally banish a match to play as an instant this turn.
+  With `discountFromDamage`, this requires the source to have dealt positive arcane damage
+  and reduces the selected card's resource cost by that amount. -/
+  | lookTopToBanishedAsInstant (p : PlayerRef) (filter : CardFilter) (discountFromDamage : Bool := false)
   /-- Reveal the top two cards and put them into hand when they satisfy the two filters in either order. -/
   | revealTopPairToHand (p : PlayerRef) (first second : CardFilter)
   /-- Put the chosen deck cards on the bottom in the given order. -/

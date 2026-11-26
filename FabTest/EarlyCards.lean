@@ -2955,6 +2955,63 @@ meta def blazingAetherScenario : Option Bool := do
 
 #guard blazingAetherScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC119").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.status == .full)
+
+meta def sonicBoomScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let spell : CardDef :=
+    { id := ⟨"Sonic Boom eligible fixture"⟩
+      front :=
+        { name := "Sonic Boom eligible fixture"
+          types := [.action]
+          supertypes := [.class_ .wizard]
+          cost := some { actionPoints := 1, resources := 3 } } }
+  let cards : CardDB := ⟨spell :: throughArcDB.cards⟩
+  let deck := Zone.player p .deck
+  let banished := Zone.player p .banished
+  let (withSpell, top) ← earlyPlace { earlyBase with cards } p deck spell.id.val
+  let (ready, boom) ← earlyPlace withSpell p (.player p .hand) "ARC_119_Y"
+  let play (id : ObjId) : Action := ⟨.player p, .playCard id⟩
+  let target (hero : PlayerId) : Action := ⟨.player p, .pickHeroTarget hero⟩
+  let choose (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let cast (s : GameState) := earlySteps s ([play boom, target q] ++ earlyPass)
+  let looking ← cast ready
+  let .chooseShuffleCards chooser 1 [candidate] [] false (some fullChoice) :: _ := looking.pending | none
+  let declined ← earlySteps looking [choose none]
+  let accepted ← earlySteps looking [choose (some top), choose none]
+  let discounted ← (accepted.zone banished).head?
+  let free ← earlySteps accepted [play discounted]
+  let (equipped, _) ← earlyPlace (ready.setPool q { resources := 2 }) q (.player q .legs) "ARC_116"
+  let prevention ← cast equipped
+  let .chooseReplacement defender .prevention [barrier] true :: _ := prevention.pending | none
+  let partiallyPrevented ← earlySteps prevention [⟨.player q, .pickReplacement (some barrier)⟩]
+  let .chooseShuffleCards _ 1 [_] [] false (some partialChoice) :: _ := partiallyPrevented.pending | none
+  let partialAccepted ← earlySteps partiallyPrevented [choose (some top), choose none]
+  let partialCard ← (partialAccepted.zone banished).head?
+  let offTurn := { (partialAccepted.setPool p { resources := 2 }) with
+    active := some q, pending := [.priority p 0] }
+  let paid ← earlySteps offTurn [play partialCard]
+  let stop : ReplacementEffect :=
+    { id := 100, source := boom, controller := q, stage := .prevention, action := .fixedPrevent 3 }
+  let prevented ← cast { ready with activeReplacements := [stop] }
+  let choosing ← earlySteps ready [play boom]
+  pure (chooser == p && candidate == top && fullChoice.resourceDiscount == 3 &&
+    fullChoice.viewedCards == some [top] && !fullChoice.searchesDeck &&
+    looking.lifeOf q == ready.lifeOf q - 3 && declined.zone deck == [top] &&
+    (declined.zone banished).isEmpty && (accepted.zone deck).isEmpty &&
+    (free.poolOf p).resources == 6 && (free.poolOf p).actionPoints == 3 &&
+    !canPlayCard accepted.finishTurnEffects p discounted &&
+    defender == q && partiallyPrevented.lifeOf q == ready.lifeOf q - 1 && partialChoice.resourceDiscount == 1 &&
+    (paid.poolOf p).resources == 0 && (paid.poolOf p).actionPoints == 0 &&
+    prevented.lifeOf q == ready.lifeOf q && prevented.zone deck == [top] &&
+    !(legalActions prevented).contains (choose (some top)) &&
+    (legalActions choosing).contains (target q) && !(legalActions choosing).contains (target p) &&
+    (earlySteps choosing [target p]).isNone)
+
+#guard sonicBoomScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

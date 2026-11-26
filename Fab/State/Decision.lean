@@ -173,6 +173,8 @@ structure DeckSearchChoice where
   playableDuration : Option Duration := none
   /-- Whether that permission allows the selected card to be played as though it were an instant. -/
   playAsInstant : Bool := false
+  /-- Reduction in resource cost for the selected card played using this permission. -/
+  resourceDiscount : Nat := 0
   /-- Cards viewed privately by the chooser independently of the selection's legal candidates. -/
   viewedCards : Option (List ObjId) := none
   /-- Whether this selection grants the chooser temporary visibility of their deck. -/

@@ -61,6 +61,8 @@ structure LayerInfo where
   modeIdx : Option Nat := none
   /-- Hero declared as a target before paying for a card-layer (CR 5.1.4a). -/
   heroTarget : Option PlayerId := none
+  /-- Resource discount attached to the permission used to play this layer from banished. -/
+  banishedResourceDiscount : Nat := 0
   /-- Attack declared in target slot 0 before paying for a card-layer (CR 5.1.4a). -/
   attackTarget : Option ObjId := none
   /-- Weapon declared in target slot 0 before paying for a card-layer (CR 5.1.4a). -/
@@ -250,6 +252,11 @@ deriving DecidableEq, Repr
 def GameState.arcaneDamageDealtTo (s : GameState) (controller target : PlayerId) : Nat :=
   s.arcaneDamageThisTurn.foldl (fun acc damage =>
     if damage.controller == controller && damage.target == target then acc + damage.amount else acc) 0
+
+/-- Total arcane damage dealt by this source during the current turn. -/
+def GameState.arcaneDamageFrom (s : GameState) (source : ObjId) : Nat :=
+  s.arcaneDamageThisTurn.foldl (fun acc damage =>
+    if damage.source == source then acc + damage.amount else acc) 0
 
 /-- List of every valid zone in an `n`-player game (CR 3.0). -/
 def allZones (n : Nat) : List Zone :=
