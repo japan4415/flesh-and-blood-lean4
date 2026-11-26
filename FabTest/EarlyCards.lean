@@ -4853,6 +4853,10 @@ meta def comeToFightScenario (card : String) (bonus : Nat) : Option Bool := do
 
 #guard comeToFightScenario "ARC_203_R" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC204").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 3 && card.front.pitch == some 2 && card.status == .full)
+#guard comeToFightScenario "ARC_204_Y" 2 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
