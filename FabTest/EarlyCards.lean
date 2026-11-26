@@ -4667,6 +4667,11 @@ meta def ravenousRabbleScenario (card : String) (power : Nat)
 #guard ravenousRabbleScenario "ARC_191_R" 5 (some ("WTR_203_R", 1)) == some true
 #guard ravenousRabbleScenario "ARC_191_R" 5 none == some true
 
+#guard ((earlyPrintingCardId? "ARC192").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 4 && card.front.pitch == some 2 && card.status == .full)
+#guard ravenousRabbleScenario "ARC_192_Y" 4 (some ("WTR_204_Y", 2)) == some true
+#guard ravenousRabbleScenario "ARC_192_Y" 4 none == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
