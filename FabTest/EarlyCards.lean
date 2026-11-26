@@ -3396,6 +3396,66 @@ meta def indexDeckScenario (name : String) (count : Nat) : Option Bool := do
   (fun card => card.front.hasType .action && card.front.pitch == some 3 && card.status == .full)
 #guard indexDeckScenario "ARC_137_B" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC138").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 1 && card.status == .full)
+
+meta def reverberateScenario (name : String) (damage : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let banished := Zone.player p .banished
+  let fixture (label : String) (cost : Nat) (wizard : Bool) (attack : Bool := false) : CardDef :=
+    { id := ⟨label⟩
+      front :=
+        { name := label
+          supertypes := if wizard then [.class_ .wizard] else []
+          types := [.action]
+          subtypes := if attack then [.attack] else []
+          cost := some { actionPoints := 1, resources := cost } } }
+  let cheap := fixture "Reverberate free fixture" 0 true
+  let exactCost := fixture "Reverberate exact-cost fixture" damage true
+  let tooMuch := fixture "Reverberate expensive fixture" (damage + 1) true
+  let otherClass := fixture "Reverberate other-class fixture" 0 false
+  let attackCard := fixture "Reverberate attack fixture" 0 true true
+  let cards : CardDB := ⟨[cheap, exactCost, tooMuch, otherClass, attackCard] ++ throughArcDB.cards⟩
+  let (withSpell, source) ← earlyPlace { earlyBase with cards } p hand name
+  let (withFree, free) ← earlyPlace withSpell p hand cheap.id.val
+  let (withExact, exactId) ← earlyPlace withFree p hand exactCost.id.val
+  let (withMore, more) ← earlyPlace withExact p hand tooMuch.id.val
+  let (withOther, generic) ← earlyPlace withMore p hand otherClass.id.val
+  let (ready, attack) ← earlyPlace withOther p hand attackCard.id.val
+  let cast (s : GameState) :=
+    earlySteps s ([⟨.player p, .playCard source⟩, ⟨.player p, .pickHeroTarget q⟩] ++ earlyPass)
+  let prevent (amount : Nat) : ReplacementEffect :=
+    { id := 100, source, controller := q, stage := .prevention, action := .fixedPrevent amount }
+  let choose (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let full ← cast ready
+  let .chooseShuffleCards chooser 1 candidates [] false (some options) :: _ := full.pending | none
+  let stopped ← cast { ready with activeReplacements := [prevent damage] }
+  let reduced ← cast { ready with activeReplacements := [prevent 1] }
+  let declined ← earlySteps full [choose none]
+  let accepted ← earlySteps full [choose (some exactId), choose none]
+  let allowed ← (accepted.zone banished).head?
+  let offTurn := { accepted.setPool p { resources := damage } with
+    active := some q, pending := [.priority p 0] }
+  let paid ← earlySteps offTurn [⟨.player p, .playCard allowed⟩]
+  pure (chooser == p && candidates == [exactId, free] && !options.searchesDeck &&
+    !options.shuffleAfter && (view q full).selectionChoices.isEmpty &&
+    (earlySteps full [choose (some more)]).isNone &&
+    (earlySteps full [choose (some generic)]).isNone &&
+    (earlySteps full [choose (some attack)]).isNone &&
+    full.lifeOf q == ready.lifeOf q - Int.ofNat damage &&
+    stopped.lifeOf q == ready.lifeOf q && !(legalActions stopped).contains (choose (some free)) &&
+    reduced.lifeOf q == ready.lifeOf q - Int.ofNat (damage - 1) &&
+    (legalActions reduced).contains (choose (some free)) == decide (1 < damage) &&
+    !(legalActions reduced).contains (choose (some exactId)) &&
+    (declined.zone banished).isEmpty && (declined.zone hand).contains exactId &&
+    !(accepted.zone hand).contains exactId && accepted.zone banished == [allowed] &&
+    !canPlayCard offTurn.finishTurnEffects p allowed &&
+    (paid.poolOf p).resources == 0 && (paid.poolOf p).actionPoints == 0)
+
+#guard reverberateScenario "ARC_138_R" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

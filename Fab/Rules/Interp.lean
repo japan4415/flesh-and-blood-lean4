@@ -1394,6 +1394,18 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         resourceDiscount := discount, viewedCards := some viewed, searchesDeck := false }
     (s, [], if viewed.isEmpty || (discountFromDamage && discount == 0) then [] else
       [.chooseShuffleCards player candidates.length candidates [] false (some choice)])
+  | .banishHandToPlayAsInstant pref filter cap =>
+    let player := evalPlayerRef s ctrl pref
+    let limit := clampNonNeg (evalNumExpr s ctrl env cap (some src))
+    let filter := { filter with maxCost := some (min limit (filter.maxCost.getD limit)) }
+    let candidates := (s.zone (.player player .hand)).filter fun id =>
+      (s.objectFace? id).any (cardFaceMatches filter)
+    let choice : DeckSearchChoice :=
+      { destination := .player player .banished, reveal := false, mayFail := true,
+        shuffleAfter := false, playableDuration := some .thisTurn, playAsInstant := true,
+        searchesDeck := false }
+    (s, [], if candidates.isEmpty then [] else
+      [.chooseShuffleCards player 1 candidates [] false (some choice)])
   | .putChosenDeckCardsOnBottom pref ids =>
     let deck := Zone.player (evalPlayerRef s ctrl pref) .deck
     if deck.Valid s.playerCount then
@@ -1745,7 +1757,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | searchDeckToTop _ _ _ | reload _ | lookTopToBanishedAsInstant _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-  | lookDeckToTopAndBottom _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | lookDeckToTopAndBottom _ _ | banishHandToPlayAsInstant _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | lookDeckToArsenal _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | revealTopPairToHand pref first second =>
@@ -2060,7 +2072,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     let ids := matchingRevealedPair s first second ((s.zone (.player player .deck)).take 2)
     have ht := moveManyObjs_ttr (.player player .hand) .top false ids s
     exact ⟨ht.1, ht.2.1, fun hr => ht.2.2 ▸ hr⟩
-  | lookDeckToTopAndBottom _ _ => exact ⟨rfl, rfl, id⟩
+  | lookDeckToTopAndBottom _ _ | banishHandToPlayAsInstant _ _ _ => exact ⟨rfl, rfl, id⟩
   | putChosenDeckCardOnTop _ _ | lookDeckToArsenal _ _ _ | putChosenDeckCardsOnBottom _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | putHandPermanent _ _ _ => exact ⟨rfl, rfl, id⟩
