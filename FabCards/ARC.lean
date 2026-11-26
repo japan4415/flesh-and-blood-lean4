@@ -392,6 +392,15 @@ def ARC_049_Y : CardDef := { takeCover Meta.ARC_049_Y_meta with status := .full 
 /-- Take Cover (ARC050). -/
 def ARC_050_B : CardDef := { takeCover Meta.ARC_050_B_meta with status := .full }
 
+/-- Silver the Tip looks at its pitch-specific number of cards before loading an arrow. -/
+def silverTheTip (card : CardDef) (count : Nat) : CardDef :=
+  let body := Effect.prim (.lookDeckToArsenal .controller count { subtypes := [.arrow] })
+  { card with
+    front := { card.front with playEffect := some { body } } }
+
+/-- Silver the Tip (ARC051). -/
+def ARC_051_R : CardDef := { silverTheTip Meta.ARC_051_R_meta 4 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -400,7 +409,7 @@ def arcCards : List CardDef :=
    ARC_023_R, ARC_024_Y, ARC_025_B,
    ARC_026_R, ARC_027_Y, ARC_028_B,
    ARC_029_R, ARC_030_Y, ARC_031_B,
-   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R, ARC_037_B, ARC_038, ARC_039, ARC_040, ARC_041, ARC_042, ARC_043_R, ARC_044_R, ARC_045_R, ARC_046_B, ARC_047_Y, ARC_048_R, ARC_049_Y, ARC_050_B]
+   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R, ARC_037_B, ARC_038, ARC_039, ARC_040, ARC_041, ARC_042, ARC_043_R, ARC_044_R, ARC_045_R, ARC_046_B, ARC_047_Y, ARC_048_R, ARC_049_Y, ARC_050_B, ARC_051_R]
 
 end FabCards.ARC
 

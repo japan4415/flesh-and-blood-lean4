@@ -1266,6 +1266,22 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     if deck.Valid s.playerCount then
       (s.reorder deck (optDeckOrder (s.zone deck) 0 id true), [], [])
     else (s, [], [])
+  | .lookDeckToArsenal pref count filter =>
+    let player := evalPlayerRef s ctrl pref
+    let arsenal := Zone.player player .arsenal
+    let viewed := (s.zone (.player player .deck)).take count
+    if !(s.zone arsenal).isEmpty || viewed.isEmpty then (s, [], [])
+    else
+      let candidates := viewed.filter fun id => (s.objectFace? id).any (cardFaceMatches filter)
+      let choice : DeckSearchChoice :=
+        { destination := arsenal, reveal := false, mayFail := true,
+          shuffleAfter := false, searchesDeck := false, bottomSelection := some (.lookedAt viewed) }
+      (s, [], [.chooseShuffleCards player 1 candidates [] false (some choice)])
+  | .putChosenDeckCardsOnBottom pref ids =>
+    let deck := Zone.player (evalPlayerRef s ctrl pref) .deck
+    if deck.Valid s.playerCount then
+      (s.reorder deck (deckBottomOrder (s.zone deck) ids), [], [])
+    else (s, [], [])
   | .reload pref =>
     let player := evalPlayerRef s ctrl pref
     (s, [], if (s.zone (.player player .arsenal)).isEmpty && !(s.zone (.player player .hand)).isEmpty
@@ -1600,6 +1616,16 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | searchDeckToTop _ _ | reload _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | lookDeckToArsenal _ _ _ =>
+    unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | putChosenDeckCardsOnBottom pref ids =>
+    unfold execPrim; dsimp only
+    split
+    · rename_i valid
+      have perm := deckBottomOrder_perm (s.zone (.player (evalPlayerRef s ctrl pref) .deck)) ids
+      exact ⟨GameState.wf_reorder hwf valid perm, GameState.ownerOk_reorder hok perm,
+        GameState.physIds_reorder valid perm, rfl, rfl⟩
+    · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | putChosenDeckCardOnTop pref id =>
     unfold execPrim; dsimp only
     split
@@ -1893,7 +1919,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | searchDeckToTop _ _ | reload _ => exact ⟨rfl, rfl, id⟩
-  | putChosenDeckCardOnTop _ _ =>
+  | putChosenDeckCardOnTop _ _ | lookDeckToArsenal _ _ _ | putChosenDeckCardsOnBottom _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | putHandPermanent _ _ _ => exact ⟨rfl, rfl, id⟩
   | shuffleZone _ _ => exact ⟨rfl, rfl, id⟩

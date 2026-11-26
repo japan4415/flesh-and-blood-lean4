@@ -1836,6 +1836,54 @@ meta def takeCoverScenario (cardId : String) (defense : Int) : Option Bool := do
 
 #guard takeCoverScenario "ARC_050_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC051").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Silver the Tip" && card.front.pitch == some 1 && card.status == .full)
+
+meta def silverTheTipScenario (cardId : String) (count : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let arsenal := Zone.player p .arsenal
+  let state := { earlyBase with cards := throughArcDB }
+  let (s0, sixth) ← earlyPlace state p deck "ARC_043_R"
+  let (s1, fifth) ← earlyPlace s0 p deck "WTR_192_Y"
+  let (s2, fourth) ← earlyPlace s1 p deck "ARC_045_R"
+  let (s3, third) ← earlyPlace s2 p deck "WTR_191_R"
+  let (s4, second) ← earlyPlace s3 p deck "ARC_045_R"
+  let (s5, first) ← earlyPlace s4 p deck "WTR_203_R"
+  let (ready, spell) ← earlyPlace s5 p (.player p .hand) cardId
+  let viewed := [first, second, third, fourth, fifth, sixth].take count
+  let pick (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let order (ids : List ObjId) : List Action := ids.map (fun id => pick (some id)) ++ [pick none]
+  let use : Action := ⟨.player p, .playCard spell⟩
+  let choosing ← earlySteps ready (use :: earlyPass)
+  let .chooseShuffleCards chooser 1 candidates [] false (some choice) :: _ := choosing.pending | none
+  let .chooseShuffleCards _ 0 [] [] _ (some redacted) :: _ := (view q choosing).pending | none
+  let ordering ← earlySteps choosing [pick (some second), pick none]
+  let remaining := (viewed.erase second).reverse
+  let .chooseShuffleCards orderer slots _ [] false (some instruction) :: _ := ordering.pending | none
+  let loaded ← earlySteps ordering (order remaining)
+  let loadedId ← (loaded.zone arsenal).head?
+  let declined ← earlySteps choosing (pick none :: order viewed.reverse)
+  let (occupied, stored) ← earlyPlace ready p arsenal "WTR_193_B"
+  let unchanged ← earlySteps occupied (use :: earlyPass)
+  pure (chooser == p && candidates == (if count == 4 then [second, fourth] else [second]) &&
+    choice.bottomSelection == some (.lookedAt viewed) && !choice.searchesDeck &&
+    (view p choosing).selectionChoices.map Prod.fst == viewed &&
+    (view q choosing).selectionChoices.isEmpty && redacted.bottomSelection.isNone &&
+    viewZone p choosing deck == .countOnly 6 && (earlySteps choosing [pick (some sixth)]).isNone &&
+    (earlySteps choosing [pick (some first)]).isNone &&
+    orderer == p && slots == remaining.length && instruction.bottomSelection == some (.order remaining.length) &&
+    (earlySteps ordering [pick none]).isNone && (earlySteps ordering [pick (some sixth)]).isNone &&
+    (loaded.obj? loadedId).any (fun card => !card.faceDown) &&
+    (loaded.cardDefOf? loadedId).any (fun card => card.id == ⟨"ARC_045_R"⟩) &&
+    loaded.zone deck == (ready.zone deck).drop count ++ remaining &&
+    (loaded.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    declined.zone deck == (ready.zone deck).drop count ++ viewed.reverse && (declined.zone arsenal).isEmpty &&
+    unchanged.zone deck == ready.zone deck && unchanged.zone arsenal == [stored])
+
+#guard silverTheTipScenario "ARC_051_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
