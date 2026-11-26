@@ -1884,6 +1884,11 @@ meta def silverTheTipScenario (cardId : String) (count : Nat) : Option Bool := d
 
 #guard silverTheTipScenario "ARC_051_R" 4 == some true
 
+#guard ((earlyPrintingCardId? "ARC052").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Silver the Tip" && card.front.pitch == some 2 && card.status == .full)
+
+#guard silverTheTipScenario "ARC_052_Y" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
