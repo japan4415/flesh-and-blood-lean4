@@ -381,6 +381,10 @@ def setPool (s : GameState) (p : PlayerId) (pool : AssetPool) : GameState :=
 def lifeOf (s : GameState) (p : PlayerId) : Int :=
   s.heroLife.getD p.n 0
 
+/-- Whether an opponent has strictly more life than this player. -/
+def lessLifeThanOpponent (s : GameState) (p : PlayerId) : Bool :=
+  (allPlayers s.playerCount).any fun opponent => opponent != p && s.lifeOf p < s.lifeOf opponent
+
 /-- Replace the hero life total of player `p`. -/
 def setLife (s : GameState) (p : PlayerId) (life : Int) : GameState :=
   { s with heroLife := s.heroLife.insert p.n life }
@@ -620,6 +624,26 @@ def hasActionPhaseEffect (s : GameState) (p : PlayerId) (op : EffectOp) : Bool :
 def canTakeAction (s : GameState) (p : PlayerId) : Bool :=
   !s.hasActionPhaseEffect p (.limitActions 0)
 
+/-- Materialize self-scoped static modifiers that require the controller to trail on life
+(CR 1.7.4, 6.2.3). The ordinary stages still apply the modifiers and counters. -/
+def lifeDisadvantageStaticEffects (s : GameState) (id : ObjId) (obj : Object)
+    (face : CardFace) (effects : List ContinuousEffect) : List ContinuousEffect :=
+  let modifiers := face.abilities.filterMap fun
+    | .static_ (some .lessLifeThanOpponent) .self_ (.addDefense (.const amount)) =>
+      some (EffectOp.addDefense amount)
+    | .static_ (some .lessLifeThanOpponent) .self_ (.grantKeyword keyword) =>
+      some (EffectOp.grantKeyword keyword)
+    | _ => none
+  if modifiers.isEmpty || obj.faceDown || !((activationArenaZones s).flatMap s.zone).contains id then []
+  else
+    let base := evalCharacteristics effects obj face id
+    if base.abilitiesLost || !s.lessLifeThanOpponent base.controller then []
+    else
+      let firstId := effects.foldl (fun next effect => max next (effect.id + 1)) 0
+      modifiers.zipIdx.map fun (op, index) =>
+        { id := firstId + index, source := id, controller := base.controller,
+          target := .obj id, op, duration := .whileSourceInArena, timestamp := obj.timestamp }
+
 /-- Evaluate the 8-stage derived characteristics of object `id` in state `s` (CR 6.3.2). -/
 def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
   match s.obj? id, s.cardDefOf? id with
@@ -627,7 +651,8 @@ def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
     let face := match o.faceState with
       | .front => c.front
       | .back => c.back.getD c.front
-    let chars := evalCharacteristics (s.activeEffects ++ s.arenaDefenseEffects id) o face id
+    let effects := s.activeEffects ++ s.arenaDefenseEffects id
+    let chars := evalCharacteristics (effects ++ s.lifeDisadvantageStaticEffects id o face effects) o face id
     if chars.types.contains .action && s.hasActionPhaseEffect chars.controller .cantGainGoAgain then
       some { chars with keywords := chars.keywords.filter (· != .goAgain) }
     else some chars

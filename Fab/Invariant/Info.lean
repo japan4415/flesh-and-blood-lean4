@@ -318,8 +318,15 @@ private theorem HiddenEquiv.characteristics_eq {p : PlayerId} {s1 s2 : GameState
   have hphase : s1.hasActionPhaseEffect = s2.hasActionPhaseEffect := by
     funext player op
     simp only [GameState.hasActionPhaseEffect, h.phase, h.active, h.activeEffects]
+  have hlife : s1.lessLifeThanOpponent = s2.lessLifeThanOpponent := by
+    funext player
+    unfold GameState.lessLifeThanOpponent GameState.lifeOf
+    rw [h.playerCount, h.heroLife]
+  have hconditional : s1.lifeDisadvantageStaticEffects id = s2.lifeDisadvantageStaticEffects id := by
+    funext obj face effects
+    simp only [GameState.lifeDisadvantageStaticEffects, h.arenaContents_eq, hlife]
   unfold GameState.characteristics
-  rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic, hphase]
+  rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic, hconditional, hphase]
 
 private theorem HiddenEquiv.canTakeAction_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) : s1.canTakeAction p = s2.canTakeAction p := by
@@ -362,7 +369,9 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     h.visibleZones _ (by simp [Zone.isSecretTo])
   have hbanished (asInstant : Bool) :
       canPlayFromBanished s1 p id asInstant = canPlayFromBanished s2 p id asInstant := by
-    simp only [canPlayFromBanished, hb, GameState.obj?, h.objects, h.combat, h.activeEffects]
+    have hobj : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
+    delta canPlayFromBanished
+    rw [hb, hobj, h.combat, h.activeEffects]
   have hs : s1.zone .stack = s2.zone .stack := h.visibleZones _ rfl
   have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
   have hdom (link : ChainLink) : linkHasKeyword s1 link .dominate = linkHasKeyword s2 link .dominate :=
