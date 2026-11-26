@@ -3388,6 +3388,10 @@ meta def indexDeckScenario (name : String) (count : Nat) : Option Bool := do
 
 #guard indexDeckScenario "ARC_135_R" 5 == some true
 
+#guard ((earlyPrintingCardId? "ARC136").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 2 && card.status == .full)
+#guard indexDeckScenario "ARC_136_Y" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
