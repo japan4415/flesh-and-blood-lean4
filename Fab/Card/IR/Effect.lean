@@ -232,6 +232,8 @@ inductive Prim where
   With `discountFromDamage`, this requires the source to have dealt positive arcane damage
   and reduces the selected card's resource cost by that amount. -/
   | lookTopToBanishedAsInstant (p : PlayerRef) (filter : CardFilter) (discountFromDamage : Bool := false)
+  /-- Optionally banish an eligible hand card to play as an instant this turn. -/
+  | banishHandToPlayAsInstant (p : PlayerRef) (filter : CardFilter) (maxCost : NumExpr)
   /-- Reveal the top two cards and put them into hand when they satisfy the two filters in either order. -/
   | revealTopPairToHand (p : PlayerRef) (first second : CardFilter)
   /-- Put the chosen deck cards on the bottom in the given order. -/
