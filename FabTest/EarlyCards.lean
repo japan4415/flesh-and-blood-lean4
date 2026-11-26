@@ -4721,6 +4721,10 @@ meta def riftingScenario (card : String) (power : Nat) : Option Bool := do
 
 #guard riftingScenario "ARC_194_R" 6 == some true
 
+#guard ((earlyPrintingCardId? "ARC195").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 5 && card.front.pitch == some 2 && card.status == .full)
+#guard riftingScenario "ARC_195_Y" 5 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
