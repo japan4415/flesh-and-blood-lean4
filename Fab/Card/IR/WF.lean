@@ -85,6 +85,7 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .restrictNamedCard name => name.all fun value => !value.isEmpty
   | .weaponAttack => true
   | .draw p n => p.wfBool numSlots && n.wfBool numSlots env hasX
+  | .drawOnNextAttackActionHit amount => decide (0 < amount)
   | .discardRandom p n => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .discardHandPrefix _ => true
   | .discardChoice p _ n => p.wfBool numSlots && n.wfBool numSlots env hasX
