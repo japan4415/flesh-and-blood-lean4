@@ -4823,6 +4823,36 @@ meta def fateForeseenScenario (card : String) (defense : Nat) : Option Bool := d
   (fun card => card.front.defense == some 2 && card.front.pitch == some 3 && card.status == .full)
 #guard fateForeseenScenario "ARC_202_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC203").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 3 && card.front.pitch == some 1 && card.status == .full)
+
+meta def comeToFightScenario (card : String) (bonus : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let (holding, buff) ← earlyPlace { earlyBase with cards := throughArcDB } p hand card
+  let (equipped, sword) ← earlyPlace holding p (.player p .weapon) "WTR_115"
+  let (withFirst, first) ← earlyPlace equipped p hand "WTR_203_R"
+  let (ready, second) ← earlyPlace withFirst p hand "WTR_203_R"
+  let primed ← earlySteps ready (⟨.player p, .playCard buff⟩ :: earlyPass)
+  let withWeapon ← earlyAttack primed (.attackWeapon sword)
+  let attack ← earlyAttack primed (.playCard first)
+  let link ← attack.combat.bind CombatChain.activeLink?
+  let hit ← earlyDamage attack
+  let continued ← earlySteps hit earlyPass
+  let afterUse ← earlyAttack continued (.playCard second)
+  let afterLink ← afterUse.combat.bind CombatChain.activeLink?
+  let hasBuff (s : GameState) := s.activeEffects.any fun effect =>
+    effect.controller == p && effect.target == .nextAttackCard .attackAction &&
+      effect.op == .addPower (Int.ofNat bonus)
+  pure (hasBuff primed && hasBuff withWeapon && !hasBuff attack && !hasBuff primed.finishTurnEffects &&
+    (primed.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    (primed.poolOf p).resources + 1 == (ready.poolOf p).resources &&
+    linkAttackPower attack link == 4 + bonus &&
+    hit.lifeOf q == ready.lifeOf q - (4 + bonus) && linkAttackPower afterUse afterLink == 4)
+
+#guard comeToFightScenario "ARC_203_R" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
