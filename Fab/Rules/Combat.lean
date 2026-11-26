@@ -787,7 +787,8 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
     match moveObj s1 layerId .combatChain .top false with
     | some (sa, aid) => (sa, aid, [Event.moved layerId aid .stack .combatChain])
     | none => (s1, layerId, [])
-  let lki := captureLki s2 atkId attacker
+  let attackState := { s2 with activeEffects := s2.activeEffects.map (·.followArsenalCard layerId atkId) }
+  let lki := captureLki attackState atkId attacker
   let attackInfo := s.layerMeta.getD layerId.n { controller := attacker }
   let prevLinks := match s2.combat with | some cc => cc.links | none => []
   let newLink : ChainLink :=
@@ -804,7 +805,7 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
       powerForFewerDefenders := attackInfo.attackPowerForFewerDefenders
       grantedKeywords := attackInfo.attackKeywords
       grantedAbilities := attackInfo.attackAbilities }
-  let s3 := { s2 with
+  let s3 := { attackState with
     combat := some { step := .attack, links := newLink :: prevLinks }
     attacksThisTurn := attacker :: s2.attacksThisTurn
     layerMeta := s2.layerMeta.erase layerId.n }

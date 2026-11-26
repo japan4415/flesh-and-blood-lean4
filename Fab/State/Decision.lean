@@ -166,6 +166,8 @@ structure DeckSearchChoice where
   searchesDeck : Bool := true
   /-- An extra counter for a single selected card entering the arena. -/
   entryCounter : Option CounterKind := none
+  /-- Source and power bonus for the card selected into arsenal until the end of this turn. -/
+  arsenalPowerBonus : Option (ObjId × Int) := none
 deriving DecidableEq, Repr
 
 /-- A filtered deck search may fail, while an unrestricted search must select a card if possible. -/

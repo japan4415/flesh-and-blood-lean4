@@ -1252,7 +1252,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
           if shuffleAfter then [.chanceShuffle (.player target .deck)] else []
         else [.chooseShuffleCards target limit matching [] false (some choice)]
       (s, [], follow)
-  | .putHandArsenal pref filter drawAfter =>
+  | .putHandArsenal pref filter drawAfter powerBonus =>
     let target := evalPlayerRef s ctrl pref
     let hand := s.zone (.player target .hand)
     let arsenal := Zone.player target .arsenal
@@ -1261,7 +1261,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
       let matching := hand.filter fun id => (s.objectFace? id).any (cardFaceMatches filter)
       let choice : DeckSearchChoice :=
         { destination := arsenal, reveal := false, mayFail := true,
-          shuffleAfter := false, searchesDeck := false }
+          shuffleAfter := false, searchesDeck := false, arsenalPowerBonus := powerBonus.map (src, ·) }
       (s, [], [.chooseShuffleCards target 1 matching [] drawAfter (some choice)])
   | .putHandPermanent pref filter entryCounter =>
     let target := evalPlayerRef s ctrl pref
@@ -1579,7 +1579,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     | some _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-  | putHandArsenal _ _ _ =>
+  | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | putHandPermanent _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | shuffleZone _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
@@ -1863,7 +1863,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     cases zoneOfRef (evalPlayerRef s ctrl pref) dstRef with
     | none => exact ⟨rfl, rfl, id⟩
     | some _ => exact ⟨rfl, rfl, id⟩
-  | putHandArsenal _ _ _ =>
+  | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | putHandPermanent _ _ _ => exact ⟨rfl, rfl, id⟩
   | shuffleZone _ _ => exact ⟨rfl, rfl, id⟩

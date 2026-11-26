@@ -107,7 +107,7 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .returnDefendingCardToHand _ | .returnChosenDefendingCard _ => true
   | .searchDeck p _ _ _ _ _ _ price =>
     p.wfBool numSlots && price.all (·.wfBool numSlots env hasX)
-  | .putHandArsenal p _ _ => p.wfBool numSlots
+  | .putHandArsenal p _ _ _ => p.wfBool numSlots
   | .putHandPermanent p _ _ => p.wfBool numSlots
   | .shuffleZone p _ => p.wfBool numSlots
   | .shuffleZoneIntoDeck p _ _ _ _ => p.wfBool numSlots
