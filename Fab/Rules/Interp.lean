@@ -831,12 +831,16 @@ def applyResolvedDamage (s : GameState) (target : PlayerId) (kind : DamageKind)
     | _, _ => s.arcaneDamageThisTurn
   { s.setLife target (s.lifeOf target - Int.ofNat amount) with arcaneDamageThisTurn := history }
 
+/-- Settle costs and consumed effects before making the life change of a damage event. -/
+def settleDamagePrevention (s : GameState) (result : ReplacementState) : GameState × List Event :=
+  let remaining := keepDamageReplacements s.activeReplacements result
+  destroyManyObjs { s with activeReplacements := remaining } result.destroyedSources
+
 /-- Commit damage after replacement choices, consuming shields and destroying prevention sources
 before updating life (CR 6.4, 6.5). -/
 def settleDamage (s : GameState) (target : PlayerId) (kind : DamageKind) (result : ReplacementState) :
     GameState × List Event :=
-  let remaining := keepDamageReplacements s.activeReplacements result
-  let (settled, events) := destroyManyObjs { s with activeReplacements := remaining } result.destroyedSources
+  let (settled, events) := settleDamagePrevention s result
   let amount := remainingDamage result.event
   if amount = 0 then (settled, events)
   else (checkHeroDefeat (applyResolvedDamage settled target kind amount result.damageSource),
@@ -856,7 +860,7 @@ theorem settleDamage_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (p : Pla
     (GameState.WF.congr (s := s) (s2 := board) hwf rfl rfl rfl rfl)
     (GameState.OwnerOk.congr (s := s) (s2 := board) hok rfl rfl)
   obtain ⟨hw, ho, hp, hc, hr⟩ := hb
-  unfold settleDamage
+  unfold settleDamage settleDamagePrevention
   dsimp only
   split
   · exact ⟨hw, ho, hp, hc, hr⟩
@@ -874,7 +878,7 @@ theorem settleDamage_ttr (s : GameState) (p : PlayerId) (kind : DamageKind) (dam
   let board := { s with activeReplacements := keepDamageReplacements s.activeReplacements damage }
   let settled := (destroyManyObjs board damage.destroyedSources).1
   have hb := destroyManyObjs_ttr damage.destroyedSources board
-  unfold settleDamage
+  unfold settleDamage settleDamagePrevention
   dsimp only
   split
   · exact ⟨hb.1, hb.2.1, fun hr => hb.2.2 ▸ hr⟩
@@ -890,6 +894,16 @@ def applyDamageWithPrevention (s : GameState) (target : PlayerId) (kind : Damage
   else settleDamage s target kind (applyReplacementPipeline [] s.activeReplacements
     { event := .damage target kind amt, availResources := (s.poolOf target).resources,
       damageSource := origin })
+
+/-- Apply all prepared life changes of one simultaneous damage event (CR 4.5.3a). -/
+def applyArcaneBatchLosses (s : GameState) (batch : ArcaneDamageBatch) : GameState :=
+  let damage := batch.settled.reverse.filter (fun (_, amount) => decide (0 < amount))
+  let life := damage.foldl (fun totals (target, amount) =>
+    totals.insert target.n (totals.getD target.n 0 - Int.ofNat amount)) s.heroLife
+  let history := damage.foldl (fun history (target, amount) =>
+    { controller := batch.controller, source := batch.source, target, amount } :: history)
+    s.arcaneDamageThisTurn
+  { s with heroLife := life, arcaneDamageThisTurn := history }
 
 /-- Automatic damage preserves the structural and rollback invariants. -/
 theorem applyDamageWithPrevention_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
@@ -942,12 +956,13 @@ def preventionResourceCost (effect : ReplacementEffect) : Nat :=
 /-- Open a prevention choice when Arcane Barrier is available or fixed prevention competes
 with another eligible effect (CR 6.4.10, 6.5.1). -/
 def damagePreventionFrame? (s : GameState) (p : PlayerId) (kind : DamageKind) (amount : Nat)
-    (attack : Option ObjId := none) (origin : Option (PlayerId × ObjId) := none) : Option Frame :=
+    (attack : Option ObjId := none) (origin : Option (PlayerId × ObjId) := none)
+    (batch : Option ArcaneDamageBatch := none) : Option Frame :=
   if amount = 0 then none
   else
     let barriers := if kind == .arcane then arcaneBarrierEffects s p else []
     let effects := s.activeReplacements ++ barriers
-    let proposed : ReplacementState := { event := .damage p kind amount, damageSource := origin }
+    let proposed : ReplacementState := { event := .damage p kind amount, damageSource := origin, batch }
     let damage := applyReplacementStage .standard [] effects
       (applyReplacementStage .selfOrIdentity [] effects proposed)
     let candidates := effects.filter fun effect =>
@@ -957,9 +972,25 @@ def damagePreventionFrame? (s : GameState) (p : PlayerId) (kind : DamageKind) (a
       match effect.action with
       | .fixedPrevent _ => true
       | _ => false
-    if !barriers.isEmpty || (hasFixed && candidates.length > 1) then
+    if batch.isSome || !barriers.isEmpty || (hasFixed && candidates.length > 1) then
       some (.arcaneDamage p effects damage .offer attack)
     else none
+
+/-- Prepare prevention for the next target without changing any hero's life. -/
+def nextArcaneBatchFrame (s : GameState) (batch : ArcaneDamageBatch) : List Frame :=
+  match batch.remaining with
+  | [] => []
+  | (target, amount) :: remaining =>
+    (damagePreventionFrame? s target .arcane amount none (some (batch.controller, batch.source))
+      (some { batch with remaining })).toList
+
+/-- Whether public board state presents a possible replacement for arcane damage to a hero. -/
+def hasArcaneReplacement (s : GameState) (target : PlayerId) (amount : Nat) : Bool :=
+  !((arcaneBarrierEffects s target).isEmpty) ||
+    s.activeReplacements.any fun effect =>
+      let offer : ReplacementState :=
+        { event := .damage target .arcane amount, availResources := (s.poolOf target).totalEnergy }
+      effect.controller == target && effect.eligible effect.stage offer
 
 /-- Banish the first card in a hand and schedule its return at the beginning of the end phase. -/
 def intimidateHandFront (s : GameState) (ctrl target : PlayerId) : GameState × List Event × List Frame :=
@@ -1087,6 +1118,19 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     | none =>
       let (s1, es) := applyDamageWithPrevention s target kind amt (some (ctrl, src))
       (s1, es, [])
+  | .dealArcaneDamageToPair first second amount =>
+    let p := evalPlayerRef s ctrl first
+    let q := evalPlayerRef s ctrl second
+    let damage (base : Nat) := modifiedDamageAmount s src .arcane base
+    let remaining := if p == q then [(p, damage (amount + amount))] else
+      [(p, damage amount), (q, damage amount)]
+    let batch : ArcaneDamageBatch := { controller := ctrl, source := src, remaining }
+    let frames :=
+      if amount == 0 then []
+      else if p != q && hasArcaneReplacement s p (damage amount) && hasArcaneReplacement s q (damage amount) then
+        [.chooseArcaneDamageOrder (s.active.getD ctrl) ctrl src remaining]
+      else nextArcaneBatchFrame s batch
+    (s, [], frames)
   | .gainAP pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
@@ -1485,6 +1529,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     · exact applyDamageWithPrevention_inv hwf hok (evalPlayerRef s ctrl pref) kind
         (modifiedDamageAmount s src kind (clampNonNeg (evalNumExpr s ctrl env n (some src))))
         (some (ctrl, src))
+  | dealArcaneDamageToPair _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | createToken pref tokId n =>
     let target := evalPlayerRef s ctrl pref
     let count := tokenCreationCount s target tokId n
@@ -1803,6 +1848,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     · exact applyDamageWithPrevention_ttr s (evalPlayerRef s ctrl pref) kind
         (modifiedDamageAmount s src kind (clampNonNeg (evalNumExpr s ctrl env n (some src))))
         (some (ctrl, src))
+  | dealArcaneDamageToPair _ _ _ => exact ⟨rfl, rfl, id⟩
   | createToken pref tokId n =>
     have hc : ∀ (k : Nat) (st : GameState),
         (createTokens st (evalPlayerRef s ctrl pref) tokId k).turn = st.turn ∧

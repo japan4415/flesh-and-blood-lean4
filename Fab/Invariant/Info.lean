@@ -713,7 +713,8 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                     (l.map fun id => Action.mk (.player q) (.pitchCard id)) = [] := by
                 intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
               rw [hnil, hnil]
-          | chooseReplacement _ _ _ _ | chooseTriggerGraveyard _ _ _ _ _ _ => rfl
+          | chooseReplacement _ _ _ _ | chooseTriggerGraveyard _ _ _ _ _ _
+          | chooseArcaneDamageOrder _ _ _ _ => rfl
           | chanceFirstPlayer | revealLoadouts | chanceShuffle _ | openingDraws | draw _ _
           | beginTurn | startPhaseWork _ | actionPhaseStart _ | playPayCost _ _ _ _ _
           | payRandomDiscard _ _ _ _ _

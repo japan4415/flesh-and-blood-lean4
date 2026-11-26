@@ -576,6 +576,11 @@ theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       exact rollbackPlay_preserves hwf hok hrb _
     · cases h
+  · -- chooseArcaneDamageOrder pickHeroTarget
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
+      exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+    · cases h
   · -- choosePlayWeapon pickWeaponTarget
     split at h
     · cases h
@@ -877,6 +882,38 @@ private theorem finishCombatDamage_preserves {s : GameState}
     · exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
     · refine sameBoard_gspRun_pending_preserves hwf hok hrb ?_ ?_ ?_ ?_ ?_ _ <;> rfl
 
+private theorem finishArcaneBatch_preserves {s : GameState} {p : PlayerId}
+    {result : ReplacementState} {batch : ArcaneDamageBatch} {rest : List Frame}
+    (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk) :
+    StepPreserves s (finishArcaneBatch s p result batch rest).1 := by
+  let board := { s with activeReplacements := keepDamageReplacements s.activeReplacements result }
+  have hboard : StepPreserves s board := sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
+  let prevention := settleDamagePrevention s result
+  obtain ⟨hw, ho, hp, hc, hr⟩ :=
+    destroyManyObjs_inv result.destroyedSources hboard.wf hboard.ownerOk
+  have hprevention : StepPreserves s prevention.1 :=
+    ⟨hw, ho, GameState.RollbackOk.preserve hrb hc hr hp, hp, hc⟩
+  let prepared := queueRuleEventTriggers prevention.1 prevention.2
+  have hprepared : StepPreserves s prepared := hprevention.trans
+    (sameBoard_preserves hprevention.wf hprevention.ownerOk hprevention.rollbackOk rfl rfl rfl rfl rfl)
+  unfold finishArcaneBatch
+  dsimp only
+  split
+  · let completed := { batch with settled := (p, remainingDamage result.event) :: batch.settled }
+    let losses := applyArcaneBatchLosses prepared completed
+    have hlosses : StepPreserves s losses := hprepared.trans
+      (sameBoard_preserves hprepared.wf hprepared.ownerOk hprepared.rollbackOk rfl rfl rfl rfl rfl)
+    let damaged := checkHeroDefeat losses
+    obtain ⟨hconfig, hrollback⟩ := checkHeroDefeat_config_rollback losses
+    have hphys : damaged.physIds.Perm losses.physIds := by simp [damaged, checkHeroDefeat_physIds]
+    have hdamaged : StepPreserves s damaged := hlosses.trans
+      ⟨checkHeroDefeat_wf hlosses.wf, checkHeroDefeat_ownerOk hlosses.ownerOk,
+        GameState.RollbackOk.preserve hlosses.rollbackOk hconfig hrollback hphys, hphys, hconfig⟩
+    exact hdamaged.trans
+      (sameBoard_preserves hdamaged.wf hdamaged.ownerOk hdamaged.rollbackOk rfl rfl rfl rfl rfl)
+  · exact hprepared.trans
+      (sameBoard_preserves hprepared.wf hprepared.ownerOk hprepared.rollbackOk rfl rfl rfl rfl rfl)
+
 /-- Settling a damage event preserves the board invariants. -/
 private theorem finishArcaneDamage_preserves {s : GameState} {p : PlayerId}
     {effects : List ReplacementEffect} {damage : ReplacementState} {rest : List Frame}
@@ -890,8 +927,10 @@ private theorem finishArcaneDamage_preserves {s : GameState} {p : PlayerId}
   unfold finishArcaneDamage
   dsimp only
   split
-  · exact h.trans (finishCombatDamage_preserves h.wf h.ownerOk h.rollbackOk _ _ _)
-  · exact h.trans (sameBoard_preserves h.wf h.ownerOk h.rollbackOk rfl rfl rfl rfl rfl)
+  · exact finishArcaneBatch_preserves hwf hok hrb
+  · split
+    · exact h.trans (finishCombatDamage_preserves h.wf h.ownerOk h.rollbackOk _ _ _)
+    · exact h.trans (sameBoard_preserves h.wf h.ownerOk h.rollbackOk rfl rfl rfl rfl rfl)
 
 private theorem advanceArcaneDamage_preserves {s : GameState} {p : PlayerId}
     {effects : List ReplacementEffect} {damage : ReplacementState} {stage : ArcaneDamageStep}
@@ -1614,6 +1653,9 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
     | choosePlayHero p _ _ _ _ =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer]
       all_goals grind
+    | chooseArcaneDamageOrder p _ _ _ =>
+      cases actor <;> cases kind <;> simp [Actor.isPlayer]
+      all_goals grind
     | choosePlayWeapon p _ _ _ _ candidates =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer] <;> first | exact eq_comm | grind
     | choosePitch p _ _ _ _ =>
@@ -2171,7 +2213,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
         cases kind <;> exact False.elim hlf
     | choosePlayHero p _ _ _ _ =>
       cases actor <;> cases kind <;> simp_all
-    | choosePlayWeapon p _ _ _ _ _ =>
+    | chooseArcaneDamageOrder p _ _ _ | choosePlayWeapon p _ _ _ _ _ =>
       cases actor <;> cases kind <;> simp_all
     | choosePitch p _ _ _ _ =>
       cases actor with

@@ -3012,6 +3012,45 @@ meta def sonicBoomScenario : Option Bool := do
 
 #guard sonicBoomScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC120").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.status == .full)
+
+meta def forkedLightningScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let (ready, forked) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) "ARC_120_R"
+  let target (hero : PlayerId) : Action := ⟨.player p, .pickHeroTarget hero⟩
+  let play : Action := ⟨.player p, .playCard forked⟩
+  let cast (s : GameState) (first second : PlayerId) :=
+    earlySteps s ([play, target first, target second] ++ earlyPass)
+  let choosing ← earlySteps ready [play, target q]
+  let lethal := (ready.setLife p 2).setLife q 2
+  let simultaneous ← cast lethal p q
+  let (withBarrier, _) ← earlyPlace (ready.setPool q { resources := 2 }) q (.player q .chest) "ARC_117"
+  let repeated ← cast withBarrier q q
+  let .chooseReplacement repeatDefender .prevention [repeatBarrier] true :: _ := repeated.pending | none
+  let repeatedPaid ← earlySteps repeated [⟨.player q, .pickReplacement (some repeatBarrier)⟩]
+  let (both, _) ← earlyPlace withBarrier p (.player p .chest) "ARC_117"
+  let chooseOrder ← cast both p q
+  let .chooseArcaneDamageOrder turnPlayer _ _ _ :: _ := chooseOrder.pending | none
+  let enemyFirst ← earlySteps chooseOrder [target q]
+  let .chooseReplacement enemy .prevention [enemyBarrier] true :: _ := enemyFirst.pending | none
+  let enemyPaid ← earlySteps enemyFirst [⟨.player q, .pickReplacement (some enemyBarrier)⟩]
+  let .chooseReplacement self .prevention [_] true :: _ := enemyPaid.pending | none
+  let settled ← earlySteps enemyPaid [⟨.player p, .pickReplacement none⟩]
+  pure ((choosing.poolOf p) == (ready.poolOf p) && (legalActions choosing).contains (target q) &&
+    simultaneous.result == some (.draw .simultaneousHeroDeath) &&
+    simultaneous.lifeOf p == 0 && simultaneous.lifeOf q == 0 &&
+    repeatDefender == q && repeatedPaid.lifeOf q == ready.lifeOf q - 3 &&
+    (repeatedPaid.poolOf q).resources == 1 && repeatedPaid.arcaneDamageThisTurn.length == 1 &&
+    turnPlayer == p && enemy == q && self == p &&
+    enemyPaid.lifeOf q == ready.lifeOf q && enemyPaid.lifeOf p == ready.lifeOf p &&
+    settled.lifeOf q == ready.lifeOf q - 1 && settled.lifeOf p == ready.lifeOf p - 2 &&
+    settled.arcaneDamageThisTurn.length == 2)
+
+#guard forkedLightningScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
