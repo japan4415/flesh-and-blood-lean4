@@ -17,8 +17,34 @@
       </div>
     </header>
     <main class="frame draft-main">
-      <h1>8人ドラフト</h1>
-      <p class="draft-intro">Welcome to Ratheのブースターを、1人3パックでドラフトします。</p>
+      <div class="draft-heading">
+        <h1>8人ドラフト</h1>
+        <p class="draft-intro">Welcome to Ratheのブースターを、1人3パックでドラフトします。</p>
+      </div>
+      <section id="duel" class="draft-panel" aria-labelledby="duel-title" hidden>
+        <header class="duel-header">
+          <div class="draft-summary">
+            <h1 id="duel-title">対戦</h1>
+            <p id="duel-seats"></p>
+          </div>
+          <p id="duel-status" role="status" tabindex="-1"></p>
+        </header>
+        <div id="duel-board"></div>
+        <div class="duel-bottom">
+          <div id="duel-hand"></div>
+          <div class="duel-dock">
+            <p id="duel-feedback" role="status"></p>
+            <div id="duel-controls" class="draft-actions" aria-label="対戦操作" role="group"></div>
+          </div>
+        </div>
+        <dialog id="duel-inspect" aria-labelledby="duel-inspect-title">
+          <div class="draft-summary">
+            <h3 id="duel-inspect-title"></h3>
+            <form class="draft-actions" method="dialog"><button>閉じる</button></form>
+          </div>
+          <div id="duel-inspect-image"></div>
+        </dialog>
+      </section>
       <section class="draft-panel" aria-label="ルーム操作">
         <div class="draft-actions">
           <button id="enter" type="button">ルームを作成</button>
@@ -30,16 +56,6 @@
           <input id="invite-url" type="url" readonly>
         </label>
         <p id="draft-status" role="status">ルームを作成して、参加用リンクを共有します。</p>
-      </section>
-      <section id="duel" class="draft-panel" aria-labelledby="duel-title" hidden>
-        <div class="draft-summary">
-          <h2 id="duel-title">対戦</h2>
-          <p id="duel-seats"></p>
-        </div>
-        <p id="duel-status" role="status" tabindex="-1"></p>
-        <p id="duel-feedback" role="status"></p>
-        <div id="duel-controls" class="draft-actions"></div>
-        <div id="duel-board"></div>
       </section>
       <section class="draft-panel" aria-labelledby="draft-play-title">
         <div class="draft-summary">
