@@ -3171,6 +3171,10 @@ meta def absorbInAetherScenario (card : String) (defense : Int) : Option Bool :=
 
 #guard absorbInAetherScenario "ARC_123_R" 4 == some true
 
+#guard ((earlyPrintingCardId? "ARC124").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .defenseReaction && card.front.defense == some 3 && card.status == .full)
+#guard absorbInAetherScenario "ARC_124_Y" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
