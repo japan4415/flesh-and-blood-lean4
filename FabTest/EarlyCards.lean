@@ -3456,6 +3456,10 @@ meta def reverberateScenario (name : String) (damage : Nat) : Option Bool := do
 
 #guard reverberateScenario "ARC_138_R" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC139").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 2 && card.status == .full)
+#guard reverberateScenario "ARC_139_Y" 2 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
