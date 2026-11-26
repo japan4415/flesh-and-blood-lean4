@@ -2056,6 +2056,43 @@ meta def hamstringShotScenario (cardId : String) (damage : Int) : Option Bool :=
 
 #guard hamstringShotScenario "ARC_062_B" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC063").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Ridge Rider Shot" && card.front.pitch == some 1 && card.status == .full)
+
+meta def ridgeRiderShotScenario (cardId : String) : Option Bool := do
+  let p := earlyAttacker
+  let deck := Zone.player p .deck
+  let arsenal := Zone.player p .arsenal
+  let state := { earlyBase with cards := throughArcDB }
+  let (withBow, bow) ← earlyPlace state p (.player p .weapon) "ARC_040"
+  let (withHead, head) ← earlyPlace withBow p (.player p .head) "ARC_041"
+  let (withBottom, bottom) ← earlyPlace withHead p deck "WTR_193_B"
+  let (withLook, lookedAt) ← earlyPlace withBottom p deck "WTR_192_Y"
+  let (withDeck, top) ← earlyPlace withLook p deck "WTR_191_R"
+  let (ready, arrow) ← earlyPlace withDeck p (.player p .hand) cardId
+  let loaded ← earlySteps ready
+    (⟨.player p, .activateAbility bow 0 none⟩ ::
+      (earlyPass ++ [⟨.player p, .pickShuffleCard (some arrow)⟩, ⟨.player p, .pickShuffleCard none⟩]))
+  let loadedId ← (loaded.zone arsenal).head?
+  let trigger ← loaded.pendingTriggers.head?
+  let choosing ← earlySteps loaded
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let .chooseOpt chooser viewed _ _ _ :: _ := choosing.pending | none
+  let resolved ← earlySteps choosing [⟨.player p, .optPick false none⟩]
+  let (faceDown, hidden) ← addObject withDeck arsenal
+    { kind := .card ⟨withDeck.nextId⟩ ⟨cardId⟩, owner := p, controller := p,
+      timestamp := ⟨0⟩, faceDown := true } .top
+  let flipped ← earlySteps faceDown [⟨.player p, .activateAbility head 0 (some hidden)⟩]
+  let crosswrap ← earlySteps flipped (earlyPass ++ [⟨.player p, .optPick true none⟩])
+  pure (trigger.source == loadedId && loaded.pendingTriggers.length == 1 &&
+    loaded.zone deck == [lookedAt, bottom] && chooser == p && viewed == lookedAt &&
+    resolved.zone deck == [bottom, lookedAt] && resolved.zone arsenal == [loadedId] &&
+    (flipped.obj? hidden).any (fun card => !card.faceDown) &&
+    flipped.pendingTriggers.isEmpty && crosswrap.pendingTriggers.isEmpty &&
+    crosswrap.zone deck == [top, lookedAt, bottom])
+
+#guard ridgeRiderShotScenario "ARC_063_R" == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
