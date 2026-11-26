@@ -205,6 +205,12 @@ inductive Prim where
   | searchDeck (p : PlayerRef) (f : CardFilter) (maxCount : Option Nat) (dst : ZoneRef)
       (reveal : Bool) (playableDuration : Option Duration) (shuffleAfter : Bool := true)
       (exactCost : Option NumExpr := none)
+  /-- Search the deck for one optional matching card, reveal it, shuffle and put it on top. -/
+  | searchDeckToTop (p : PlayerRef) (f : CardFilter)
+  /-- Place a selected object still in its player's deck at the top (search continuation). -/
+  | putChosenDeckCardOnTop (p : PlayerRef) (id : ObjId)
+  /-- If the arsenal is empty, optionally put a card from hand into it face down. -/
+  | reload (p : PlayerRef)
   /-- Optionally put one matching card from hand into the arena with an additional entry counter. -/
   | putHandPermanent (p : PlayerRef) (f : CardFilter) (entryCounter : Option CounterKind := none)
   /-- If the arsenal is empty, optionally put one matching hand card into it face up

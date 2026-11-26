@@ -1700,6 +1700,50 @@ meta def endlessArrowScenario : Option Bool := do
 
 #guard endlessArrowScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC046").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Nock the Deathwhistle" && card.status == .full)
+
+meta def nockTheDeathwhistleScenario : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let arsenal := Zone.player p .arsenal
+  let state := { earlyBase with cards := throughArcDB }
+  let (withBottom, bottom) ← earlyPlace state p deck "WTR_191_R"
+  let (withArrow, arrow) ← earlyPlace withBottom p deck "ARC_045_R"
+  let (withTop, top) ← earlyPlace withArrow p deck "WTR_192_Y"
+  let (withHand, reserve) ← earlyPlace withTop p hand "WTR_193_B"
+  let (ready, spell) ← earlyPlace withHand p hand "ARC_046_B"
+  let play : Action := ⟨.player p, .playCard spell⟩
+  let pick (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let shuffle : Action := ⟨.chance, .shuffleOrder [bottom, top, arrow]⟩
+  let reload : Action := ⟨.player p, .arsenalPut reserve⟩
+  let declineReload : Action := ⟨.player p, .arsenalSkip⟩
+  let choosing ← earlySteps ready (play :: earlyPass)
+  let .chooseShuffleCards player 1 [candidate] [] false (some choice) :: _ := choosing.pending | none
+  let selected ← earlySteps choosing [pick (some candidate)]
+  let (shuffling, events) ← (step 64 selected (pick none)).toOption
+  let .chanceShuffle zone :: _ := shuffling.pending | none
+  let waitingReload ← earlySteps shuffling [shuffle]
+  let .chooseArsenal chooser :: _ := waitingReload.pending | none
+  let loaded ← earlySteps waitingReload [reload]
+  let declined ← earlySteps choosing [pick none, shuffle, declineReload]
+  let (occupied, stored) ← earlyPlace ready p arsenal "WTR_191_R"
+  let stillOccupied ← earlySteps occupied (play :: (earlyPass ++ [pick none, shuffle]))
+  let loadedId ← (loaded.zone arsenal).head?
+  pure (player == p && candidate == arrow && choice.searchesDeck && choice.putOnTopAfterShuffle &&
+    (view earlyDefender choosing).selectionChoices.isEmpty &&
+    (earlySteps choosing [pick (some top)]).isNone &&
+    zone == deck && events.contains (.revealed p arrow ⟨"ARC_045_R"⟩) && chooser == p &&
+    waitingReload.zone deck == [arrow, bottom, top] && loaded.zone deck == [arrow, bottom, top] &&
+    (loaded.obj? loadedId).any (·.faceDown) && (loaded.zone hand).isEmpty &&
+    (loaded.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    declined.zone deck == [bottom, top, arrow] && declined.zone arsenal == [] &&
+    declined.zone hand == [reserve] && stillOccupied.zone deck == [bottom, top, arrow] &&
+    stillOccupied.zone arsenal == [stored] && stillOccupied.zone hand == [reserve])
+
+#guard nockTheDeathwhistleScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
