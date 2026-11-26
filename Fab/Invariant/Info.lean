@@ -681,7 +681,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
               have hf : canPickHandCostCard s1 q cost = canPickHandCostCard s2 q cost := by
                 funext id
                 cases cost with
-                | bottomDeck => simp [canPickHandCostCard, hh]
+                | putOnDeck _ => simp [canPickHandCostCard, hh]
                 | reveal filter =>
                   simp [canPickHandCostCard, revealCostCard?, hh,
                     (h.cardDef_face id).1, (h.cardDef_face id).2]

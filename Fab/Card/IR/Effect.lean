@@ -489,6 +489,8 @@ structure EffectDef where
   targets : List TargetSpec := []
   /-- Additional non-asset or optional costs declared at play time. -/
   extraCosts : List ExtraCostSpec := []
+  /-- May put a hand card on top of the deck instead of paying this card's base resource cost (CR 5.4.4b). -/
+  handCardInsteadOfResources : Bool := false
   /-- After paying X, shuffle X matching target cards from the controller's graveyard,
   then resolve the attached effect. The targets are declared when the trigger is stacked. -/
   onPayX : Option (CardFilter × Effect) := none
