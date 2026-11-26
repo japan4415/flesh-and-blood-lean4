@@ -445,9 +445,18 @@ def nextActionSurcharge (s : GameState) (p : PlayerId) : Nat :=
     | .addCostRes n => if effect.isNextActionCostFor p then total + n else total
     | _ => total) 0
 
+/-- Resource surcharges applying to the player's first attack (CR 5.1.7). -/
+def nextAttackSurcharge (s : GameState) (p : PlayerId) : Nat :=
+  s.activeEffects.foldl (fun total effect =>
+    match effect.target, effect.op with
+    | .nextAttackBy player, .addCostRes amount =>
+      if player == p && !effect.waitsForNextTurn then total + amount else total
+    | _, _ => total) 0
+
 /-- Resource adjustments applying to the announced action (CR 5.1.7). -/
 def cardResourceAdjustment (s : GameState) (p : PlayerId) (card : CardDef) : Int :=
   if card.front.hasType .action then
+    let attackSurcharge := if card.front.hasSubtype .attack then nextAttackSurcharge s p else 0
     s.activeEffects.foldl (fun total effect =>
       match effect.target with
       | .nextAttackCard filter =>
@@ -458,7 +467,7 @@ def cardResourceAdjustment (s : GameState) (p : PlayerId) (card : CardDef) : Int
           | .subCostRes n => total - Int.ofNat n
           | _ => total
         else total
-      | _ => total) (Int.ofNat (nextActionSurcharge s p))
+      | _ => total) (Int.ofNat (nextActionSurcharge s p + attackSurcharge))
   else 0
 
 /-- Apply the announcing player's action and next-attack cost modifiers (CR 5.1.7). -/
@@ -1023,7 +1032,7 @@ def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo
           ({ layer with attackAbilities := ability :: layer.attackAbilities }, rest)
         | .addCostRes _ | .subCostRes _ =>
           match effect.target with
-          | .nextAttackCard _ => (layer, rest)
+          | .nextAttackCard _ | .nextAttackBy _ => (layer, rest)
           | _ => (layer, effect :: rest)
         | _ => (layer, effect :: rest)
       else (layer, effect :: rest)) (info, [])
@@ -1610,7 +1619,7 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
     if p = q ∧ canAttackWithWeapon s p wid = true then
       let snap := s.snapshot
       let base := match s.cardDefOf? wid with | some c => weaponAttackCost c | none => { actionPoints := 1 }
-      let cost := { base with resources := base.resources + nextActionSurcharge s p }
+      let cost := { base with resources := base.resources + nextActionSurcharge s p + nextAttackSurcharge s p }
       let lki := captureLki s wid p
       let proxyObj : Object :=
         { kind := .attackProxy wid (some lki)

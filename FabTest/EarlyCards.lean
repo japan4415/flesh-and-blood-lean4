@@ -2002,6 +2002,50 @@ meta def headShotScenario (cardId : String) (basePower : Nat) : Option Bool := d
 
 #guard headShotScenario "ARC_059_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC060").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Hamstring Shot" && card.front.pitch == some 1 && card.status == .full)
+
+meta def hamstringShotScenario (cardId : String) (damage : Int) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let base := { earlyBase with cards := throughArcDB }
+  let (withBow, _) ← earlyPlace base p (.player p .weapon) "ARC_040"
+  let (archer, arrow) ← earlyPlace withBow p (.player p .arsenal) cardId
+  let attacking ← earlyAttack archer (.playCard arrow)
+  let hit ← earlyDamage attacking
+  let trigger ← hit.pendingTriggers.head?
+  let applied ← earlySteps hit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let closed ← earlySteps applied (earlyPass ++ earlyPass)
+  let (withBlade, blade) ← earlyPlace closed q (.player q .weapon) "WTR_115"
+  let (withUtility, utility) ← earlyPlace withBlade q (.player q .hand) "WTR_218_R"
+  let (prepared, action) ← earlyPlace withUtility q (.player q .hand) "WTR_203_R"
+  let next := { prepared.setPool q { actionPoints := 3, resources := 6 } with
+    turn := prepared.turn + 1, active := some q, pending := [.startPhaseWork q, .actionPhaseStart q] }
+  let (start, _) ← microStep next
+  let (ready, _) ← microStep start
+  let pass : List Action := [⟨.player q, .pass⟩, ⟨.player p, .pass⟩]
+  let afterUtility ← earlySteps ready (⟨.player q, .playCard utility⟩ :: pass)
+  let firstAttack : Action := ⟨.player q, .playCard action⟩
+  let byCard ← earlySteps afterUtility [firstAttack]
+  let byWeapon ← earlySteps ready [⟨.player q, .attackWeapon blade⟩]
+  let discount : ContinuousEffect :=
+    { id := afterUtility.nextTimestamp, source := utility, controller := q,
+      target := .nextAttackCard CardFilter.attackAction, op := .subCostRes 1
+      timestamp := ⟨afterUtility.nextTimestamp⟩ }
+  let reduced ← earlySteps { afterUtility with activeEffects := afterUtility.activeEffects ++ [discount] }
+    [firstAttack]
+  pure (hit.lifeOf q == base.lifeOf q - damage && closed.combat.isNone &&
+    nextAttackSurcharge closed q == 0 && nextAttackSurcharge ready q == 1 &&
+    nextAttackSurcharge ready p == 0 && nextAttackSurcharge afterUtility q == 1 &&
+    (byCard.poolOf q).resources + 1 == (afterUtility.poolOf q).resources &&
+    (byWeapon.poolOf q).resources + 2 == (ready.poolOf q).resources &&
+    (reduced.poolOf q).resources == (afterUtility.poolOf q).resources &&
+    nextAttackSurcharge byCard q == 0 && nextAttackSurcharge byWeapon q == 0 &&
+    nextAttackSurcharge reduced q == 0 && nextAttackSurcharge ready.finishTurnEffects q == 0)
+
+#guard hamstringShotScenario "ARC_060_R" 5 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
