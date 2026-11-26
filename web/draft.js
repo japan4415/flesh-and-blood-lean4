@@ -1,3 +1,5 @@
+import { createDraftPlay } from "./draft-play.js";
+
 const enter = document.querySelector("#enter");
 const probe = document.querySelector("#probe");
 const leave = document.querySelector("#leave");
@@ -25,10 +27,22 @@ async function signal(message, keepalive = false) {
   return payload;
 }
 
+const connected = () => [...links.values()].filter((link) => link.channel?.readyState === "open");
+const play = createDraftPlay({
+  session: () => session,
+  connected,
+  lock: (room, peers) => signal({ ...room, action: "lock", peers: peers.map((peer) => peer.id) }),
+  send(link, message) {
+    if (link?.channel?.readyState !== "open") return false;
+    link.channel.send(JSON.stringify(message));
+    return true;
+  },
+});
+
 function render() {
   const host = session?.seat !== undefined ? session.seat === 1 : !invitedRoom;
   const seats = host ? [2, 3, 4, 5, 6, 7, 8] : [1];
-  const active = [...links.values()].filter((link) => link.channel?.readyState === "open").length;
+  const active = connected().length;
   const total = `${active} / ${seats.length} 接続`;
   if (count.textContent !== total) count.textContent = total;
   probe.disabled = active === 0;
@@ -49,13 +63,19 @@ function render() {
     }
     return row;
   }));
+  play.refresh();
 }
 
 function receive(link, data) {
-  if (typeof data !== "string" || data.length > 256) return;
+  if (typeof data !== "string" || data.length > 4096 || links.get(link.id) !== link) return;
   let message;
   try { message = JSON.parse(data); } catch { return; }
-  if (!message || !Number.isSafeInteger(message.run) || !Number.isSafeInteger(message.number) ||
+  if (typeof message?.kind !== "string") return;
+  if (message.kind.startsWith("draft-")) {
+    play.receive(link, message);
+    return;
+  }
+  if (!Number.isSafeInteger(message.run) || !Number.isSafeInteger(message.number) ||
       message.number < 1 || message.number > batchSize) return;
   if (message.kind === "ping") {
     if (message.number === 1 && message.run > link.incomingRun) {
@@ -176,6 +196,7 @@ function stop(notify) {
   clearTimeout(pollTimer);
   for (const link of links.values()) link.pc.close();
   links.clear();
+  play.reset();
   enter.disabled = false;
   enter.hidden = false;
   invite.hidden = true;

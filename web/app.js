@@ -1,3 +1,6 @@
+import { cardMedia, loadCards } from "./cards.js";
+import { loadWasm, sampleIndex } from "./wasm.js";
+
 const runtime = document.querySelector("#runtime");
 const openButton = document.querySelector("#open-pack");
 const buttonLabel = document.querySelector("#button-label");
@@ -10,57 +13,11 @@ const slots = [
   "Rare", "Rare以上", "装備", "Foil", "トークン",
 ];
 
-function loadWasm() {
-  return new Promise((resolve, reject) => {
-    if (!globalThis.crossOriginIsolated) {
-      reject(new Error("WASM requires cross-origin isolation"));
-      return;
-    }
-    window.Module = {
-      noInitialRun: true,
-      onRuntimeInitialized() {
-        const module = window.Module;
-        if (module.ccall("fab_web_init", "number") === 1) resolve(module);
-        else reject(new Error("Lean initialization failed"));
-      },
-      onAbort: reject,
-    };
-    const script = document.createElement("script");
-    script.src = "/wasm/fab.js";
-    script.onerror = () => reject(new Error("Could not load fab.js"));
-    document.head.append(script);
-  });
-}
-
-function sampleIndex(bound) {
-  const value = new Uint32Array(1);
-  const limit = 2 ** 32 - (2 ** 32 % bound);
-  do {
-    crypto.getRandomValues(value);
-  } while (value[0] >= limit);
-  return value[0] % bound;
-}
-
 function cardElement(id, slot, cards) {
   const card = cards[id];
   const item = document.createElement("li");
   item.className = "card";
   if (slot === "Foil") item.dataset.slot = "foil";
-  const media = document.createElement("div");
-  media.className = "card-media";
-  const fallback = document.createElement("span");
-  fallback.className = "card-fallback";
-  fallback.textContent = card.number;
-  fallback.setAttribute("aria-hidden", "true");
-  media.append(fallback);
-
-  const image = document.createElement("img");
-  image.alt = card.name;
-  image.referrerPolicy = "no-referrer";
-  image.addEventListener("error", () => image.remove(), { once: true });
-  image.src = card.image;
-  media.append(image);
-
   const category = document.createElement("p");
   category.className = "card-slot";
   category.textContent = slot;
@@ -70,18 +27,12 @@ function cardElement(id, slot, cards) {
   const number = document.createElement("p");
   number.className = "card-id";
   number.textContent = card.number;
-  item.append(media, category, name, number);
+  item.append(cardMedia(card), category, name, number);
   return item;
 }
 
 try {
-  const [wasm, cards] = await Promise.all([
-    loadWasm(),
-    fetch("/cards.json").then((response) => {
-      if (!response.ok) throw new Error("Could not load card catalogue");
-      return response.json();
-    }),
-  ]);
+  const [wasm, cards] = await Promise.all([loadWasm(), loadCards()]);
   const bounds = wasm.ccall("fab_web_bounds", "string").split(" ").map(Number);
   if (bounds.length !== slots.length || bounds.some((bound) => !Number.isSafeInteger(bound) || bound < 1)) {
     throw new Error("Invalid WASM slot layout");

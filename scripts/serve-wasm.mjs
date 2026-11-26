@@ -6,9 +6,12 @@ const root = new URL("../", import.meta.url);
 const paths = new Map([
   ["/", ["web/index.html", "text/html; charset=utf-8"]],
   ["/app.js", ["web/app.js", "text/javascript; charset=utf-8"]],
+  ["/wasm.js", ["web/wasm.js", "text/javascript; charset=utf-8"]],
+  ["/cards.js", ["web/cards.js", "text/javascript; charset=utf-8"]],
   ["/styles.css", ["web/styles.css", "text/css; charset=utf-8"]],
   ["/draft", ["web/draft.html", "text/html; charset=utf-8"]],
   ["/draft.js", ["web/draft.js", "text/javascript; charset=utf-8"]],
+  ["/draft-play.js", ["web/draft-play.js", "text/javascript; charset=utf-8"]],
   ["/draft.css", ["web/draft.css", "text/css; charset=utf-8"]],
   ["/wasm/fab.js", [".lake/wasm/output/fab.js", "text/javascript; charset=utf-8"]],
   ["/wasm/fab.wasm", [".lake/wasm/output/fab.wasm", "application/wasm"]],

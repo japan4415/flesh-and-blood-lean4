@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
-    <title>8人ドラフトの接続テスト</title>
+    <title>8人ドラフト | Welcome to Rathe</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/draft.css">
     <script type="module" src="/draft.js"></script>
@@ -17,8 +17,8 @@
       </div>
     </header>
     <main class="frame draft-main">
-      <h1>8人ドラフトの接続テスト</h1>
-      <p class="draft-intro">ホストと各参加者の間で、番号付きメッセージの送受信を確認できます。</p>
+      <h1>8人ドラフト</h1>
+      <p class="draft-intro">Welcome to Ratheのブースターを、1人3パックでドラフトします。</p>
       <section class="draft-panel" aria-label="ルーム操作">
         <div class="draft-actions">
           <button id="enter" type="button">ルームを作成</button>
@@ -29,6 +29,19 @@
           <input id="invite-url" type="url" readonly>
         </label>
         <p id="draft-status" role="status">ルームを作成して、参加用リンクを共有します。</p>
+      </section>
+      <section class="draft-panel" aria-labelledby="draft-play-title">
+        <div class="draft-summary">
+          <h2 id="draft-play-title">ドラフト進行</h2>
+        </div>
+        <p id="draft-phase" role="status" tabindex="-1">8席がそろうと開始できます。</p>
+        <div class="draft-actions">
+          <button id="draft-start" type="button" hidden disabled>ドラフトを開始</button>
+          <button id="draft-next" type="button" hidden>次のパックを開く</button>
+          <button id="draft-pick" type="button" hidden disabled>選んだカードをピック</button>
+        </div>
+        <p id="draft-feedback" role="status"></p>
+        <ol id="draft-cards" class="cards" role="list" aria-label="自分のカード"></ol>
       </section>
       <section class="draft-panel" aria-labelledby="connection-title">
         <div class="draft-summary">

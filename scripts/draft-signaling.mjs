@@ -84,6 +84,10 @@ export async function draftSignal(request, response) {
     return;
   }
   if (action === "join") {
+    if (room.locked) {
+      reply(response, 409, { error: "ドラフトは開始済みです" });
+      return;
+    }
     const occupied = new Set([...room.members.values()].map((member) => member.seat));
     const seat = Array.from({ length: seatCount - 1 }, (_, i) => i + 2)
       .find((number) => !occupied.has(number));
@@ -118,6 +122,21 @@ export async function draftSignal(request, response) {
     return;
   }
   const host = member === room.host;
+  if (action === "lock") {
+    if (!host) {
+      reply(response, 403, { error: "ホストだけがドラフトを開始できます" });
+      return;
+    }
+    const { peers } = message;
+    if (!Array.isArray(peers) || peers.length !== seatCount - 1 || room.members.size !== seatCount ||
+        [...room.members.values()].some((peer) => peer !== member && !peers.includes(peer.id))) {
+      reply(response, 409, { error: "参加者が変わりました。接続状況を確認してください。" });
+      return;
+    }
+    room.locked = true;
+    reply(response, 200, {});
+    return;
+  }
   const target = host
     ? [...room.members.values()].find((peer) => peer.seat !== 1 && peer.id === message.target)
     : room.host;

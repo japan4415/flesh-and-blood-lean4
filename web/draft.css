@@ -27,7 +27,7 @@
   font-weight: 700;
   cursor: pointer;
 }
-.draft-actions :is(#enter, #probe) { background: var(--accent); color: #23190c; }
+.draft-actions :is(#enter, #draft-start, #draft-next, #draft-pick) { background: var(--accent); color: #23190c; }
 .draft-actions button:active:enabled { filter: brightness(.88); }
 .draft-actions button:disabled { color: var(--muted); background: #203028; cursor: default; }
 #invite { display: block; margin-top: 1rem; color: var(--muted); font-size: .85rem; }
@@ -51,3 +51,27 @@
 .draft-table th { color: var(--muted); }
 .draft-table td { font-variant-numeric: tabular-nums; }
 .draft-table tr[data-state="open"] td:nth-child(2) { color: #a3d2a4; }
+
+#draft-phase { margin-block: .6rem; color: #dbe3d7; }
+#draft-feedback:not(:empty) { margin-top: .6rem; color: #ffc9a1; }
+#draft-cards:empty { display: none; }
+.draft-actions:has(#draft-pick:not([hidden])) {
+  position: sticky;
+  top: .4rem;
+  z-index: 1;
+  padding-block: .3rem;
+  background: #1b2721;
+}
+.draft-choice {
+  width: 100%;
+  display: block;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.draft-choice:active { filter: brightness(.85); }
+.draft-choice[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 3px; }
+.draft-card-label { display: block; margin-top: .5rem; }
