@@ -1060,6 +1060,13 @@ def ARC_160_Y : CardDef :=
   let modes : List ModeSpec := pairs.map fun (first, second) => { body := .seqL [first, second] }
   { base with front := { base.front with playEffect := some { modes := modes } }, status := .full }
 
+/-- Pursuit of Knowledge (ARC161). -/
+def ARC_161_B : CardDef :=
+  let base := Meta.ARC_161_B_meta
+  let hit : Effect := .grant (.hero .controller) (.addIntellect 1) .thisTurn
+  let ability := Ability.triggered .onHit false none none { body := hit }
+  { base with front := { base.front with abilities := [ability] }, status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1089,7 +1096,7 @@ def arcCards : List CardDef :=
    ARC_144_R, ARC_145_Y, ARC_146_B,
    ARC_147_R, ARC_148_Y, ARC_149_B,
    ARC_150, ARC_151, ARC_152, ARC_153, ARC_154, ARC_155, ARC_156, ARC_157, ARC_158, ARC_159_R,
-   ARC_160_Y]
+   ARC_160_Y, ARC_161_B]
 
 end FabCards.ARC
 
