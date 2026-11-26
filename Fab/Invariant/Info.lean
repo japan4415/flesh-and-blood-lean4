@@ -329,6 +329,12 @@ private theorem HiddenEquiv.characteristics_eq {p : PlayerId} {s1 s2 : GameState
   rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic, hconditional, hphase,
     h.visibleZones .stack rfl, h.arenaContents_eq]
 
+private theorem HiddenEquiv.nameRestricted_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) (id : ObjId) :
+    s1.isCardNameRestricted id = s2.isCardNameRestricted id := by
+  delta GameState.isCardNameRestricted
+  rw [h.activeEffects, h.arenaContents_eq, h.characteristics_eq id]
+
 private theorem HiddenEquiv.canTakeAction_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) : s1.canTakeAction p = s2.canTakeAction p := by
   simp only [GameState.canTakeAction, GameState.hasActionPhaseEffect, h.phase, h.active, h.activeEffects]
@@ -399,7 +405,7 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
   rw [hh, ha, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat,
     h.boostsThisTurn, h.canTakeAction_eq, h.activeEffects]
   simp only [canLinkTakeDefenseReaction, hdom, hdefense, attackReactionCanTarget, h.hasRequiredAttackTarget_eq,
-    hweapon, h.characteristics_eq, h.arenaContents_eq, GameState.obj?, h.objects] <;> rfl
+    hweapon, h.characteristics_eq, h.nameRestricted_eq, h.arenaContents_eq, GameState.obj?, h.objects] <;> rfl
 
 /-- The current weapon attack candidates depend on the visible weapon zone and combat chain. -/
 theorem HiddenEquiv.weaponAttackCandidateIds_eq {p : PlayerId} {s1 s2 : GameState}
@@ -428,7 +434,7 @@ theorem HiddenEquiv.canPitchCard_eq {p : PlayerId} {s1 s2 : GameState}
   have haf : ∀ o, s1.activeFace? o = s2.activeFace? o := by
     intro o; unfold GameState.activeFace?; rw [h.cards]
   unfold canPitchCard
-  rw [hh, ho]
+  rw [hh, ho, h.nameRestricted_eq id]
   cases s2.obj? id with
   | none => rfl
   | some o => simp [haf]
@@ -533,7 +539,7 @@ theorem HiddenEquiv.canDefendWith_eq {p : PlayerId} {s1 s2 : GameState}
   have ha : s1.zone (.player p .arsenal) = s2.zone (.player p .arsenal) :=
     h.visibleZones _ (by simp [Zone.isSecretTo])
   unfold canDefendWith
-  rw [h.defendCandidateIds_eq, hh, ha, (h.cardDef_face id).2]
+  rw [h.defendCandidateIds_eq, hh, ha, (h.cardDef_face id).2, h.nameRestricted_eq id]
   rw [h.linkHasKeyword_eq_of_ne_goAgain link .dominate (by decide),
       h.linkHasKeyword_eq_of_ne_goAgain link .overpower (by decide)]
 

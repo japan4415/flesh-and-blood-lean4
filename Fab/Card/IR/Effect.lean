@@ -159,6 +159,8 @@ deriving DecidableEq, Repr
 
 /-- Atomic discrete effect primitive executed by the M4/M5 interpreter (CR 1.7, 6.0). -/
 inductive Prim where
+  /-- Name a card, then prohibit its use while the source is in the arena (CR 8.5.21). -/
+  | restrictNamedCard (name : Option String := none)
   /-- Initiate a weapon attack using the source weapon (CR 1.4.3, 7.2). -/
   | weaponAttack
   /-- Player `p` draws `n` cards (CR 8.5.7). -/

@@ -663,6 +663,15 @@ def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
     else some chars
   | _, _ => none
 
+/-- Whether an arena source forbids using the indicated card by name (CR 2.7.5, 6.2.2a). -/
+def isCardNameRestricted (s : GameState) (id : ObjId) : Bool :=
+  s.activeEffects.any fun effect =>
+    match effect.op with
+    | .restrictCardName name =>
+      ((activationArenaZones s).flatMap s.zone).contains effect.source &&
+        (s.characteristics id).any (fun chars => chars.name.toLower == name.toLower)
+    | _ => false
+
 /-- Expire all active continuous effects matching duration `dur` (CR 4.4.3, 7.7). -/
 def expireEffects (s : GameState) (dur : Duration) : GameState :=
   { s with activeEffects := s.activeEffects.filter fun e => e.duration != dur }

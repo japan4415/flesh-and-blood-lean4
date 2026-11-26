@@ -23,6 +23,8 @@ inductive Event where
   | drawn (player : PlayerId) (obj : ObjId)
   /-- A private card's identity became public through a reveal effect (CR 8.5.17). -/
   | revealed (player : PlayerId) (obj : ObjId) (card : CardId)
+  /-- A player publicly declared a card name (CR 8.5.21). -/
+  | namedCard (player : PlayerId) (name : String)
   /-- Contents of a revealed outside-game booster. This is informational (CR 1.9.1a). -/
   | boosterOpened (player : PlayerId) (cards : List CardId)
   /-- Public counts of the cards put on the top and bottom by Opt (CR 8.5.22). -/

@@ -82,6 +82,7 @@ def TargetSpec.wfBool (numSlots : Nat) (t : TargetSpec) : Bool :=
 
 /-- Check whether a `Prim` stays within `numSlots`, `env`, and `hasX`. -/
 def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Bool
+  | .restrictNamedCard name => name.all fun value => !value.isEmpty
   | .weaponAttack => true
   | .draw p n => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .discardRandom p n => p.wfBool numSlots && n.wfBool numSlots env hasX
