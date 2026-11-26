@@ -1826,6 +1826,11 @@ meta def takeCoverScenario (cardId : String) (defense : Int) : Option Bool := do
 
 #guard takeCoverScenario "ARC_048_R" 4 == some true
 
+#guard ((earlyPrintingCardId? "ARC049").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Take Cover" && card.front.defense == some 3 && card.status == .full)
+
+#guard takeCoverScenario "ARC_049_Y" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
