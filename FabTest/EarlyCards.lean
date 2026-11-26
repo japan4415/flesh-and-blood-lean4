@@ -2728,6 +2728,20 @@ meta def bloodspillInvocationScenario (name : String) (count : Nat) : Option Boo
 #guard bloodspillInvocationScenario "ARC_107_Y" 2 == some true
 #guard bloodspillInvocationScenario "ARC_108_B" 1 == some true
 
+meta def readRunesScenario (name : String) (count : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let token := FabCards.ARC.runechantToken.id
+  let (ready, action) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) name
+  let paid ← earlySteps ready [⟨.player p, .playCard action⟩]
+  let done ← earlySteps paid earlyPass
+  pure ((paid.poolOf p).resources == 8 && (done.poolOf p).actionPoints == 3 &&
+    controlledPermanentCount paid p token == 0 && controlledPermanentCount done p token == count &&
+    done.pendingTriggers.isEmpty && done.lifeOf q == ready.lifeOf q)
+
+#guard readRunesScenario "ARC_109_R" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
