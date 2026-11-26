@@ -1287,6 +1287,14 @@ def ARC_201_Y : CardDef := { fateForeseen Meta.ARC_201_Y_meta with status := .fu
 /-- Fate Foreseen Blue (ARC202). -/
 def ARC_202_B : CardDef := { fateForeseen Meta.ARC_202_B_meta with status := .full }
 
+/-- Increase the power of the next attack action card played this turn. -/
+def comeToFight (base : CardDef) (bonus : Int) : CardDef :=
+  let body : Effect := .grant (.nextCardPlayed .attackAction) (.addPower (.const bonus)) .thisTurn
+  { base with front := { base.front with playEffect := some { body } } }
+
+/-- Come to Fight Red (ARC203). -/
+def ARC_203_R : CardDef := { comeToFight Meta.ARC_203_R_meta 3 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1321,7 +1329,7 @@ def arcCards : List CardDef :=
    ARC_174_Y, ARC_175_B, ARC_176_R, ARC_177_Y, ARC_178_B, ARC_179_R, ARC_180_Y, ARC_181_B,
    ARC_182_R, ARC_183_Y, ARC_184_B, ARC_185_R, ARC_186_Y, ARC_187_B, ARC_188_R, ARC_189_Y, ARC_190_B,
    ARC_191_R, ARC_192_Y, ARC_193_B, ARC_194_R, ARC_195_Y, ARC_196_B, ARC_197_R, ARC_198_Y, ARC_199_B,
-   ARC_200_R, ARC_201_Y, ARC_202_B]
+   ARC_200_R, ARC_201_Y, ARC_202_B, ARC_203_R]
 
 end FabCards.ARC
 
