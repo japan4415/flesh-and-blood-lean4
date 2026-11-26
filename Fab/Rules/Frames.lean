@@ -1674,7 +1674,8 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
     else []
   let events := moved.2
   let entered := applySelectionEntryCounter moved.1 events search
-  let draw := if drawSame && !events.isEmpty then [.draw p events.length] else []
+  let drawCount := if drawSame then events.length else (search.map (·.drawOnSelection)).getD 0
+  let draw := if !events.isEmpty && drawCount != 0 then [.draw p drawCount] else []
   let shuffle := if search.all (·.shuffleAfter) then [.chanceShuffle deck] else []
   let bottomSelection := match search.bind (·.bottomSelection) with
     | some (.lookedAt viewed) =>

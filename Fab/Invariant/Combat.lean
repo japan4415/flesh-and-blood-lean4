@@ -195,18 +195,8 @@ theorem dominate_blocks_second_hand_card {s : GameState} {link : ChainLink}
     (hdom : linkHasKeyword s link .dominate = true)
     (hcnt : 1 ≤ link.defendingFromHand.length) :
     canDefendWith s link p id = false := by
-  unfold canDefendWith
-  split
-  · rfl
-  · dsimp only
-    simp only [hhand, decide_true, Bool.true_or, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-    cases s.objectFace? id with
-    | none => rfl
-    | some face =>
-      dsimp only
-      split
-      · rfl
-      · simp [hdom, hcnt]
+  have hc : id ∈ defendCandidateIds s p := by simp [defendCandidateIds, hhand]
+  cases hf : s.objectFace? id <;> simp [canDefendWith, hc, hf, hhand, hdom, hcnt]
 
 /-- **I11** (Overpower defense hook) (CR 8.3.26): once an Overpower attack has been defended by at
 least 1 action card, no further action card may be declared in Defend Step. -/
@@ -217,19 +207,7 @@ theorem overpower_blocks_second_action {s : GameState} {link : ChainLink}
     (hov : linkHasKeyword s link .overpower = true)
     (hcnt : 1 ≤ link.defendedActionCount) :
     canDefendWith s link p id = false := by
-  unfold canDefendWith
-  split
-  · rfl
-  · dsimp only
-    split
-    · rfl
-    · rw [hface]
-      dsimp only
-      split
-      · rfl
-      · split
-        · rfl
-        · simp [hact, hov, hcnt]
+  simp [canDefendWith, hface, hact, hov, hcnt]
 
 /-- **I12a + I17**: stepping a `.gameStateProcess` frame always reaches a GSP fixed point
 (`gspStep s' = none`). -/

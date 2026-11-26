@@ -651,7 +651,12 @@ def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
     let face := match o.faceState with
       | .front => c.front
       | .back => c.back.getD c.front
-    let effects := s.activeEffects ++ s.arenaDefenseEffects id
+    let effects := (s.activeEffects.filter fun effect =>
+      match effect.target with
+      | .matchingControlledCard _ _ =>
+        !o.faceDown && o.kind.phys?.isSome &&
+          ((s.zone .stack).contains id || ((activationArenaZones s).flatMap s.zone).contains id)
+      | _ => true) ++ s.arenaDefenseEffects id
     let chars := evalCharacteristics (effects ++ s.lifeDisadvantageStaticEffects id o face effects) o face id
     if chars.types.contains .action && s.hasActionPhaseEffect chars.controller .cantGainGoAgain then
       some { chars with keywords := chars.keywords.filter (· != .goAgain) }

@@ -192,34 +192,40 @@ def equipZoneIds (s : GameState) (p : PlayerId) : List ObjId :=
   s.zone (.player p .head) ++ s.zone (.player p .chest) ++
   s.zone (.player p .arms) ++ s.zone (.player p .legs)
 
-/-- All candidate defending `ObjId`s for player `p` during Defend Step: hand cards plus
-un-defended Arena equipment (CR 7.3.2). -/
+/-- Whether an active permission allows this player to defend from their arsenal (CR 7.3.2). -/
+def canDefendFromArsenal (s : GameState) (p : PlayerId) : Bool :=
+  s.activeEffects.any fun effect =>
+    effect.target == .player p && !effect.waitsForNextTurn && effect.op == .allowAttackActionDefendFromArsenal
+
+/-- Candidate defenders from the hand, equipment slots, and a permitted arsenal (CR 7.3.2). -/
 def defendCandidateIds (s : GameState) (p : PlayerId) : List ObjId :=
-  s.zone (.player p .hand) ++ equipZoneIds s p
+  (s.zone (.player p .hand) ++ equipZoneIds s p) ++
+    (if canDefendFromArsenal s p then s.zone (.player p .arsenal) else [])
 
 /-- Whether player `p` may legally declare `id` as a defending card on `link` during Defend Step
 (CR 7.3.2), enforcing Dominate (CR 8.3.4) and Overpower (CR 8.3.26) hooks. -/
 def canDefendWith (s : GameState) (link : ChainLink) (p : PlayerId) (id : ObjId) : Bool :=
   if p != link.defender then
     false
-  else
+  else if id ∈ defendCandidateIds s p then
     let fromHand := id ∈ s.zone (.player p .hand)
-    let fromEquip := id ∈ equipZoneIds s p
-    if !(fromHand || fromEquip) then
-      false
-    else
-      match s.objectFace? id with
-      | none => false
-      | some face =>
-        if face.defense.isNone || face.hasType .defenseReaction then
-          false
-        else if fromHand && linkHasKeyword s link .dominate && 1 ≤ link.defendingFromHand.length then
-          false
-        else if face.hasType .action && linkHasKeyword s link .overpower &&
-            1 ≤ link.defendedActionCount then
-          false
-        else
-          true
+    let fromArsenal := (s.zone (.player p .arsenal)).contains id
+    match s.objectFace? id with
+    | none => false
+    | some face =>
+      if face.defense.isNone || face.hasType .defenseReaction then
+        false
+      else if fromArsenal && !cardFaceMatches .attackAction face then
+        false
+      else if fromHand && linkHasKeyword s link .dominate && 1 ≤ link.defendingFromHand.length then
+        false
+      else if face.hasType .action && linkHasKeyword s link .overpower &&
+          1 ≤ link.defendedActionCount then
+        false
+      else
+        true
+  else
+    false
 
 /-- Read the index, use limit and cost of the weapon's attack ability (CR 5.2.2, 8.3.1). -/
 def weaponAttackSpec? (c : CardDef) : Option (Nat × Bool × AssetCost) :=

@@ -184,6 +184,8 @@ inductive EffectOp where
   | nextCardAsInstant (filter : CardFilter) (arcaneBonus : Nat)
   /-- A one-card grant of Go Again for a non-attack action. -/
   | nextNonAttackActionGoAgain
+  /-- Permit the affected player to defend with attack action cards in their arsenal. -/
+  | allowAttackActionDefendFromArsenal
   /-- Increase arcane damage dealt by the attached source. -/
   | addArcaneDamageFromSource (amount : Nat)
   /-- Stage 7: set base power `{p}` to `v` (CR 6.3.2g). -/
@@ -218,6 +220,7 @@ deriving DecidableEq, Repr
 
 /-- Which of the 8 stages an `EffectOp` belongs to (CR 6.3.2). -/
 def EffectOp.stage : EffectOp → EffectStage
+  | .allowAttackActionDefendFromArsenal => .stage6Ability
   | .copyFace _ => .stage1Copy
   | .setController _ => .stage2Controller
   | .setName _ | .setColor _ => .stage3NameColorText
@@ -233,6 +236,7 @@ def EffectOp.stage : EffectOp → EffectStage
 
 /-- Which sub-stage within its stage an `EffectOp` belongs to (CR 6.3.3). -/
 def EffectOp.subStage : EffectOp → SubStage
+  | .allowAttackActionDefendFromArsenal => .add
   | .lockPower | .cantDrawCards | .cantGainGoAgain | .limitActions _ | .onlyPlayFromArsenal => .restrict
   | .copyFace _ | .setController _ | .setName _ | .setColor _ | .setSubtypes _
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .set
@@ -249,6 +253,7 @@ def insertUnique {α : Type} [BEq α] (x : α) (xs : List α) : List α :=
 /-- Apply one `EffectOp` to a `DerivedChars` value (CR 6.3.2). -/
 def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
   match op with
+  | .allowAttackActionDefendFromArsenal => c
   | .copyFace face =>
     { c with
       name := face.name
@@ -327,6 +332,8 @@ inductive EffectTarget where
       (reqName : Option String := none)
   /-- Applies to cards a player controls that satisfy the full filter (CR 6.2.2). -/
   | matchingCard (controller : PlayerId) (filter : CardFilter)
+  /-- A matching card on the stack or in the arena, where it has a controller (CR 1.3.1b). -/
+  | matchingControlledCard (controller : PlayerId) (filter : CardFilter)
   /-- Waits for the controller to play an attack action card matching the filter. -/
   | nextAttackCard (filter : CardFilter)
   /-- Waits for the controller to pay for an attack matching the filter, including an attack-proxy. -/
@@ -351,7 +358,7 @@ def EffectTarget.matches (t : EffectTarget) (c : DerivedChars) (id : ObjId) : Bo
   | .objects ids => ids.contains id
   | .player _ | .weaponAttacks _ | .nextAttackCard _ | .nextAttack _ | .nextAttackBy _ | .nextActionBy _
   | .nextDefend _ | .allAttacks _ => false
-  | .matchingCard controller filter =>
+  | .matchingCard controller filter | .matchingControlledCard controller filter =>
     c.controller == controller && !filter.isWeaponAttack &&
       cardFaceMatches filter {
         name := c.name, types := c.types, subtypes := c.subtypes,
