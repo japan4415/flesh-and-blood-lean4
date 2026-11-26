@@ -2791,6 +2791,13 @@ meta def kanoScenario (heroName : String) (offTurn : Bool) : Option Bool := do
 #guard kanoScenario "ARC_113" false == some true
 #guard kanoScenario "ARC_113" true == some true
 
+#guard ((earlyPrintingCardId? "ARC114").bind throughArcDB.find?).any
+  (fun card => card.front.life == some 15 && card.front.intellect == some 4 && card.status == .full)
+#guard (earlyPrintingCardId? "HER016-P") == some ⟨"ARC_114"⟩
+#guard (earlyPrintingCardId? "HER020-P") == some ⟨"ARC_113"⟩
+#guard kanoScenario "ARC_114" false == some true
+#guard kanoScenario "ARC_114" true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

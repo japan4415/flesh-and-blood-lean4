@@ -753,6 +753,9 @@ def kanoHero (card : CardDef) : CardDef :=
 /-- Kano, Dracai of Aether (ARC113). -/
 def ARC_113 : CardDef := { kanoHero Meta.ARC_113_meta with status := .full }
 
+/-- Kano (ARC114). -/
+def ARC_114 : CardDef := { kanoHero Meta.ARC_114_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -770,7 +773,7 @@ def arcCards : List CardDef :=
    ARC_103_R, ARC_104_Y, ARC_105_B,
    ARC_106_R, ARC_107_Y, ARC_108_B,
    ARC_109_R, ARC_110_Y, ARC_111_B,
-   ARC_112, ARC_113]
+   ARC_112, ARC_113, ARC_114]
 
 end FabCards.ARC
 
