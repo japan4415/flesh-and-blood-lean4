@@ -165,6 +165,8 @@ inductive Prim where
   | weaponAttack
   /-- Player `p` draws `n` cards (CR 8.5.7). -/
   | draw (p : PlayerRef) (n : NumExpr)
+  /-- Draw once when the controller's next attack action card hits during this turn. -/
+  | drawOnNextAttackActionHit (amount : Nat)
   /-- Player `p` discards `n` random cards from hand. -/
   | discardRandom (p : PlayerRef) (n : NumExpr)
   /-- Discard the first `n` cards of the controller's hand after a chance permutation. -/

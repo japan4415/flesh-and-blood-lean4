@@ -4190,6 +4190,59 @@ meta def enchantingMelodyAndBarrierScenario : Option Bool := do
   (fun card => card.front.hasSubtype .aura && card.front.pitch == some 3 && card.status == .full)
 #guard enchantingMelodyScenario "ARC_169_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC170").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 1 && card.status == .full)
+
+meta def plunderRunScenario (card : String) (bonus : Nat) (fromArsenal : Bool) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let zone := if fromArsenal then Zone.player p .arsenal else hand
+  let (withAction, plunder) ← earlyPlace { earlyBase with cards := throughArcDB } p zone card
+  let withAction := if fromArsenal then
+      updateSingleObject withAction plunder (fun obj => { obj with faceDown := true })
+    else withAction
+  let (withAttack, first) ← earlyPlace withAction p hand "WTR_203_R"
+  let (withSecond, second) ← earlyPlace withAttack p hand "WTR_203_R"
+  let (withWeapon, sword) ← earlyPlace withSecond p (.player p .weapon) "WTR_115"
+  let (withDeck, top) ← earlyPlace withWeapon p deck "WTR_203_R"
+  let (withOneDefender, d1) ← earlyPlace withDeck q (.player q .hand) "WTR_203_R"
+  let (withTwoDefenders, d2) ← earlyPlace withOneDefender q (.player q .hand) "WTR_203_R"
+  let (ready, d3) ← earlyPlace withTwoDefenders q (.player q .hand) "WTR_203_R"
+  let installed ← earlySteps ready (⟨.player p, .playCard plunder⟩ :: earlyPass)
+  let trigger ← installed.delayedTriggers.head?
+  let attacking ← earlyAttack installed (.playCard first)
+  let firstLink ← attacking.combat.bind CombatChain.activeLink?
+  let weaponHit ← (earlyAttack installed (.attackWeapon sword)).bind earlyDamage
+  let defended ← earlySteps attacking ([d1, d2, d3].map (fun id => ⟨.player q, .defendCard id⟩))
+  let missed ← earlyDamage defended
+  let resolved ← earlySteps missed earlyPass
+  let laterAttack ← earlyAttack resolved (.playCard second)
+  let secondLink ← laterAttack.combat.bind CombatChain.activeLink?
+  let hit ← earlyDamage laterAttack
+  let draw ← hit.pendingTriggers.find? (·.source == trigger.source)
+  let stacked ← earlySteps hit
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger draw.id⟩]
+  let drawn ← earlySteps stacked earlyPass
+  let (expired, _) ← microStep { installed with pending := [.endTurnCleanup p] }
+  let hasPowerBonus (s : GameState) := s.activeEffects.any fun effect =>
+    effect.controller == p && effect.target == .nextAttackCard .attackAction &&
+      effect.op == .addPower (Int.ofNat bonus)
+  pure ((installed.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    installed.delayedTriggers.length == 1 && hasPowerBonus installed == fromArsenal &&
+    linkAttackPower attacking firstLink == 4 + (if fromArsenal then bonus else 0) &&
+    !hasPowerBonus attacking && hasPowerBonus weaponHit == fromArsenal &&
+    weaponHit.lifeOf q < ready.lifeOf q && weaponHit.pendingTriggers.all (·.source != trigger.source) &&
+    weaponHit.delayedTriggers == [trigger] && missed.delayedTriggers == [trigger] &&
+    missed.pendingTriggers.isEmpty && missed.lifeOf q == ready.lifeOf q &&
+    linkAttackPower laterAttack secondLink == 4 && hit.delayedTriggers.isEmpty &&
+    hit.zone deck == [top] && (drawn.zone deck).isEmpty &&
+    (drawn.zone hand).length == (hit.zone hand).length + 1 && expired.delayedTriggers.isEmpty)
+
+#guard plunderRunScenario "ARC_170_R" 3 false == some true
+#guard plunderRunScenario "ARC_170_R" 3 true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

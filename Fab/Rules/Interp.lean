@@ -1123,6 +1123,15 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     let target := evalPlayerRef s ctrl pref
     let cnt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     (s, [], [.draw target cnt])
+  | .drawOnNextAttackActionHit amount =>
+    let delayed : DelayedTrigger :=
+      { id := s.nextTimestamp, controller := ctrl, source := src
+        sourceLki := some (captureLki s src ctrl)
+        watch := .nextAttackActionHitThisTurn s.turn
+        effect := .prim (.draw .controller (.const amount)) }
+    ({ s with
+        delayedTriggers := s.delayedTriggers ++ [delayed]
+        nextTimestamp := s.nextTimestamp + 1 }, [], [])
   | .gainLife pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
@@ -1587,6 +1596,9 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     cases name <;> (unfold execPrim; dsimp only; split <;>
       exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
         GameState.OwnerOk.congr hok rfl rfl, List.Perm.refl _, rfl, rfl⟩)
+  | drawOnNextAttackActionHit _ =>
+    exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
+      GameState.OwnerOk.congr hok rfl rfl, List.Perm.refl _, rfl, rfl⟩
   | draw _ _ | opt _ _ | optValue _ _ | weaponAttack | closeCombatChain | createTokenForAttackDamage _ _ =>
     exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | openBoosters name =>
@@ -1924,7 +1936,8 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
   cases p with
   | restrictNamedCard name =>
     cases name <;> (unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩)
-  | draw _ _ | opt _ _ | optValue _ _ | weaponAttack | closeCombatChain | createTokenForAttackDamage _ _
+  | draw _ _ | drawOnNextAttackActionHit _ | opt _ _ | optValue _ _ | weaponAttack
+  | closeCombatChain | createTokenForAttackDamage _ _
   | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
     exact ⟨rfl, rfl, id⟩
   | openBoosters name =>

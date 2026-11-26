@@ -991,13 +991,22 @@ def finishCombatDamage (s : GameState) (attack : ObjId) (amount : Nat)
       let cc' := { cc with step := .damage }.updateActiveLink fun _ => damagedLink
       let weaponHit := if hit then hitWeapon? s damagedLink else none
       let cardHit := attackActionHitController? s damagedLink
+      let selected := s.delayedTriggers.partition fun trigger =>
+        s.result.isNone && cardHit == some trigger.controller &&
+          trigger.watch == .nextAttackActionHitThisTurn s.turn
       let withDamage := { s with
         combat := some cc'
         weaponHitsThisTurn := weaponHit.toList ++ s.weaponHitsThisTurn
-        attackActionHitsThisTurn := cardHit.toList ++ s.attackActionHitsThisTurn }
+        attackActionHitsThisTurn := cardHit.toList ++ s.attackActionHitsThisTurn
+        delayedTriggers := selected.2 }
+      let delayedTriggers := selected.1.map fun trigger =>
+        ({ id := trigger.id, source := trigger.source,
+           sourceLki := trigger.sourceLki.getD (captureLki s trigger.source trigger.controller),
+           controller := trigger.controller, effect := trigger.effect : PendingTrigger }, false)
       let damageTriggers := if hit && withDamage.result.isNone then
         (attackDamageTriggers withDamage damagedLink).map (fun trigger => (trigger, false)) ++
           installedHitTriggers withDamage damagedLink ++ weaponHitTriggers withDamage damagedLink ++
+          delayedTriggers ++
           installedCardTriggers withDamage damagedLink.defender (· == .onControllerDamaged)
         else []
       let queued := queueCardTriggers withDamage damageTriggers
@@ -2525,7 +2534,10 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       activeReplacements := []
       chargedThisTurn := []
       boostsThisTurn := []
-      delayedTriggers := s.delayedTriggers.filter fun trigger => trigger.watch != .boostThisTurn s.turn
+      delayedTriggers := s.delayedTriggers.filter fun trigger =>
+        match trigger.watch with
+        | .boostThisTurn turn | .nextAttackActionHitThisTurn turn => turn != s.turn
+        | _ => true
       banishedSixPowerThisTurn := []
       activatedThisTurn := []
       weaponHitsThisTurn := []
