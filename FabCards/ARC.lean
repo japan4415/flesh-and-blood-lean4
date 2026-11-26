@@ -885,6 +885,9 @@ def ARC_129_R : CardDef := { stirTheAetherwinds Meta.ARC_129_R_meta 3 with statu
 /-- Stir the Aetherwinds (ARC130). -/
 def ARC_130_Y : CardDef := { stirTheAetherwinds Meta.ARC_130_Y_meta 2 with status := .full }
 
+/-- Stir the Aetherwinds (ARC131). -/
+def ARC_131_B : CardDef := { stirTheAetherwinds Meta.ARC_131_B_meta 1 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -902,7 +905,7 @@ def arcCards : List CardDef :=
    ARC_103_R, ARC_104_Y, ARC_105_B,
    ARC_106_R, ARC_107_Y, ARC_108_B,
    ARC_109_R, ARC_110_Y, ARC_111_B,
-   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R, ARC_119_Y, ARC_120_R, ARC_121_Y, ARC_122_R, ARC_123_R, ARC_124_Y, ARC_125_B, ARC_126_R, ARC_127_Y, ARC_128_B, ARC_129_R, ARC_130_Y]
+   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R, ARC_119_Y, ARC_120_R, ARC_121_Y, ARC_122_R, ARC_123_R, ARC_124_Y, ARC_125_B, ARC_126_R, ARC_127_Y, ARC_128_B, ARC_129_R, ARC_130_Y, ARC_131_B]
 
 end FabCards.ARC
 
