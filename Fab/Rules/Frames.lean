@@ -1423,7 +1423,11 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
   let position := if search.isSome then Pos.top else Pos.bottom
   let revealed := if search.any (·.reveal) then selected.reverse.filterMap (fun id =>
     (s.cardDefOf? id).map (fun card => Event.revealed p id card.id)) else []
-  let moved := moveManyObjs s selected.reverse destination position false
+  let putOnTop := search.any (·.putOnTopAfterShuffle)
+  let moved := moveManyObjs s (if putOnTop then [] else selected.reverse) destination position false
+  let placeAfterShuffle := if putOnTop then selected.head?.toList.map (fun id =>
+      Frame.run p id false [] [.prim (.putChosenDeckCardOnTop (.seated p) id)])
+    else []
   let events := moved.2
   let entered := applySelectionEntryCounter moved.1 events search
   let draw := if drawSame && !events.isEmpty then [.draw p events.length] else []
@@ -1453,7 +1457,7 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
         { id := timestamp, source, controller := p, target := .arsenalCard id
           op := .addPower amount, timestamp := ⟨timestamp⟩ }
   ({ entered with
-      pending := shuffle ++ draw ++ rest
+      pending := shuffle ++ placeAfterShuffle ++ draw ++ rest
       activeEffects := entered.activeEffects ++ permissions ++ bonuses
       nextTimestamp := entered.nextTimestamp + permissions.length + bonuses.length },
     revealed ++ events ++ banished.map (fun id => .banished p id false))

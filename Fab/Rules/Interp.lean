@@ -1,6 +1,7 @@
 module
 
 public import Fab.Rules.Move
+public import Fab.Rules.Reorder
 public import Fab.Rules.Add
 public import Fab.Rules.Objects
 public import Fab.Rules.Actions.Banish
@@ -1252,6 +1253,23 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
           if shuffleAfter then [.chanceShuffle (.player target .deck)] else []
         else [.chooseShuffleCards target limit matching [] false (some choice)]
       (s, [], follow)
+  | .searchDeckToTop pref filter =>
+    let player := evalPlayerRef s ctrl pref
+    let deck := Zone.player player .deck
+    let candidates := (s.zone deck).filter fun id => (s.objectFace? id).any (cardFaceMatches filter)
+    let choice : DeckSearchChoice :=
+      { destination := deck, reveal := true, mayFail := true, putOnTopAfterShuffle := true }
+    (s, [], if (s.zone deck).isEmpty then [.chanceShuffle deck]
+      else [.chooseShuffleCards player 1 candidates [] false (some choice)])
+  | .putChosenDeckCardOnTop pref id =>
+    let deck := Zone.player (evalPlayerRef s ctrl pref) .deck
+    if deck.Valid s.playerCount then
+      (s.reorder deck (optDeckOrder (s.zone deck) 0 id true), [], [])
+    else (s, [], [])
+  | .reload pref =>
+    let player := evalPlayerRef s ctrl pref
+    (s, [], if (s.zone (.player player .arsenal)).isEmpty && !(s.zone (.player player .hand)).isEmpty
+      then [.chooseArsenal player] else [])
   | .putHandArsenal pref filter drawAfter powerBonus =>
     let target := evalPlayerRef s ctrl pref
     let hand := s.zone (.player target .hand)
@@ -1581,6 +1599,15 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     | some _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | searchDeckToTop _ _ | reload _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | putChosenDeckCardOnTop pref id =>
+    unfold execPrim; dsimp only
+    split
+    · rename_i valid
+      have perm := optDeckOrder_perm (s.zone (.player (evalPlayerRef s ctrl pref) .deck)) 0 id true
+      exact ⟨GameState.wf_reorder hwf valid perm, GameState.ownerOk_reorder hok perm,
+        GameState.physIds_reorder valid perm, rfl, rfl⟩
+    · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | putHandPermanent _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | shuffleZone _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | shuffleZoneIntoDeck pref srcRef f maxCount drawSame =>
@@ -1864,6 +1891,9 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     | none => exact ⟨rfl, rfl, id⟩
     | some _ => exact ⟨rfl, rfl, id⟩
   | putHandArsenal _ _ _ _ =>
+    unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
+  | searchDeckToTop _ _ | reload _ => exact ⟨rfl, rfl, id⟩
+  | putChosenDeckCardOnTop _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | putHandPermanent _ _ _ => exact ⟨rfl, rfl, id⟩
   | shuffleZone _ _ => exact ⟨rfl, rfl, id⟩

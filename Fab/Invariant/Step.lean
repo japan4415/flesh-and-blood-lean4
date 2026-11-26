@@ -383,11 +383,12 @@ private theorem confirmShuffleCards_preserves {s : GameState} (hwf : s.WF) (hok 
     (hrb : s.RollbackOk) (p : PlayerId) (selected : List ObjId) (drawSame : Bool)
     (search : Option DeckSearchChoice) (rest : List Frame) :
     StepPreserves s (confirmShuffleCards s p selected drawSame search rest).1 := by
+  let movers := if search.any (·.putOnTopAfterShuffle) then [] else selected.reverse
   obtain ⟨hw, ho, hp, hc, hr⟩ := moveManyObjs_inv
     ((search.map (·.destination)).getD (.player p .deck))
-    (if search.isSome then .top else .bottom) false selected.reverse hwf hok
+    (if search.isSome then .top else .bottom) false movers hwf hok
   have hm := applySelectionEntryCounter_preserves hw ho (GameState.RollbackOk.preserve hrb hc hr hp)
-    (moveManyObjs s selected.reverse ((search.map (·.destination)).getD (.player p .deck))
+    (moveManyObjs s movers ((search.map (·.destination)).getD (.player p .deck))
       (if search.isSome then .top else .bottom) false).2 search
   unfold confirmShuffleCards
   exact ⟨GameState.WF.congr hm.wf rfl rfl rfl rfl, GameState.OwnerOk.congr hm.ownerOk rfl rfl,

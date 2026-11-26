@@ -168,6 +168,8 @@ structure DeckSearchChoice where
   entryCounter : Option CounterKind := none
   /-- Source and power bonus for the card selected into arsenal until the end of this turn. -/
   arsenalPowerBonus : Option (ObjId × Int) := none
+  /-- Keep the selected deck card for placement on top after the shuffle. -/
+  putOnTopAfterShuffle : Bool := false
 deriving DecidableEq, Repr
 
 /-- A filtered deck search may fail, while an unrestricted search must select a card if possible. -/
