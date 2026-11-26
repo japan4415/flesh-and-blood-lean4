@@ -2597,6 +2597,30 @@ meta def reduceToRunechantScenario (name : String) (defense : Nat) : Option Bool
 #guard reduceToRunechantScenario "ARC_089_Y" 3 == some true
 #guard reduceToRunechantScenario "ARC_090_B" 2 == some true
 
+meta def oathArknightScenario (name : String) (bonus : Int) : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let token := FabCards.ARC.runechantToken.id
+  let (withOath, oath) ← earlyPlace { earlyBase with cards := throughArcDB } p hand name
+  let (withSword, sword) ← earlyPlace withOath p (.player p .weapon) "ARC_077"
+  let (withGeneric, generic) ← earlyPlace withSword p hand "WTR_203_R"
+  let (ready, runeblade) ← earlyPlace withGeneric p hand "ARC_085_R"
+  let buffed ← earlySteps ready (⟨.player p, .playCard oath⟩ :: earlyPass)
+  let (withProxy, proxy) ← addObject buffed .stack
+    { kind := .attackProxy sword none, owner := p, controller := p, timestamp := ⟨0⟩ } .top
+  let info : LayerInfo := { controller := p }
+  let (genericInfo, waiting) := consumeNextAttackEffects buffed generic info
+  let afterGeneric := { buffed with activeEffects := waiting }
+  let (cardInfo, used) := consumeNextAttackEffects afterGeneric runeblade info
+  let swordInfo := (consumeNextAttackEffects withProxy proxy info).1
+  let expired := (consumeNextAttackEffects buffed.finishTurnEffects runeblade info).1
+  pure (genericInfo.attackPowerBonus == 0 && cardInfo.attackPowerBonus == bonus &&
+    swordInfo.attackPowerBonus == bonus && used.isEmpty && expired.attackPowerBonus == 0 &&
+    (buffed.poolOf p).actionPoints == 4 && (buffed.poolOf p).resources == 6 &&
+    controlledPermanentCount buffed p token == 1)
+
+#guard oathArknightScenario "ARC_091_R" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
