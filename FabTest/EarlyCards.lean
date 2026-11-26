@@ -4120,6 +4120,10 @@ meta def lifeForALifeScenario (card : String) (power : Int) : Option Bool := do
   (fun card => card.front.power == some 3 && card.front.pitch == some 2 && card.status == .full)
 #guard lifeForALifeScenario "ARC_165_Y" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC166").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 2 && card.front.pitch == some 3 && card.status == .full)
+#guard lifeForALifeScenario "ARC_166_B" 2 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
