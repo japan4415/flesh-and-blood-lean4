@@ -3495,6 +3495,10 @@ meta def arcaneAtHeroScenario (name : String) (cost damage : Nat) : Option Bool 
 
 #guard arcaneAtHeroScenario "ARC_141_R" 1 4 == some true
 
+#guard ((earlyPrintingCardId? "ARC142").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 2 && card.status == .full)
+#guard arcaneAtHeroScenario "ARC_142_Y" 1 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
