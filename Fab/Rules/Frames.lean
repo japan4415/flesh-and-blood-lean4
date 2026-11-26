@@ -1192,6 +1192,27 @@ def variablePaymentTrigger (s : GameState) (p : PlayerId) (source : ObjId) (from
         graveyardTargets := some (amount, filter) }
   else none
 
+/-- Read the announced card's chosen resolution effect and any immediate on-play ability. -/
+def cardAnnouncedArcaneDamage (card : CardDef) (modeIdx : Option Nat) : Bool :=
+  let body := card.front.playEffect.bind fun effect =>
+    match modeIdx with
+    | none => some effect.body
+    | some index => (effect.modes[index]?).map (·.body)
+  body.any (·.hasArcaneDamage) || card.front.abilities.any fun
+    | .triggered .onPlay _ _ _ effect => effect.body.hasArcaneDamage
+    | _ => false
+
+/-- Bind active arcane damage bonuses to a paid card, retaining them through resolution. -/
+def bindNextArcaneCard (effects : List ContinuousEffect) (p : PlayerId)
+    (source : ObjId) : List ContinuousEffect :=
+  effects.map fun effect =>
+    match effect.target, effect.op with
+    | .player player, .addToNextArcaneCard amount =>
+      if effect.controller == p && player == p && !effect.waitsForNextTurn then
+        { effect with target := .obj source, op := .addArcaneDamageFromSource amount }
+      else effect
+    | _, _ => effect
+
 /-- Finalize a paid layer, then stack triggers queued during play and return priority (CR 5.1.10, 6.6.6). -/
 def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (rest : List Frame) (discarded : Option CardFace := none)
@@ -1222,6 +1243,8 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
         (modeOnAttack.map fun body => Ability.triggered .onAttack false none none { body := body }).toList
       goAgain := hasGoAgain }
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
+  let remainingEffects := if card.any (cardAnnouncedArcaneDamage · modeIdx) then
+    bindNextArcaneCard remainingEffects p layerId else remainingEffects
   let isAction := card.any (fun c => c.front.hasType .action) ||
     (s.obj? layerId).any (fun obj => match obj.kind with | .attackProxy _ _ => true | _ => false)
   let remainingEffects := if isAction then effectsAfterPayingAction remainingEffects p

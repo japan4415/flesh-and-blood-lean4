@@ -1040,6 +1040,15 @@ def matchingRevealedPair (s : GameState) (first second : CardFilter) : List ObjI
     else []
   | _ => []
 
+/-- Add bonuses bound to this damage source before applying prevention (CR 6.4). -/
+def modifiedDamageAmount (s : GameState) (source : ObjId) (kind : DamageKind) (amount : Nat) : Nat :=
+  if kind != .arcane || amount == 0 then amount else
+    s.activeEffects.foldl (fun total effect =>
+      match effect.target, effect.op with
+      | .obj object, .addArcaneDamageFromSource additional =>
+        if object == source && !effect.waitsForNextTurn then total + additional else total
+      | _, _ => total) amount
+
 /-- Execute a single atomic `Prim`, returning `(newState, emittedEvents, pushedFrames)`.
 Total by design: impossible instructions become no-ops (CR 1.0.1b). -/
 def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId × Int))
@@ -1061,7 +1070,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     (s1, [], [])
   | .dealDamage kind pref n =>
     let target := evalPlayerRef s ctrl pref
-    let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
+    let amt := modifiedDamageAmount s src kind (clampNonNeg (evalNumExpr s ctrl env n (some src)))
     match damagePreventionFrame? s target kind amt with
     | some frame => (s, [], [frame])
     | none =>
@@ -1462,7 +1471,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     split
     · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     · exact applyDamageWithPrevention_inv hwf hok (evalPlayerRef s ctrl pref) kind
-        (clampNonNeg (evalNumExpr s ctrl env n (some src)))
+        (modifiedDamageAmount s src kind (clampNonNeg (evalNumExpr s ctrl env n (some src))))
   | createToken pref tokId n =>
     let target := evalPlayerRef s ctrl pref
     let count := tokenCreationCount s target tokId n
@@ -1779,7 +1788,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     split
     · exact ⟨rfl, rfl, id⟩
     · exact applyDamageWithPrevention_ttr s (evalPlayerRef s ctrl pref) kind
-        (clampNonNeg (evalNumExpr s ctrl env n (some src)))
+        (modifiedDamageAmount s src kind (clampNonNeg (evalNumExpr s ctrl env n (some src))))
   | createToken pref tokId n =>
     have hc : ∀ (k : Nat) (st : GameState),
         (createTokens st (evalPlayerRef s ctrl pref) tokId k).turn = st.turn ∧
@@ -2184,6 +2193,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | .modifyCost d =>
         if 0 ≤ d then some (.addCostRes d.toNat) else some (.subCostRes (-d).toNat)
       | .addTokenCreation token amount => some (.addTokenCreation token amount)
+      | .addToNextArcaneCard amount => some (.addToNextArcaneCard amount)
       | .grantKeyword kw => some (.grantKeyword kw)
       | .grantTrigger trigger cond body =>
         match scope with
@@ -2216,7 +2226,8 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .obj .currentAttack, .allowWeaponAttack =>
           (((s.combat.bind CombatChain.activeLink?).bind (·.attackSource)).map EffectTarget.obj).getD (.objects [])
         | .player player, .onlyPlayFromArsenal => .player (evalPlayerRef s ctrl player)
-        | .player player, .addTokenCreation _ _ => .player (evalPlayerRef s ctrl player)
+        | .player player, .addTokenCreation _ _ | .player player, .addToNextArcaneCard _ =>
+          .player (evalPlayerRef s ctrl player)
         | .hero player, .addIntellect _ =>
           .objects (s.zone (.player (evalPlayerRef s ctrl player) .hero))
         | .allMatching player filter, _ => .matchingCard (evalPlayerRef s ctrl player) filter

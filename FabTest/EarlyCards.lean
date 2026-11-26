@@ -2798,6 +2798,50 @@ meta def kanoScenario (heroName : String) (offTurn : Bool) : Option Bool := do
 #guard kanoScenario "ARC_114" false == some true
 #guard kanoScenario "ARC_114" true == some true
 
+#guard ((earlyPrintingCardId? "ARC115").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .weapon && card.front.hasSubtype .staff && card.status == .full)
+
+meta def crucibleAetherweaveScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let damageCard (name : String) (kind : DamageKind) (amount : Int := 2) : CardDef :=
+    { id := ⟨name⟩
+      front :=
+        { name := name
+          types := [.action]
+          cost := some { actionPoints := 1 }
+          playEffect := some { body := .prim (.dealDamage kind .opposingHero (.const amount)) } } }
+  let arcane := damageCard "Crucible arcane fixture" .arcane
+  let physical := damageCard "Crucible physical fixture" .physical
+  let zeroSpell := damageCard "Crucible zero damage fixture" .arcane 0
+  let cards : CardDB := ⟨arcane :: physical :: zeroSpell :: throughArcDB.cards⟩
+  let (withStaff, staff) ← earlyPlace { earlyBase with cards } p (.player p .weapon) "ARC_115"
+  let (withPhysical, punch) ← earlyPlace withStaff p hand physical.id.val
+  let (withFirst, first) ← earlyPlace withPhysical p hand arcane.id.val
+  let (withSecond, second) ← earlyPlace withFirst p hand arcane.id.val
+  let (ready, zero) ← earlyPlace withSecond p hand zeroSpell.id.val
+  let activate : Action := ⟨.player p, .activateAbility staff 0 none⟩
+  let cast (s : GameState) (id : ObjId) :=
+    earlySteps s (⟨.player p, .playCard id⟩ :: earlyPass)
+  let primed ← earlySteps ready (activate :: earlyPass)
+  let skip ← cast primed punch
+  let boosted ← cast skip first
+  let spent ← cast boosted second
+  let expired ← cast primed.finishTurnEffects first
+  let zeroed ← cast primed zero
+  let afterZero ← cast zeroed first
+  let waiting (s : GameState) := s.activeEffects.any (fun effect => effect.op == .addToNextArcaneCard 1)
+  pure (!(canAttackWithWeapon ready p staff) && (primed.poolOf p).resources == 7 &&
+    (primed.poolOf p).actionPoints == 4 && (earlySteps primed [activate]).isNone &&
+    waiting primed && waiting skip && !waiting boosted &&
+    skip.lifeOf q == ready.lifeOf q - 2 && boosted.lifeOf q == skip.lifeOf q - 3 &&
+    spent.lifeOf q == boosted.lifeOf q - 2 && expired.lifeOf q == ready.lifeOf q - 2 &&
+    zeroed.lifeOf q == ready.lifeOf q && !waiting zeroed &&
+    afterZero.lifeOf q == ready.lifeOf q - 2)
+
+#guard crucibleAetherweaveScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
