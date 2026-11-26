@@ -2291,6 +2291,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | 0 => none
         | bonus + 1 => some (.addToNextArcaneCard (bonus + 1))
       | .nextCardAsInstant filter bonus => some (.nextCardAsInstant filter bonus)
+      | .nextNonAttackActionGoAgain => some .nextNonAttackActionGoAgain
       | .grantKeyword kw => some (.grantKeyword kw)
       | .grantTrigger trigger cond body =>
         match scope with
@@ -2324,7 +2325,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
           (((s.combat.bind CombatChain.activeLink?).bind (·.attackSource)).map EffectTarget.obj).getD (.objects [])
         | .player player, .onlyPlayFromArsenal => .player (evalPlayerRef s ctrl player)
         | .player player, .addTokenCreation _ _ | .player player, .addToNextArcaneCard _
-        | .player player, .nextCardAsInstant _ _ =>
+        | .player player, .nextCardAsInstant _ _ | .player player, .nextNonAttackActionGoAgain =>
           .player (evalPlayerRef s ctrl player)
         | .hero player, .addIntellect _ =>
           .objects (s.zone (.player (evalPlayerRef s ctrl player) .hero))

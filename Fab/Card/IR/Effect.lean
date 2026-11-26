@@ -358,6 +358,8 @@ inductive ContinuousMod where
   | addToNextArcaneCard (amount : NumExpr)
   /-- Permit the next matching action card to be played as though it were an instant. -/
   | nextCardAsInstant (filter : CardFilter) (arcaneBonus : Nat := 0)
+  /-- Grant Go Again to the next non-attack action the affected player plays. -/
+  | nextNonAttackActionGoAgain
   /-- Grant a keyword such as `goAgain` or `dominate`. -/
   | grantKeyword (kw : KeywordInst)
   /-- Grant a triggered ability to the affected object(s) (Pummel, Razor Reflex, Whelming Gustwave, Steelblade Supremacy). -/
