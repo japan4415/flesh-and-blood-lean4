@@ -2259,6 +2259,17 @@ meta def viseraiRunechantScenario (heroId : String) : Option Bool := do
 
 #guard viseraiRunechantScenario "ARC_075" == some true
 
+#guard ((earlyPrintingCardId? "ARC076").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Viserai" && card.front.life == some 20 &&
+    card.front.hasSubtype .young && card.status == .full)
+
+#guard ["HER019", "HER019-P"].all
+  (fun printing => earlyPrintingCardId? printing == some ⟨"ARC_075"⟩)
+#guard ["HER015", "HER015-P"].all
+  (fun printing => earlyPrintingCardId? printing == some ⟨"ARC_076"⟩)
+
+#guard viseraiRunechantScenario "ARC_076" == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
