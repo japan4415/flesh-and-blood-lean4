@@ -1299,6 +1299,17 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         { destination := arsenal, reveal := false, mayFail := true,
           shuffleAfter := false, searchesDeck := false, bottomSelection := some (.lookedAt viewed) }
       (s, [], [.chooseShuffleCards player 1 candidates [] false (some choice)])
+  | .lookTopToBanishedAsInstant pref filter =>
+    let player := evalPlayerRef s ctrl pref
+    let viewed := (s.zone (.player player .deck)).take 1
+    let candidates := viewed.filter fun id =>
+      (s.objectFace? id).any (cardFaceMatches filter)
+    let choice : DeckSearchChoice :=
+      { destination := .player player .banished, reveal := false, mayFail := true,
+        shuffleAfter := false, playableDuration := some .thisTurn, playAsInstant := true,
+        viewedCards := some viewed, searchesDeck := false }
+    (s, [], if viewed.isEmpty then [] else
+      [.chooseShuffleCards player candidates.length candidates [] false (some choice)])
   | .putChosenDeckCardsOnBottom pref ids =>
     let deck := Zone.player (evalPlayerRef s ctrl pref) .deck
     if deck.Valid s.playerCount then
@@ -1647,7 +1658,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     | some _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-  | searchDeckToTop _ _ | reload _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | searchDeckToTop _ _ | reload _ | lookTopToBanishedAsInstant _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | lookDeckToArsenal _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | revealTopPairToHand pref first second =>
@@ -1954,7 +1965,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     | some _ => exact ⟨rfl, rfl, id⟩
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
-  | searchDeckToTop _ _ | reload _ => exact ⟨rfl, rfl, id⟩
+  | searchDeckToTop _ _ | reload _ | lookTopToBanishedAsInstant _ _ => exact ⟨rfl, rfl, id⟩
   | revealTopPairToHand pref first second =>
     let player := evalPlayerRef s ctrl pref
     let ids := matchingRevealedPair s first second ((s.zone (.player player .deck)).take 2)

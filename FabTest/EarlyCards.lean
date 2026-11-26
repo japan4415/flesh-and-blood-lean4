@@ -2748,6 +2748,49 @@ meta def readRunesScenario (name : String) (count : Nat) : Option Bool := do
   (fun card => card.front.hasType .token && card.front.hasSubtype .aura && card.status == .full)
 #guard (throughArcDB.cards.filter (fun card => card.id == ⟨"ARC_112"⟩)).length == 1
 
+#guard ((earlyPrintingCardId? "ARC113").bind throughArcDB.find?).any
+  (fun card => card.front.life == some 30 && card.front.intellect == some 4 && card.status == .full)
+
+meta def kanoScenario (heroName : String) (offTurn : Bool) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let banished := Zone.player p .banished
+  let initial := (earlyBase.setPool p { resources := 6 })
+  let state := { initial with cards := throughArcDB, active := some (if offTurn then q else p) }
+  let (withHero, hero) ← earlyPlace state p (.player p .hero) heroName
+  let (bottom, hidden) ← earlyPlace withHero p deck "WTR_203_R"
+  let (ready, top) ← earlyPlace bottom p deck "WTR_221_R"
+  let activate : Action := ⟨.player p, .activateAbility hero 0 none⟩
+  let choose (card : Option ObjId) : Action := ⟨.player p, .pickShuffleCard card⟩
+  let choice ← earlySteps ready (activate :: earlyPass)
+  let ineligible ← earlySteps bottom (activate :: earlyPass)
+  let declined ← earlySteps choice [choose none]
+  let exiled ← earlySteps choice [choose (some top), choose none]
+  let permission ← (exiled.zone banished).head?
+  let playing ← match exiled.pending with
+    | .priority player _ :: _ =>
+      if player == p then some exiled else earlySteps exiled [⟨.player player, .pass⟩]
+    | _ => none
+  let paid ← earlySteps playing [⟨.player p, .playCard permission⟩]
+  let resolved ← earlySteps paid earlyPass
+  pure ((view p choice).selectionChoices == [(top, ⟨"WTR_221_R"⟩)] &&
+    (view q choice).selectionChoices.isEmpty &&
+    (view p ineligible).selectionChoices == [(hidden, ⟨"WTR_203_R"⟩)] &&
+    !(deckSearchVisible p choice deck) && !(deckSearchVisible q choice deck) &&
+    (earlySteps choice [choose (some hidden)]).isNone &&
+    (earlySteps ineligible [choose (some hidden)]).isNone &&
+    declined.zone deck == [top, hidden] && (declined.zone banished).isEmpty &&
+    exiled.zone deck == [hidden] && (exiled.obj? permission).any (fun obj => !obj.faceDown) &&
+    canPlayFromBanished exiled p permission true && canPlayCard playing p permission &&
+    !canPlayCard playing.finishTurnEffects p permission &&
+    (exiled.poolOf p).resources == 3 && (paid.poolOf p).resources == 0 &&
+    (paid.poolOf p).actionPoints == 0 &&
+    (resolved.poolOf p).actionPoints == (if offTurn then 0 else 1))
+
+#guard kanoScenario "ARC_113" false == some true
+#guard kanoScenario "ARC_113" true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

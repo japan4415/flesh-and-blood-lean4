@@ -324,14 +324,16 @@ def playCardCandidateIds (s : GameState) (p : PlayerId) : List ObjId :=
   s.zone (.player p .hand) ++ s.zone (.player p .arsenal) ++ s.zone (.player p .banished)
 
 /-- A face-up banished card requires a live play permission belonging to this player (CR 5.1.1a). -/
-def canPlayFromBanished (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
+def canPlayFromBanished (s : GameState) (p : PlayerId) (id : ObjId)
+    (asInstant : Bool := false) : Bool :=
   (s.zone (.player p .banished)).contains id &&
     (s.obj? id).any (fun obj => !obj.faceDown) &&
     s.activeEffects.any fun effect =>
       effect.controller == p && effect.target == .obj id &&
       match effect.op with
+      | .allowBanishedPlayAsInstant => true
       | .allowBanishedPlay attack =>
-        attack.all (fun source => ((s.combat.bind CombatChain.activeLink?).bind (·.attack)) == some source)
+        !asInstant && attack.all (fun source => ((s.combat.bind CombatChain.activeLink?).bind (·.attack)) == some source)
       | _ => false
 
 /-- Whether player `p` may announce playing card `id` from an allowed zone while holding priority
@@ -364,6 +366,8 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
         false
       else if c.front.hasType .instant then
         true
+      else if c.front.hasType .action && canPlayFromBanished s p id true then
+        s.canTakeAction p && (cardWeaponTargetChoices s p c).all (fun targets => !targets.isEmpty)
       else if c.front.hasType .action then
         let chainOk :=
           match s.combat with
@@ -1196,7 +1200,7 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
   let isAttack := card.any (fun c => c.front.hasSubtype .attack)
   let hasBoostGoAgain := boostPaid.getD false && layerCanGainGoAgain s layerId p
   let hasGoAgain := (card.any (fun c => c.front.keywords.contains .goAgain) || hasBoostGoAgain) &&
-    !isAttack && layerCanGainGoAgain s layerId p
+    !isAttack && s.active == some p && layerCanGainGoAgain s layerId p
   let modeOnAttack : Option Effect := do
     let effect ← card.bind (·.front.playEffect)
     let index ← modeIdx
@@ -1514,8 +1518,8 @@ def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
     plan.target.toList.map (fun declared => .targetedAttack layerId declared.2))
 
 /-- The scope of a deck-search play permission (CR 5.1.1a). -/
-def searchPlayOp (s : GameState) : Duration → Option EffectOp
-  | .thisTurn => some (.allowBanishedPlay none)
+def searchPlayOp (s : GameState) (asInstant : Bool) : Duration → Option EffectOp
+  | .thisTurn => some (if asInstant then .allowBanishedPlayAsInstant else .allowBanishedPlay none)
   | .thisChainLink =>
     ((s.combat.bind CombatChain.activeLink?).bind (·.attack)).map
       (fun attack => EffectOp.allowBanishedPlay (some attack))
@@ -1567,7 +1571,7 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
     | .moved _ id _ (.player owner .banished) => if owner == p then some id else none
     | _ => none
   let permissions : List ContinuousEffect := ((search.bind (·.playableDuration)).bind fun duration =>
-    (searchPlayOp s duration).map fun op =>
+    (searchPlayOp s (search.any (·.playAsInstant)) duration).map fun op =>
       banished.zipIdx.map fun (id, index) =>
         let timestamp := moved.1.nextTimestamp + index
         { id := timestamp
@@ -1693,7 +1697,12 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       let fromArsenal := id ∈ s.zone (.player p .arsenal)
       let srcZone := (s.locate id).getD (.player p .hand)
       let snap := s.snapshot
-      let cost := match s.cardDefOf? id with | some c => modifiedCardPlayCost s p c | none => {}
+      let printedCost := match s.cardDefOf? id with
+        | some c => modifiedCardPlayCost s p c
+        | none => {}
+      let cost := if canPlayFromBanished s p id true then
+          { printedCost with actionPoints := 0 }
+        else printedCost
       let modes := match s.cardDefOf? id with | some c => cardModeCount c | none => 0
       let isAtkCard := match s.cardDefOf? id with
         | some c => c.front.hasType .action && c.front.hasSubtype .attack
@@ -1849,7 +1858,9 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
     if p = q ∧ validVariableResources limit optional amount = true then
       let info := s.layerMeta.getD layerId.n { controller := p }
       let total := match amount, s.cardDefOf? layerId with
-        | some x, some card => modifiedCardPlayCost s p card (x * max 1 card.front.xCostFactor)
+        | some x, some card =>
+          { modifiedCardPlayCost s p card (x * max 1 card.front.xCostFactor) with
+            actionPoints := cost.actionPoints }
         | _, _ => cost
       some ({ s with
         layerMeta := s.layerMeta.insert layerId.n { info with variableResources := amount }
