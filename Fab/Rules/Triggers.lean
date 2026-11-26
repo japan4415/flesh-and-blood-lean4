@@ -42,21 +42,34 @@ structure PendingTrigger where
   effect : Effect := .nop
   /-- Controller of the equipment this trigger must target, when required. -/
   equipmentTargetPlayer : Option PlayerId := none
+  /-- Whether the trigger must choose one opposing hero. -/
+  requiresOpposingHero : Bool := false
   /-- Number and filter of graveyard cards to target before the trigger is stacked. -/
   graveyardTargets : Option (Nat × CardFilter) := none
 deriving DecidableEq, Repr
 
+/-- Bind the hero declared for direct damage or damage after destroying the source. -/
+def Effect.bindOpposingHeroDamage (effect : Effect) (hero : PlayerId) : Option Effect :=
+  match effect with
+  | .prim (.dealDamage kind (.ownerOfSlot 0) amount) =>
+    some (.prim (.dealDamage kind (.seated hero) amount))
+  | .seq (.cons (.prim (.destroy .self_)) (.cons (.prim (.dealDamage kind (.ownerOfSlot 0) amount)) .nil)) =>
+    some (.seqL [.prim (.destroy .self_), .prim (.dealDamage kind (.seated hero) amount)])
+  | _ => none
+
 /-- The hero declarations available when stacking a pending trigger. -/
 def PendingTrigger.heroChoices (t : PendingTrigger) (players : List PlayerId) :
     List (Option PlayerId) :=
-  match t.effect with
+  if t.requiresOpposingHero then (players.filter (· != t.controller)).map some
+  else match t.effect with
   | .prim (.intimidate (.ownerOfSlot 0)) => players.map some
   | _ => [none]
 
 /-- Bind the declared target into the supported triggered effect. -/
 def PendingTrigger.declaredEffect (t : PendingTrigger) (hero : Option PlayerId)
     (equipment : Option ObjId) : Effect :=
-  match t.effect, equipment with
+  if t.requiresOpposingHero then (hero.bind t.effect.bindOpposingHeroDamage).getD .nop
+  else match t.effect, equipment with
   | .prim (.addCounter (.slot 0) kind amount), some id => .prim (.addCounter (.declared id) kind amount)
   | _, _ => (hero.bind t.effect.bindIntimidateTarget).getD t.effect
 

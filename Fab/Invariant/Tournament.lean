@@ -666,7 +666,7 @@ private theorem advanceArcaneDamage_ttr (s : GameState) (p : PlayerId)
       exact ⟨ht, htn, fun hn => hr ▸ hn⟩
     · split <;> exact ⟨rfl, rfl, id⟩
 
-set_option maxHeartbeats 300000 in
+set_option maxHeartbeats 400000 in
 /-- **I14** (microStep preservation): every `microStep` preserves `TimeLimitBounded deadline`.
 In particular, `beginTurn` either terminates in `.draw .timeLimit` (when `k = 0`) or increments
 `turn` by 1 while decrementing `timeLimitTurnsLeft` by 1, preserving `turn + k ≤ deadline` (TRP 4). -/

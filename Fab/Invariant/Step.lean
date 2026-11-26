@@ -305,6 +305,7 @@ private theorem payActivationSource_preserves {s paid : GameState}
       cases h
       exact moveObj_preserves hwf hok hrb hm
 
+set_option maxHeartbeats 800000 in
 private theorem finishBoostedPlay_preserves {s s' : GameState} {p : PlayerId} {layerId : ObjId}
     {fromArsenal : Bool} {modeIdx : Option Nat} {rest : List Frame} {es : List Event}
     (hwf : s.WF) (hok : s.OwnerOk)
@@ -837,6 +838,7 @@ private theorem afterPermanentEntry_preserves {s : GameState} (hwf : s.WF) (hok 
     StepPreserves s (afterPermanentEntry s triggers rest) :=
   sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
 
+set_option maxHeartbeats 800000 in
 private theorem beginEndPhase_preserves {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
     (hrb : s.RollbackOk) (player : PlayerId) (rest : List Frame) :
     StepPreserves s (beginEndPhase s player rest) :=

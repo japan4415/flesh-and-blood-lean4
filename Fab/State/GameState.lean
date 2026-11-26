@@ -97,6 +97,8 @@ structure LayerInfo where
   triggerGraveyard : Option (CardFilter × List ObjId) := none
   /-- Controller and equipment declared on a trigger, rechecked on resolution (CR 1.8.9). -/
   triggerEquipment : Option (PlayerId × ObjId) := none
+  /-- Opposing hero target of a triggered layer, rechecked on resolution. -/
+  triggerOpposingHero : Option PlayerId := none
 deriving DecidableEq, Repr
 
 /-- Snapshot of mutable board state saved at the start of playing a card so illegal or unpayable
@@ -144,6 +146,8 @@ structure BoardSnapshot where
   weaponHitsThisTurn : List ObjId := []
   /-- Saved attack action hit history, one entry for its controller per hit. -/
   attackActionHitsThisTurn : List PlayerId := []
+  /-- Controller for each non-attack action card paid for during the turn. -/
+  nonAttackActionsThisTurn : List PlayerId := []
   /-- Saved turn attack history, including attacks that did not hit. -/
   attacksThisTurn : List PlayerId := []
   /-- Saved unopened outside-game boosters (CR 1.9.1a). -/
@@ -214,6 +218,8 @@ structure GameState where
   weaponHitsThisTurn : List ObjId := []
   /-- Controllers of attack action cards that hit this turn (CR 6.6.5d, 7.5.3). -/
   attackActionHitsThisTurn : List PlayerId := []
+  /-- Controller for each non-attack action card paid for during the turn. -/
+  nonAttackActionsThisTurn : List PlayerId := []
   /-- Players who attacked this turn, with one entry per attack. -/
   attacksThisTurn : List PlayerId := []
   /-- Unopened outside-game boosters, in supplied order, each with its tracked physical cards. -/
@@ -504,6 +510,7 @@ def snapshot (s : GameState) : BoardSnapshot :=
     activatedThisTurn := s.activatedThisTurn
     weaponHitsThisTurn := s.weaponHitsThisTurn
     attackActionHitsThisTurn := s.attackActionHitsThisTurn
+    nonAttackActionsThisTurn := s.nonAttackActionsThisTurn
     attacksThisTurn := s.attacksThisTurn
     unopenedBoosters := s.unopenedBoosters
     triggeredThisTurn := s.triggeredThisTurn }
@@ -532,6 +539,7 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     activatedThisTurn := snap.activatedThisTurn
     weaponHitsThisTurn := snap.weaponHitsThisTurn
     attackActionHitsThisTurn := snap.attackActionHitsThisTurn
+    nonAttackActionsThisTurn := snap.nonAttackActionsThisTurn
     attacksThisTurn := snap.attacksThisTurn
     unopenedBoosters := snap.unopenedBoosters
     triggeredThisTurn := snap.triggeredThisTurn
