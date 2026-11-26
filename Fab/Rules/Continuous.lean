@@ -174,6 +174,8 @@ inductive EffectOp where
   | limitActions (remaining : Nat)
   /-- Restrict the player to card plays originating in arsenal. -/
   | onlyPlayFromArsenal
+  /-- Increase an eligible player's nonempty creation of this token. -/
+  | addTokenCreation (token : CardId) (amount : Nat)
   /-- Stage 7: set base power `{p}` to `v` (CR 6.3.2g). -/
   | setBasePower (v : Int)
   /-- Stage 7: set base defense `{d}` to `v` (CR 6.3.2g). -/
@@ -212,7 +214,8 @@ def EffectOp.stage : EffectOp → EffectStage
   | .addType _ | .addSubtype _ | .setSubtypes _ => .stage4TypeSubtype
   | .addSupertype _ => .stage5Supertype
   | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _ | .loseKeyword _ | .loseAllAbilities
-  | .cantDrawCards | .cantGainGoAgain | .limitActions _ | .onlyPlayFromArsenal => .stage6Ability
+  | .cantDrawCards | .cantGainGoAgain | .limitActions _ | .onlyPlayFromArsenal
+  | .addTokenCreation _ _ => .stage6Ability
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .stage7BaseNumeric
   | .lockPower | .mulPower _ | .divPower _ | .addPower _ | .subPower _
   | .addDefense _ | .subDefense _ | .addCostRes _ | .subCostRes _
@@ -226,7 +229,7 @@ def EffectOp.subStage : EffectOp → SubStage
   | .mulPower _ | .divPower _ => .mulDiv
   | .addType _ | .addSubtype _ | .addSupertype _ | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _
   | .addPower _ | .addDefense _ | .addCostRes _ | .addIntellect _
-  | .addPowerIfFewerDefenders _ _ => .add
+  | .addPowerIfFewerDefenders _ _ | .addTokenCreation _ _ => .add
   | .loseKeyword _ | .loseAllAbilities | .subPower _ | .subDefense _ | .subCostRes _ => .sub
 
 /-- Helper: append an element to a list only if not already present. -/
@@ -262,7 +265,8 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
   | .grantKeyword (.arcaneBarrier n) => { c with keywords := .arcaneBarrier n :: c.keywords }
   | .grantKeyword kw => { c with keywords := insertUnique kw c.keywords }
   | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _
-  | .cantDrawCards | .cantGainGoAgain | .limitActions _ | .onlyPlayFromArsenal => c
+  | .cantDrawCards | .cantGainGoAgain | .limitActions _ | .onlyPlayFromArsenal
+  | .addTokenCreation _ _ => c
   | .loseKeyword kw => { c with keywords := c.keywords.filter (· != kw) }
   | .loseAllAbilities => { c with keywords := [], abilitiesLost := true }
   | .setBasePower v => { c with basePower := some v, power := some v }

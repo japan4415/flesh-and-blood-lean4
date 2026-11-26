@@ -2408,6 +2408,39 @@ meta def arknightAscendancyScenario : Option Bool := do
 
 #guard arknightAscendancyScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC081").bind throughArcDB.find?).any
+  (fun card => card.front.keywords.contains .goAgain && card.status == .full)
+
+meta def mordredTideScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let token := FabCards.ARC.runechantToken.id
+  let quicken : CardId := ⟨"WTR_225"⟩
+  let (withHero, hero) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hero) "ARC_075"
+  let (withFirst, first) ← earlyPlace withHero p hand "ARC_081_R"
+  let (withSecond, second) ← earlyPlace withFirst p hand "ARC_081_R"
+  let (ready, utility) ← earlyPlace withSecond p hand "WTR_218_R"
+  let opener ← earlySteps ready (⟨.player p, .playCard utility⟩ :: earlyPass)
+  let resolve (s : GameState) (card : ObjId) : Option GameState := do
+    let announced ← earlySteps s [⟨.player p, .playCard card⟩]
+    let trigger ← announced.pendingTriggers.head?
+    earlySteps announced
+      ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass ++ earlyPass)
+  let once ← resolve opener first
+  let twice ← resolve once second
+  let create (s : GameState) (target : PlayerId) (id : CardId) (count : Nat) :=
+    (execPrim s p hero [] (.createToken (.seated target) id count)).1
+  pure (controlledPermanentCount once p token == 1 && controlledPermanentCount twice p token == 3 &&
+    controlledPermanentCount (create twice p token 3) p token == 8 &&
+    controlledPermanentCount (create twice p token 0) p token == 3 &&
+    controlledPermanentCount (create twice q token 1) q token == 1 &&
+    controlledPermanentCount (create twice p quicken 1) p quicken == 1 &&
+    controlledPermanentCount (create twice.finishTurnEffects p token 3) p token == 6)
+
+#guard mordredTideScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
