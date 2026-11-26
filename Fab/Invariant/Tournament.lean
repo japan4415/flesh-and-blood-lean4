@@ -378,7 +378,7 @@ theorem interpRunStep_ttr (s : GameState) (ctrl : PlayerId) (src : ObjId)
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | bindRevealTopPitch _ _ _ _
-    | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
+    | onBoostThisTurn _ | onNextActionCardThisTurn _ _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact ⟨rfl, rfl, id⟩
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref

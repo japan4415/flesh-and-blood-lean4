@@ -1320,6 +1320,14 @@ def ARC_207_Y : CardDef := { forceSight Meta.ARC_207_Y_meta 2 with status := .fu
 /-- Force Sight Blue (ARC208). -/
 def ARC_208_B : CardDef := { forceSight Meta.ARC_208_B_meta 1 with status := .full }
 
+/-- Register a single action-point trigger for the controller's qualifying action card. -/
+def leadTheCharge (base : CardDef) (minCost : Nat) : CardDef :=
+  let body : Effect := .onNextActionCardThisTurn minCost (.prim (.gainAP .controller (.const 1)))
+  { base with front := { base.front with playEffect := some { body } } }
+
+/-- Lead the Charge Red (ARC209). -/
+def ARC_209_R : CardDef := { leadTheCharge Meta.ARC_209_R_meta 0 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1354,7 +1362,8 @@ def arcCards : List CardDef :=
    ARC_174_Y, ARC_175_B, ARC_176_R, ARC_177_Y, ARC_178_B, ARC_179_R, ARC_180_Y, ARC_181_B,
    ARC_182_R, ARC_183_Y, ARC_184_B, ARC_185_R, ARC_186_Y, ARC_187_B, ARC_188_R, ARC_189_Y, ARC_190_B,
    ARC_191_R, ARC_192_Y, ARC_193_B, ARC_194_R, ARC_195_Y, ARC_196_B, ARC_197_R, ARC_198_Y, ARC_199_B,
-   ARC_200_R, ARC_201_Y, ARC_202_B, ARC_203_R, ARC_204_Y, ARC_205_B, ARC_206_R, ARC_207_Y, ARC_208_B]
+   ARC_200_R, ARC_201_Y, ARC_202_B, ARC_203_R, ARC_204_Y, ARC_205_B, ARC_206_R, ARC_207_Y, ARC_208_B,
+   ARC_209_R]
 
 end FabCards.ARC
 

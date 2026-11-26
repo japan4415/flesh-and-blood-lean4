@@ -1168,7 +1168,9 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
   | .gainAP pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
-    (s.setPool target ((s.poolOf target).addActionPoints amt), [], [])
+    if s.active == some target && s.phase == .actionPhase then
+      (s.setPool target ((s.poolOf target).addActionPoints amt), [], [])
+    else (s, [], [])
   | .gainResource pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
@@ -1616,7 +1618,13 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     cases name <;> unfold execPrim <;> dsimp only <;> split <;>
       exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
              GameState.OwnerOk.congr hok rfl rfl, List.Perm.refl _, rfl, rfl⟩
-  | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
+  | gainAP _ _ =>
+    unfold execPrim
+    dsimp only
+    split <;>
+      exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
+        GameState.OwnerOk.congr hok rfl rfl, List.Perm.refl _, rfl, rfl⟩
+  | gainLife _ _ | gainResource _ _ | gainChi _ _ =>
     exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
            GameState.OwnerOk.congr hok rfl rfl,
            List.Perm.refl _, rfl, rfl⟩
@@ -1948,9 +1956,13 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
   cases p with
   | restrictNamedCard name =>
     cases name <;> (unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩)
+  | gainAP _ _ =>
+    unfold execPrim
+    dsimp only
+    split <;> exact ⟨rfl, rfl, id⟩
   | draw _ _ | drawOnNextAttackActionHit _ | opt _ _ | optValue _ _ | weaponAttack
   | closeCombatChain | createTokenForAttackDamage _ _
-  | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
+  | gainLife _ _ | gainResource _ _ | gainChi _ _ =>
     exact ⟨rfl, rfl, id⟩
   | openBoosters name =>
     cases name <;> unfold execPrim <;> dsimp only <;> split <;> exact ⟨rfl, rfl, id⟩
@@ -2466,6 +2478,16 @@ theorem applyChainLinkMod_fields (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | exact ⟨rfl, rfl, rfl, rfl, rfl⟩
       | (dsimp only; split <;> exact ⟨rfl, rfl, rfl, rfl, rfl⟩)
 
+/-- Record a delayed effect and its source identity at creation (CR 6.6.3). -/
+def registerDelayedEffect (s : GameState) (ctrl : PlayerId) (src : ObjId)
+    (watch : DelayedTriggerWatch) (body : Effect) : GameState :=
+  let delayed : DelayedTrigger :=
+    { id := s.nextTimestamp, controller := ctrl, source := src
+      sourceLki := some (captureLki s src ctrl)
+      watch := watch
+      effect := body }
+  { s with delayedTriggers := s.delayedTriggers ++ [delayed], nextTimestamp := s.nextTimestamp + 1 }
+
 /-- Execute a single step of `Frame.run ctrl src fromArsenal env todo :: rest` (CR 1.7, 6.0).
 Always succeeds (total), never returning `none`. -/
 def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal : Bool)
@@ -2529,17 +2551,11 @@ def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
         pending := .run ctrl src fromArsenal ((bindVar, Int.ofNat matched) :: env) [cont] ::
           .run ctrl src fromArsenal env more :: rest }, events)
   | .onBoostThisTurn body :: more =>
-    let delayed : DelayedTrigger :=
-      { id := s.nextTimestamp
-        controller := ctrl
-        source := src
-        sourceLki := some (captureLki s src ctrl)
-        watch := .boostThisTurn s.turn
-        effect := body }
-    ({ s with
-        delayedTriggers := s.delayedTriggers ++ [delayed]
-        nextTimestamp := s.nextTimestamp + 1
-        pending := .run ctrl src fromArsenal env more :: rest }, [])
+    let s1 := registerDelayedEffect s ctrl src (.boostThisTurn s.turn) body
+    ({ s1 with pending := .run ctrl src fromArsenal env more :: rest }, [])
+  | .onNextActionCardThisTurn minCost body :: more =>
+    let s1 := registerDelayedEffect s ctrl src (.nextActionCardThisTurn s.turn minCost) body
+    ({ s1 with pending := .run ctrl src fromArsenal env more :: rest }, [])
   | .discardTopOfHand pref filter ifMatches otherwise :: more =>
     let player := evalPlayerRef s ctrl pref
     let (discarded, events) := discardManyObjs s player ((s.zone (.player player .hand)).take 1)
@@ -2572,7 +2588,7 @@ theorem interpRunStep_wf {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : 
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | bindRevealTopPitch _ _ _ _
-    | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
+    | onBoostThisTurn _ | onNextActionCardThisTurn _ _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact GameState.WF.congr hwf rfl rfl rfl rfl
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref
@@ -2601,7 +2617,7 @@ theorem interpRunStep_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | bindRevealTopPitch _ _ _ _
-    | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
+    | onBoostThisTurn _ | onNextActionCardThisTurn _ _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact GameState.OwnerOk.congr hok rfl rfl
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref
@@ -2631,7 +2647,7 @@ theorem interpRunStep_physIds {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | bindRevealTopPitch _ _ _ _
-    | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
+    | onBoostThisTurn _ | onNextActionCardThisTurn _ _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact List.Perm.refl _
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref
@@ -2665,7 +2681,7 @@ theorem interpRunStep_meta {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl 
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
     | bindRevealTopPitch _ _ _ _
-    | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
+    | onBoostThisTurn _ | onNextActionCardThisTurn _ _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact ⟨rfl, rfl⟩
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref
