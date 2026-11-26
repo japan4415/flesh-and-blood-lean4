@@ -4574,6 +4574,50 @@ meta def moonWishScenario (card : String) (power : Nat) : Option Bool := do
   (fun card => card.front.power == some 3 && card.front.pitch == some 3 && card.status == .full)
 #guard moonWishScenario "ARC_187_B" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC188").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 4 && card.front.pitch == some 1 && card.status == .full)
+
+meta def pushThePointScenario (card : String) (power : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let (withAttack, attack) ← earlyPlace { earlyBase with cards := throughArcDB } p hand card
+  let (withOpener, opener) ← earlyPlace withAttack p hand "WTR_100_B"
+  let (withSecond, second) ← earlyPlace withOpener p hand "WTR_100_B"
+  let (ready, defender) ← earlyPlace withSecond q (.player q .hand) "WTR_203_R"
+  let play := ActionKind.playCard attack
+  let block : Action := ⟨.player q, .defendCard defender⟩
+  let first ← earlyAttack ready play
+  let firstLink ← first.combat.bind CombatChain.activeLink?
+  let opening ← earlyAttack ready (.playCard opener)
+  let openingHit ← earlyDamage opening
+  let afterHit ← earlySteps openingHit earlyPass
+  let follow ← earlyAttack afterHit play
+  let followLink ← follow.combat.bind CombatChain.activeLink?
+  let source ← followLink.attack
+  let followHit ← earlyDamage follow
+  let suppression : ContinuousEffect :=
+    { id := follow.nextTimestamp, source := source, controller := q, target := .obj source
+      op := .loseAllAbilities, duration := .thisTurn, timestamp := ⟨follow.nextTimestamp⟩ }
+  let suppressed := { follow with activeEffects := suppression :: follow.activeEffects }
+  let closed ← earlySteps openingHit (earlyPass ++ earlyPass)
+  let reopening ← earlyAttack closed play
+  let reopenedLink ← reopening.combat.bind CombatChain.activeLink?
+  let secondAttack ← earlyAttack afterHit (.playCard second)
+  let stopped ← earlySteps secondAttack [block]
+  let afterMiss ← (earlyDamage stopped).bind (earlySteps · earlyPass)
+  let thirdAttack ← earlyAttack afterMiss play
+  let thirdLink ← thirdAttack.combat.bind CombatChain.activeLink?
+  pure (linkAttackPower first firstLink == power &&
+    followLink.linkId.n == 2 && linkAttackPower follow followLink == power + 2 &&
+    linkAttackPower suppressed followLink == power &&
+    linkAttackPower follow { followLink with attack := none } == power + 2 &&
+    followHit.lifeOf q == openingHit.lifeOf q - (power + 2) &&
+    closed.combat.isNone && linkAttackPower reopening reopenedLink == power &&
+    thirdLink.linkId.n == 3 && linkAttackPower thirdAttack thirdLink == power)
+
+#guard pushThePointScenario "ARC_188_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
