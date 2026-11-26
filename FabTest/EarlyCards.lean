@@ -2545,6 +2545,26 @@ meta def tomeArknightScenario (cards : List String) (shouldTake : Bool) : Option
 #guard tomeArknightScenario ["WTR_203_R", "WTR_225", "WTR_218_R"] false == some true
 #guard tomeArknightScenario ["WTR_218_R"] false == some true
 
+meta def spellbladeAssaultScenario (name : String) (power : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let token := FabCards.ARC.runechantToken.id
+  let (ready, attack) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) name
+  let paid ← earlySteps ready [⟨.player p, .playCard attack⟩]
+  let attacking ← earlySteps paid earlyPass
+  let trigger ← attacking.pendingTriggers.head?
+  let resolved ← earlySteps attacking
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let link ← resolved.combat.bind CombatChain.activeLink?
+  pure (paid.pendingTriggers.isEmpty && controlledPermanentCount paid p token == 0 &&
+    controlledPermanentCount attacking p token == 0 && attacking.pendingTriggers.length == 1 &&
+    controlledPermanentCount resolved p token == 2 && resolved.pendingTriggers.isEmpty &&
+    resolved.lifeOf q == ready.lifeOf q && linkAttackPower resolved link == power &&
+    (resolved.poolOf p).resources == 6)
+
+#guard spellbladeAssaultScenario "ARC_085_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
