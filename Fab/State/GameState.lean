@@ -67,6 +67,8 @@ structure LayerInfo where
   weaponTarget : Option ObjId := none
   /-- Target and its filter saved before paying for an activated layer (CR 5.2.2b). -/
   activationTarget : Option (TargetSpec × ObjId) := none
+  /-- Graveyard targets declared before paying for an activated layer (CR 5.2.2b). -/
+  activationGraveyardTargets : List (TargetSpec × ObjId) := []
   /-- Activation awaiting the payment of assets and effect-costs (CR 5.2.2b). -/
   activationPayment : Option ActivationPayment := none
   /-- Whether to include the optional resources when paying for this layer (CR 5.1.5). -/

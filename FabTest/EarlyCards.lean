@@ -1659,7 +1659,7 @@ meta def threeOfAKindScenario : Option Bool := do
     !canPlayCard resolved p inHand && canPlayFromBanished resolved p banished && !canPlayCard resolved p banished &&
     canPlayCard resolved p stored && played.lifeOf p == resolved.lifeOf p + 3 &&
     canPlayCard resolved q enemy && canAttackWithWeapon resolved p weapon &&
-    (availableActivations resolved p).contains (hero, 0, none) &&
+    (availableActivations resolved p).contains (hero, 0, none, none) &&
     canPlayCard resolved.finishTurnEffects p inHand)
 
 #guard threeOfAKindScenario == some true
@@ -2329,6 +2329,49 @@ meta def graspArknightScenario : Option Bool := do
     (earlySteps (resolved.setPool p { actionPoints := 1, resources := 8 }) [activate]).isNone)
 
 #guard graspArknightScenario == some true
+
+#guard ((earlyPrintingCardId? "ARC079").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .head && card.front.keywords.contains (.arcaneBarrier 1) &&
+    card.status == .full)
+
+meta def crownDichotomyScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let grave := Zone.player p .graveyard
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let attack := FabCards.ARC.Meta.ARC_080_R_meta
+  let nonAttack := FabCards.ARC.Meta.ARC_081_R_meta
+  let cards : CardDB := ⟨attack :: nonAttack :: throughArcDB.cards⟩
+  let (withCrown, crown) ← earlyPlace { earlyBase with cards } p (.player p .head) "ARC_079"
+  let (oneTarget, a) ← earlyPlace withCrown p grave attack.id.val
+  let (withTargets, b) ← earlyPlace oneTarget p grave nonAttack.id.val
+  let (withFiller, generic) ← earlyPlace withTargets p grave "WTR_203_R"
+  let (ready, opponent) ← earlyPlace withFiller q (.player q .graveyard) attack.id.val
+  let activate (first second : Option ObjId) : Action :=
+    ⟨.player p, .activateAbility crown 0 first second⟩
+  let cast ← earlySteps ready [activate (some a) (some b)]
+  let order ← earlySteps cast earlyPass
+  let firstTop ← earlySteps order [⟨.player p, .pickMode 0⟩]
+  let secondTop ← earlySteps order [⟨.player p, .pickMode 1⟩]
+  let (oneLost, _) ← moveObj cast b hand .top false
+  let (bothLost, _) ← moveObj oneLost a hand .top false
+  let single ← earlySteps oneLost earlyPass
+  let empty ← earlySteps bothLost earlyPass
+  let deckCards (s : GameState) := (s.zone deck).filterMap fun id => (s.cardDefOf? id).map (·.id)
+  pure ((earlySteps oneTarget [activate (some a) none]).isNone &&
+    (earlySteps ready [activate (some a) (some a)]).isNone &&
+    (earlySteps ready [activate (some generic) (some b)]).isNone &&
+    (earlySteps ready [activate (some opponent) (some b)]).isNone &&
+    (earlySteps ready [activate (some b) (some a)]).isNone &&
+    (cast.zone (.player p .head)).isEmpty && (cast.poolOf p).resources == 7 &&
+    ((cast.zone grave).filterMap fun id => (cast.cardDefOf? id).map (·.id)).contains ⟨"ARC_079"⟩ &&
+    deckCards firstTop == [attack.id, nonAttack.id] &&
+    deckCards secondTop == [nonAttack.id, attack.id] &&
+    deckCards single == [attack.id] && (deckCards empty).isEmpty &&
+    (firstTop.poolOf p).actionPoints == 3)
+
+#guard crownDichotomyScenario == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>

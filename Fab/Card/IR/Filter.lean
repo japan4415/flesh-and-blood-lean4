@@ -135,6 +135,8 @@ structure CardFilter where
   anySubtypes : List Subtype := []
   /-- Required subtypes (all listed must be present). -/
   subtypes : List Subtype := []
+  /-- Excluded subtypes (none listed may be present). -/
+  excludeSubtypes : List Subtype := []
   /-- Excluded card types (e.g., non-equipment defending cards). -/
   excludeTypes : List CardType := []
   /-- Required printed or granted keywords (e.g., Combo). -/

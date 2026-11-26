@@ -1250,6 +1250,8 @@ structure ActivationPlan where
   body : Effect
   /-- Required target and its resolution-time eligibility filter. -/
   target : Option (TargetSpec × ObjId)
+  /-- Declared graveyard targets and their independent eligibility filters. -/
+  graveyardTargets : List (TargetSpec × ObjId)
 
 /-- Public zones that can contain an attack action card targeted by an activation (CR 1.8.5a). -/
 def activationTargetZones (s : GameState) : List Zone :=
@@ -1272,6 +1274,35 @@ def matchesActivationTarget (s : GameState) (spec : TargetSpec) (id : ObjId) : B
             types := chars.types, subtypes := chars.subtypes, keywords := chars.keywords,
             cost := chars.baseCost }
       | _, _ => false
+
+/-- Check a declared graveyard target against its public location and card filter (CR 1.8). -/
+def matchesActivationGraveyardTarget (s : GameState) (p : PlayerId) (spec : TargetSpec)
+    (id : ObjId) : Bool :=
+  (s.zone (.player p .graveyard)).contains id &&
+    (s.obj? id).any (fun obj => match obj.kind with | .card _ _ => true | _ => false) &&
+    (s.objectFace? id).any (cardFaceMatches spec.filter)
+
+/-- Two independently targeted cards that the controller orders on top of their deck. -/
+def activationGraveyardTargetSpecs? (effect : EffectDef) : Option (TargetSpec × TargetSpec) :=
+  match effect.targets with
+  | [first, second] =>
+    let supported (spec : TargetSpec) :=
+      spec.kind == .cardInZone .controller .graveyard && spec.minCount == 1 && spec.maxCount == some 1
+    let move (slot : Nat) := Effect.prim (.moveCard (.slot slot) .deck .top false)
+    if supported first && supported second && effect.body == .seqL [move 0, move 1] then
+      some (first, second)
+    else none
+  | _ => none
+
+/-- Recheck each target independently and let its controller choose how to order valid cards. -/
+def activationGraveyardResolution (s : GameState) (p : PlayerId)
+    (targets : List (TargetSpec × ObjId)) : Effect :=
+  let move (id : ObjId) := Effect.prim (.moveCard (.declared id) .deck .top false)
+  match (targets.filter (fun (spec, id) => matchesActivationGraveyardTarget s p spec id)).map Prod.snd with
+  | [first, second] =>
+    .chooseOne (.ofList [.seqL [move second, move first], .seqL [move first, move second]])
+  | [only] => move only
+  | _ => .nop
 
 /-- Bind the declared target of an attack modifier (CR 5.1.4a, 5.2.2b, 6.2.2a). -/
 def activationResolution? (s : GameState) (effect : EffectDef) (target : Option ObjId) :
@@ -1314,8 +1345,8 @@ def activationPermanentSurcharge (s : GameState) (p : PlayerId) : List ExtraCost
   | _ => none
 
 /-- Read the announced ability and its payable costs from a visible arena source (CR 5.2.2). -/
-def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat) (target : Option ObjId) :
-    Option ActivationPlan := do
+def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat)
+    (target : Option ObjId) (secondTarget : Option ObjId := none) : Option ActivationPlan := do
   let origin ← (activationArenaZones s).find? (fun z => (s.zone z).contains source)
   let obj ← s.obj? source
   if obj.owner.n ≥ s.playerCount || obj.faceDown then none else
@@ -1344,10 +1375,21 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
         !(extra.isEmpty || destroy || canRemove || arsenalCard.isSome || surcharge.isSome) ||
         !(effect.modes.isEmpty && effect.extraCosts.isEmpty) ||
         effect.body == .prim .weaponAttack then none else
-    let (body, declared) ← activationResolution? s effect (if turnArsenalFaceUp then none else target)
+    let (body, declared, graveyard) ← match activationGraveyardTargetSpecs? effect with
+      | some (first, second) => do
+        let a ← target
+        let b ← secondTarget
+        if !turnArsenalFaceUp && a != b && matchesActivationGraveyardTarget s p first a &&
+            matchesActivationGraveyardTarget s p second b then
+          some (.nop, none, [(first, a), (second, b)])
+        else none
+      | none => do
+        if secondTarget.isSome then none else
+        let (body, declared) ← activationResolution? s effect (if turnArsenalFaceUp then none else target)
+        some (body, declared, [])
     let cost := { cost with resources := cost.resources + surcharge.getD 0 }
-    some (speed, once, cost, destroy, removeCounters, arsenalCard, goAgain, body, declared))
-  let (speed, once, cost, destroy, removeCounters, arsenalCard, goAgain, body, declared) := terms
+    some (speed, once, cost, destroy, removeCounters, arsenalCard, goAgain, body, declared, graveyard))
+  let (speed, once, cost, destroy, removeCounters, arsenalCard, goAgain, body, declared, graveyard) := terms
   let isAction := speed == .action
   let cost := if isAction then
       { cost with actionPoints := max cost.actionPoints 1, resources := cost.resources + nextActionSurcharge s p }
@@ -1357,11 +1399,11 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
     let payment : ActivationPayment :=
       { source, index, origin, owner := obj.owner, destroySource := destroy, oncePerTurn := once,
         removeCounters, isAction, turnArsenalFaceUp := arsenalCard.map (p, ·) }
-    some ⟨payment, cost, goAgain, body, declared⟩
+    some ⟨payment, cost, goAgain, body, declared, graveyard⟩
   else none
 
 /-- The indexed abilities currently available to a player holding priority. -/
-def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat × Option ObjId) :=
+def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat × Option ObjId × Option ObjId) :=
   let sources := (activationArenaZones s).flatMap s.zone
   let candidates := sources.flatMap fun source =>
     let abilities := ((s.objectFace? source).map (·.abilities)).getD []
@@ -1369,11 +1411,18 @@ def availableActivations (s : GameState) (p : PlayerId) : List (ObjId × Nat × 
       match ability with
       | .activated _ _ _ extra _ _ effect =>
         if extra == [{ cost := .turnArsenalFaceUp }] then
-          (s.zone (.player p .arsenal)).map (fun id => (source, index, some id))
-        else if effect.targets.isEmpty then [(source, index, none)]
-        else ((activationTargetZones s).flatMap s.zone).map fun id => (source, index, some id)
+          (s.zone (.player p .arsenal)).map (fun id => (source, index, some id, none))
+        else if effect.targets.isEmpty then [(source, index, none, none)]
+        else match activationGraveyardTargetSpecs? effect with
+          | some (first, second) =>
+            let cards := s.zone (.player p .graveyard)
+            let firstChoices := cards.filter (matchesActivationGraveyardTarget s p first)
+            let secondChoices := cards.filter (matchesActivationGraveyardTarget s p second)
+            firstChoices.flatMap fun a => secondChoices.map fun b => (source, index, some a, some b)
+          | none => ((activationTargetZones s).flatMap s.zone).map fun id => (source, index, some id, none)
       | _ => []
-  candidates.filter fun (source, index, target) => (activationPlan? s p source index target).isSome
+  candidates.filter fun (source, index, target, secondTarget) =>
+    (activationPlan? s p source index target secondTarget).isSome
 
 /-- Pay the cost taken from an activation's source before returning priority (CR 5.2.2b). -/
 def payActivationSource (s : GameState) (payment : ActivationPayment) :
@@ -1425,9 +1474,9 @@ def finishPaidActivation (s : GameState) (p : PlayerId) (layerId : ObjId)
 
 /-- Announce an activation and enter the normal asset payment procedure (CR 5.2.2). -/
 def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat)
-    (target : Option ObjId) (rest : List Frame) :
+    (target : Option ObjId) (rest : List Frame) (secondTarget : Option ObjId := none) :
     Option (GameState × List Event) := do
-  let plan ← activationPlan? s p source index target
+  let plan ← activationPlan? s p source index target secondTarget
   let layer : Object :=
     { kind := .layer source (some (captureLki s source p)) index false
       owner := p, controller := p, timestamp := ⟨s.nextTimestamp⟩ }
@@ -1435,7 +1484,8 @@ def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
   let info : LayerInfo := {
     controller := p, goAgain := plan.goAgain && layerCanGainGoAgain stacked layerId p,
     triggerEffect := some plan.body,
-    activationTarget := plan.target, activationPayment := some plan.payment }
+    activationTarget := plan.target, activationGraveyardTargets := plan.graveyardTargets,
+    activationPayment := some plan.payment }
   some ({ stacked with
     layerMeta := stacked.layerMeta.insert layerId.n info
     playRollback := some s.snapshot
@@ -1678,8 +1728,8 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
               [])
     else
       none
-  | .priority p _ :: rest, .player q, .activateAbility source index target =>
-    if p = q then startActivation s p source index target rest else none
+  | .priority p _ :: rest, .player q, .activateAbility source index target secondTarget =>
+    if p = q then startActivation s p source index target rest secondTarget else none
   | .defendPick defender :: rest, .player q, .defendCard id =>
     match s.combat.bind CombatChain.activeLink? with
     | some link =>
@@ -2113,6 +2163,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
               !(info.triggerOpposingHero.all fun target =>
                 target != info.controller && s.turnOrder.contains target) then
             .nop
+          else if !info.activationGraveyardTargets.isEmpty then
+            activationGraveyardResolution s info.controller info.activationGraveyardTargets
           else
             match info.triggerEffect with
             | some teff => withGraveyardTargetShuffle s info teff
