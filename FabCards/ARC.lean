@@ -1034,6 +1034,9 @@ def ARC_156 : CardDef := { Meta.ARC_156_meta with status := .full }
 /-- Nullrune Gloves (ARC157). -/
 def ARC_157 : CardDef := { Meta.ARC_157_meta with status := .full }
 
+/-- Nullrune Boots (ARC158). -/
+def ARC_158 : CardDef := { Meta.ARC_158_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1062,7 +1065,7 @@ def arcCards : List CardDef :=
    ARC_141_R, ARC_142_Y, ARC_143_B,
    ARC_144_R, ARC_145_Y, ARC_146_B,
    ARC_147_R, ARC_148_Y, ARC_149_B,
-   ARC_150, ARC_151, ARC_152, ARC_153, ARC_154, ARC_155, ARC_156, ARC_157]
+   ARC_150, ARC_151, ARC_152, ARC_153, ARC_154, ARC_155, ARC_156, ARC_157, ARC_158]
 
 end FabCards.ARC
 

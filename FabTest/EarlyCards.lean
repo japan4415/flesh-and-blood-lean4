@@ -3770,6 +3770,33 @@ meta def nullruneScenario (name : String) (slot : ZoneKind) : Option Bool := do
     card.front.keywords == [.arcaneBarrier 1] && card.status == .full)
 #guard nullruneScenario "ARC_157" .arms == some true
 
+#guard ((earlyPrintingCardId? "ARC158").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .legs && card.front.defense == some 0 &&
+    card.front.keywords == [.arcaneBarrier 1] && card.status == .full)
+#guard nullruneScenario "ARC_158" .legs == some true
+
+meta def nullruneEquipmentTogether : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let state := earlyBase.setPool q { resources := 4 }
+  let (head, hood) ← earlyPlace { state with cards := throughArcDB } q (.player q .head) "ARC_155"
+  let (chest, robe) ← earlyPlace head q (.player q .chest) "ARC_156"
+  let (arms, gloves) ← earlyPlace chest q (.player q .arms) "ARC_157"
+  let (legs, boots) ← earlyPlace arms q (.player q .legs) "ARC_158"
+  let (ready, spell) ← earlyPlace legs p (.player p .hand) "ARC_147_R"
+  let cast ← earlySteps ready
+    ([⟨.player p, .playCard spell⟩, ⟨.player p, .pickHeroTarget q⟩] ++ earlyPass)
+  let .chooseReplacement chooser .prevention [a, b, c, d] true :: _ := cast.pending | none
+  let pay (id : Nat) : Action := ⟨.player q, .pickReplacement (some id)⟩
+  let once ← earlySteps cast [pay a]
+  let final ← earlySteps once ([b, c, d].map pay)
+  let sources := (arcaneBarrierEffects ready q).map (·.source)
+  pure (chooser == q && sources.length == 4 && [hood, robe, gloves, boots].all sources.contains &&
+    !(legalActions once).contains (pay a) && final.lifeOf q == ready.lifeOf q - 1 &&
+    (final.poolOf q).resources == 0)
+
+#guard nullruneEquipmentTogether == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
