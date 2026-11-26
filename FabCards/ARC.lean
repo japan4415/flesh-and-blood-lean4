@@ -507,7 +507,7 @@ def ARC_073_Y : CardDef := { Meta.ARC_073_Y_meta with status := .full }
 /-- Sic 'Em Shot (ARC074). -/
 def ARC_074_B : CardDef := { Meta.ARC_074_B_meta with status := .full }
 
-/-- Rule-defined token used by Runeblade effects before its printing is registered (CR 8.6.3). -/
+/-- Rule-defined token shared by Runeblade effects (CR 8.6.3). -/
 def runechantToken : CardDef :=
   let body := Effect.seqL
     [ .prim (.destroy .self_), .prim (.dealDamage .arcane (.ownerOfSlot 0) (.const 1)) ]
@@ -740,6 +740,9 @@ def ARC_110_Y : CardDef := { readTheRunes Meta.ARC_110_Y_meta 2 with status := .
 /-- Read the Runes (ARC111). -/
 def ARC_111_B : CardDef := { readTheRunes Meta.ARC_111_B_meta 1 with status := .full }
 
+/-- Runechant (ARC112). -/
+def ARC_112 : CardDef := { runechantToken with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -756,7 +759,8 @@ def arcCards : List CardDef :=
    ARC_100_R, ARC_101_Y, ARC_102_B,
    ARC_103_R, ARC_104_Y, ARC_105_B,
    ARC_106_R, ARC_107_Y, ARC_108_B,
-   ARC_109_R, ARC_110_Y, ARC_111_B]
+   ARC_109_R, ARC_110_Y, ARC_111_B,
+   ARC_112]
 
 end FabCards.ARC
 
