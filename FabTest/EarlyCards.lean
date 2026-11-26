@@ -3334,6 +3334,10 @@ meta def aetherFlareScenario (name : String) (damage : Nat) : Option Bool := do
   (fun card => card.front.hasType .action && card.front.pitch == some 2 && card.status == .full)
 #guard aetherFlareScenario "ARC_133_Y" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC134").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 3 && card.status == .full)
+#guard aetherFlareScenario "ARC_134_B" 1 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
