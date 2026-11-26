@@ -4367,6 +4367,10 @@ meta def backAlleyBreaklineMoveScenario (card : String) (type : CardType) (body 
 #guard backAlleyBreaklineMoveScenario "ARC_176_R" .action
   (.prim (.searchDeck .controller .any (some 1) .hand true none)) false true == some true
 
+#guard ((earlyPrintingCardId? "ARC177").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 4 && card.front.pitch == some 2 && card.status == .full)
+#guard backAlleyBreaklineActivatedScenario "ARC_177_Y" == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
