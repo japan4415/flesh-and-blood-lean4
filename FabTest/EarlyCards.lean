@@ -2093,6 +2093,11 @@ meta def ridgeRiderShotScenario (cardId : String) : Option Bool := do
 
 #guard ridgeRiderShotScenario "ARC_063_R" == some true
 
+#guard ((earlyPrintingCardId? "ARC064").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Ridge Rider Shot" && card.front.pitch == some 2 && card.status == .full)
+
+#guard ridgeRiderShotScenario "ARC_064_Y" == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
