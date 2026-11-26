@@ -1300,6 +1300,19 @@ def canTurnArsenalCardFaceUp (s : GameState) (p : PlayerId) (card : ObjId) : Boo
   (s.zone (.player p .arsenal)).contains card &&
     (s.obj? card).any (·.faceDown) && (s.cardDefOf? card).isSome
 
+/-- Count face-up permanents with a given card ID using their effective controller. -/
+def controlledPermanentCount (s : GameState) (p : PlayerId) (card : CardId) : Nat :=
+  let permanents := (allPlayers s.playerCount).flatMap fun owner => s.zone (.player owner .permanent)
+  (permanents.filter fun obj =>
+    (s.obj? obj).any (fun o => !o.faceDown && o.kind.cardId? == some card) &&
+      (s.characteristics obj).any (fun chars => chars.controller == p)).length
+
+/-- Read an activation surcharge determined by the arena when the cost is locked in. -/
+def activationPermanentSurcharge (s : GameState) (p : PlayerId) : List ExtraCostSpec → Option Nat
+  | [{ cost := .resourcePerControlledPermanent card, optional := false, cond := none }] =>
+    some (controlledPermanentCount s p card)
+  | _ => none
+
 /-- Read the announced ability and its payable costs from a visible arena source (CR 5.2.2). -/
 def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat) (target : Option ObjId) :
     Option ActivationPlan := do
@@ -1325,12 +1338,14 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
     let turnArsenalFaceUp := extra == [{ cost := .turnArsenalFaceUp }]
     let arsenalCard := if turnArsenalFaceUp then target.filter (canTurnArsenalCardFaceUp s p) else none
     let canRemove := removeCounters.any fun (kind, n) => decide (n ≤ obj.counterCount kind)
+    let surcharge := activationPermanentSurcharge s p extra
     if !timely || chars.abilitiesLost || chars.controller != p || !activationConditionMet s p condition ||
         (once && s.activatedThisTurn.contains (source, index)) ||
-        !(extra.isEmpty || destroy || canRemove || arsenalCard.isSome) ||
+        !(extra.isEmpty || destroy || canRemove || arsenalCard.isSome || surcharge.isSome) ||
         !(effect.modes.isEmpty && effect.extraCosts.isEmpty) ||
         effect.body == .prim .weaponAttack then none else
     let (body, declared) ← activationResolution? s effect (if turnArsenalFaceUp then none else target)
+    let cost := { cost with resources := cost.resources + surcharge.getD 0 }
     some (speed, once, cost, destroy, removeCounters, arsenalCard, goAgain, body, declared))
   let (speed, once, cost, destroy, removeCounters, arsenalCard, goAgain, body, declared) := terms
   let isAction := speed == .action

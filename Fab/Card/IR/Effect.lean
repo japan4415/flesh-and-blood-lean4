@@ -83,12 +83,14 @@ inductive Trigger where
   | onCharge
 deriving DecidableEq, Repr
 
-/-- Non-asset additional or activation cost (CR 1.14, 5.1.5). -/
+/-- Additional or activation cost (CR 1.14, 5.1.5). -/
 inductive ExtraCost where
   /-- Destroy the source permanent (equipment / item activation cost). -/
   | destroySelf
   /-- Turn a selected face-down card in the controller’s arsenal face up. -/
   | turnArsenalFaceUp
+  /-- Add one resource to the activation cost for each controlled permanent of this card ID. -/
+  | resourcePerControlledPermanent (card : CardId)
   /-- Discard `n` cards at random from controller's hand (Brute cards). -/
   | discardRandom (n : Nat)
   /-- Choose and discard `n` cards matching `f` from hand. -/
