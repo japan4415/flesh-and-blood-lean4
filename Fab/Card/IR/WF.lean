@@ -31,7 +31,7 @@ when `hasX` is true. -/
 def NumExpr.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : NumExpr → Bool
   | .const _ => true
   | .xValue => hasX
-  | .sourceCounterCount _ => true
+  | .sourceCounterCount _ | .sourceArcaneDamage => true
   | .varVal v => env.contains v
   | .handCount p => p.wfBool numSlots
   | .chainHits => true
@@ -109,7 +109,8 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .searchDeck p _ _ _ _ _ _ price =>
     p.wfBool numSlots && price.all (·.wfBool numSlots env hasX)
   | .putHandArsenal p _ _ _ => p.wfBool numSlots
-  | .searchDeckToTop p _ | .putChosenDeckCardOnTop p _ | .reload p
+  | .searchDeckToTop p _ bound => p.wfBool numSlots && bound.all (·.wfBool numSlots env hasX)
+  | .putChosenDeckCardOnTop p _ | .reload p
   | .lookDeckToArsenal p _ _ | .revealTopPairToHand p _ _
   | .putChosenDeckCardsOnBottom p _ | .lookTopToBanishedAsInstant p _ _ => p.wfBool numSlots
   | .putHandPermanent p _ _ => p.wfBool numSlots

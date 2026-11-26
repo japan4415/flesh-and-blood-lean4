@@ -244,6 +244,8 @@ inductive NumExpr where
   | banishedCount (p : PlayerRef)
   /-- Arcane damage dealt by the controller to a hero this turn. -/
   | arcaneDamageDealtTo (p : PlayerRef)
+  /-- Resolved arcane damage dealt by the current effect source this turn. -/
+  | sourceArcaneDamage
 deriving DecidableEq, Repr
 
 /-- Boolean condition checked by static abilities, triggers, or `ifThen` combinators. -/
@@ -274,6 +276,8 @@ inductive Condition where
   | weaponHitThisTurn
   /-- The controller has already paid for a non-attack action card this turn. -/
   | nonAttackActionPlayedThisTurn
+  /-- The current source has dealt positive arcane damage this turn. -/
+  | sourceDealtArcaneDamage
   /-- Source is defending a weapon attack (Steelblade Shunt). -/
   | defendingWeaponAttack
   /-- Source weapon has not hit this turn (Dawnblade). -/

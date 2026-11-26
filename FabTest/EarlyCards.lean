@@ -3051,6 +3051,47 @@ meta def forkedLightningScenario : Option Bool := do
 
 #guard forkedLightningScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC121").bind throughArcDB.find?).any
+  (fun card => card.front.keywords.contains (.specialization "Kano") && card.status == .full)
+
+meta def lessonInLavaScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let (withCheap, cheap) ← earlyPlace { earlyBase with cards := throughArcDB } p deck "ARC_119_Y"
+  let (withExpensive, expensive) ← earlyPlace withCheap p deck "ARC_120_R"
+  let (withOther, other) ← earlyPlace withExpensive p deck "WTR_221_R"
+  let (ready, lesson) ← earlyPlace withOther p (.player p .hand) "ARC_121_Y"
+  let (equipped, _) ← earlyPlace (ready.setPool q { resources := 1 }) q (.player q .chest) "ARC_117"
+  let play : Action := ⟨.player p, .playCard lesson⟩
+  let target : Action := ⟨.player p, .pickHeroTarget q⟩
+  let cast (s : GameState) := earlySteps s ([play, target] ++ earlyPass)
+  let prevention ← cast equipped
+  let .chooseReplacement defender .prevention [barrier] true :: _ := prevention.pending | none
+  let maySearch ← earlySteps prevention [⟨.player q, .pickReplacement (some barrier)⟩]
+  let decideSearch (accept : Bool) : Action := ⟨.player p, .pickMay accept⟩
+  let choose (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let declined ← earlySteps maySearch [decideSearch false]
+  let searching ← earlySteps maySearch [decideSearch true]
+  let .chooseShuffleCards searcher 1 [candidate] [] false (some choice) :: _ := searching.pending | none
+  let selected ← earlySteps searching [choose (some cheap)]
+  let (waitingShuffle, events) ← (step 64 selected (choose none)).toOption
+  let shuffled ← earlySteps waitingShuffle [⟨.chance, .shuffleOrder [expensive, other, cheap]⟩]
+  let preventionEffect : ReplacementEffect :=
+    { id := 100, source := lesson, controller := q, stage := .prevention, action := .fixedPrevent 3 }
+  let prevented ← cast { ready with activeReplacements := [preventionEffect] }
+  pure (defender == q && maySearch.lifeOf q == ready.lifeOf q - 2 &&
+    (legalActions maySearch).contains (decideSearch true) &&
+    declined.zone deck == [other, expensive, cheap] &&
+    searcher == p && candidate == cheap && choice.searchesDeck && choice.putOnTopAfterShuffle &&
+    (earlySteps searching [choose (some expensive)]).isNone &&
+    (earlySteps searching [choose (some other)]).isNone &&
+    events.contains (.revealed p cheap ⟨"ARC_119_Y"⟩) &&
+    shuffled.zone deck == [cheap, expensive, other] &&
+    prevented.lifeOf q == ready.lifeOf q && !(legalActions prevented).contains (decideSearch true))
+
+#guard lessonInLavaScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

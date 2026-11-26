@@ -91,6 +91,7 @@ def evalNumExpr (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
     let target := evalPlayerRef s ctrl p
     Int.ofNat (s.zone (.player target .banished)).length
   | .arcaneDamageDealtTo p => Int.ofNat (s.arcaneDamageDealtTo ctrl (evalPlayerRef s ctrl p))
+  | .sourceArcaneDamage => Int.ofNat ((source.map s.arcaneDamageFrom).getD 0)
 
 /-- The required single-attack target of a card or its chosen mode (CR 5.1.4a). -/
 def singleAttackTargetSpec (card : CardDef) (modeIdx : Option Nat) : Option TargetSpec := do
@@ -174,6 +175,7 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     | some z => (s.zone z).isEmpty
     | none => false
   | .nonAttackActionPlayedThisTurn => s.nonAttackActionsThisTurn.contains ctrl
+  | .sourceDealtArcaneDamage => decide (0 < s.arcaneDamageFrom src)
   | .lessLifeThanOpponent =>
     (allPlayers s.playerCount).any fun opp => opp != ctrl && s.lifeOf ctrl < s.lifeOf opp
   | .sourceInArena =>
@@ -1339,9 +1341,14 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
           if shuffleAfter then [.chanceShuffle (.player target .deck)] else []
         else [.chooseShuffleCards target limit matching [] false (some choice)]
       (s, [], follow)
-  | .searchDeckToTop pref filter =>
+  | .searchDeckToTop pref filter bound =>
     let player := evalPlayerRef s ctrl pref
     let deck := Zone.player player .deck
+    let filter := match bound with
+      | none => filter
+      | some maximum =>
+        let cap := clampNonNeg (evalNumExpr s ctrl env maximum (some src))
+        { filter with maxCost := some (min (filter.maxCost.getD cap) cap) }
     let candidates := (s.zone deck).filter fun id => (s.objectFace? id).any (cardFaceMatches filter)
     let choice : DeckSearchChoice :=
       { destination := deck, reveal := true, mayFail := true, putOnTopAfterShuffle := true }
@@ -1725,7 +1732,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     | some _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-  | searchDeckToTop _ _ | reload _ | lookTopToBanishedAsInstant _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | searchDeckToTop _ _ _ | reload _ | lookTopToBanishedAsInstant _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | lookDeckToArsenal _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | revealTopPairToHand pref first second =>
@@ -2034,7 +2041,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     | some _ => exact ⟨rfl, rfl, id⟩
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
-  | searchDeckToTop _ _ | reload _ | lookTopToBanishedAsInstant _ _ _ => exact ⟨rfl, rfl, id⟩
+  | searchDeckToTop _ _ _ | reload _ | lookTopToBanishedAsInstant _ _ _ => exact ⟨rfl, rfl, id⟩
   | revealTopPairToHand pref first second =>
     let player := evalPlayerRef s ctrl pref
     let ids := matchingRevealedPair s first second ((s.zone (.player player .deck)).take 2)

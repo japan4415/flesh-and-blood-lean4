@@ -217,8 +217,8 @@ inductive Prim where
   | searchDeck (p : PlayerRef) (f : CardFilter) (maxCount : Option Nat) (dst : ZoneRef)
       (reveal : Bool) (playableDuration : Option Duration) (shuffleAfter : Bool := true)
       (exactCost : Option NumExpr := none)
-  /-- Search the deck for one optional matching card, reveal it, shuffle and put it on top. -/
-  | searchDeckToTop (p : PlayerRef) (f : CardFilter)
+  /-- Search for one matching card, optionally bounded by resource cost, and put it on top after shuffling. -/
+  | searchDeckToTop (p : PlayerRef) (f : CardFilter) (maxCost : Option NumExpr := none)
   /-- Place a selected object still in its player's deck at the top (search continuation). -/
   | putChosenDeckCardOnTop (p : PlayerRef) (id : ObjId)
   /-- If arsenal is empty, look at up to `count` cards, optionally load one matching
