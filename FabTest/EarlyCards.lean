@@ -4622,6 +4622,10 @@ meta def pushThePointScenario (card : String) (power : Nat) : Option Bool := do
   (fun card => card.front.power == some 3 && card.front.pitch == some 2 && card.status == .full)
 #guard pushThePointScenario "ARC_189_Y" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC190").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 2 && card.front.pitch == some 3 && card.status == .full)
+#guard pushThePointScenario "ARC_190_B" 2 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
