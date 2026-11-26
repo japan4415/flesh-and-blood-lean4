@@ -340,6 +340,8 @@ inductive ContinuousMod where
   | modifyPlayCostPerPermanent (card : CardId) (delta : Int)
   /-- Increase a nonempty creation of the given token by this amount. -/
   | addTokenCreation (token : CardId) (amount : Nat)
+  /-- Increase the arcane damage dealt by the next eligible card played this turn. -/
+  | addToNextArcaneCard (amount : Nat)
   /-- Grant a keyword such as `goAgain` or `dominate`. -/
   | grantKeyword (kw : KeywordInst)
   /-- Grant a triggered ability to the affected object(s) (Pummel, Razor Reflex, Whelming Gustwave, Steelblade Supremacy). -/
@@ -391,6 +393,32 @@ where
 /-- Convenience constructor for `Effect.chooseOne` from a `List Effect`. -/
 def Effect.chooseOneL (modes : List Effect) : Effect :=
   .chooseOne (EffectList.ofList modes)
+
+mutual
+
+/-- Whether resolving this effect can deal arcane damage from its source. -/
+def Effect.hasArcaneDamage : Effect → Bool
+  | .prim (.dealDamage .arcane _ _) => true
+  | .seq effects | .chooseOne effects => effects.hasArcaneDamage
+  | .ifThen _ first second | .may first second
+  | .discardTopOfHand _ _ first second | .discardChosen _ _ _ first second =>
+    first.hasArcaneDamage || second.hasArcaneDamage
+  | .bindRevealTopCount _ _ _ _ next | .bindBanishTopCount _ _ _ _ next =>
+    next.hasArcaneDamage
+  | .rollDie6 _ branches next => branches.hasArcaneDamage || next.hasArcaneDamage
+  | _ => false
+
+/-- Whether any effect in the sequence can deal arcane damage. -/
+def EffectList.hasArcaneDamage : EffectList → Bool
+  | .nil => false
+  | .cons effect rest => effect.hasArcaneDamage || rest.hasArcaneDamage
+
+/-- Whether any die result can deal arcane damage. -/
+def DieBranchList.hasArcaneDamage : DieBranchList → Bool
+  | .nil => false
+  | .cons _ _ effect rest => effect.hasArcaneDamage || rest.hasArcaneDamage
+
+end
 
 /-- A single modal branch declaring its own play-time target slots and resolution body;
 modes are declared before targets, as on Pummel and Razor Reflex (CR 5.1.2a, 5.1.2c). -/
