@@ -114,7 +114,7 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
     | .chooseShuffleCards q _ candidates _ _ search :: _ =>
       let viewed := match search.bind (·.bottomSelection) with
         | some (.lookedAt cards) => cards
-        | _ => candidates
+        | _ => (search.bind (·.viewedCards)).getD candidates
       identify q viewed
     | .chooseDiscard q _ candidates _ _ :: _ => identify q candidates
     | .chooseOpt q first others _ _ :: _ => identify q (first :: others)
@@ -135,7 +135,7 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
       match frame with
       | .chooseShuffleCards q _ _ _ drawSame search =>
         if p == q then frame else
-          .chooseShuffleCards q 0 [] [] drawSame (search.map (fun choice => { choice with bottomSelection := none }))
+          .chooseShuffleCards q 0 [] [] drawSame (search.map (fun choice => { choice with bottomSelection := none, viewedCards := none }))
       | .chooseDiscard q _ _ _ _ =>
         if p == q then frame else .chooseDiscard q 0 [] []
       | .chooseOpt q _ _ _ _ =>
@@ -360,7 +360,8 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     h.visibleZones _ (by simp [Zone.isSecretTo])
   have hb : s1.zone (.player p .banished) = s2.zone (.player p .banished) :=
     h.visibleZones _ (by simp [Zone.isSecretTo])
-  have hbanished : canPlayFromBanished s1 p id = canPlayFromBanished s2 p id := by
+  have hbanished (asInstant : Bool) :
+      canPlayFromBanished s1 p id asInstant = canPlayFromBanished s2 p id asInstant := by
     simp only [canPlayFromBanished, hb, GameState.obj?, h.objects, h.combat, h.activeEffects]
   have hs : s1.zone .stack = s2.zone .stack := h.visibleZones _ rfl
   have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
@@ -374,7 +375,8 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     unfold cardWeaponTargetChoices
     simp only [href, h.arenaContents_eq, hobj, hface, h.characteristics_eq]
   unfold canPlayCard
-  rw [hh, ha, hbanished, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat,
+  simp only [hbanished]
+  rw [hh, ha, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat,
     h.boostsThisTurn, h.canTakeAction_eq, h.activeEffects]
   simp only [canLinkTakeDefenseReaction, hdom, attackReactionCanTarget, h.hasRequiredAttackTarget_eq,
     hweapon, h.characteristics_eq, h.arenaContents_eq, GameState.obj?, h.objects] <;> rfl

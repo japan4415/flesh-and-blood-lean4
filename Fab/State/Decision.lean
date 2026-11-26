@@ -171,6 +171,10 @@ structure DeckSearchChoice where
   shuffleAfter : Bool := true
   /-- Permission granted to the selected card if it is moved to banished. -/
   playableDuration : Option Duration := none
+  /-- Whether that permission allows the selected card to be played as though it were an instant. -/
+  playAsInstant : Bool := false
+  /-- Cards viewed privately by the chooser independently of the selection's legal candidates. -/
+  viewedCards : Option (List ObjId) := none
   /-- Whether this selection grants the chooser temporary visibility of their deck. -/
   searchesDeck : Bool := true
   /-- An extra counter for a single selected card entering the arena. -/

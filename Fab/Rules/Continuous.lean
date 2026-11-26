@@ -162,6 +162,8 @@ inductive EffectOp where
   | allowWeaponAttack
   /-- Allow the designated card to be played from banished, optionally on a specific attack's link. -/
   | allowBanishedPlay (attack : Option ObjId)
+  /-- Allow the designated banished action card to be played as though it were an instant. -/
+  | allowBanishedPlayAsInstant
   /-- Stage 6: remove keyword `kw` (CR 6.3.2f). -/
   | loseKeyword (kw : KeywordInst)
   /-- Stage 6: lose all abilities and keywords (CR 6.3.2f). -/
@@ -213,7 +215,7 @@ def EffectOp.stage : EffectOp → EffectStage
   | .setName _ | .setColor _ => .stage3NameColorText
   | .addType _ | .addSubtype _ | .setSubtypes _ => .stage4TypeSubtype
   | .addSupertype _ => .stage5Supertype
-  | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _ | .loseKeyword _ | .loseAllAbilities
+  | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _ | .allowBanishedPlayAsInstant | .loseKeyword _ | .loseAllAbilities
   | .cantDrawCards | .cantGainGoAgain | .limitActions _ | .onlyPlayFromArsenal
   | .addTokenCreation _ _ => .stage6Ability
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .stage7BaseNumeric
@@ -227,7 +229,7 @@ def EffectOp.subStage : EffectOp → SubStage
   | .copyFace _ | .setController _ | .setName _ | .setColor _ | .setSubtypes _
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .set
   | .mulPower _ | .divPower _ => .mulDiv
-  | .addType _ | .addSubtype _ | .addSupertype _ | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _
+  | .addType _ | .addSubtype _ | .addSupertype _ | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _ | .allowBanishedPlayAsInstant
   | .addPower _ | .addDefense _ | .addCostRes _ | .addIntellect _
   | .addPowerIfFewerDefenders _ _ | .addTokenCreation _ _ => .add
   | .loseKeyword _ | .loseAllAbilities | .subPower _ | .subDefense _ | .subCostRes _ => .sub
@@ -264,7 +266,7 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
   | .addSupertype st => { c with supertypes := insertUnique st c.supertypes }
   | .grantKeyword (.arcaneBarrier n) => { c with keywords := .arcaneBarrier n :: c.keywords }
   | .grantKeyword kw => { c with keywords := insertUnique kw c.keywords }
-  | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _
+  | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _ | .allowBanishedPlayAsInstant
   | .cantDrawCards | .cantGainGoAgain | .limitActions _ | .onlyPlayFromArsenal
   | .addTokenCreation _ _ => c
   | .loseKeyword kw => { c with keywords := c.keywords.filter (· != kw) }
