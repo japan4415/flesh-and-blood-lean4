@@ -4626,6 +4626,47 @@ meta def pushThePointScenario (card : String) (power : Nat) : Option Bool := do
   (fun card => card.front.power == some 2 && card.front.pitch == some 3 && card.status == .full)
 #guard pushThePointScenario "ARC_190_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC191").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 5 && card.front.pitch == some 1 && card.status == .full)
+
+meta def ravenousRabbleScenario (card : String) (power : Nat)
+    (topCard : Option (String × Nat)) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let (initial, attack) ← earlyPlace { earlyBase with cards := throughArcDB } p (.player p .hand) card
+  let ready ← match topCard with
+    | none => some initial
+    | some (name, _) => do
+      let (withBottom, _) ← earlyPlace initial p deck "WTR_205_B"
+      (earlyPlace withBottom p deck name).map Prod.fst
+  let paid ← earlySteps ready [⟨.player p, .playCard attack⟩]
+  let attacking ← earlySteps paid earlyPass
+  let before ← attacking.combat.bind CombatChain.activeLink?
+  let source ← before.attack
+  let trigger ← attacking.pendingTriggers.find? (·.source == source)
+  let resolving ← earlySteps attacking
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩, ⟨.player p, .pass⟩]
+  let (resolved, events) ← (step 64 resolving ⟨.player q, .pass⟩).toOption
+  let after ← resolved.combat.bind CombatChain.activeLink?
+  let damaged ← (earlySteps resolved earlyPass).bind earlyDamage
+  let finished ← earlySteps damaged earlyPass
+  let expectedPitch := (topCard.map Prod.snd).getD 0
+  let reveals := events.filterMap fun
+    | .revealed owner id definition => if owner == p then some (id, definition.val) else none
+    | _ => none
+  let expectedReveal := (ready.zone deck).head?.bind fun id =>
+    topCard.map (fun (name, _) => (id, name))
+  pure (paid.pendingTriggers.isEmpty && attacking.pendingTriggers.length == 1 &&
+    linkAttackPower attacking before == power && resolved.pendingTriggers.isEmpty &&
+    reveals == expectedReveal.toList && resolved.zone deck == ready.zone deck &&
+    linkAttackPower resolved after == power - expectedPitch && linkHasKeyword resolved after .goAgain &&
+    damaged.lifeOf q == ready.lifeOf q - (power - expectedPitch) &&
+    (finished.poolOf p).actionPoints == (ready.poolOf p).actionPoints)
+
+#guard ravenousRabbleScenario "ARC_191_R" 5 (some ("WTR_203_R", 1)) == some true
+#guard ravenousRabbleScenario "ARC_191_R" 5 none == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
