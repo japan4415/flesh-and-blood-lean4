@@ -125,7 +125,7 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .revealTopToArsenalIf p _ => p.wfBool numSlots
   | .addCounter o _ n | .removeCounter o _ n => o.wfBool numSlots env && n.wfBool numSlots env hasX
   | .removeAllCounters o _ => o.wfBool numSlots env
-  | .preventNextDamage p n _ => p.wfBool numSlots && n.wfBool numSlots env hasX
+  | .preventNextDamage p n _ _ => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .preventDamageOnce p n => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .closeCombatChain => true
   | .charge p => p.wfBool numSlots

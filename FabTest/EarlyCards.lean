@@ -4253,6 +4253,49 @@ meta def plunderRunScenario (card : String) (bonus : Nat) (fromArsenal : Bool) :
 #guard plunderRunScenario "ARC_172_B" 1 false == some true
 #guard plunderRunScenario "ARC_172_B" 1 true == some true
 
+#guard ((earlyPrintingCardId? "ARC173").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .instant && card.front.pitch == some 1 && card.status == .full)
+
+meta def eirinasPrayerScenario (card : String) (topCard : Option String) (amount : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let (withPrayer, prayer) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) card
+  let (placed, top) ← match topCard with
+    | none => some (withPrayer, none)
+    | some name => (earlyPlace withPrayer p deck name).map fun (s, id) => (s, some id)
+  let ready := { placed with active := some q }
+  let paid ← earlySteps ready [⟨.player p, .playCard prayer⟩, ⟨.player p, .pass⟩]
+  let (shielded, events) ← (step 64 paid ⟨.player q, .pass⟩).toOption
+  let [shield] := shielded.activeReplacements | none
+  let (physical, _) := applyDamageWithPrevention shielded p .physical 1
+  let (first, _) := applyDamageWithPrevention physical p .arcane 1
+  let (second, _) := applyDamageWithPrevention first p .arcane (amount + 1)
+  let (expired, _) ← microStep { shielded with pending := [.endTurnCleanup q] }
+  let revealed := events.filterMap fun
+    | .revealed player id card => some (player, id, card)
+    | _ => none
+  let expected := match top, topCard with
+    | some id, some name => [(p, id, (⟨name⟩ : CardId))]
+    | _, _ => []
+  let remainder := if amount > 1 then
+      [{ shield with action := .shieldPrevent (amount - 1) (some .arcane) }]
+    else []
+  pure (shielded.active == some q && revealed == expected &&
+    shielded.zone deck == top.toList && shield.action == .shieldPrevent amount (some .arcane) &&
+    (shielded.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    (shielded.poolOf p).resources + 1 == (ready.poolOf p).resources &&
+    physical.lifeOf p == ready.lifeOf p - 1 && physical.activeReplacements == [shield] &&
+    first.lifeOf p == physical.lifeOf p && first.activeReplacements == remainder &&
+    second.lifeOf p == first.lifeOf p - 2 && second.activeReplacements.isEmpty &&
+    expired.activeReplacements.isEmpty)
+
+#guard eirinasPrayerScenario "ARC_173_R" (some "WTR_203_R") 5 == some true
+#guard eirinasPrayerScenario "ARC_173_R" (some "WTR_204_Y") 4 == some true
+#guard eirinasPrayerScenario "ARC_173_R" (some "WTR_205_B") 3 == some true
+#guard eirinasPrayerScenario "ARC_173_R" none 6 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
