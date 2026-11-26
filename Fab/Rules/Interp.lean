@@ -2064,6 +2064,10 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | .addDefense d => some (.addDefense (evalNumExpr s ctrl env d (some src)))
       | .addIntellect d => some (.addIntellect d)
       | .additionalWeaponAttack => some .allowWeaponAttack
+      | .onlyPlayFromArsenal =>
+        match scope with
+        | .player _ => some .onlyPlayFromArsenal
+        | _ => none
       | .modifyCost d =>
         if 0 ≤ d then some (.addCostRes d.toNat) else some (.subCostRes (-d).toNat)
       | .grantKeyword kw => some (.grantKeyword kw)
@@ -2095,6 +2099,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .self_, .grantKeyword _ | .obj .self_, .grantKeyword _ => .obj src
         | .obj .currentAttack, .allowWeaponAttack =>
           (((s.combat.bind CombatChain.activeLink?).bind (·.attackSource)).map EffectTarget.obj).getD (.objects [])
+        | .player player, .onlyPlayFromArsenal => .player (evalPlayerRef s ctrl player)
         | .hero player, .addIntellect _ =>
           .objects (s.zone (.player (evalPlayerRef s ctrl player) .hero))
         | .allMatching player filter, _ => .matchingCard (evalPlayerRef s ctrl player) filter

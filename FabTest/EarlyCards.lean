@@ -1627,6 +1627,43 @@ meta def redInTheLedgerScenario : Option Bool := do
 
 #guard redInTheLedgerScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC044").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Three of a Kind" && card.status == .full)
+
+meta def threeOfAKindScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let arsenal := Zone.player p .arsenal
+  let state := { earlyBase with cards := throughArcDB }
+  let (withHero, hero) ← earlyPlace state p (.player p .hero) "ARC_038"
+  let (withWeapon, weapon) ← earlyPlace withHero p (.player p .weapon) "WTR_115"
+  let (withSpell, spell) ← earlyPlace withWeapon p hand "ARC_044_R"
+  let (withInstant, inHand) ← earlyPlace withSpell p hand "WTR_173_R"
+  let (withArsenal, stored) ← earlyPlace withInstant p arsenal "WTR_173_R"
+  let (withEnemy, enemy) ← earlyPlace withArsenal q (.player q .hand) "WTR_173_R"
+  let (withBanish, banished) ← earlyPlace withEnemy p (.player p .banished) "WTR_218_R"
+  let (withDeck, _) ← ["WTR_191_R", "WTR_192_Y", "WTR_193_B"].foldlM
+    (fun (s, _) key => earlyPlace s p deck key) (withBanish, spell)
+  let permit : ContinuousEffect :=
+    { id := withDeck.nextTimestamp, source := banished, controller := p, target := .obj banished
+      op := .allowBanishedPlay none, timestamp := ⟨withDeck.nextTimestamp⟩ }
+  let ready := { withDeck with activeEffects := [permit], nextTimestamp := withDeck.nextTimestamp + 1 }
+  let resolved ← earlySteps ready (⟨.player p, .playCard spell⟩ :: earlyPass)
+  let played ← earlySteps resolved (⟨.player p, .playCard stored⟩ :: earlyPass)
+  let drawn := (resolved.zone hand).filterMap (fun id => (resolved.cardDefOf? id).map (·.id))
+  pure (canPlayCard ready p inHand && canPlayCard ready p banished &&
+    drawn == [⟨"WTR_191_R"⟩, ⟨"WTR_192_Y"⟩, ⟨"WTR_193_B"⟩, ⟨"WTR_173_R"⟩] &&
+    (resolved.zone deck).isEmpty && (resolved.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    !canPlayCard resolved p inHand && canPlayFromBanished resolved p banished && !canPlayCard resolved p banished &&
+    canPlayCard resolved p stored && played.lifeOf p == resolved.lifeOf p + 3 &&
+    canPlayCard resolved q enemy && canAttackWithWeapon resolved p weapon &&
+    (availableActivations resolved p).contains (hero, 0, none) &&
+    canPlayCard resolved.finishTurnEffects p inHand)
+
+#guard threeOfAKindScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

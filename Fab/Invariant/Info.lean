@@ -371,7 +371,7 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     simp only [href, h.arenaContents_eq, hobj, hface, h.characteristics_eq]
   unfold canPlayCard
   rw [hh, ha, hbanished, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat,
-    h.boostsThisTurn, h.canTakeAction_eq]
+    h.boostsThisTurn, h.canTakeAction_eq, h.activeEffects]
   simp only [canLinkTakeDefenseReaction, hdom, attackReactionCanTarget, h.hasRequiredAttackTarget_eq,
     hweapon, h.characteristics_eq, h.arenaContents_eq, GameState.obj?, h.objects] <;> rfl
 

@@ -61,7 +61,7 @@ def ModScope.wfBool (numSlots : Nat) (env : List VarId) : ModScope → Bool
   | .nextDefend _ => true
   | .allMatching p _ => p.wfBool numSlots
   | .arenaObjectsOfType p _ => p.wfBool numSlots
-  | .hero p => p.wfBool numSlots
+  | .hero p | .player p => p.wfBool numSlots
   | .firstActionNextTurn p => p.wfBool numSlots
   | .firstAttackNextTurn p => p.wfBool numSlots
   | .playerActionsAndAttacks p => p.wfBool numSlots
@@ -179,7 +179,7 @@ def ContinuousMod.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Con
   | .conditionalPower c _ => c.wfBool numSlots
   | .loseAllAbilities => true
   | .cantGainGoAgain | .limitActions _ => true
-  | .cantDrawCards => true
+  | .cantDrawCards | .onlyPlayFromArsenal => true
   | .additionalWeaponAttack => true
   | .doubleDamageToHero => true
   | .playableFromBanished => true
