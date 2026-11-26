@@ -3730,6 +3730,36 @@ meta def mageMasterBootsScenario : Option Bool := do
 
 #guard mageMasterBootsScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC155").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .head && card.front.defense == some 0 &&
+    card.front.keywords == [.arcaneBarrier 1] && card.status == .full)
+meta def nullruneScenario (name : String) (slot : ZoneKind) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let arena := Zone.player q slot
+  let state := earlyBase.setPool q { resources := 2 }
+  let (geared, piece) ← earlyPlace { state with cards := throughArcDB } q arena name
+  let (withFirst, first) ← earlyPlace geared p (.player p .hand) "ARC_147_R"
+  let (ready, second) ← earlyPlace withFirst p (.player p .hand) "ARC_147_R"
+  let cast (s : GameState) (spell : ObjId) :=
+    earlySteps s ([⟨.player p, .playCard spell⟩, ⟨.player p, .pickHeroTarget q⟩] ++ earlyPass)
+  let pay (barrier : Nat) : Action := ⟨.player q, .pickReplacement (some barrier)⟩
+  let prevention ← cast ready first
+  let .chooseReplacement chooser .prevention [firstBarrier] true :: _ := prevention.pending | none
+  let once ← earlySteps prevention [pay firstBarrier]
+  let again ← cast once second
+  let .chooseReplacement nextChooser .prevention [secondBarrier] true :: _ := again.pending | none
+  let twice ← earlySteps again [pay secondBarrier]
+  let hidden := updateSingleObject ready piece (fun object => { object with faceDown := true })
+  pure ((arcaneBarrierEffects ready q).map (·.source) == [piece] &&
+    (arcaneBarrierEffects hidden q).isEmpty && chooser == q && nextChooser == q &&
+    once.lifeOf q == ready.lifeOf q - 4 && twice.lifeOf q == ready.lifeOf q - 8 &&
+    (once.poolOf q).resources == 1 && (twice.poolOf q).resources == 0 &&
+    (earlySteps once [pay firstBarrier]).isNone &&
+    twice.zone arena == [piece] && (arcaneBarrierEffects twice q).map (·.source) == [piece])
+
+#guard nullruneScenario "ARC_155" .head == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
