@@ -2741,6 +2741,7 @@ meta def readRunesScenario (name : String) (count : Nat) : Option Bool := do
     done.pendingTriggers.isEmpty && done.lifeOf q == ready.lifeOf q)
 
 #guard readRunesScenario "ARC_109_R" 3 == some true
+#guard readRunesScenario "ARC_110_Y" 2 == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
