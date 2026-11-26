@@ -773,6 +773,14 @@ def queuePitchTriggers (s : GameState) (p : PlayerId) (pitched : ObjId) : GameSt
 def queueRuleEventTriggers (s : GameState) (events : List Event) : GameState :=
   queueCardTriggers s (events.flatMap fun
     | .discarded p id => discardEventTriggers s p id
+    | .moved _ id _ (.player owner .arsenal) =>
+      if (s.obj? id).any (fun card => !card.faceDown) &&
+          (s.characteristics id).any (fun chars => !chars.abilitiesLost) then
+        let abilities := ((s.objectFace? id).map (·.abilities)).getD []
+        matchingCardTriggers s id owner false abilities fun trigger cond =>
+          trigger == .onArsenalFaceUp &&
+            (cond.map (evalCondition s owner id false)).getD true
+      else []
     | .countersEmptied source kind =>
       match s.characteristics source with
       | some chars =>
@@ -1468,11 +1476,12 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
         let timestamp := entered.nextTimestamp + permissions.length + index
         { id := timestamp, source, controller := p, target := .arsenalCard id
           op := .addPower amount, timestamp := ⟨timestamp⟩ }
-  ({ entered with
-      pending := shuffle ++ placeAfterShuffle ++ bottomSelection ++ draw ++ rest
-      activeEffects := entered.activeEffects ++ permissions ++ bonuses
-      nextTimestamp := entered.nextTimestamp + permissions.length + bonuses.length },
-    revealed ++ events ++ banished.map (fun id => .banished p id false))
+  let finished := { entered with
+    pending := shuffle ++ placeAfterShuffle ++ bottomSelection ++ draw ++ rest
+    activeEffects := entered.activeEffects ++ permissions ++ bonuses
+    nextTimestamp := entered.nextTimestamp + permissions.length + bonuses.length }
+  let recorded := revealed ++ events ++ banished.map (fun id => .banished p id false)
+  (queueRuleEventTriggers finished recorded, recorded)
 
 /-- Add a triggered layer with its declared targets, then continue trigger ordering (CR 6.6.6). -/
 def stackPendingTrigger (s : GameState) (p : PlayerId) (trig : PendingTrigger)
