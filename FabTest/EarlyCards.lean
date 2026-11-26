@@ -2675,6 +2675,7 @@ meta def drawnToDarkDimensionScenario (name : String) (power : Nat) : Option Boo
 #guard drawnToDarkDimensionScenario "ARC_099_B" 1 == some true
 #guard discountedRunebladeScenario "ARC_100_R" 3 4 true == some true
 #guard discountedRunebladeScenario "ARC_101_Y" 3 3 true == some true
+#guard discountedRunebladeScenario "ARC_102_B" 3 2 true == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
