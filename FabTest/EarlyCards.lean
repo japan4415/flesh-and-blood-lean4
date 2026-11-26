@@ -4430,6 +4430,60 @@ meta def cadaverousContrabandScenario (card : String) (power : Nat) : Option Boo
   (fun card => card.front.power == some 4 && card.front.pitch == some 3 && card.status == .full)
 #guard cadaverousContrabandScenario "ARC_181_B" 4 == some true
 
+#guard ((earlyPrintingCardId? "ARC182").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 3 && card.front.pitch == some 1 && card.status == .full)
+
+meta def ferventForerunnerScenario (card : String) (power : Nat) (fromArsenal : Bool) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let startZone := Zone.player p (if fromArsenal then .arsenal else .hand)
+  let (withAttack, attack) ← earlyPlace { earlyBase with cards := throughArcDB } p startZone card
+  let withAttack := if fromArsenal then
+      updateSingleObject withAttack attack (fun obj => { obj with faceDown := true })
+    else withAttack
+  let (withBottom, bottom) ← earlyPlace withAttack p deck "WTR_203_R"
+  let (withSecond, second) ← earlyPlace withBottom p deck "WTR_203_R"
+  let (withTop, top) ← earlyPlace withSecond p deck "WTR_203_R"
+  let (ready, block) ← earlyPlace withTop q (.player q .hand) "WTR_203_R"
+  let paid ← earlySteps ready [⟨.player p, .playCard attack⟩]
+  let layer ← (paid.zone .stack).head?
+  let attacking ← earlySteps paid (earlyPass ++ earlyPass)
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let source ← link.attack
+  let suppression : ContinuousEffect :=
+    { id := attacking.nextTimestamp
+      source := source
+      controller := q
+      target := .obj source
+      op := .loseAllAbilities
+      duration := .thisTurn
+      timestamp := ⟨attacking.nextTimestamp⟩ }
+  let suppressed := { attacking with activeEffects := suppression :: attacking.activeEffects }
+  let hit ← earlyDamage attacking
+  let trigger ← hit.pendingTriggers.find? (·.source == source)
+  let stacked ← earlySteps hit
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩]
+  let choosing ← earlySteps stacked earlyPass
+  let .chooseOpt chooser first [another] 0 0 :: _ := choosing.pending | none
+  let opted ← earlySteps choosing
+    [⟨.player p, .optPick true (some second)⟩, ⟨.player p, .optPick false⟩]
+  let defended ← earlySteps attacking [⟨.player q, .defendCard block⟩]
+  let blocked ← earlyDamage defended
+  let finished ← earlySteps blocked earlyPass
+  pure ((paid.characteristics layer).any (fun chars => chars.keywords.contains .goAgain) == fromArsenal &&
+    link.playedFromArsenal == fromArsenal &&
+    linkHasKeyword attacking link .goAgain == fromArsenal &&
+    !linkHasKeyword suppressed link .goAgain &&
+    linkHasKeyword attacking { link with attack := none } .goAgain == fromArsenal &&
+    hit.lifeOf q == ready.lifeOf q - power && chooser == p && first == top && another == second &&
+    opted.zone deck == [second, bottom, top] &&
+    blocked.lifeOf q == ready.lifeOf q && blocked.pendingTriggers.isEmpty &&
+    (finished.poolOf p).actionPoints == (paid.poolOf p).actionPoints + (if fromArsenal then 1 else 0))
+
+#guard ferventForerunnerScenario "ARC_182_R" 3 false == some true
+#guard ferventForerunnerScenario "ARC_182_R" 3 true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

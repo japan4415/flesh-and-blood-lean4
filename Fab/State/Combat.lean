@@ -64,6 +64,10 @@ structure ChainLink where
   attack : Option ObjId := none
   /-- Weapon or permanent attack source `ObjId` on `Zone.combatChain`, if this is a weapon attack (CR 1.4.3). -/
   attackSource : Option ObjId := none
+  /-- Whether the attacking card was played from arsenal (CR 5.1, 7.2). -/
+  playedFromArsenal : Bool := false
+  /-- Conditional static Go Again at chain entry, used when the attack is absent (CR 3.5.4b). -/
+  conditionalGoAgainAtEntry : Bool := false
   /-- Immutable Last Known Information captured for this link's attack (CR 1.2.3, 3.5.4b). -/
   attackLki : LkiSnapshot
   /-- Face of the last card discarded to pay for this attack (CR 5.1.9). -/

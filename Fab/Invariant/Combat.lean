@@ -59,6 +59,15 @@ theorem resolutionStep_grants_goAgain_lki {s s' : GameState} {atkId : ObjId} {re
   simp only [GameState.poolOf, GameState.setPool, Std.ExtTreeMap.getD_insert_self,
     AssetPool.addActionPoints]
 
+/-- Conditional static Go Again recorded at chain entry remains available once the live attack
+is absent, subject to the current restriction on gaining Go Again (CR 3.5.4b, 7.6.2). -/
+theorem linkHasGoAgain_of_conditionalEntry {s : GameState} {link : ChainLink}
+    (hentry : link.conditionalGoAgainAtEntry = true)
+    (habsent : link.attack.bind s.characteristics = none)
+    (hallowed : s.hasActionPhaseEffect link.attacker .cantGainGoAgain = false) :
+    linkHasKeyword s link .goAgain = true := by
+  simp [linkHasKeyword, hentry, habsent, hallowed]
+
 /-- **I11** (Battleworn identical `ObjId` return and `-1{d}` counter) (CR 3.0.9, 7.7, 8.3.2):
 a Battleworn equipment card on `Zone.combatChain` (without Blade Break or Temper) returns to its
 armor zone on Close Step with the **exact same `ObjId`** and `minusDefenseCounters + 1`. -/

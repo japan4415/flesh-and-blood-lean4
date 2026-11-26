@@ -624,23 +624,37 @@ def hasActionPhaseEffect (s : GameState) (p : PlayerId) (op : EffectOp) : Bool :
 def canTakeAction (s : GameState) (p : PlayerId) : Bool :=
   !s.hasActionPhaseEffect p (.limitActions 0)
 
-/-- Materialize self-scoped static modifiers that require the controller to trail on life
-(CR 1.7.4, 6.2.3). The ordinary stages still apply the modifiers and counters. -/
-def lifeDisadvantageStaticEffects (s : GameState) (id : ObjId) (obj : Object)
+/-- The declared play origin of a card on the public stack (CR 5.1). -/
+def stackPlayFromArsenal (s : GameState) (id : ObjId) : Bool :=
+  (s.zone .stack).contains id && (s.layerMeta.get? id.n).any (·.fromArsenal)
+
+/-- Materialize supported self-scoped conditional static modifiers (CR 1.7.4, 6.2.3). -/
+def conditionalSelfStaticEffects (s : GameState) (id : ObjId) (obj : Object)
     (face : CardFace) (effects : List ContinuousEffect) : List ContinuousEffect :=
   let modifiers := face.abilities.filterMap fun
     | .static_ (some .lessLifeThanOpponent) .self_ (.addDefense (.const amount)) =>
-      some (EffectOp.addDefense amount)
+      some (Condition.lessLifeThanOpponent, EffectOp.addDefense amount)
     | .static_ (some .lessLifeThanOpponent) .self_ (.grantKeyword keyword) =>
-      some (EffectOp.grantKeyword keyword)
+      some (Condition.lessLifeThanOpponent, EffectOp.grantKeyword keyword)
+    | .static_ (some .playedFromArsenal) .self_ (.grantKeyword keyword) =>
+      some (Condition.playedFromArsenal, EffectOp.grantKeyword keyword)
     | _ => none
-  if modifiers.isEmpty || obj.faceDown || !((activationArenaZones s).flatMap s.zone).contains id then []
+  if modifiers.isEmpty || obj.faceDown then []
   else
     let base := evalCharacteristics effects obj face id
-    if base.abilitiesLost || !s.lessLifeThanOpponent base.controller then []
+    if base.abilitiesLost then []
     else
+      let enabled := modifiers.filterMap fun (condition, op) =>
+        let applies : Bool := match condition with
+          | .lessLifeThanOpponent =>
+            ((activationArenaZones s).flatMap s.zone).contains id && s.lessLifeThanOpponent base.controller
+          | .playedFromArsenal =>
+            s.stackPlayFromArsenal id || s.combat.any fun chain =>
+              chain.links.any (fun link => link.attack == some id && link.playedFromArsenal)
+          | _ => false
+        if applies then some op else none
       let firstId := effects.foldl (fun next effect => max next (effect.id + 1)) 0
-      modifiers.zipIdx.map fun (op, index) =>
+      enabled.zipIdx.map fun (op, index) =>
         { id := firstId + index, source := id, controller := base.controller,
           target := .obj id, op, duration := .whileSourceInArena, timestamp := obj.timestamp }
 
@@ -657,7 +671,7 @@ def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
         !o.faceDown && o.kind.phys?.isSome &&
           ((s.zone .stack).contains id || ((activationArenaZones s).flatMap s.zone).contains id)
       | _ => true) ++ s.arenaDefenseEffects id
-    let chars := evalCharacteristics (effects ++ s.lifeDisadvantageStaticEffects id o face effects) o face id
+    let chars := evalCharacteristics (effects ++ s.conditionalSelfStaticEffects id o face effects) o face id
     if chars.types.contains .action && s.hasActionPhaseEffect chars.controller .cantGainGoAgain then
       some { chars with keywords := chars.keywords.filter (· != .goAgain) }
     else some chars

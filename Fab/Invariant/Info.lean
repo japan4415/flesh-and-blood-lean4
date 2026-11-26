@@ -193,6 +193,8 @@ structure HiddenEquiv (p : PlayerId) (s1 s2 : GameState) : Prop where
   result : s1.result = s2.result
   /-- Same combat chain. -/
   combat : s1.combat = s2.combat
+  /-- Same public declaration of which stack cards were played from arsenal. -/
+  stackPlayFromArsenal : s1.stackPlayFromArsenal = s2.stackPlayFromArsenal
   /-- Same public weapon hit history. -/
   weaponHitsThisTurn : s1.weaponHitsThisTurn = s2.weaponHitsThisTurn
   /-- Same public history of paid boost costs this turn. -/
@@ -322,9 +324,10 @@ private theorem HiddenEquiv.characteristics_eq {p : PlayerId} {s1 s2 : GameState
     funext player
     unfold GameState.lessLifeThanOpponent GameState.lifeOf
     rw [h.playerCount, h.heroLife]
-  have hconditional : s1.lifeDisadvantageStaticEffects id = s2.lifeDisadvantageStaticEffects id := by
+  have hconditional : s1.conditionalSelfStaticEffects id = s2.conditionalSelfStaticEffects id := by
     funext obj face effects
-    simp only [GameState.lifeDisadvantageStaticEffects, h.arenaContents_eq, hlife]
+    delta GameState.conditionalSelfStaticEffects
+    rw [h.arenaContents_eq, hlife, h.stackPlayFromArsenal, h.combat]
   unfold GameState.characteristics
   rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic, hconditional, hphase,
     h.visibleZones .stack rfl, h.arenaContents_eq]
@@ -770,6 +773,10 @@ theorem reorder_deck_noninterference {s : GameState} (p q : PlayerId) {l : List 
       turn := rfl, active := rfl, pending := rfl, turnOrder := rfl, phase := rfl,
       result := rfl, combat := rfl, weaponHitsThisTurn := rfl, tournament := rfl,
       activatedThisTurn := rfl, activeEffects := rfl, boostsThisTurn := rfl,
+      stackPlayFromArsenal := by
+        funext id
+        unfold GameState.stackPlayFromArsenal GameState.reorder
+        rw [GameState.zone_setZone_ne s (show Zone.stack ≠ .player q .deck from by intro he; cases he) l] <;> rfl,
       pendingTriggers := rfl,
       visibleZones := fun z hns => by
         have hne : z ≠ .player q .deck := by
@@ -820,6 +827,10 @@ theorem opp_hand_noninterference {s : GameState} {p q : PlayerId} (hne : q ≠ p
       turn := rfl, active := rfl, pending := rfl, turnOrder := rfl, phase := rfl,
       result := rfl, combat := rfl, weaponHitsThisTurn := rfl, tournament := rfl,
       activatedThisTurn := rfl, activeEffects := rfl, boostsThisTurn := rfl,
+      stackPlayFromArsenal := by
+        funext id
+        unfold GameState.stackPlayFromArsenal
+        rw [GameState.zone_setZone_ne s (show Zone.stack ≠ .player q .hand from by intro he; cases he) l] <;> rfl,
       pendingTriggers := rfl,
       visibleZones := fun z hns => by
         have hnez : z ≠ .player q .hand := by
