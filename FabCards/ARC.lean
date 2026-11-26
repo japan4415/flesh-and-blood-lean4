@@ -1106,6 +1106,9 @@ def enchantingMelody (base : CardDef) (amount : Nat) : CardDef :=
 /-- Enchanting Melody Red (ARC167). -/
 def ARC_167_R : CardDef := { enchantingMelody Meta.ARC_167_R_meta 4 with status := .full }
 
+/-- Enchanting Melody Yellow (ARC168). -/
+def ARC_168_Y : CardDef := { enchantingMelody Meta.ARC_168_Y_meta 3 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1135,7 +1138,8 @@ def arcCards : List CardDef :=
    ARC_144_R, ARC_145_Y, ARC_146_B,
    ARC_147_R, ARC_148_Y, ARC_149_B,
    ARC_150, ARC_151, ARC_152, ARC_153, ARC_154, ARC_155, ARC_156, ARC_157, ARC_158, ARC_159_R,
-   ARC_160_Y, ARC_161_B, ARC_162_R, ARC_163_B, ARC_164_R, ARC_165_Y, ARC_166_B, ARC_167_R]
+   ARC_160_Y, ARC_161_B, ARC_162_R, ARC_163_B, ARC_164_R, ARC_165_Y, ARC_166_B, ARC_167_R,
+   ARC_168_Y]
 
 end FabCards.ARC
 
