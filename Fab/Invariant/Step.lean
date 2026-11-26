@@ -688,7 +688,7 @@ theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
   · -- chooseDiscard pickDiscardCard
     split at h
     · split at h
-      · rename_i p _ _ selected _ _ id _ _ _ _ _
+      · rename_i p _ _ selected _ _ _ id _ _ _ _ _
         have hinv := discardManyObjs_inv p ((id :: selected).reverse) hwf hok
         dsimp only at h
         cases h
@@ -1710,7 +1710,7 @@ theorem legalFrameActions_iff (s : GameState) (a : Action) :
     | chooseHandToDeck p _ =>
       cases actor <;> cases kind <;> simp [Actor.isPlayer]
       grind
-    | chooseDiscard p remaining candidates _ =>
+    | chooseDiscard p remaining candidates _ _ =>
       by_cases hpos : 0 < remaining <;>
         cases actor <;> cases kind <;> simp [Actor.isPlayer, hpos] <;> grind
     | chooseShuffleCards p remaining candidates selected _ search =>
@@ -2312,7 +2312,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           exact False.elim hlf
       | chance | clock | judge =>
         cases kind <;> exact False.elim hlf
-    | chooseDiscard p remaining candidates _ =>
+    | chooseDiscard p remaining candidates _ _ =>
       cases actor <;> cases kind <;> simp_all
       split <;> rfl
     | chooseShuffleCards p remaining candidates selected drawSame search =>

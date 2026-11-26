@@ -219,6 +219,24 @@ def validVariableResources (limit : Nat) (optional : Bool) : Option Nat → Bool
   | none => optional
   | some value => decide (value ≤ limit)
 
+/-- Resume an effect after a card is chosen and discarded. -/
+structure DiscardContinuation where
+  /-- Player controlling the effect being resumed. -/
+  controller : PlayerId
+  /-- Source object of the suspended effect. -/
+  source : ObjId
+  /-- Whether the source was played from arsenal. -/
+  fromArsenal : Bool
+  /-- Numeric bindings available to the resumed effect. -/
+  env : List (VarId × Int)
+  /-- Predicate that determines which branch to run after the discard. -/
+  classify : CardFilter
+  /-- Effect to run when the discarded card matches the predicate. -/
+  ifMatches : Effect
+  /-- Effect to run when the discarded card does not match. -/
+  otherwise : Effect
+deriving DecidableEq, Repr
+
 /-- Continuation stack frame: either a decision frame waiting for `step`, or a work frame
 advanced automatically by `microStep` (design.md §6.2). -/
 inductive Frame where
@@ -303,6 +321,7 @@ inductive Frame where
   | chooseHandToDeck (p : PlayerId) (pos : DeckPos)
   /-- Player selects cards before discarding them together (CR 8.5.5). -/
   | chooseDiscard (p : PlayerId) (remaining : Nat) (candidates selected : List ObjId)
+      (resume : Option DiscardContinuation := none)
   /-- Player selects cards for a single shuffle effect. Cards move when the selection is confirmed. -/
   | chooseShuffleCards (p : PlayerId) (remaining : Nat) (candidates selected : List ObjId)
       (drawSame : Bool) (search : Option DeckSearchChoice := none)
