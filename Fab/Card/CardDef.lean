@@ -94,6 +94,7 @@ def cardFaceMatches (f : CardFilter) (face : CardFace) : Bool :=
   f.supertypes.all (face.supertypes.contains ·) &&
   f.types.all (face.types.contains ·) &&
   f.subtypes.all (face.subtypes.contains ·) &&
+  f.excludeSubtypes.all (fun t => !face.subtypes.contains t) &&
   (f.anySubtypes.isEmpty || f.anySubtypes.any (face.subtypes.contains ·)) &&
   f.excludeTypes.all (fun t => !face.types.contains t) &&
   f.keywords.all (face.keywords.contains ·) &&

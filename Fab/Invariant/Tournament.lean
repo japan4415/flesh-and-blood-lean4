@@ -1040,8 +1040,8 @@ theorem advance_preserves_timeLimit {deadline : Nat} :
     · simp only [Except.ok.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact hb
 
 private theorem startActivation_turn_tournament_result {s s' : GameState} {p : PlayerId}
-    {source : ObjId} {index : Nat} {target : Option ObjId} {rest : List Frame} {es : List Event}
-    (h : startActivation s p source index target rest = some (s', es)) :
+    {source : ObjId} {index : Nat} {target secondTarget : Option ObjId} {rest : List Frame} {es : List Event}
+    (h : startActivation s p source index target rest secondTarget = some (s', es)) :
     s'.turn = s.turn ∧ s'.tournament = s.tournament ∧ s'.result = s.result := by
   unfold startActivation at h
   obtain ⟨plan, _, h⟩ := Option.bind_eq_some_iff.mp h
