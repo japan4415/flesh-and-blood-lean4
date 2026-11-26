@@ -283,6 +283,20 @@ def canLinkTakeDefenseReaction (s : GameState) (link : ChainLink) (p : PlayerId)
   link.defender == p &&
     !(fromHand && linkHasKeyword s link .dominate && 1 ≤ link.defendingFromHand.length)
 
+/-- The printed abilities of a face-up attack card currently on the combat chain. -/
+def activeAttackPrintedAbilities (s : GameState) (id : ObjId) : List Ability :=
+  if (s.zone .combatChain).contains id && !(s.obj? id).any (·.faceDown) &&
+      !(s.characteristics id).any (·.abilitiesLost) then
+    ((s.objectFace? id).map (·.abilities)).getD []
+  else []
+
+/-- Whether a printed ability prohibits playing defense reactions to this specific link. -/
+def linkForbidsDefenseReactions (s : GameState) (link : ChainLink) : Bool :=
+  link.attack.any fun id =>
+    (activeAttackPrintedAbilities s id).any fun
+      | .static_ none .self_ .forbidDefenseReactionsOnAttack => true
+      | _ => false
+
 /-- A card or selected mode with a required single-attack target needs a matching active attack. -/
 def hasRequiredAttackTarget (s : GameState) (card : CardDef) (modeIdx : Option Nat) : Bool :=
   match singleAttackTargetSpec card modeIdx with
@@ -413,7 +427,8 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) (asInstant : Bool :=
         | some cc =>
           cc.step == .reaction &&
           match cc.activeLink? with
-          | some link => canLinkTakeDefenseReaction s link p fromHand
+          | some link => canLinkTakeDefenseReaction s link p fromHand &&
+              !linkForbidsDefenseReactions s link
           | none => false
         | none => false
       else
@@ -929,7 +944,7 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
   match link.attack with
   | none => []
   | some source =>
-    let printed := ((s.objectFace? source).map (·.abilities)).getD []
+    let printed := activeAttackPrintedAbilities s source
     let abilities := printed ++ link.grantedAbilities ++ grantedAttackAbilities s source
     let triggers := collectCardTriggers s source link.attacker false abilities
       (damageRecipient := some link.defender) fun trigger cond =>
@@ -953,6 +968,8 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
         { trigger with effect := .grant (.firstActionNextTurn (.seated link.defender)) mod dur }
       | .prim (.discardChoice .defendingHero filter count) =>
         { trigger with effect := .prim (.discardChoice (.seated link.defender) filter count) }
+      | .prim (.destroyArsenal .defendingHero) =>
+        { trigger with effect := .prim (.destroyArsenal (.seated link.defender)) }
       | .prim (.loseLife .defendingHero amount) =>
         { trigger with effect := .prim (.loseLife (.seated link.defender) amount) }
       | _ => trigger

@@ -169,6 +169,8 @@ inductive Prim where
   | discardHandPrefix (n : Nat)
   /-- Player `p` chooses and discards `n` cards matching `f` from hand. -/
   | discardChoice (p : PlayerRef) (f : CardFilter) (n : NumExpr)
+  /-- Destroy every card in the affected player's arsenal (CR 8.5.5). -/
+  | destroyArsenal (p : PlayerRef)
   /-- Deal `n` damage of kind `kind` to player `p`'s hero (CR 7.5, 8.5.3). -/
   | dealDamage (kind : DamageKind) (p : PlayerRef) (n : NumExpr)
   /-- Deal arcane damage to two declared heroes simultaneously. Targets may repeat. -/
@@ -360,6 +362,8 @@ inductive ContinuousMod where
   | nextCardAsInstant (filter : CardFilter) (arcaneBonus : Nat := 0)
   /-- Grant Go Again to the next non-attack action the affected player plays. -/
   | nextNonAttackActionGoAgain
+  /-- Defense reactions cannot be played to this card's attack link. -/
+  | forbidDefenseReactionsOnAttack
   /-- Grant a keyword such as `goAgain` or `dominate`. -/
   | grantKeyword (kw : KeywordInst)
   /-- Grant a triggered ability to the affected object(s) (Pummel, Razor Reflex, Whelming Gustwave, Steelblade Supremacy). -/

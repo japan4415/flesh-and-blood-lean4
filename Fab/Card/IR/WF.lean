@@ -87,6 +87,7 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .discardRandom p n => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .discardHandPrefix _ => true
   | .discardChoice p _ n => p.wfBool numSlots && n.wfBool numSlots env hasX
+  | .destroyArsenal p => p.wfBool numSlots
   | .dealDamage _ p n => p.wfBool numSlots && n.wfBool numSlots env hasX
   | .dealArcaneDamageToPair p q _ => p.wfBool numSlots && q.wfBool numSlots
   | .gainLife p n => p.wfBool numSlots && n.wfBool numSlots env hasX
@@ -181,6 +182,7 @@ def ContinuousMod.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Con
   | .addIntellect _ => true
   | .modifyCost _ | .modifyPlayCostPerPermanent _ _ => true
   | .addTokenCreation _ _ | .nextCardAsInstant _ _ | .nextNonAttackActionGoAgain => true
+  | .forbidDefenseReactionsOnAttack => true
   | .addToNextArcaneCard amount => amount.wfBool numSlots env hasX
   | .grantKeyword _ => true
   | .grantTrigger _ cond body =>

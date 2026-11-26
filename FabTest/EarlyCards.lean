@@ -3797,6 +3797,75 @@ meta def nullruneEquipmentTogether : Option Bool := do
 
 #guard nullruneEquipmentTogether == some true
 
+#guard ((earlyPrintingCardId? "ARC159").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .attack && card.front.power == some 6 && card.status == .full)
+
+meta def commandAndConquerScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let ownArsenal := Zone.player p .arsenal
+  let enemyArsenal := Zone.player q .arsenal
+  let enemyHand := Zone.player q .hand
+  let (withAttack, attack) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) "ARC_159_R"
+  let (withOrdinaryAttack, ordinary) ← earlyPlace withAttack p (.player p .hand) "WTR_203_R"
+  let (withOwnArsenal, safe) ← earlyPlace withOrdinaryAttack p ownArsenal "WTR_173_R"
+  let (withArsenal, arsenaledReaction) ← earlyPlace withOwnArsenal q enemyArsenal "WTR_212_R"
+  let (withSecondArsenal, backup) ← earlyPlace withArsenal q enemyArsenal "WTR_173_R"
+  let withHiddenArsenal := updateSingleObject withSecondArsenal arsenaledReaction
+    (fun obj => { obj with faceDown := true })
+  let (withHand, handReaction) ← earlyPlace withHiddenArsenal q enemyHand "WTR_212_R"
+  let (withInstant, instant) ← earlyPlace withHand q enemyHand "WTR_173_R"
+  let (withBlock, first) ← earlyPlace withInstant q enemyHand "WTR_203_R"
+  let (ready, second) ← earlyPlace withBlock q enemyHand "WTR_203_R"
+  let ready := ready.setPool q { resources := 3 }
+  let reactingAsDefender (s : GameState) : Option GameState := do
+    let reacting ← earlySteps s (⟨.player q, .defendDone⟩ :: earlyPass)
+    match reacting.pending with
+    | .priority chooser _ :: _ =>
+      if chooser == q then some reacting else earlySteps reacting [⟨.player chooser, .pass⟩]
+    | _ => none
+  let attacking ← earlyAttack ready (.playCard attack)
+  let incoming ← reactingAsDefender attacking
+  let canonical ← incoming.combat.bind CombatChain.activeLink?
+  let attackOnChain ← canonical.attack
+  let suppression : ContinuousEffect :=
+    { id := 100, source := attackOnChain, controller := p, target := .obj attackOnChain
+      op := .loseAllAbilities, duration := .thisTurn, timestamp := ⟨1⟩ }
+  let silenced := { incoming with activeEffects := [suppression] }
+  let withoutRestriction ← (earlyAttack ready (.playCard ordinary)).bind reactingAsDefender
+  let reactFromHand : Action := ⟨.player q, .playCard handReaction⟩
+  let reactFromArsenal : Action := ⟨.player q, .playCard arsenaledReaction⟩
+  let hit ← earlyDamage attacking
+  let trigger ← hit.pendingTriggers.find? (·.source == attackOnChain)
+  let queued ← earlySteps hit
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩]
+  let resolved ← earlySteps queued earlyPass
+  let withDefense ← earlySteps attacking
+    [⟨.player q, .defendCard first⟩, ⟨.player q, .defendCard second⟩]
+  let blocked ← earlyDamage withDefense
+  let emptyArsenal ← earlySteps (execPrim queued p attackOnChain [] (.destroyArsenal (.seated q))).1 earlyPass
+  let silencedHit ← earlyDamage { attacking with activeEffects := [suppression] }
+  let graveyard := resolved.zone (.player q .graveyard)
+  pure (!(legalActions incoming).contains reactFromHand &&
+    !(legalActions incoming).contains reactFromArsenal &&
+    (earlySteps incoming [reactFromHand]).isNone && (earlySteps incoming [reactFromArsenal]).isNone &&
+    (legalActions incoming).contains ⟨.player q, .playCard instant⟩ &&
+    (legalActions withoutRestriction).contains reactFromHand &&
+    (legalActions withoutRestriction).contains reactFromArsenal &&
+    (legalActions silenced).contains reactFromArsenal &&
+    hit.lifeOf q == ready.lifeOf q - 6 && hit.zone enemyArsenal == [backup, arsenaledReaction] &&
+    (resolved.zone enemyArsenal).isEmpty && resolved.zone ownArsenal == [safe] &&
+    graveyard.length == 2 &&
+    (graveyard.filterMap fun id => (resolved.cardDefOf? id).map (·.id)).contains ⟨"WTR_212_R"⟩ &&
+    (graveyard.filterMap fun id => (resolved.cardDefOf? id).map (·.id)).contains ⟨"WTR_173_R"⟩ &&
+    blocked.lifeOf q == ready.lifeOf q && blocked.zone enemyArsenal == [backup, arsenaledReaction] &&
+    blocked.pendingTriggers.all (·.source != attackOnChain) &&
+    emptyArsenal.zone (.player q .graveyard) == graveyard &&
+    silencedHit.pendingTriggers.all (·.source != attackOnChain))
+
+#guard commandAndConquerScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

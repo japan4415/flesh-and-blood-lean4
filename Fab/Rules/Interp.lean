@@ -1294,6 +1294,10 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     else
       let (s1, es) := discardManyObjs s target (matching.take cnt)
       (s1, es, [])
+  | .destroyArsenal pref =>
+    let target := evalPlayerRef s ctrl pref
+    let (s1, events) := destroyManyObjs s (s.zone (.player target .arsenal))
+    (s1, events, [])
   | .intimidate pref =>
     let target := evalPlayerRef s ctrl pref
     let hand := Zone.player target .hand
@@ -1718,6 +1722,8 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     split
     · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     · exact discardManyObjs_inv (evalPlayerRef s ctrl pref) _ hwf hok
+  | destroyArsenal pref =>
+    exact destroyManyObjs_inv (s.zone (.player (evalPlayerRef s ctrl pref) .arsenal)) hwf hok
   | intimidate pref =>
     unfold execPrim; dsimp only
     split
@@ -2033,6 +2039,9 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
             match s.objectFace? id with | some face => cardFaceMatches f face | none => false).take
           (clampNonNeg (evalNumExpr s ctrl env n (some src)))) s
       exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
+  | destroyArsenal pref =>
+    have h := destroyManyObjs_ttr (s.zone (.player (evalPlayerRef s ctrl pref) .arsenal)) s
+    exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
   | intimidate pref =>
     unfold execPrim; dsimp only
     split
