@@ -1030,6 +1030,16 @@ theorem intimidateHandFront_ttr (s : GameState) (ctrl target : PlayerId) :
           exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
       · cases hb
 
+/-- Keep a pair only when its two positions satisfy the filters in either order. -/
+def matchingRevealedPair (s : GameState) (first second : CardFilter) : List ObjId → List ObjId
+  | [a, b] =>
+    let fits (id : ObjId) (filter : CardFilter) :=
+      (s.objectFace? id).any (cardFaceMatches filter)
+    if (fits a first && fits b second) || (fits a second && fits b first) then
+      [a, b]
+    else []
+  | _ => []
+
 /-- Execute a single atomic `Prim`, returning `(newState, emittedEvents, pushedFrames)`.
 Total by design: impossible instructions become no-ops (CR 1.0.1b). -/
 def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId × Int))
@@ -1294,6 +1304,14 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     if deck.Valid s.playerCount then
       (s.reorder deck (deckBottomOrder (s.zone deck) ids), [], [])
     else (s, [], [])
+  | .revealTopPairToHand pref first second =>
+    let player := evalPlayerRef s ctrl pref
+    let top := (s.zone (.player player .deck)).take 2
+    let revealed := top.filterMap fun id =>
+      (s.cardDefOf? id).map (fun card => Event.revealed player id card.id)
+    let (moved, events) :=
+      moveManyObjs s (matchingRevealedPair s first second top) (.player player .hand) .top false
+    (moved, revealed ++ events, [])
   | .reload pref =>
     let player := evalPlayerRef s ctrl pref
     (s, [], if (s.zone (.player player .arsenal)).isEmpty && !(s.zone (.player player .hand)).isEmpty
@@ -1632,6 +1650,10 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
   | searchDeckToTop _ _ | reload _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | lookDeckToArsenal _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | revealTopPairToHand pref first second =>
+    let player := evalPlayerRef s ctrl pref
+    let ids := matchingRevealedPair s first second ((s.zone (.player player .deck)).take 2)
+    exact moveManyObjs_inv (.player player .hand) .top false ids hwf hok
   | putChosenDeckCardsOnBottom pref ids =>
     unfold execPrim; dsimp only
     split
@@ -1933,6 +1955,11 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | searchDeckToTop _ _ | reload _ => exact ⟨rfl, rfl, id⟩
+  | revealTopPairToHand pref first second =>
+    let player := evalPlayerRef s ctrl pref
+    let ids := matchingRevealedPair s first second ((s.zone (.player player .deck)).take 2)
+    have ht := moveManyObjs_ttr (.player player .hand) .top false ids s
+    exact ⟨ht.1, ht.2.1, fun hr => ht.2.2 ▸ hr⟩
   | putChosenDeckCardOnTop _ _ | lookDeckToArsenal _ _ _ | putChosenDeckCardsOnBottom _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | putHandPermanent _ _ _ => exact ⟨rfl, rfl, id⟩

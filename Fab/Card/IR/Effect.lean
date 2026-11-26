@@ -220,6 +220,8 @@ inductive Prim where
   /-- If arsenal is empty, look at up to `count` cards, optionally load one matching
   card face up, then put the rest on the bottom in the chooser's order. -/
   | lookDeckToArsenal (p : PlayerRef) (count : Nat) (f : CardFilter)
+  /-- Reveal the top two cards and put them into hand when they satisfy the two filters in either order. -/
+  | revealTopPairToHand (p : PlayerRef) (first second : CardFilter)
   /-- Put the chosen deck cards on the bottom in the given order. -/
   | putChosenDeckCardsOnBottom (p : PlayerRef) (cards : List ObjId)
   /-- If the arsenal is empty, optionally put a card from hand into it face down. -/

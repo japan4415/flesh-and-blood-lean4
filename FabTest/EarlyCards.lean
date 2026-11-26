@@ -2513,6 +2513,38 @@ meta def becomeArknightScenario : Option Bool := do
 
 #guard becomeArknightScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC084").bind throughArcDB.find?).any
+  (fun card => card.front.keywords.contains .goAgain && card.status == .full)
+
+meta def tomeArknightScenario (cards : List String) (shouldTake : Bool) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let hand := Zone.player p .hand
+  let names (s : GameState) (z : Zone) :=
+    (s.zone z).filterMap (fun id => (s.cardDefOf? id).map (·.id.val))
+  let noDraw : ContinuousEffect :=
+    { id := 1, source := ⟨0⟩, controller := q, target := .player p, op := .cantDrawCards,
+      duration := .thisActionPhase, timestamp := ⟨1⟩ }
+  let (withTome, tome) ← earlyPlace { earlyBase with cards := throughArcDB, activeEffects := [noDraw] }
+    p hand "ARC_084_B"
+  let ready ← cards.reverse.foldlM (fun s name => (earlyPlace s p deck name).map Prod.fst) withTome
+  let waiting ← earlySteps ready [⟨.player p, .playCard tome⟩, ⟨.player p, .pass⟩]
+  let (done, events) ← (step 64 waiting ⟨.player q, .pass⟩).toOption
+  let revealed := events.filterMap fun
+    | .revealed player _ id => if player == p then some id.val else none
+    | _ => none
+  let top := cards.take 2
+  pure (revealed == top && names done deck == (if shouldTake then cards.drop 2 else cards) &&
+    names done hand == (if shouldTake then top.reverse else []) &&
+    (done.poolOf p).actionPoints == 4 && (done.poolOf p).resources == 7)
+
+#guard tomeArknightScenario ["WTR_203_R", "WTR_218_R", "ARC_081_R"] true == some true
+#guard tomeArknightScenario ["WTR_218_R", "WTR_203_R"] true == some true
+#guard tomeArknightScenario ["WTR_203_R", "ARC_082_Y"] false == some true
+#guard tomeArknightScenario ["WTR_203_R", "WTR_225", "WTR_218_R"] false == some true
+#guard tomeArknightScenario ["WTR_218_R"] false == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
