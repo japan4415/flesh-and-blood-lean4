@@ -3464,6 +3464,37 @@ meta def reverberateScenario (name : String) (damage : Nat) : Option Bool := do
   (fun card => card.front.hasType .action && card.front.pitch == some 3 && card.status == .full)
 #guard reverberateScenario "ARC_140_B" 1 == some true
 
+#guard ((earlyPrintingCardId? "ARC141").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 1 && card.status == .full)
+meta def arcaneAtHeroScenario (name : String) (cost damage : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let (ready, spell) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) name
+  let announce : Action := ⟨.player p, .playCard spell⟩
+  let target (hero : PlayerId) : Action := ⟨.player p, .pickHeroTarget hero⟩
+  let choosing ← earlySteps ready [announce]
+  let attackingSelf ← earlySteps choosing (target p :: earlyPass)
+  let attackingOpponent ← earlySteps choosing (target q :: earlyPass)
+  let cancelled ← earlySteps choosing [⟨.player p, .cancelPlay⟩]
+  let shield : ReplacementEffect :=
+    { id := 100, source := spell, controller := q, stage := .prevention, action := .fixedPrevent 2 }
+  let reduced ← earlySteps { ready with activeReplacements := [shield] }
+    ([announce, target q] ++ earlyPass)
+  pure ((legalActions choosing).contains (target p) && (legalActions choosing).contains (target q) &&
+    choosing.poolOf p == ready.poolOf p && cancelled.snapshot == ready.snapshot &&
+    attackingSelf.lifeOf p == ready.lifeOf p - Int.ofNat damage &&
+    attackingSelf.lifeOf q == ready.lifeOf q &&
+    attackingOpponent.lifeOf p == ready.lifeOf p &&
+    attackingOpponent.lifeOf q == ready.lifeOf q - Int.ofNat damage &&
+    attackingSelf.arcaneDamageDealtTo p p == damage &&
+    attackingOpponent.arcaneDamageDealtTo p q == damage &&
+    (attackingOpponent.poolOf p).actionPoints == 3 &&
+    (attackingOpponent.poolOf p).resources == 8 - cost &&
+    reduced.arcaneDamageDealtTo p q == damage - 2 && reduced.lifeOf q == ready.lifeOf q - Int.ofNat (damage - 2))
+
+#guard arcaneAtHeroScenario "ARC_141_R" 1 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

@@ -940,6 +940,16 @@ def ARC_139_Y : CardDef := { reverberate Meta.ARC_139_Y_meta 2 with status := .f
 /-- Reverberate (ARC140). -/
 def ARC_140_B : CardDef := { reverberate Meta.ARC_140_B_meta 1 with status := .full }
 
+/-- Wizard actions that deal a fixed amount of arcane damage to any hero. -/
+def arcaneAtHero (card : CardDef) (damage : Int) : CardDef :=
+  let effect : EffectDef :=
+    { targets := [{ kind := .hero }]
+      body := .prim (.dealDamage .arcane (.ownerOfSlot 0) (.const damage)) }
+  { card with front := { card.front with playEffect := some effect } }
+
+/-- Scalding Rain (ARC141). -/
+def ARC_141_R : CardDef := { arcaneAtHero Meta.ARC_141_R_meta 4 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -957,7 +967,15 @@ def arcCards : List CardDef :=
    ARC_103_R, ARC_104_Y, ARC_105_B,
    ARC_106_R, ARC_107_Y, ARC_108_B,
    ARC_109_R, ARC_110_Y, ARC_111_B,
-   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R, ARC_119_Y, ARC_120_R, ARC_121_Y, ARC_122_R, ARC_123_R, ARC_124_Y, ARC_125_B, ARC_126_R, ARC_127_Y, ARC_128_B, ARC_129_R, ARC_130_Y, ARC_131_B, ARC_132_R, ARC_133_Y, ARC_134_B, ARC_135_R, ARC_136_Y, ARC_137_B, ARC_138_R, ARC_139_Y, ARC_140_B]
+   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117,
+   ARC_118_R, ARC_119_Y, ARC_120_R, ARC_121_Y, ARC_122_R,
+   ARC_123_R, ARC_124_Y, ARC_125_B,
+   ARC_126_R, ARC_127_Y, ARC_128_B,
+   ARC_129_R, ARC_130_Y, ARC_131_B,
+   ARC_132_R, ARC_133_Y, ARC_134_B,
+   ARC_135_R, ARC_136_Y, ARC_137_B,
+   ARC_138_R, ARC_139_Y, ARC_140_B,
+   ARC_141_R]
 
 end FabCards.ARC
 
