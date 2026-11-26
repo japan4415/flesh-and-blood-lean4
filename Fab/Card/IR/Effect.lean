@@ -139,6 +139,8 @@ inductive ModScope where
   | arenaObjectsOfType (p : PlayerRef) (kind : CardType)
   /-- Player `p`'s hero (Helm of Isen's Peak, Crush Confidence). -/
   | hero (p : PlayerRef)
+  /-- Player `p` directly, for restrictions on their choices. -/
+  | player (p : PlayerRef)
   /-- Player `p`'s first action during their next turn (Cartilage Crush). -/
   | firstActionNextTurn (p : PlayerRef)
   /-- Player `p`'s first attack during their next turn (Debilitate). -/
@@ -319,6 +321,8 @@ inductive ContinuousMod where
   | cantGainGoAgain
   /-- Limit how many actions the affected player may play or activate. -/
   | limitActions (count : Nat)
+  /-- The affected player may only play cards from their arsenal. -/
+  | onlyPlayFromArsenal
   /-- Affected player cannot draw cards (Cranial Crush). -/
   | cantDrawCards
   /-- Affected weapon may attack an additional time this turn (Dorinthea). -/

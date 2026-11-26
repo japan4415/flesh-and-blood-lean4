@@ -358,7 +358,9 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
               (s.characteristics bow).any (fun chars =>
                 chars.controller == p && chars.types.contains .weapon && chars.subtypes.contains .bow)
         else true
-      if !c.isDeckCard || !meetsRequirement || !arrowAllowed then
+      let arsenalRequired := s.activeEffects.any fun effect =>
+        effect.target == .player p && effect.op == .onlyPlayFromArsenal && !effect.waitsForNextTurn
+      if !c.isDeckCard || !meetsRequirement || !arrowAllowed || (arsenalRequired && !fromArsenal) then
         false
       else if c.front.hasType .instant then
         true
