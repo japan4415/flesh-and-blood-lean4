@@ -61,11 +61,19 @@ Flesh and Blood の公式 **Tournament Rules and Policy（TRP）** のうち、L
 
 | 項目 | Sealed / Draft |
 |---|---|
-| Hero | Young Hero 1 枚（プール内またはフォーマット指定のトークンヒーロー） |
-| Main Deck | **30 枚以上** |
-| 同名枚数制限 | **なし**（開封・ピックした枚数まで投入可能。ただし Legendary 等の扱いは最新 TRP を確認） |
-| Card-Pool | 開封／ドラフトした全カード（装備・武器・トークンヒーローを含む） |
+| Hero | 対象セットの Young Hero 1 枚。Draft で登録が必須の場合はイベント中固定 |
+| Main Deck | 本文の原則は **30 枚ちょうど**。Appendix F で上書きされる WTR・ARC は **30 枚以上** |
+| 同名枚数制限 | 構築フォーマットの同名制限と Legendary の1枚制限は Draft に適用しない |
+| Card-Pool | Sealed は開封、Draft はピックで取得したカードと、そのセットで利用可能な Basic レアリティのカード |
 | Class / Talent | Hero の Supertype 適合規則は引き続き適用 |
+
+#### Booster Draft の実行
+
+- `BoosterDraft.State.start` にカードデータベース、製品規定、登録の要否、座席ごとの3パックを渡す。製品規定は `FabCards.wtrDraft` と `FabCards.arcDraft` を用意している。両セットとも各パックの先頭15枠がドラフト対象で、末尾1枠を除外する。番号から論理カードIDへの変換には `FabCards.earlyPrintingCardId?` を使う。
+- 参加者には本人の `State.view` を渡し、`State.pick` で1枚を確定する。全席が確定すると残りを第1・第3パックでは左へ、第2パックでは右へ渡す。ピック中は過去の取得カードを伏せ、各パックの間は本人が確認できる。レビュー後は `State.openNext` で次のパックを開く。パック内の並びは意味を持たないため、表示順をカードID順に統一している。
+- 登録必須のイベントでは `State.register` にHeroと全ピックを渡す。クラス不一致で対戦に使えないカードも登録対象に含まれる。各対戦では `State.deck` がHeroに合うピックと、指定した Basic の武器や Cracked Bauble からカードプールを作る。`GameState.initialDraft` で同じポッドの異なる2席を対戦に渡し、通常の試合前ロードアウトでデッキと装備を選ぶ。
+
+パック内容は外部から供給する。座席割り当て、パックの製造時の封入率、ジャッジによる呼び出しと持ち時間は大会運営側の入力として扱う。 [公式TRP 8.2・Appendix F](https://fabtcg.com/documents/604/FaB_Tournament_Rules_and_Policy_2025_05_30.pdf) · [WTR収録表](https://legacy.fabtcg.com/en/collectors-centre/welcome-rathe/) · [ARC収録表](https://legacy.fabtcg.com/en/collectors-centre/arcane-rising/)
 
 ### 2.4 定理の目標（I13）
 

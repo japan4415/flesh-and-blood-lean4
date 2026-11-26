@@ -16,6 +16,7 @@ public import Fab.Card.IR.WF
 public import Fab.Card.CardDB
 public import Fab.Rules.Deck
 public import Fab.Tournament.DeckLegality
+public import Fab.Tournament.Draft
 public import Fab.Tournament.TimeLimit
 public import Fab.Tournament.Match
 public import Fab.Tournament.Loop

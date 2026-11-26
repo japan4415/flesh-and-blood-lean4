@@ -14,6 +14,22 @@ starting deck, max 3 copies per unique `(name, pitch)` card, and banned / Living
 
 namespace Fab
 
+/-- Whether a registered draft game pool has a young hero, compatible cards, and enough
+deck-cards for the starting deck (TRP 8.2). The pod validates draft provenance. -/
+def DraftDeckValid (db : CardDB) (deck : DeckList) : Prop :=
+  (∃ heroDef, db.find? deck.hero = some heroDef ∧ heroDef.isYoungHero = true ∧
+    ∀ cid ∈ deck.pool, CardAllowedForHero db heroDef cid) ∧
+  Format.draft.spec.deckSize.Satisfied
+    (deck.pool.countP fun id => (db.find? id).any CardDef.isDeckCard)
+
+instance decidableDraftDeckValid (db : CardDB) (deck : DeckList) :
+    Decidable (DraftDeckValid db deck) := by
+  unfold DraftDeckValid
+  haveI : Decidable (∃ heroDef, db.find? deck.hero = some heroDef ∧ heroDef.isYoungHero = true ∧
+      ∀ cid ∈ deck.pool, CardAllowedForHero db heroDef cid) :=
+    decidableExistsSome (db.find? deck.hero)
+  infer_instance
+
 /-- Format-specific banned, Living Legend, and restricted lists passed externally so theorems
 remain independent of periodic B&R updates (TRP 1). -/
 structure FormatBanList where
