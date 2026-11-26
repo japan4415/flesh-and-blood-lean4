@@ -306,6 +306,10 @@ inductive Effect where
   | bindRevealTopCount (p : PlayerRef) (n : Nat) (f : CardFilter) (bindVar : VarId) (cont : Effect)
   /-- Banish up to n cards from the top of a deck face up, then bind the number that match f (CR 8.5.1). -/
   | bindBanishTopCount (p : PlayerRef) (n : Nat) (f : CardFilter) (bindVar : VarId) (cont : Effect)
+  /-- Reveal the top deck card and run the continuation with its pitch. An empty deck skips the
+  continuation unless the effect supplies a fallback value. -/
+  | bindRevealTopPitch (p : PlayerRef) (bindVar : VarId) (cont : Effect)
+      (fallbackPitch : Option Nat := none)
   /-- Trigger this body each time the controller boosts later in the same turn (CR 6.6.3, 8.3.9). -/
   | onBoostThisTurn (body : Effect)
   /-- Discard the first card in a randomized hand, then execute the branch matching its face. -/
@@ -425,7 +429,8 @@ def Effect.hasArcaneDamage : Effect → Bool
   | .ifThen _ first second | .may first second
   | .discardTopOfHand _ _ first second | .discardChosen _ _ _ first second =>
     first.hasArcaneDamage || second.hasArcaneDamage
-  | .bindRevealTopCount _ _ _ _ next | .bindBanishTopCount _ _ _ _ next =>
+  | .bindRevealTopCount _ _ _ _ next | .bindBanishTopCount _ _ _ _ next
+  | .bindRevealTopPitch _ _ next _ =>
     next.hasArcaneDamage
   | .rollDie6 _ branches next => branches.hasArcaneDamage || next.hasArcaneDamage
   | _ => false

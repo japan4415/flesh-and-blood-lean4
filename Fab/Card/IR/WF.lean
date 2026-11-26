@@ -35,7 +35,7 @@ def NumExpr.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : NumExpr â
   | .varVal v => env.contains v
   | .handCount p => p.wfBool numSlots
   | .chainHits => true
-  | .halfRoundDown v => env.contains v
+  | .halfRoundDown v | .subtractBound _ v => env.contains v
   | .soulCount p => p.wfBool numSlots
   | .banishedCount p | .arcaneDamageDealtTo p => p.wfBool numSlots
 
@@ -150,7 +150,8 @@ def Effect.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Effect â†’
   | .rollDie6 bindVar branches cont =>
     let env' := bindVar :: env
     branches.wfBool numSlots env' hasX && cont.wfBool numSlots env' hasX
-  | .bindRevealTopCount p _ _ bindVar cont | .bindBanishTopCount p _ _ bindVar cont =>
+  | .bindRevealTopCount p _ _ bindVar cont | .bindBanishTopCount p _ _ bindVar cont
+  | .bindRevealTopPitch p bindVar cont _ =>
     p.wfBool numSlots && cont.wfBool numSlots (bindVar :: env) hasX
   | .onBoostThisTurn body => body.wfBool 0 [] false
   | .discardTopOfHand p _ ifMatches otherwise | .discardChosen p _ _ ifMatches otherwise =>

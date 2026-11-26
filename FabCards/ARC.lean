@@ -1004,6 +1004,18 @@ def ARC_152 : CardDef :=
     front := { Meta.ARC_152_meta.front with abilities := [ability] }
     status := .full }
 
+/-- Bracers of Belief (ARC153). -/
+def ARC_153 : CardDef :=
+  let pitch : VarId := ⟨0⟩
+  let bonus : Effect :=
+    .grant (.nextCardPlayed CardFilter.attackAction) (.addPower (.subtractBound 3 pitch)) .thisTurn
+  let body : Effect := .bindRevealTopPitch .controller pitch bonus
+  let ability := Ability.activated .action false { actionPoints := 1 } [{ cost := .destroySelf }]
+    none true { body }
+  { Meta.ARC_153_meta with
+    front := { Meta.ARC_153_meta.front with abilities := [ability] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1032,7 +1044,7 @@ def arcCards : List CardDef :=
    ARC_141_R, ARC_142_Y, ARC_143_B,
    ARC_144_R, ARC_145_Y, ARC_146_B,
    ARC_147_R, ARC_148_Y, ARC_149_B,
-   ARC_150, ARC_151, ARC_152]
+   ARC_150, ARC_151, ARC_152, ARC_153]
 
 end FabCards.ARC
 
