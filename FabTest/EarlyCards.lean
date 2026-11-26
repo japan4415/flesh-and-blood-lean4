@@ -2648,6 +2648,30 @@ meta def discountedRunebladeScenario (name : String) (cost power : Nat) (goAgain
 #guard discountedRunebladeScenario "ARC_095_Y" 3 5 false == some true
 #guard discountedRunebladeScenario "ARC_096_B" 3 4 false == some true
 
+meta def drawnToDarkDimensionScenario (name : String) (power : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let token := FabCards.ARC.runechantToken.id
+  let (withCard, attack) ← earlyPlace { earlyBase with cards := throughArcDB } p hand name
+  let (ready, _) ← earlyPlace withCard p deck "WTR_218_R"
+  let card ← ready.cardDefOf? attack
+  let oneRune := createTokens ready p token 1
+  let paid ← earlySteps ready [⟨.player p, .playCard attack⟩]
+  let attacked ← earlySteps paid earlyPass
+  let trigger ← attacked.pendingTriggers.head?
+  let done ← earlySteps attacked
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let drawn ← (done.zone hand).head?
+  let link ← done.combat.bind CombatChain.activeLink?
+  pure ((modifiedCardPlayCost oneRune p card).resources == 1 &&
+    paid.pendingTriggers.isEmpty && (paid.zone hand).isEmpty &&
+    (attacked.zone hand).isEmpty && (attacked.zone deck).length == 1 &&
+    (done.zone deck).isEmpty && (done.cardDefOf? drawn).any (fun c => c.id == ⟨"WTR_218_R"⟩) &&
+    linkAttackPower done link == power)
+
+#guard drawnToDarkDimensionScenario "ARC_097_R" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
