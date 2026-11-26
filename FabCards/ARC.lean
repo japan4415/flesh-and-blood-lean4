@@ -1170,6 +1170,9 @@ def cadaverousContraband (base : CardDef) : CardDef :=
 /-- Cadaverous Contraband Red (ARC179). -/
 def ARC_179_R : CardDef := { cadaverousContraband Meta.ARC_179_R_meta with status := .full }
 
+/-- Cadaverous Contraband Yellow (ARC180). -/
+def ARC_180_Y : CardDef := { cadaverousContraband Meta.ARC_180_Y_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1201,7 +1204,7 @@ def arcCards : List CardDef :=
    ARC_150, ARC_151, ARC_152, ARC_153, ARC_154, ARC_155, ARC_156, ARC_157, ARC_158, ARC_159_R,
    ARC_160_Y, ARC_161_B, ARC_162_R, ARC_163_B, ARC_164_R, ARC_165_Y, ARC_166_B, ARC_167_R,
    ARC_168_Y, ARC_169_B, ARC_170_R, ARC_171_Y, ARC_172_B, ARC_173_R,
-   ARC_174_Y, ARC_175_B, ARC_176_R, ARC_177_Y, ARC_178_B, ARC_179_R]
+   ARC_174_Y, ARC_175_B, ARC_176_R, ARC_177_Y, ARC_178_B, ARC_179_R, ARC_180_Y]
 
 end FabCards.ARC
 
