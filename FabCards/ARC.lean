@@ -407,6 +407,18 @@ def ARC_052_Y : CardDef := { silverTheTip Meta.ARC_052_Y_meta 3 with status := .
 /-- Silver the Tip (ARC053). -/
 def ARC_053_B : CardDef := { silverTheTip Meta.ARC_053_B_meta 2 with status := .full }
 
+/-- Take Aim modifies the next Ranger attack action that is played and then reloads. -/
+def takeAim (card : CardDef) (power : Int) : CardDef :=
+  let filter := { CardFilter.attackAction with supertypes := [.class_ .ranger] }
+  let body := Effect.seqL
+    [ .grant (.nextCardPlayed filter) (.addPower (.const power)) .thisTurn
+    , .prim (.reload .controller) ]
+  { card with
+    front := { card.front with playEffect := some { body } } }
+
+/-- Take Aim (ARC054). -/
+def ARC_054_R : CardDef := { takeAim Meta.ARC_054_R_meta 3 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -415,7 +427,7 @@ def arcCards : List CardDef :=
    ARC_023_R, ARC_024_Y, ARC_025_B,
    ARC_026_R, ARC_027_Y, ARC_028_B,
    ARC_029_R, ARC_030_Y, ARC_031_B,
-   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R, ARC_037_B, ARC_038, ARC_039, ARC_040, ARC_041, ARC_042, ARC_043_R, ARC_044_R, ARC_045_R, ARC_046_B, ARC_047_Y, ARC_048_R, ARC_049_Y, ARC_050_B, ARC_051_R, ARC_052_Y, ARC_053_B]
+   ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R, ARC_037_B, ARC_038, ARC_039, ARC_040, ARC_041, ARC_042, ARC_043_R, ARC_044_R, ARC_045_R, ARC_046_B, ARC_047_Y, ARC_048_R, ARC_049_Y, ARC_050_B, ARC_051_R, ARC_052_Y, ARC_053_B, ARC_054_R]
 
 end FabCards.ARC
 
