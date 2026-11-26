@@ -2194,6 +2194,11 @@ meta def sicEmShotScenario (cardId : String) (power : Nat) : Option Bool := do
 
 #guard sicEmShotScenario "ARC_072_R" 4 == some true
 
+#guard ((earlyPrintingCardId? "ARC073").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Sic 'Em Shot" && card.front.pitch == some 2 && card.status == .full)
+
+#guard sicEmShotScenario "ARC_073_Y" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
