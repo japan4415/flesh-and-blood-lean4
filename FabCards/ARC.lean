@@ -764,11 +764,13 @@ def ARC_115 : CardDef :=
     front := { Meta.ARC_115_meta.front with abilities := [ability] }
     status := .full }
 
+/-- Eligibility for effects that apply to Wizard non-attack action cards. -/
+def wizardNonAttackAction : CardFilter :=
+  { supertypes := [.class_ .wizard], types := [.action], excludeSubtypes := [.attack] }
+
 /-- Storm Striders (ARC116). -/
 def ARC_116 : CardDef :=
-  let wizardAction : CardFilter :=
-    { supertypes := [.class_ .wizard], types := [.action], excludeSubtypes := [.attack] }
-  let body : Effect := .grant (.player .controller) (.nextCardAsInstant wizardAction) .thisTurn
+  let body : Effect := .grant (.player .controller) (.nextCardAsInstant wizardNonAttackAction) .thisTurn
   let ability := Ability.activated .instant false { resources := 1 } [{ cost := .destroySelf }]
     none false { body }
   { Meta.ARC_116_meta with
@@ -796,13 +798,11 @@ def ARC_118_R : CardDef :=
 
 /-- Sonic Boom (ARC119). -/
 def ARC_119_Y : CardDef :=
-  let wizardAction : CardFilter :=
-    { supertypes := [.class_ .wizard], types := [.action], excludeSubtypes := [.attack] }
   let effect : EffectDef :=
     { targets := [{ kind := .opposingHero }]
       body := .seqL
         [ .prim (.dealDamage .arcane (.ownerOfSlot 0) (.const 3))
-        , .prim (.lookTopToBanishedAsInstant .controller wizardAction true) ] }
+        , .prim (.lookTopToBanishedAsInstant .controller wizardNonAttackAction true) ] }
   { Meta.ARC_119_Y_meta with
     front := { Meta.ARC_119_Y_meta.front with playEffect := some effect }
     status := .full }
@@ -873,6 +873,15 @@ def ARC_127_Y : CardDef := { aetherSpindle Meta.ARC_127_Y_meta 3 with status := 
 /-- Aether Spindle (ARC128). -/
 def ARC_128_B : CardDef := { aetherSpindle Meta.ARC_128_B_meta 2 with status := .full }
 
+/-- Stir the Aetherwinds applies timing and damage to the same next eligible card. -/
+def stirTheAetherwinds (card : CardDef) (bonus : Nat) : CardDef :=
+  let effect : Effect :=
+    .grant (.player .controller) (.nextCardAsInstant wizardNonAttackAction bonus) .thisTurn
+  { card with front := { card.front with playEffect := some { body := effect } } }
+
+/-- Stir the Aetherwinds (ARC129). -/
+def ARC_129_R : CardDef := { stirTheAetherwinds Meta.ARC_129_R_meta 3 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -890,7 +899,7 @@ def arcCards : List CardDef :=
    ARC_103_R, ARC_104_Y, ARC_105_B,
    ARC_106_R, ARC_107_Y, ARC_108_B,
    ARC_109_R, ARC_110_Y, ARC_111_B,
-   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R, ARC_119_Y, ARC_120_R, ARC_121_Y, ARC_122_R, ARC_123_R, ARC_124_Y, ARC_125_B, ARC_126_R, ARC_127_Y, ARC_128_B]
+   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R, ARC_119_Y, ARC_120_R, ARC_121_Y, ARC_122_R, ARC_123_R, ARC_124_Y, ARC_125_B, ARC_126_R, ARC_127_Y, ARC_128_B, ARC_129_R]
 
 end FabCards.ARC
 
