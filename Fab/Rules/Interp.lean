@@ -1408,6 +1408,15 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
       { destination := deck, reveal := true, mayFail := true, putOnTopAfterShuffle := true }
     (s, [], if (s.zone deck).isEmpty then [.chanceShuffle deck]
       else [.chooseShuffleCards player 1 candidates [] false (some choice)])
+  | .putGraveyardCardOnDeck pref filter =>
+    let player := evalPlayerRef s ctrl pref
+    let candidates := (s.zone (.player player .graveyard)).filter fun id =>
+      (s.objectFace? id).any (cardFaceMatches filter)
+    let choice : DeckSearchChoice :=
+      { destination := .player player .deck, reveal := false, mayFail := true,
+        shuffleAfter := false, searchesDeck := false }
+    (s, [], if candidates.isEmpty then [] else
+      [.chooseShuffleCards player 1 candidates [] false (some choice)])
   | .putChosenDeckCardOnTop pref id =>
     let deck := Zone.player (evalPlayerRef s ctrl pref) .deck
     if deck.Valid s.playerCount then
@@ -1825,7 +1834,8 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | searchDeckToTop _ _ _ | reload _ | lookTopToBanishedAsInstant _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-  | lookDeckToTopAndBottom _ _ | banishHandToPlayAsInstant _ _ _ | banishHandThenDraw _ _ _ =>
+  | lookDeckToTopAndBottom _ _ | banishHandToPlayAsInstant _ _ _ | banishHandThenDraw _ _ _
+  | putGraveyardCardOnDeck _ _ =>
     exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | lookDeckToArsenal _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
@@ -2147,7 +2157,8 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     let ids := matchingRevealedPair s first second ((s.zone (.player player .deck)).take 2)
     have ht := moveManyObjs_ttr (.player player .hand) .top false ids s
     exact ⟨ht.1, ht.2.1, fun hr => ht.2.2 ▸ hr⟩
-  | lookDeckToTopAndBottom _ _ | banishHandToPlayAsInstant _ _ _ | banishHandThenDraw _ _ _ =>
+  | lookDeckToTopAndBottom _ _ | banishHandToPlayAsInstant _ _ _ | banishHandThenDraw _ _ _
+  | putGraveyardCardOnDeck _ _ =>
     exact ⟨rfl, rfl, id⟩
   | putChosenDeckCardOnTop _ _ | lookDeckToArsenal _ _ _ | putChosenDeckCardsOnBottom _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
