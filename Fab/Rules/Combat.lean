@@ -181,11 +181,14 @@ def weaponAttackHasGoAgain (s : GameState) (link : ChainLink) : Bool :=
 live attack card, or preserved in `attackLki` (CR 3.5.4b). -/
 def linkHasKeyword (s : GameState) (link : ChainLink) (kw : KeywordInst) : Bool :=
   if kw = .goAgain ∧ s.hasActionPhaseEffect link.attacker .cantGainGoAgain then false else
+    let live := link.attack.bind s.characteristics
     link.grantedKeywords.contains kw ||
     link.attackLki.keywords.contains kw ||
-    (if kw = .goAgain then weaponAttackHasGoAgain s link else false) ||
+    (if kw = .goAgain then
+      weaponAttackHasGoAgain s link || (link.conditionalGoAgainAtEntry && live.isNone)
+     else false) ||
     (linkWeaponAttackModifiers s link).contains (.grantKeyword kw) ||
-    (link.attack.bind s.characteristics).any (fun chars => chars.keywords.contains kw)
+    live.any (fun chars => chars.keywords.contains kw)
 
 /-- All currently un-defended armor equipment `ObjId`s in player `p`'s Arena equipment slots. -/
 def equipZoneIds (s : GameState) (p : PlayerId) : List ObjId :=
@@ -805,6 +808,7 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
       defender := defender
       attack := some atkId
       attackSource := srcWeapon?
+      playedFromArsenal := attackInfo.fromArsenal
       attackLki := lki
       discardedForPlay := attackInfo.discardedForPlay
       additionalCostPaid := attackInfo.additionalCostPaid
@@ -816,7 +820,12 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
     combat := some { step := .attack, links := newLink :: prevLinks }
     attacksThisTurn := attacker :: s2.attacksThisTurn
     layerMeta := s2.layerMeta.erase layerId.n }
-  (s3, atkId, esWep ++ esAtk)
+  let conditionalGoAgain := newLink.playedFromArsenal &&
+    (s3.characteristics atkId).any (fun chars => chars.keywords.contains .goAgain)
+  let entered := { newLink with
+    conditionalGoAgainAtEntry := conditionalGoAgain }
+  let combat : CombatChain := { step := .attack, links := entered :: prevLinks }
+  ({ s3 with combat := some combat }, atkId, esWep ++ esAtk)
 
 /-- `enterAttackStep` preserves `WF`, `OwnerOk`, `physIds`, `config`, and `playRollback`. -/
 theorem enterAttackStep_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
