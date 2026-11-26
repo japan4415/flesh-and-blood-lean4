@@ -4819,6 +4819,10 @@ meta def fateForeseenScenario (card : String) (defense : Nat) : Option Bool := d
   (fun card => card.front.defense == some 3 && card.front.pitch == some 2 && card.status == .full)
 #guard fateForeseenScenario "ARC_201_Y" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC202").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 2 && card.front.pitch == some 3 && card.status == .full)
+#guard fateForeseenScenario "ARC_202_B" 2 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
