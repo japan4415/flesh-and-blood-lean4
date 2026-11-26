@@ -331,10 +331,20 @@ def canPlayFromBanished (s : GameState) (p : PlayerId) (id : ObjId)
     s.activeEffects.any fun effect =>
       effect.controller == p && effect.target == .obj id &&
       match effect.op with
-      | .allowBanishedPlayAsInstant => true
+      | .allowBanishedPlayAsInstant _ => true
       | .allowBanishedPlay attack =>
         !asInstant && attack.all (fun source => ((s.combat.bind CombatChain.activeLink?).bind (·.attack)) == some source)
       | _ => false
+
+/-- Resource discount granted by this player's instant-speed permission for a banished card. -/
+def banishedPlayDiscount (s : GameState) (p : PlayerId) (id : ObjId) : Nat :=
+  if canPlayFromBanished s p id true then
+    s.activeEffects.foldl (fun amount effect =>
+      match effect.op with
+      | .allowBanishedPlayAsInstant discount =>
+        if effect.controller == p && effect.target == .obj id then amount + discount else amount
+      | _ => amount) 0
+  else 0
 
 /-- Whether this effect applies to the player's next matching action card (CR 8.1.1d). -/
 def ContinuousEffect.appliesNextInstant (effect : ContinuousEffect) (p : PlayerId) (face : CardFace) :
@@ -502,10 +512,10 @@ def cardResourceAdjustment (s : GameState) (p : PlayerId) (card : CardDef) : Int
 
 /-- Apply the announcing player's action and next-attack cost modifiers (CR 5.1.7). -/
 def modifiedCardPlayCost (s : GameState) (p : PlayerId) (card : CardDef)
-    (additionalResources : Nat := 0) : AssetCost :=
+    (additionalResources : Nat := 0) (banishedDiscount : Nat := 0) : AssetCost :=
   let printed := cardPlayCost card
   let base := Int.ofNat (printed.resources + additionalResources)
-  { printed with resources := clampNonNeg (base + cardResourceAdjustment s p card) }
+  { printed with resources := clampNonNeg (base + cardResourceAdjustment s p card - Int.ofNat banishedDiscount) }
 
 /-- Number of play-time modes (`ModeSpec`s) declared on `c`'s `playEffect` (CR 5.1.2a). -/
 def cardModeCount (c : CardDef) : Nat :=
@@ -543,10 +553,11 @@ def potentialResourceEnergy (s : GameState) (p : PlayerId) : Nat :=
     (s.poolOf p).totalEnergy
 
 /-- Bound the offered X choices by the energy available to pay the printed cost (CR 5.1.3a). -/
-def printedXLimit (s : GameState) (p : PlayerId) (card : CardDef) : Nat :=
+def printedXLimit (s : GameState) (p : PlayerId) (card : CardDef)
+    (banishedDiscount : Nat := 0) : Nat :=
   let base := cardPlayCost card
   let available := Int.ofNat (potentialResourceEnergy s p) - Int.ofNat (base.resources + base.chi)
-  (available - cardResourceAdjustment s p card).toNat / card.front.xCostFactor
+  (available - cardResourceAdjustment s p card + Int.ofNat banishedDiscount).toNat / card.front.xCostFactor
 
 /-- Declare supported variable or additional costs before asset payment (CR 5.1.3, 5.1.6). -/
 def cardPaymentFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
@@ -554,8 +565,9 @@ def cardPaymentFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsen
   let card := s.cardDefOf? layerId
   let face : Option CardFace := card.map (·.front)
   let playEffect : Option EffectDef := face.bind (·.playEffect)
+  let discount := ((s.layerMeta.get? layerId.n).map (·.banishedResourceDiscount)).getD 0
   let printedLimit := card.bind fun c =>
-    if c.front.xCostFactor > 0 then some (printedXLimit s p c) else none
+    if c.front.xCostFactor > 0 then some (printedXLimit s p c discount) else none
   if let some limit := printedLimit then
     .chooseVariableResources p layerId fromArsenal modeIdx cost limit false
   else if face.any (fun face => face.keywords.contains .boost) && !(s.zone (.player p .deck)).isEmpty then
@@ -576,6 +588,17 @@ def cardPaymentFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsen
     else .chooseGraveyardCost p layerId fromArsenal modeIdx cost candidates
   | _ => .playPayCost p layerId fromArsenal modeIdx cost
 
+/-- Targets printed on the card or selected play-time mode (CR 5.1.4a). -/
+def cardPlayTargets (card : CardDef) (modeIdx : Option Nat) : List TargetSpec :=
+  (card.front.playEffect.map fun effect =>
+    (modeIdx.bind (fun idx => effect.modes[idx]?)).map (·.targets) |>.getD effect.targets).getD []
+
+/-- Legal candidates for a hero declared before paying for a card (CR 5.1.4a). -/
+def cardPlayHeroChoices (s : GameState) (p : PlayerId) (layerId : ObjId)
+    (modeIdx : Option Nat) : List PlayerId :=
+  let targets := ((s.cardDefOf? layerId).map (cardPlayTargets · modeIdx)).getD []
+  if targets == [{ kind := .opposingHero }] then s.turnOrder.filter (· != p) else s.turnOrder
+
 /-- Select target declaration or cost payment after any required mode has been chosen (CR 5.1.4a). -/
 def cardPlayTargetFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (cost : AssetCost) : Frame :=
@@ -583,12 +606,11 @@ def cardPlayTargetFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromAr
   match s.cardDefOf? layerId with
   | none => pay
   | some card =>
-    let targets := card.front.playEffect.map fun effect =>
-      (modeIdx.bind (fun idx => effect.modes[idx]?)).map (·.targets) |>.getD effect.targets
+    let targets := cardPlayTargets card modeIdx
     match cardWeaponTargetChoices s p card with
     | some weapons => .choosePlayWeapon p layerId fromArsenal modeIdx cost weapons
     | none =>
-      if targets == some [{ kind := .hero }] &&
+      if (targets == [{ kind := .hero }] || targets == [{ kind := .opposingHero }]) &&
           ((cardResolveEffect card modeIdx).bindHeroTarget p).isSome then
         .choosePlayHero p layerId fromArsenal modeIdx cost
       else pay
@@ -605,7 +627,9 @@ def layerMetaWithAttackTarget (s : GameState) (p : PlayerId) (layerId : ObjId)
     (target : Option ObjId) : Std.ExtTreeMap Nat LayerInfo :=
   match target with
   | none => s.layerMeta
-  | some attack => s.layerMeta.insert layerId.n { controller := p, attackTarget := some attack }
+  | some attack =>
+    let info := s.layerMeta.getD layerId.n { controller := p }
+    s.layerMeta.insert layerId.n { info with attackTarget := some attack }
 
 /-- Read the card-layer's resolution effect with its declared hero target bound. -/
 def cardLayerEffect (s : GameState) (layerId : ObjId) (info : LayerInfo) : Effect :=
@@ -1553,8 +1577,9 @@ def startActivation (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
     plan.target.toList.map (fun declared => .targetedAttack layerId declared.2))
 
 /-- The scope of a deck-search play permission (CR 5.1.1a). -/
-def searchPlayOp (s : GameState) (asInstant : Bool) : Duration → Option EffectOp
-  | .thisTurn => some (if asInstant then .allowBanishedPlayAsInstant else .allowBanishedPlay none)
+def searchPlayOp (s : GameState) (asInstant : Bool) (discount : Nat) : Duration → Option EffectOp
+  | .thisTurn =>
+    some (if asInstant then .allowBanishedPlayAsInstant discount else .allowBanishedPlay none)
   | .thisChainLink =>
     ((s.combat.bind CombatChain.activeLink?).bind (·.attack)).map
       (fun attack => EffectOp.allowBanishedPlay (some attack))
@@ -1606,7 +1631,7 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
     | .moved _ id _ (.player owner .banished) => if owner == p then some id else none
     | _ => none
   let permissions : List ContinuousEffect := ((search.bind (·.playableDuration)).bind fun duration =>
-    (searchPlayOp s (search.any (·.playAsInstant)) duration).map fun op =>
+    (searchPlayOp s (search.any (·.playAsInstant)) ((search.map (·.resourceDiscount)).getD 0) duration).map fun op =>
       banished.zipIdx.map fun (id, index) =>
         let timestamp := moved.1.nextTimestamp + index
         { id := timestamp
@@ -1732,8 +1757,9 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       let fromArsenal := id ∈ s.zone (.player p .arsenal)
       let srcZone := (s.locate id).getD (.player p .hand)
       let snap := s.snapshot
+      let discount := banishedPlayDiscount s p id
       let printedCost := match s.cardDefOf? id with
-        | some c => modifiedCardPlayCost s p c
+        | some c => modifiedCardPlayCost s p c (banishedDiscount := discount)
         | none => {}
       let cost := if asInstant || canPlayFromBanished s p id true then
           { printedCost with actionPoints := 0 }
@@ -1745,7 +1771,10 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       let rest' := if isAtkCard then dropPendingClose rest else rest
       match moveObj s id .stack .top false with
       | none => none
-      | some (s1, layerId) =>
+      | some (moved, layerId) =>
+        let layerMeta := if discount = 0 then moved.layerMeta else
+          moved.layerMeta.insert layerId.n { controller := p, banishedResourceDiscount := discount }
+        let s1 := { moved with layerMeta }
         let effects := if fromArsenal then s1.activeEffects.map (·.followArsenalCard id layerId)
           else s1.activeEffects
         let target := if 0 < modes then none else cardAttackTarget? s1 layerId none
@@ -1835,10 +1864,10 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
     else
       none
   | .choosePlayHero p layerId fromArsenal modeIdx cost :: rest, .player q, .pickHeroTarget hero =>
-    if p = q ∧ hero ∈ s.turnOrder then
-      let info : LayerInfo := { controller := p, heroTarget := some hero }
+    if p = q ∧ hero ∈ cardPlayHeroChoices s p layerId modeIdx then
+      let info := s.layerMeta.getD layerId.n { controller := p }
       some ({ s with
-                layerMeta := s.layerMeta.insert layerId.n info
+                layerMeta := s.layerMeta.insert layerId.n { info with heroTarget := some hero }
                 pending := cardPaymentFrame s p layerId fromArsenal modeIdx cost :: rest },
             [.targetedHero layerId hero])
     else
@@ -1876,7 +1905,12 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
     if p = q then
       let info := s.layerMeta.getD layerId.n { controller := p }
       let total := match extra with
-        | .resources n => if accept then { cost with resources := cost.resources + n } else cost
+        | .resources n =>
+          if !accept then cost
+          else match info.banishedResourceDiscount, s.cardDefOf? layerId with
+          | d + 1, some card =>
+            { modifiedCardPlayCost s p card n (d + 1) with actionPoints := cost.actionPoints }
+          | _, _ => { cost with resources := cost.resources + n }
         | .boost => cost
       let declared := match extra with
         | .resources _ => { info with payAdditionalResources := accept }
@@ -1894,7 +1928,8 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       let info := s.layerMeta.getD layerId.n { controller := p }
       let total := match amount, s.cardDefOf? layerId with
         | some x, some card =>
-          { modifiedCardPlayCost s p card (x * max 1 card.front.xCostFactor) with
+          { modifiedCardPlayCost s p card (x * max 1 card.front.xCostFactor)
+              info.banishedResourceDiscount with
             actionPoints := cost.actionPoints }
         | _, _ => cost
       some ({ s with
