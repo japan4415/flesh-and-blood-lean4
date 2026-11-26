@@ -411,6 +411,15 @@ theorem HiddenEquiv.canPitchCard_eq {p : PlayerId} {s1 s2 : GameState}
   | none => rfl
   | some o => simp [haf]
 
+private theorem HiddenEquiv.controlledPermanentCount_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) (card : CardId) :
+    controlledPermanentCount s1 p card = controlledPermanentCount s2 p card := by
+  have hzone (owner : PlayerId) :
+      s1.zone (.player owner .permanent) = s2.zone (.player owner .permanent) :=
+    h.visibleZones _ rfl
+  have hobj (id : ObjId) : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
+  simp only [controlledPermanentCount, h.playerCount, hzone, hobj, h.characteristics_eq]
+
 private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) : availableActivations s1 p = availableActivations s2 p := by
   have hz := h.arenaZones_eq
@@ -457,6 +466,11 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
   have hturn : canTurnArsenalCardFaceUp s1 p = canTurnArsenalCardFaceUp s2 p := by
     funext id
     simp only [canTurnArsenalCardFaceUp, ha, GameState.obj?, h.objects, (h.cardDef_face id).1]
+  have hsurcharge : activationPermanentSurcharge s1 p = activationPermanentSurcharge s2 p := by
+    funext extra
+    unfold activationPermanentSurcharge
+    rw [show controlledPermanentCount s1 p = controlledPermanentCount s2 p from
+      funext h.controlledPermanentCount_eq]
   have hplan (id : ObjId) (index : Nat) (target : Option ObjId) :
       activationPlan? s1 p id index target = activationPlan? s2 p id index target := by
     have ho : s1.obj? id = s2.obj? id := by simp [GameState.obj?, h.objects]
@@ -466,7 +480,7 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
       h.phase, h.active, h.combat, h.visibleZones .stack rfl, h.activatedThisTurn, h.canTakeAction_eq]
     have hcost : nextActionSurcharge s1 p = nextActionSurcharge s2 p := by
       simp only [nextActionSurcharge, h.activeEffects]
-    simp only [hresolution, hcanPitch, hcondition, hcost, hturn]
+    simp only [hresolution, hcanPitch, hcondition, hcost, hturn, hsurcharge]
   have hface (id : ObjId) := (h.cardDef_face id).2
   unfold availableActivations
   simp only [hz, hsources, hface, hplan, htargets, ha]

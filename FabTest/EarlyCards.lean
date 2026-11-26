@@ -2301,6 +2301,35 @@ meta def nebulaBladeScenario : Option Bool := do
 
 #guard nebulaBladeScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC078-L").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 2 && card.front.hasSubtype .arms &&
+    card.front.keywords.contains .battleworn && card.status == .full)
+
+meta def graspArknightScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let token := FabCards.ARC.runechantToken.id
+  let (ready, grasp) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .arms) "ARC_078"
+  let withOpponent := createTokens ready q token 1
+  let stocked := createTokens withOpponent p token 2
+  let canAfford := stocked.setPool p { actionPoints := 1, resources := 4 }
+  let short := stocked.setPool p { actionPoints := 1, resources := 3 }
+  let openPlan ← activationPlan? withOpponent p grasp 0 none
+  let stockedPlan ← activationPlan? canAfford p grasp 0 none
+  let activate : Action := ⟨.player p, .activateAbility grasp 0 none⟩
+  let cast ← earlySteps canAfford [activate]
+  let resolved ← earlySteps cast earlyPass
+  pure (openPlan.cost.resources == 2 && stockedPlan.cost.resources == 4 &&
+    (earlySteps short [activate]).isNone && (cast.poolOf p).resources == 0 &&
+    (cast.poolOf p).actionPoints == 0 && controlledPermanentCount cast p token == 2 &&
+    (resolved.poolOf p).actionPoints == 1 && resolved.activatedThisTurn.contains (grasp, 0) &&
+    controlledPermanentCount resolved p token == 3 &&
+    controlledPermanentCount resolved q token == 1 &&
+    (earlySteps (resolved.setPool p { actionPoints := 1, resources := 8 }) [activate]).isNone)
+
+#guard graspArknightScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
