@@ -4182,6 +4182,10 @@ meta def enchantingMelodyAndBarrierScenario : Option Bool := do
 
 #guard enchantingMelodyAndBarrierScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC168").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .aura && card.front.pitch == some 2 && card.status == .full)
+#guard enchantingMelodyScenario "ARC_168_Y" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
