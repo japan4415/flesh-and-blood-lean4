@@ -979,7 +979,6 @@ def consumeNextAttackEffects (s : GameState) (layerId : ObjId) (info : LayerInfo
         | .nextAttackBy player => player
         | _ => effect.controller
       let eligible := match effect.target with
-        | .arsenalCard id => info.fromArsenal && id == layerId
         | .nextAttackCard filter =>
           !isProxy && !filter.isWeaponAttack && cardFaceMatches filter face
         | .nextAttack filter | .allAttacks filter =>
@@ -1428,10 +1427,20 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
           op := op
           duration := duration
           timestamp := ⟨timestamp⟩ }).getD []
+  let bonuses : List ContinuousEffect := match search.bind (·.arsenalPowerBonus) with
+    | none => []
+    | some (source, amount) =>
+      let loaded := events.filterMap fun
+        | .moved _ id _ (.player owner .arsenal) => if owner == p then some id else none
+        | _ => none
+      loaded.zipIdx.map fun (id, index) =>
+        let timestamp := entered.nextTimestamp + permissions.length + index
+        { id := timestamp, source, controller := p, target := .arsenalCard id
+          op := .addPower amount, timestamp := ⟨timestamp⟩ }
   ({ entered with
       pending := shuffle ++ draw ++ rest
-      activeEffects := entered.activeEffects ++ permissions
-      nextTimestamp := entered.nextTimestamp + permissions.length },
+      activeEffects := entered.activeEffects ++ permissions ++ bonuses
+      nextTimestamp := entered.nextTimestamp + permissions.length + bonuses.length },
     revealed ++ events ++ banished.map (fun id => .banished p id false))
 
 /-- Add a triggered layer with its declared targets, then continue trigger ordering (CR 6.6.6). -/
@@ -1541,9 +1550,7 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       match moveObj s id .stack .top false with
       | none => none
       | some (s1, layerId) =>
-        let effects := if fromArsenal then s1.activeEffects.map fun effect =>
-            if effect.target == .arsenalCard id then { effect with target := .arsenalCard layerId }
-            else effect
+        let effects := if fromArsenal then s1.activeEffects.map (·.followArsenalCard id layerId)
           else s1.activeEffects
         let target := if 0 < modes then none else cardAttackTarget? s1 layerId none
         let nextFrame :=

@@ -371,6 +371,12 @@ structure ContinuousEffect where
   timestamp : Timestamp
 deriving DecidableEq, Repr
 
+/-- Preserve a public arsenal effect when its card is played or enters the combat chain
+(CR 3.0.9, 3.0.9b). -/
+def ContinuousEffect.followArsenalCard (e : ContinuousEffect) (previous current : ObjId) : ContinuousEffect :=
+  if e.target == .arsenalCard previous then { e with target := .arsenalCard current }
+  else e
+
 /-- Whether `e` currently applies to `(c, oid)`. -/
 def ContinuousEffect.appliesTo (e : ContinuousEffect) (c : DerivedChars) (oid : ObjId) : Bool :=
   e.target.matches c oid

@@ -1530,6 +1530,56 @@ meta def skullboneCrosswrapScenario : Option Bool := do
 
 #guard skullboneCrosswrapScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC042").bind throughArcDB.find?).any
+  (fun card => card.status == .full && card.front.name == "Bull's Eye Bracers" &&
+    card.front.keywords.contains (.arcaneBarrier 1))
+
+meta def bullsEyeBracersScenario : Option Bool := do
+  let p := earlyAttacker
+  let arsenal := Zone.player p .arsenal
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let equipment := Zone.player p .arms
+  let arrow := FabCards.ARC.Meta.ARC_043_R_meta
+  let state := { earlyBase with cards := ⟨arrow :: throughArcDB.cards⟩ }
+  let (withBow, _) ← earlyPlace state p (.player p .weapon) "ARC_040"
+  let (withBracers, bracers) ← earlyPlace withBow p equipment "ARC_042"
+  let (withDeck, _) ← earlyPlace withBracers p deck "WTR_193_B"
+  let (withOtherArrow, otherArrow) ← earlyPlace withDeck p hand arrow.id.val
+  let (ready, arrowId) ← earlyPlace withOtherArrow p hand arrow.id.val
+  let use : Action := ⟨.player p, .activateAbility bracers 0 none⟩
+  let pick (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let paid ← earlySteps ready [use]
+  let choosing ← earlySteps paid earlyPass
+  let declined ← earlySteps choosing [pick none]
+  let loaded ← earlySteps choosing [pick (some arrowId), pick none]
+  let loadedId ← (loaded.zone arsenal).head?
+  let power (s : GameState) (id : ObjId) := (s.characteristics id).bind (·.power)
+  let announced ← earlySteps loaded [⟨.player p, .playCard loadedId⟩]
+  let layer ← (announced.zone .stack).head?
+  let attacking ← earlySteps announced (earlyPass ++ earlyPass)
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let (movedAside, _) ← moveObj loaded loadedId (.player p .graveyard)
+  let (otherLoaded, otherId) ← moveObj movedAside otherArrow arsenal
+  let otherAttack ← earlyAttack otherLoaded (.playCard otherId)
+  let otherLink ← otherAttack.combat.bind CombatChain.activeLink?
+  let (occupied, stored) ← earlyPlace ready p arsenal "WTR_191_R"
+  let noLoad ← earlySteps occupied (use :: earlyPass)
+  pure ((paid.zone equipment).isEmpty &&
+    (paid.zone (.player p .graveyard)).any
+      (fun id => (paid.cardDefOf? id).any (fun card => card.id == ⟨"ARC_042"⟩)) &&
+    (declined.zone arsenal).isEmpty && declined.activeEffects.isEmpty &&
+    (loaded.obj? loadedId).any (fun card => !card.faceDown) &&
+    loaded.zone hand == [otherArrow] && loaded.zone deck == ready.zone deck &&
+    (loaded.poolOf p) == (ready.poolOf p) &&
+    power loaded loadedId == some 6 && power loaded.finishTurnEffects loadedId == some 5 &&
+    power announced layer == some 6 && linkAttackPower attacking link == 6 &&
+    linkAttackPower otherAttack otherLink == 5 &&
+    noLoad.zone arsenal == [stored] && (noLoad.zone equipment).isEmpty &&
+    noLoad.activeEffects.isEmpty && noLoad.zone hand == ready.zone hand)
+
+#guard bullsEyeBracersScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
