@@ -2567,6 +2567,34 @@ meta def spellbladeAssaultScenario (name : String) (power : Nat) : Option Bool :
 #guard spellbladeAssaultScenario "ARC_086_Y" 3 == some true
 #guard spellbladeAssaultScenario "ARC_087_B" 2 == some true
 
+meta def reduceToRunechantScenario (name : String) (defense : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player q .hand
+  let token := FabCards.ARC.runechantToken.id
+  let state := ({ earlyBase with cards := throughArcDB }).setPool q { resources := 1 }
+  let (withAttack, attack) ← earlyPlace state p (.player p .hand) "WTR_203_R"
+  let (ready, reaction) ← earlyPlace withAttack q hand name
+  let card ← ready.cardDefOf? reaction
+  let stocked := createTokens ready q token 1
+  let run (s : GameState) : Option GameState := do
+    let attacking ← earlyAttack s (.playCard attack)
+    let eligible ← earlySteps attacking
+      (⟨.player q, .defendDone⟩ :: (earlyPass ++ [⟨.player p, .pass⟩]))
+    earlySteps eligible
+      [⟨.player q, .playCard reaction⟩, ⟨.player q, .pass⟩, ⟨.player p, .pass⟩]
+  let paid ← run ready
+  let waived ← run stocked
+  let link ← paid.combat.bind CombatChain.activeLink?
+  let discountedLink ← waived.combat.bind CombatChain.activeLink?
+  pure ((modifiedCardPlayCost (createTokens ready p token 1) q card).resources == 1 &&
+    (modifiedCardPlayCost stocked q card).resources == 0 &&
+    (paid.poolOf q).resources == 0 && (waived.poolOf q).resources == 1 &&
+    controlledPermanentCount paid q token == 1 && controlledPermanentCount waived q token == 2 &&
+    linkTotalDefense paid link == defense && linkTotalDefense waived discountedLink == defense)
+
+#guard reduceToRunechantScenario "ARC_088_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
