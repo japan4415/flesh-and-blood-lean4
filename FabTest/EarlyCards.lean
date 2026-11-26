@@ -4124,6 +4124,64 @@ meta def lifeForALifeScenario (card : String) (power : Int) : Option Bool := do
   (fun card => card.front.power == some 2 && card.front.pitch == some 3 && card.status == .full)
 #guard lifeForALifeScenario "ARC_166_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC167").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .aura && card.front.pitch == some 1 && card.status == .full)
+
+meta def enchantingMelodyScenario (card : String) (amount : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let arena := Zone.player p .permanent
+  let (ready, aura) ← earlyPlace { earlyBase with cards := throughArcDB } p (.player p .hand) card
+  let installed ← earlySteps ready (⟨.player p, .playCard aura⟩ :: earlyPass)
+  let source ← (installed.zone arena).head?
+  let retained := beginEndPhase installed p []
+  let idle := { installed with nonAttackActionsThisTurn := [] }
+  let onOpponentTurn := beginEndPhase idle q []
+  let (expires, _) ← (advance 64 (beginEndPhase idle p []) []).toOption
+  let trigger ← expires.pendingTriggers.find? (·.source == source)
+  let removed ← earlySteps expires
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩]
+  let (physical, physicalEvents) := applyDamageWithPrevention installed p .physical (amount + 2)
+  let (arcane, _) := applyDamageWithPrevention installed p .arcane 1
+  let (nextDamage, _) := applyDamageWithPrevention arcane p .arcane 1
+  let (withoutDamage, _) := applyDamageWithPrevention installed p .arcane 0
+  let hidden := updateSingleObject installed source (fun obj => { obj with faceDown := true })
+  let (hiddenDamage, _) := applyDamageWithPrevention hidden p .physical 1
+  pure ((installed.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    (installed.poolOf p).resources + 2 == (ready.poolOf p).resources &&
+    retained.pendingTriggers.isEmpty && retained.zone arena == [source] &&
+    onOpponentTurn.pendingTriggers.isEmpty &&
+    (removed.zone arena).isEmpty &&
+    physical.lifeOf p == installed.lifeOf p - 2 &&
+    physicalEvents.contains (.damageDealt p .physical 2) && (physical.zone arena).isEmpty &&
+    arcane.lifeOf p == installed.lifeOf p && (arcane.zone arena).isEmpty &&
+    nextDamage.lifeOf p == installed.lifeOf p - 1 &&
+    withoutDamage.zone arena == [source] && !hasArcaneReplacement hidden p 1 &&
+    hiddenDamage.lifeOf p == installed.lifeOf p - 1 && hiddenDamage.zone arena == [source])
+
+#guard enchantingMelodyScenario "ARC_167_R" 4 == some true
+
+meta def enchantingMelodyAndBarrierScenario : Option Bool := do
+  let p := earlyAttacker
+  let arena := Zone.player p .permanent
+  let (withAura, aura) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) "ARC_167_R"
+  let (ready, _) ← earlyPlace withAura p (.player p .head) "ARC_155"
+  let installed ← earlySteps ready (⟨.player p, .playCard aura⟩ :: earlyPass)
+  let source ← (installed.zone arena).head?
+  let .arcaneDamage _ effects damage .offer _ ← damagePreventionFrame? installed p .arcane 1 | none
+  let [ward, barrier] := effects | none
+  let (prompt, _) := advanceArcaneDamage installed p effects damage .offer []
+  let .chooseReplacement chooser .prevention ids false :: _ := prompt.pending | none
+  let paid ← earlySteps prompt [⟨.player p, .pickReplacement (some barrier.id)⟩]
+  let consumed ← earlySteps prompt [⟨.player p, .pickReplacement (some ward.id)⟩]
+  pure (chooser == p && ids == [ward.id, barrier.id] && ward.id != barrier.id &&
+    paid.zone arena == [source] && (paid.poolOf p).resources + 1 == (installed.poolOf p).resources &&
+    consumed.zone arena == [] && (consumed.poolOf p).resources == (installed.poolOf p).resources &&
+    paid.lifeOf p == installed.lifeOf p && consumed.lifeOf p == installed.lifeOf p)
+
+#guard enchantingMelodyAndBarrierScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

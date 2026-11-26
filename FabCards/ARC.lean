@@ -1095,6 +1095,17 @@ def ARC_165_Y : CardDef := { lifeForALife Meta.ARC_165_Y_meta with status := .fu
 /-- Life for a Life Blue (ARC166). -/
 def ARC_166_B : CardDef := { lifeForALife Meta.ARC_166_B_meta with status := .full }
 
+/-- Install mandatory one-event damage prevention until the aura is destroyed. -/
+def enchantingMelody (base : CardDef) (amount : Nat) : CardDef :=
+  let abilities : List Ability :=
+    [.static_ none .self_ (.destroySelfToPreventDamage amount),
+     .triggered .onStartOfEndPhase false none (some (.not_ .nonAttackActionPlayedThisTurn))
+       { body := .prim (.destroy .self_) }]
+  { base with front := { base.front with abilities } }
+
+/-- Enchanting Melody Red (ARC167). -/
+def ARC_167_R : CardDef := { enchantingMelody Meta.ARC_167_R_meta 4 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1124,7 +1135,7 @@ def arcCards : List CardDef :=
    ARC_144_R, ARC_145_Y, ARC_146_B,
    ARC_147_R, ARC_148_Y, ARC_149_B,
    ARC_150, ARC_151, ARC_152, ARC_153, ARC_154, ARC_155, ARC_156, ARC_157, ARC_158, ARC_159_R,
-   ARC_160_Y, ARC_161_B, ARC_162_R, ARC_163_B, ARC_164_R, ARC_165_Y, ARC_166_B]
+   ARC_160_Y, ARC_161_B, ARC_162_R, ARC_163_B, ARC_164_R, ARC_165_Y, ARC_166_B, ARC_167_R]
 
 end FabCards.ARC
 

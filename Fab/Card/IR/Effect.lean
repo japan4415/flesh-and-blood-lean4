@@ -370,6 +370,8 @@ inductive ContinuousMod where
   | forbidDefenseReactionsOnAttack
   /-- The affected player may defend with attack action cards from arsenal. -/
   | allowAttackActionDefendFromArsenal
+  /-- Destroy this permanent to prevent up to the given amount of damage to its controller. -/
+  | destroySelfToPreventDamage (amount : Nat)
   /-- Grant a keyword such as `goAgain` or `dominate`. -/
   | grantKeyword (kw : KeywordInst)
   /-- Grant a triggered ability to the affected object(s) (Pummel, Razor Reflex, Whelming Gustwave, Steelblade Supremacy). -/

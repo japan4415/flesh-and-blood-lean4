@@ -888,12 +888,29 @@ theorem settleDamage_ttr (s : GameState) (p : PlayerId) (kind : DamageKind) (dam
       (applyResolvedDamage settled p kind (remainingDamage damage.event) damage.damageSource)
     exact ⟨hc.1.trans hb.1, hc.2.1.trans hb.2.1, fun hr => hb.2.2 ▸ hc.2.2 hr⟩
 
+/-- Mandatory printed prevention from public permanents controlled by the affected player. -/
+def activeDamageReplacements (s : GameState) (p : PlayerId) : List ReplacementEffect :=
+  let sources := ((installedArenaZones s).flatMap s.zone).eraseDups
+  let shields := sources.flatMap fun source =>
+    let abilities := ((s.objectFace? source).map (·.abilities)).getD []
+    let amounts := abilities.filterMap fun
+      | .static_ none .self_ (.destroySelfToPreventDamage (amount + 1)) => some (source, amount + 1)
+      | _ => none
+    if amounts.isEmpty || !(s.obj? source).any (fun obj => !obj.faceDown) ||
+        !(s.characteristics source).any (fun chars => chars.controller == p && !chars.abilitiesLost) then
+      []
+    else amounts
+  let firstId := s.activeReplacements.foldl (fun id effect => max id (effect.id + 1)) s.nextTimestamp
+  s.activeReplacements ++ shields.zipIdx.map fun ((source, amount), index) =>
+    { id := firstId + index, source, controller := p, stage := .prevention
+      action := .wardPrevent amount, optional := false }
+
 /-- Apply damage through the four-stage pipeline when there are no prevention choices
 (CR 6.4, 6.5, 7.5). -/
 def applyDamageWithPrevention (s : GameState) (target : PlayerId) (kind : DamageKind) (amt : Nat)
     (origin : Option (PlayerId × ObjId) := none) : GameState × List Event :=
   if amt = 0 then (s, [])
-  else settleDamage s target kind (applyReplacementPipeline [] s.activeReplacements
+  else settleDamage s target kind (applyReplacementPipeline [] (activeDamageReplacements s target)
     { event := .damage target kind amt, availResources := (s.poolOf target).resources,
       damageSource := origin })
 
@@ -932,7 +949,8 @@ theorem applyDamageWithPrevention_ttr (s : GameState) (target : PlayerId)
   · exact settleDamage_ttr _ _ _ _
 
 /-- Arcane Barrier applies only while its sources are public and have their abilities (CR 8.3.8). -/
-def arcaneBarrierEffects (s : GameState) (p : PlayerId) : List ReplacementEffect :=
+def arcaneBarrierEffects (s : GameState) (p : PlayerId) (firstAvailableId : Nat := 0) :
+    List ReplacementEffect :=
   let sources := ((activationArenaZones s).flatMap s.zone).eraseDups
   let barriers := sources.flatMap fun source =>
     if !(s.obj? source).any (fun obj => !obj.faceDown) then [] else
@@ -944,7 +962,8 @@ def arcaneBarrierEffects (s : GameState) (p : PlayerId) : List ReplacementEffect
             | _ => none
         else []
       | none => []
-  let firstId := s.activeReplacements.foldl (fun id effect => max id (effect.id + 1)) s.nextTimestamp
+  let firstId := s.activeReplacements.foldl (fun id effect => max id (effect.id + 1))
+    (max s.nextTimestamp firstAvailableId)
   barriers.zipIdx.map fun ((source, cost), index) =>
     { id := firstId + index, source, controller := p, stage := .prevention,
       action := .arcaneBarrierPrevent cost, optional := true }
@@ -962,19 +981,21 @@ def damagePreventionFrame? (s : GameState) (p : PlayerId) (kind : DamageKind) (a
     (batch : Option ArcaneDamageBatch := none) : Option Frame :=
   if amount = 0 then none
   else
-    let barriers := if kind == .arcane then arcaneBarrierEffects s p else []
-    let effects := s.activeReplacements ++ barriers
+    let replacements := activeDamageReplacements s p
+    let firstAvailableId := replacements.foldl (fun id effect => max id (effect.id + 1)) s.nextTimestamp
+    let barriers := if kind == .arcane then arcaneBarrierEffects s p firstAvailableId else []
+    let effects := replacements ++ barriers
     let proposed : ReplacementState := { event := .damage p kind amount, damageSource := origin, batch }
     let damage := applyReplacementStage .standard [] effects
       (applyReplacementStage .selfOrIdentity [] effects proposed)
     let candidates := effects.filter fun effect =>
       let offeredEnergy := max (preventionResourceCost effect) (s.poolOf p).totalEnergy
       effect.eligible .prevention { damage with availResources := offeredEnergy }
-    let hasFixed := candidates.any fun effect =>
+    let hasSingleUse := candidates.any fun effect =>
       match effect.action with
-      | .fixedPrevent _ => true
+      | .fixedPrevent _ | .wardPrevent _ => true
       | _ => false
-    if batch.isSome || !barriers.isEmpty || (hasFixed && candidates.length > 1) then
+    if batch.isSome || !barriers.isEmpty || (hasSingleUse && candidates.length > 1) then
       some (.arcaneDamage p effects damage .offer attack)
     else none
 
@@ -989,7 +1010,7 @@ def nextArcaneBatchFrame (s : GameState) (batch : ArcaneDamageBatch) : List Fram
 /-- Whether public board state presents a possible replacement for arcane damage to a hero. -/
 def hasArcaneReplacement (s : GameState) (target : PlayerId) (amount : Nat) : Bool :=
   !((arcaneBarrierEffects s target).isEmpty) ||
-    s.activeReplacements.any fun effect =>
+    (activeDamageReplacements s target).any fun effect =>
       let offer : ReplacementState :=
         { event := .damage target .arcane amount, availResources := (s.poolOf target).totalEnergy }
       effect.controller == target && effect.eligible effect.stage offer
