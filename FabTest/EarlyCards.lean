@@ -3679,6 +3679,57 @@ meta def bracersOfBeliefScenario (revealedCard : Option String) (bonus : Nat) : 
 #guard bracersOfBeliefScenario (some "WTR_205_B") 0 == some true
 #guard bracersOfBeliefScenario none 0 == some true
 
+#guard ((earlyPrintingCardId? "ARC154").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .legs && card.status == .full)
+
+meta def mageMasterBootsScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let legs := Zone.player p .legs
+  let alreadyFast : CardDef :=
+    { id := ⟨"Mage Master Boots Go Again fixture"⟩
+      front :=
+        { name := "Mage Master Boots Go Again fixture"
+          types := [.action]
+          cost := some { actionPoints := 1 }
+          keywords := [.goAgain] } }
+  let quickEffect : CardDef :=
+    { id := ⟨"Mage Master Boots instant fixture"⟩
+      front := { name := "Mage Master Boots instant fixture", types := [.instant], cost := some {} } }
+  let cards : CardDB := ⟨alreadyFast :: quickEffect :: throughArcDB.cards⟩
+  let (geared, boots) ← earlyPlace { earlyBase with cards } p legs "ARC_154"
+  let (withAttack, attack) ← earlyPlace geared p hand "WTR_203_R"
+  let (withFirst, first) ← earlyPlace withAttack p hand "ARC_135_R"
+  let (withSecond, second) ← earlyPlace withFirst p hand "ARC_135_R"
+  let (withFast, fast) ← earlyPlace withSecond p hand alreadyFast.id.val
+  let (ready, instant) ← earlyPlace withFast p hand quickEffect.id.val
+  let activate : Action := ⟨.player p, .activateAbility boots 0 none⟩
+  let play (s : GameState) (id : ObjId) := earlySteps s (⟨.player p, .playCard id⟩ :: earlyPass)
+  let waiting (s : GameState) := s.activeEffects.any (·.appliesNextNonAttackGoAgain p)
+  let paid ← earlySteps ready [activate]
+  let granted ← earlySteps paid earlyPass
+  let attacking ← earlyAttack granted (.playCard attack)
+  let interrupted ← play granted instant
+  let free ← play interrupted first
+  let spent ← play free second
+  let redundant ← play granted fast
+  let restriction : ContinuousEffect :=
+    { id := 100, source := boots, controller := q, target := .player p,
+      op := .cantGainGoAgain, duration := .thisActionPhase, timestamp := ⟨0⟩ }
+  let restricted ← play { granted with activeEffects := restriction :: granted.activeEffects } first
+  pure ((paid.zone legs).isEmpty && (paid.zone (.player p .graveyard)).length == 1 &&
+    (paid.poolOf p).resources == 7 && (paid.poolOf p).actionPoints == 3 &&
+    (granted.poolOf p).actionPoints == 4 && waiting granted &&
+    waiting attacking && waiting interrupted && !waiting granted.finishTurnEffects &&
+    !waiting free && (free.poolOf p).actionPoints == 4 && (spent.poolOf p).actionPoints == 3 &&
+    !waiting redundant && (redundant.poolOf p).actionPoints == 4 &&
+    !waiting restricted && (restricted.poolOf p).actionPoints == 3 &&
+    (earlySteps { ready with active := some q } [activate]).isNone &&
+    (earlySteps granted [activate]).isNone)
+
+#guard mageMasterBootsScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

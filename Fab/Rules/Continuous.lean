@@ -182,6 +182,8 @@ inductive EffectOp where
   | addToNextArcaneCard (amount : Nat)
   /-- Allow the next matching action card played by the affected player to use instant timing. -/
   | nextCardAsInstant (filter : CardFilter) (arcaneBonus : Nat)
+  /-- A one-card grant of Go Again for a non-attack action. -/
+  | nextNonAttackActionGoAgain
   /-- Increase arcane damage dealt by the attached source. -/
   | addArcaneDamageFromSource (amount : Nat)
   /-- Stage 7: set base power `{p}` to `v` (CR 6.3.2g). -/
@@ -223,7 +225,7 @@ def EffectOp.stage : EffectOp → EffectStage
   | .addSupertype _ => .stage5Supertype
   | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _ | .allowBanishedPlayAsInstant _ | .loseKeyword _ | .loseAllAbilities
   | .cantDrawCards | .cantGainGoAgain | .limitActions _ | .onlyPlayFromArsenal
-  | .addTokenCreation _ _ | .addToNextArcaneCard _ | .addArcaneDamageFromSource _ | .nextCardAsInstant _ _ => .stage6Ability
+  | .addTokenCreation _ _ | .addToNextArcaneCard _ | .addArcaneDamageFromSource _ | .nextCardAsInstant _ _ | .nextNonAttackActionGoAgain => .stage6Ability
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .stage7BaseNumeric
   | .lockPower | .mulPower _ | .divPower _ | .addPower _ | .subPower _
   | .addDefense _ | .subDefense _ | .addCostRes _ | .subCostRes _
@@ -237,7 +239,7 @@ def EffectOp.subStage : EffectOp → SubStage
   | .mulPower _ | .divPower _ => .mulDiv
   | .addType _ | .addSubtype _ | .addSupertype _ | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _ | .allowBanishedPlayAsInstant _
   | .addPower _ | .addDefense _ | .addCostRes _ | .addIntellect _
-  | .addPowerIfFewerDefenders _ _ | .addTokenCreation _ _ | .addToNextArcaneCard _ | .addArcaneDamageFromSource _ | .nextCardAsInstant _ _ => .add
+  | .addPowerIfFewerDefenders _ _ | .addTokenCreation _ _ | .addToNextArcaneCard _ | .addArcaneDamageFromSource _ | .nextCardAsInstant _ _ | .nextNonAttackActionGoAgain => .add
   | .loseKeyword _ | .loseAllAbilities | .subPower _ | .subDefense _ | .subCostRes _ => .sub
 
 /-- Helper: append an element to a list only if not already present. -/
@@ -274,7 +276,7 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
   | .grantKeyword kw => { c with keywords := insertUnique kw c.keywords }
   | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _ | .allowBanishedPlayAsInstant _
   | .cantDrawCards | .cantGainGoAgain | .limitActions _ | .onlyPlayFromArsenal
-  | .addTokenCreation _ _ | .addToNextArcaneCard _ | .addArcaneDamageFromSource _ | .nextCardAsInstant _ _ => c
+  | .addTokenCreation _ _ | .addToNextArcaneCard _ | .addArcaneDamageFromSource _ | .nextCardAsInstant _ _ | .nextNonAttackActionGoAgain => c
   | .loseKeyword kw => { c with keywords := c.keywords.filter (· != kw) }
   | .loseAllAbilities => { c with keywords := [], abilitiesLost := true }
   | .setBasePower v => { c with basePower := some v, power := some v }

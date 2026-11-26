@@ -1272,6 +1272,10 @@ def bindNextArcaneCard (effects : List ContinuousEffect) (p : PlayerId)
       else effect
     | _, _ => effect
 
+/-- Whether this permission is waiting for the player's next non-attack action. -/
+def ContinuousEffect.appliesNextNonAttackGoAgain (effect : ContinuousEffect) (p : PlayerId) : Bool :=
+  effect.target == .player p && !effect.waitsForNextTurn && effect.op == .nextNonAttackActionGoAgain
+
 /-- Finalize a paid layer, then stack triggers queued during play and return priority (CR 5.1.10, 6.6.6). -/
 def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
     (modeIdx : Option Nat) (rest : List Frame) (discarded : Option CardFace := none)
@@ -1279,7 +1283,10 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
   let card := s.cardDefOf? layerId
   let isAttack := card.any (fun c => c.front.hasSubtype .attack)
   let hasBoostGoAgain := boostPaid.getD false && layerCanGainGoAgain s layerId p
-  let hasGoAgain := (card.any (fun c => c.front.keywords.contains .goAgain) || hasBoostGoAgain) &&
+  let nonAttack := card.any (fun c => c.front.hasType .action && !c.front.hasSubtype .attack)
+  let grantedGoAgain := nonAttack && s.activeEffects.any (·.appliesNextNonAttackGoAgain p)
+  let hasGoAgain :=
+    (card.any (fun c => c.front.keywords.contains .goAgain) || hasBoostGoAgain || grantedGoAgain) &&
     !isAttack && s.active == some p && layerCanGainGoAgain s layerId p
   let modeOnAttack : Option Effect := do
     let effect ← card.bind (·.front.playEffect)
@@ -1315,6 +1322,9 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
         else none
       | _ => none
     else some effect
+  let remainingEffects := if grantedGoAgain then
+    remainingEffects.filter (fun effect => !effect.appliesNextNonAttackGoAgain p)
+    else remainingEffects
   let isAction := card.any (fun c => c.front.hasType .action) ||
     (s.obj? layerId).any (fun obj => match obj.kind with | .attackProxy _ _ => true | _ => false)
   let remainingEffects := if isAction then effectsAfterPayingAction remainingEffects p
@@ -1332,7 +1342,6 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
   let queued := queueCardTriggers s
     (newTriggers.map (·, false) ++ installedCardPlayTriggers s layerId p)
   let flush := if queued.pendingTriggers.isEmpty then [] else [.flushTriggers]
-  let nonAttack := card.any (fun c => c.front.hasType .action && !c.front.hasSubtype .attack)
   { s with
     activeEffects := effects
     pendingTriggers := queued.pendingTriggers

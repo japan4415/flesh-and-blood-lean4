@@ -180,7 +180,7 @@ def ContinuousMod.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Con
   | .addDefenseWhileDefending _ => true
   | .addIntellect _ => true
   | .modifyCost _ | .modifyPlayCostPerPermanent _ _ => true
-  | .addTokenCreation _ _ | .nextCardAsInstant _ _ => true
+  | .addTokenCreation _ _ | .nextCardAsInstant _ _ | .nextNonAttackActionGoAgain => true
   | .addToNextArcaneCard amount => amount.wfBool numSlots env hasX
   | .grantKeyword _ => true
   | .grantTrigger _ cond body =>
