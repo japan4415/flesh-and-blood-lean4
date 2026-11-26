@@ -2169,6 +2169,11 @@ meta def searingShotScenario (cardId : String) (damage : Int) : Option Bool := d
 
 #guard searingShotScenario "ARC_070_Y" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC071").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Searing Shot" && card.front.pitch == some 3 && card.status == .full)
+
+#guard searingShotScenario "ARC_071_B" 2 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
