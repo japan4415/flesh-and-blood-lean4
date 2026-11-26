@@ -37,7 +37,7 @@ def NumExpr.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : NumExpr â
   | .chainHits => true
   | .halfRoundDown v => env.contains v
   | .soulCount p => p.wfBool numSlots
-  | .banishedCount p => p.wfBool numSlots
+  | .banishedCount p | .arcaneDamageDealtTo p => p.wfBool numSlots
 
 /-- Check whether a `Condition` stays within `numSlots` target slots. -/
 def Condition.wfBool (numSlots : Nat) : Condition â†’ Bool

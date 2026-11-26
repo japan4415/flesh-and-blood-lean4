@@ -379,17 +379,27 @@ def EffectList.ofList : List Effect → EffectList
 def Effect.seqL (es : List Effect) : Effect :=
   .seq (EffectList.ofList es)
 
-/-- Bind a hero declared for an Intimidate, preserving the order of resolution (CR 8.5.10b). -/
-def Effect.bindIntimidateTarget (effect : Effect) (hero : PlayerId) : Option Effect :=
+/-- Bind the single hero target declared for an effect (CR 5.1.4a). -/
+def Effect.bindHeroTarget (effect : Effect) (hero : PlayerId) : Option Effect :=
   match effect with
-  | .prim (.intimidate (.ownerOfSlot 0)) => some (.prim (.intimidate (.seated hero)))
+  | .prim op => (bindPrimitive op).map .prim
   | .seq effects => (bindSequence effects).map .seq
   | _ => none
 where
+  bindPrimitive : Prim → Option Prim
+  | .intimidate (.ownerOfSlot 0) => some (.intimidate (.seated hero))
+  | .dealDamage kind (.ownerOfSlot 0) amount =>
+    let amount := match amount with
+      | .arcaneDamageDealtTo (.ownerOfSlot 0) => .arcaneDamageDealtTo (.seated hero)
+      | other => other
+    some (.dealDamage kind (.seated hero) amount)
+  | _ => none
   bindSequence : EffectList → Option EffectList
   | .nil => none
-  | .cons (.prim (.intimidate (.ownerOfSlot 0))) rest =>
-    some (.cons (.prim (.intimidate (.seated hero))) rest)
+  | .cons (.prim op) rest =>
+    match bindPrimitive op with
+    | some bound => some (.cons (.prim bound) rest)
+    | none => (bindSequence rest).map (.cons (.prim op))
   | .cons other rest => (bindSequence rest).map (.cons other)
 
 /-- Convenience constructor for `Effect.chooseOne` from a `List Effect`. -/

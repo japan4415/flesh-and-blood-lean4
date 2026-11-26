@@ -112,6 +112,8 @@ structure ReplacementState where
   resourcesPaid : Nat := 0
   /-- Life gained from draw-replacement effects. -/
   lifeGained : Nat := 0
+  /-- Controller and source object of a proposed damage event, preserved through prevention. -/
+  damageSource : Option (PlayerId × ObjId) := none
 deriving DecidableEq, Repr
 
 /-- Whether replacement effect `e` is currently eligible to apply to `st` at `stage`
