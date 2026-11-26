@@ -5012,6 +5012,10 @@ meta def sunKissScenario (card : String) (life : Nat) : Option Bool := do
 
 #guard sunKissScenario "ARC_212_R" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC213").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 2 && card.front.pitch == some 2 && card.status == .full)
+#guard sunKissScenario "ARC_213_Y" 2 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
