@@ -994,6 +994,16 @@ def ARC_151 : CardDef :=
     front := { Meta.ARC_151_meta.front with abilities := [ability] }
     status := .full }
 
+/-- Vest of the First Fist (ARC152). -/
+def ARC_152 : CardDef :=
+  let reward : Effect :=
+    .ifThen (.not_ .sourceInArena) (.prim (.gainResource .controller (.const 2))) .nop
+  let body : Effect := .ifThen .sourceInArena (.may (.prim (.destroy .self_)) reward) .nop
+  let ability := Ability.triggered .onAttackActionHit false none none { body }
+  { Meta.ARC_152_meta with
+    front := { Meta.ARC_152_meta.front with abilities := [ability] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1022,7 +1032,7 @@ def arcCards : List CardDef :=
    ARC_141_R, ARC_142_Y, ARC_143_B,
    ARC_144_R, ARC_145_Y, ARC_146_B,
    ARC_147_R, ARC_148_Y, ARC_149_B,
-   ARC_150, ARC_151]
+   ARC_150, ARC_151, ARC_152]
 
 end FabCards.ARC
 
