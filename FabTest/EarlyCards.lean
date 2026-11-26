@@ -2545,7 +2545,8 @@ meta def tomeArknightScenario (cards : List String) (shouldTake : Bool) : Option
 #guard tomeArknightScenario ["WTR_203_R", "WTR_225", "WTR_218_R"] false == some true
 #guard tomeArknightScenario ["WTR_218_R"] false == some true
 
-meta def spellbladeAssaultScenario (name : String) (power : Nat) : Option Bool := do
+meta def spellbladeRunechantScenario (name : String) (power : Nat)
+    (count : Nat := 2) (cost : Nat := 2) : Option Bool := do
   let p := earlyAttacker
   let q := earlyDefender
   let token := FabCards.ARC.runechantToken.id
@@ -2559,13 +2560,13 @@ meta def spellbladeAssaultScenario (name : String) (power : Nat) : Option Bool :
   let link ← resolved.combat.bind CombatChain.activeLink?
   pure (paid.pendingTriggers.isEmpty && controlledPermanentCount paid p token == 0 &&
     controlledPermanentCount attacking p token == 0 && attacking.pendingTriggers.length == 1 &&
-    controlledPermanentCount resolved p token == 2 && resolved.pendingTriggers.isEmpty &&
+    controlledPermanentCount resolved p token == count && resolved.pendingTriggers.isEmpty &&
     resolved.lifeOf q == ready.lifeOf q && linkAttackPower resolved link == power &&
-    (resolved.poolOf p).resources == 6)
+    (resolved.poolOf p).resources == 8 - cost)
 
-#guard spellbladeAssaultScenario "ARC_085_R" 4 == some true
-#guard spellbladeAssaultScenario "ARC_086_Y" 3 == some true
-#guard spellbladeAssaultScenario "ARC_087_B" 2 == some true
+#guard spellbladeRunechantScenario "ARC_085_R" 4 == some true
+#guard spellbladeRunechantScenario "ARC_086_Y" 3 == some true
+#guard spellbladeRunechantScenario "ARC_087_B" 2 == some true
 
 meta def reduceToRunechantScenario (name : String) (defense : Nat) : Option Bool := do
   let p := earlyAttacker
@@ -2676,6 +2677,7 @@ meta def drawnToDarkDimensionScenario (name : String) (power : Nat) : Option Boo
 #guard discountedRunebladeScenario "ARC_100_R" 3 4 true == some true
 #guard discountedRunebladeScenario "ARC_101_Y" 3 3 true == some true
 #guard discountedRunebladeScenario "ARC_102_B" 3 2 true == some true
+#guard spellbladeRunechantScenario "ARC_103_R" 4 1 1 == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
