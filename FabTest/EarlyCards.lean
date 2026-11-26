@@ -1944,6 +1944,11 @@ meta def takeAimScenario (cardId : String) (expectedPower : Nat) : Option Bool :
 
 #guard takeAimScenario "ARC_055_Y" 6 == some true
 
+#guard ((earlyPrintingCardId? "ARC056").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Take Aim" && card.front.pitch == some 3 && card.status == .full)
+
+#guard takeAimScenario "ARC_056_B" 5 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
