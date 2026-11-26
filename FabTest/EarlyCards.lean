@@ -4422,6 +4422,10 @@ meta def cadaverousContrabandScenario (card : String) (power : Nat) : Option Boo
 
 #guard cadaverousContrabandScenario "ARC_179_R" 6 == some true
 
+#guard ((earlyPrintingCardId? "ARC180").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 5 && card.front.pitch == some 2 && card.status == .full)
+#guard cadaverousContrabandScenario "ARC_180_Y" 5 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
