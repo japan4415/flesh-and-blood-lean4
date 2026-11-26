@@ -2441,6 +2441,28 @@ meta def mordredTideScenario : Option Bool := do
 
 #guard mordredTideScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC082").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 9 && card.front.pitch == some 2 &&
+    card.front.defense == some 3 && card.status == .full)
+
+meta def ninthBladeScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let card := FabCards.ARC.ARC_082_Y
+  let token := FabCards.ARC.runechantToken.id
+  let (withCard, attack) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) card.id.val
+  let opposed := createTokens withCard q token 1
+  let discounted := createTokens opposed p token 1
+  let abundant := createTokens discounted p token 9
+  let paid ← earlySteps discounted [⟨.player p, .playCard attack⟩]
+  pure ((modifiedCardPlayCost opposed p card).resources == 9 &&
+    (modifiedCardPlayCost discounted p card).resources == 8 &&
+    (modifiedCardPlayCost abundant p card).resources == 0 &&
+    (paid.poolOf p).resources == 0 && paid.pendingTriggers.length == 1)
+
+#guard ninthBladeScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
