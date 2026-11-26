@@ -858,9 +858,38 @@ def queuePitchTriggers (s : GameState) (p : PlayerId) (pitched : ObjId) : GameSt
     pendingTriggers := s.pendingTriggers ++ triggers
     nextTimestamp := s.nextTimestamp + triggers.length }
 
+/-- Classify the layer whose resolution contains the current effect (CR 5.3, 1.7.4i). -/
+def resolvingActionOrActivation (s : GameState) (rest : List Frame) : Bool :=
+  let resolving := rest.findSome? fun
+    | .finishResolve layer => some layer
+    | _ => none
+  resolving.any fun layer =>
+    let qualifying := match (s.obj? layer).map Object.kind with
+      | some (.layer _ _ _ false) => true
+      | some (.card _ _) => (s.characteristics layer).any (fun card => card.types.contains .action)
+      | _ => false
+    (s.zone .stack).head? == some layer && qualifying
+
+/-- Collect outside-arena triggers for cards moved from their deck into public view (CR 1.7.4i). -/
+def faceUpDeckMoveTriggers (s : GameState) : Event → List (PendingTrigger × Bool)
+  | .moved _ id (.player owner .deck) destination =>
+    let publicDestination := match destination with
+      | .player _ .deck | .player _ .hand | .player _ .inventory | .player _ .outside => false
+      | _ => true
+    if publicDestination &&
+        (s.obj? id).any (fun obj => !obj.faceDown && obj.owner == owner) &&
+        (s.characteristics id).any (fun chars => !chars.abilitiesLost) then
+      let abilities := ((s.objectFace? id).map (·.abilities)).getD []
+      matchingCardTriggers s id owner false abilities fun trigger cond =>
+        trigger == .onDeckMoveFaceUp && (cond.map (evalCondition s owner id false)).getD true
+    else []
+  | _ => []
+
 /-- Queue supported rule-event triggers in event order (CR 6.6). -/
-def queueRuleEventTriggers (s : GameState) (events : List Event) : GameState :=
-  queueCardTriggers s (events.flatMap fun
+def queueRuleEventTriggers (s : GameState) (events : List Event)
+    (fromActionOrActivation : Bool := false) : GameState :=
+  queueCardTriggers s (events.flatMap fun event =>
+    let standard := match event with
     | .discarded p id => discardEventTriggers s p id
     | .damageDealt p _ amount =>
       if amount > 0 && s.result.isNone then installedCardTriggers s p (· == .onControllerDamaged)
@@ -882,7 +911,8 @@ def queueRuleEventTriggers (s : GameState) (events : List Event) : GameState :=
             trigger == .onCountersEmptied kind &&
               (cond.map (evalCondition s chars.controller source false)).getD true
       | none => []
-    | _ => [])
+    | _ => []
+    standard ++ (if fromActionOrActivation then faceUpDeckMoveTriggers s event else []))
 
 /-- Queue triggers for events returned by discard effects (CR 6.6). -/
 abbrev queueDiscardTriggers := queueRuleEventTriggers
@@ -1728,7 +1758,7 @@ def confirmShuffleCards (s : GameState) (p : PlayerId) (selected : List ObjId)
     activeEffects := entered.activeEffects ++ permissions ++ bonuses
     nextTimestamp := entered.nextTimestamp + permissions.length + bonuses.length }
   let recorded := revealed ++ events ++ banished.map (fun id => .banished p id false)
-  (queueRuleEventTriggers finished recorded, recorded)
+  (queueRuleEventTriggers finished recorded (resolvingActionOrActivation s rest), recorded)
 
 /-- Add a triggered layer with its declared targets, then continue trigger ordering (CR 6.6.6). -/
 def stackPendingTrigger (s : GameState) (p : PlayerId) (trig : PendingTrigger)
@@ -2502,7 +2532,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     some ({ s1 with pending := rest }, [])
   | .run ctrl src fromArsenal env todo :: rest =>
     let ran := interpRunStep s ctrl src fromArsenal env todo rest
-    some (queueRuleEventTriggers ran.1 ran.2, ran.2)
+    some (queueRuleEventTriggers ran.1 ran.2 (resolvingActionOrActivation s rest), ran.2)
   | .optStep _ 0 :: rest =>
     some ({ s with pending := rest }, [])
   | .optStep p (n + 1) :: rest =>
