@@ -412,6 +412,7 @@ private theorem stackPendingTrigger_preserves {s s' : GameState} {p : PlayerId}
            GameState.RollbackOk.preserve hrb hcfg.1 hcfg.2 hperm,
            hperm, hcfg.1⟩
 
+set_option maxHeartbeats 600000 in
 /-- Applying a legal frame answer preserves `WF`, `OwnerOk`, `RollbackOk`, `physIds`, and `config`. -/
 theorem applyFrame_preserves {s s' : GameState} {a : Action} {es : List Event}
     (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)
@@ -948,7 +949,7 @@ private theorem advanceArcaneDamage_preserves {s : GameState} {p : PlayerId}
       exact h.trans (sameBoard_preserves h.wf h.ownerOk h.rollbackOk rfl rfl rfl rfl rfl)
     · split <;> exact sameBoard_preserves hwf hok hrb rfl rfl rfl rfl rfl
 
-set_option maxHeartbeats 400000 in
+set_option maxHeartbeats 800000 in
 /-- One `microStep` preserves `WF`, `OwnerOk`, `RollbackOk`, `physIds`, and `config` (L2 + L4). -/
 theorem microStep_preserves {s s' : GameState} {es : List Event}
     (hwf : s.WF) (hok : s.OwnerOk) (hrb : s.RollbackOk)

@@ -325,6 +325,8 @@ inductive Effect where
       (fallbackPitch : Option Nat := none)
   /-- Trigger this body each time the controller boosts later in the same turn (CR 6.6.3, 8.3.9). -/
   | onBoostThisTurn (body : Effect)
+  /-- Trigger once after the controller next plays an action card meeting the base cost threshold. -/
+  | onNextActionCardThisTurn (minCost : Nat) (body : Effect)
   /-- Discard the first card in a randomized hand, then execute the branch matching its face. -/
   | discardTopOfHand (p : PlayerRef) (f : CardFilter) (ifMatches otherwise : Effect)
   /-- Choose a card to discard, then branch on the characteristics of the discarded card. -/

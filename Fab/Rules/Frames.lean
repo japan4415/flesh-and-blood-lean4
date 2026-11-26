@@ -1403,14 +1403,30 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       else remainingEffects
     | none => remainingEffects
   let s := { s with layerMeta := s.layerMeta.insert layerId.n updatedInfo }
+  let paidActionCost := card.bind fun definition =>
+    if definition.front.hasType .action then
+      definition.front.cost.map fun asset =>
+        asset.resources + definition.front.xCostFactor * updatedInfo.variableResources.getD 0
+    else none
+  let (firing, waiting) := s.delayedTriggers.partition fun trigger =>
+    trigger.controller == p &&
+      match trigger.watch with
+      | .nextActionCardThisTurn turn minCost =>
+        turn == s.turn && paidActionCost.any (fun cost => decide (minCost ≤ cost))
+      | _ => false
+  let delayed := firing.map fun trigger =>
+    ({ id := trigger.id, source := trigger.source
+       sourceLki := trigger.sourceLki.getD (captureLki s trigger.source trigger.controller)
+       controller := trigger.controller, effect := trigger.effect : PendingTrigger }, false)
   let newTriggers := playedCardTriggers s layerId p fromArsenal ++
     (variablePaymentTrigger s p layerId fromArsenal).toList ++ arenaAttackPlayTriggers s layerId p
   let queued := queueCardTriggers s
-    (newTriggers.map (·, false) ++ installedCardPlayTriggers s layerId p)
+    (newTriggers.map (·, false) ++ installedCardPlayTriggers s layerId p ++ delayed)
   let flush := if queued.pendingTriggers.isEmpty then [] else [.flushTriggers]
   { s with
     activeEffects := effects
     pendingTriggers := queued.pendingTriggers
+    delayedTriggers := waiting
     nextTimestamp := queued.nextTimestamp
     triggeredThisTurn := queued.triggeredThisTurn
     playRollback := none
@@ -2577,7 +2593,8 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       boostsThisTurn := []
       delayedTriggers := s.delayedTriggers.filter fun trigger =>
         match trigger.watch with
-        | .boostThisTurn turn | .nextAttackActionHitThisTurn turn => turn != s.turn
+        | .boostThisTurn turn | .nextAttackActionHitThisTurn turn
+        | .nextActionCardThisTurn turn _ => turn != s.turn
         | _ => true
       banishedSixPowerThisTurn := []
       activatedThisTurn := []

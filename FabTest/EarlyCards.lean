@@ -4910,6 +4910,55 @@ meta def forceSightScenario (card : String) (bonus : Nat) (fromArsenal : Bool) :
 #guard forceSightScenario "ARC_208_B" 1 false == some true
 #guard forceSightScenario "ARC_208_B" 1 true == some true
 
+#guard ((earlyPrintingCardId? "ARC209").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 2 && card.front.pitch == some 1 && card.status == .full)
+
+meta def leadTheChargeScenario (card : String) (minCost : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let (holding, lead) ← earlyPlace { earlyBase with cards := throughArcDB } p hand card
+  let (equipped, sword) ← earlyPlace holding p (.player p .weapon) "WTR_115"
+  let (withCheap, cheap) ← earlyPlace equipped p hand "WTR_203_R"
+  let (withMoon, moon) ← earlyPlace withCheap p hand "ARC_185_R"
+  let (ready, spark) ← earlyPlace withMoon p hand "ARC_009_Y"
+  let play (id : ObjId) : Action := ⟨.player p, .playCard id⟩
+  let primed ← earlySteps ready (play lead :: earlyPass)
+  let watched ← primed.delayedTriggers.head?
+  let weaponPaid ← earlySteps primed [⟨.player p, .attackWeapon sword⟩]
+  let surcharge : ContinuousEffect :=
+    { id := primed.nextTimestamp, source := sword, controller := earlyDefender
+      target := .nextActionBy p, op := .addCostRes 2, duration := .thisTurn
+      timestamp := ⟨primed.nextTimestamp⟩ }
+  let taxed ← earlySteps { primed with activeEffects := surcharge :: primed.activeEffects } [play cheap]
+  let sparkPaid ← earlySteps primed [play spark, ⟨.player p, .pickVariableResources (some 1)⟩]
+  let choosing ← earlySteps primed [play moon]
+  let rolledBack ← earlySteps choosing [⟨.player p, .cancelPlay⟩]
+  let paid ← earlySteps choosing
+    [⟨.player p, .pickMay true⟩, ⟨.player p, .pickHandCostCard cheap⟩]
+  let trigger ← paid.pendingTriggers.head?
+  let stacked ← earlySteps paid
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩]
+  let rewarded ← earlySteps stacked earlyPass
+  let offTurn ← earlySteps { stacked with active := some earlyDefender } earlyPass
+  let (expired, _) ← microStep { primed with pending := [.endTurnCleanup p] }
+  pure (watched.watch == .nextActionCardThisTurn primed.turn minCost &&
+    (primed.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    weaponPaid.delayedTriggers == [watched] && weaponPaid.pendingTriggers.isEmpty &&
+    (taxed.poolOf p).resources + 2 == (primed.poolOf p).resources &&
+    taxed.pendingTriggers.length == (if minCost == 0 then 1 else 0) &&
+    taxed.delayedTriggers.isEmpty == (minCost == 0) &&
+    sparkPaid.pendingTriggers.length == 1 && sparkPaid.delayedTriggers.isEmpty &&
+    choosing.delayedTriggers == [watched] && rolledBack.delayedTriggers == [watched] &&
+    paid.delayedTriggers.isEmpty && paid.pendingTriggers.length == 1 &&
+    (paid.poolOf p).resources == (primed.poolOf p).resources &&
+    (paid.poolOf p).actionPoints + 1 == (primed.poolOf p).actionPoints &&
+    trigger.sourceLki.name == "Lead the Charge" && (stacked.zone .stack).length == 2 &&
+    rewarded.zone .stack == paid.zone .stack && (rewarded.poolOf p).actionPoints == (primed.poolOf p).actionPoints &&
+    (offTurn.poolOf p).actionPoints == (stacked.poolOf p).actionPoints &&
+    expired.delayedTriggers.isEmpty)
+
+#guard leadTheChargeScenario "ARC_209_R" 0 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

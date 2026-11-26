@@ -81,6 +81,8 @@ inductive DelayedTriggerWatch where
   | boostThisTurn (turn : Nat)
   /-- Trigger once on the controller's next attack action card hit during the specified turn. -/
   | nextAttackActionHitThisTurn (turn : Nat)
+  /-- Trigger once after playing an action card whose base cost is at least `minCost`. -/
+  | nextActionCardThisTurn (turn : Nat) (minCost : Nat)
 deriving DecidableEq, Repr
 
 /-- A delayed triggered ability waiting for a future phase/event even if its source leaves the
