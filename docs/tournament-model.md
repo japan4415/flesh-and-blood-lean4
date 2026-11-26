@@ -61,11 +61,25 @@ Flesh and Blood の公式 **Tournament Rules and Policy（TRP）** のうち、L
 
 | 項目 | Sealed / Draft |
 |---|---|
-| Hero | Young Hero 1 枚（プール内またはフォーマット指定のトークンヒーロー） |
-| Main Deck | **30 枚以上** |
-| 同名枚数制限 | **なし**（開封・ピックした枚数まで投入可能。ただし Legendary 等の扱いは最新 TRP を確認） |
-| Card-Pool | 開封／ドラフトした全カード（装備・武器・トークンヒーローを含む） |
+| Hero | 対象セットの Young Hero 1 枚。Draft で登録が必須の場合はイベント中固定 |
+| Main Deck | 本文の原則は **30 枚ちょうど**。Appendix F で上書きされる WTR・ARC は **30 枚以上** |
+| 同名枚数制限 | 構築フォーマットの同名制限と Legendary の1枚制限は Draft に適用しない |
+| Card-Pool | Sealed は開封、Draft はピックで取得したカードと、そのセットで利用可能な Basic レアリティのカード |
 | Class / Talent | Hero の Supertype 適合規則は引き続き適用 |
+
+#### Booster Draft の実行
+
+- `BoosterDraft.State.start` にカードデータベース、製品規定、登録の要否、座席ごとの3パックを渡す。製品規定は `FabCards.wtrDraft` と `FabCards.arcDraft` を用意している。両セットとも各パックの先頭15枠がドラフト対象で、末尾1枠を除外する。番号から論理カードIDへの変換には `FabCards.earlyPrintingCardId?` を使う。
+- 参加者には本人の `State.view` を渡し、`State.pick` で1枚を確定する。全席が確定すると残りを第1・第3パックでは左へ、第2パックでは右へ渡す。ピック中は過去の取得カードを伏せ、各パックの間は本人が確認できる。レビュー後は `State.openNext` で次のパックを開く。パック内の並びは意味を持たないため、表示順をカードID順に統一している。
+- 登録必須のイベントでは `State.register` にHeroと全ピックを渡す。クラス不一致で対戦に使えないカードも登録対象に含まれる。各対戦では `State.deck` がHeroに合うピックと、指定した Basic の武器や Cracked Bauble からカードプールを作る。`GameState.initialDraft` で同じポッドの異なる2席を対戦に渡し、通常の試合前ロードアウトでデッキと装備を選ぶ。
+
+座席割り当て、ジャッジによる呼び出し、持ち時間は大会運営側の入力として扱う。パックは外部から供給でき、WTRでは以下の開封モデルの出力も使える。 [公式TRP 8.2・Appendix F](https://fabtcg.com/documents/604/FaB_Tournament_Rules_and_Policy_2025_05_30.pdf) · [ARC収録表](https://legacy.fabtcg.com/en/collectors-centre/arcane-rising/)
+
+#### WTRのパック開封
+
+- `FabCards.wtrBoosterLayout` はGeneric Common 4枠、4クラスのCommon 7枠、Rare 1枠、Rare・Super Rare・Majestic 1枠、装備1枠、プレミアムFoil 1枠、トークン1枠で構成する。Foil枠にはBasic以外のカードが入り、トークン枠は論理カード1面で表す。順番はモデル上のもので、最後の1枠をドラフトから除外する。 [公式製品仕様](https://legacy.fabtcg.com/en/products/booster-set/welcome-rathe/) · [WTR収録表](https://legacy.fabtcg.com/en/collectors-centre/welcome-rathe/)
+- `FabCards.openWtrBooster` は枠ごとの候補番号16個を受け取り、`BoosterDraft.State.start` に渡せるパックを返す。正常に開封できた場合、各枠を対応する候補カードが1枚ずつ埋めることを `BoosterPack.openSlots_fits` で証明している。
+- 参照先のWTR Unlimitedシミュレーターは各クラスのCommonを2・2・2・1枚引き、昇格枠でMajesticを1/12、Super Rareを1/6とする抽選を実装している。そのFoil抽選にはFabled枠がない。Leanモデルでは候補番号を決める側がクラス配分、封入率、版ごとの差を指定できる。 [WTR_Sealed公開ソース](https://github.com/ApartmentTom/WTR_Sealed/blob/07d92b80756bc1f6999037519cb2f68bde02aa97/index.html#L416-L475) · [Unlimited公式告知](https://legacy.fabtcg.com/en/articles/wtr-arc-unlimited-edition/)
 
 ### 2.4 定理の目標（I13）
 

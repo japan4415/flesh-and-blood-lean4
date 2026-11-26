@@ -2,7 +2,7 @@ module
 
 public import Fab.Rules.Add
 public import Fab.Rules.Deck
-public import Fab.Tournament.DeckLegality
+public import Fab.Tournament.Draft
 
 /-!
 # Start-of-Game initial state construction
@@ -132,6 +132,7 @@ theorem addDecks_inv {s s' : GameState} {seat ph ph' : Nat} {decks : List DeckLi
 def deckLegalForConfig (cfg : GameConfig) (db : CardDB) (d : DeckList) : Bool :=
   match cfg.format with
   | .classicConstructed => decide (CCDeckValid db cfg.banList d)
+  | .draft => decide (DraftDeckValid db d)
   | _ => decide (CoreDeckValid db d)
 
 /-- Build the initial `GameState` for a game if configuration, `CardDB`, and all decks are valid
@@ -148,6 +149,15 @@ def GameState.initial (cfg : GameConfig) (db : CardDB) (decks : List DeckList) :
                      playRollback := none }
   else
     none
+
+/-- Start a draft duel between two different seats of the same completed pod (TRP 8.2). -/
+def GameState.initialDraft (draft : BoosterDraft.State)
+    (first second : PlayerId × BoosterDraft.DeckChoice)
+    (ruleSet : RuleSet := .coreOnly) : Option GameState := do
+  if first.1 = second.1 then none else
+    let firstDeck ← (draft.deck first.1 first.2).toOption
+    let secondDeck ← (draft.deck second.1 second.2).toOption
+    GameState.initial { format := .draft, ruleSet } draft.db [firstDeck, secondDeck]
 
 /-- Every initial state created by `GameState.initial` has no active rollback snapshot (`RollbackOk`). -/
 theorem GameState.initial_rollbackOk {cfg : GameConfig} {db : CardDB} {decks : List DeckList}

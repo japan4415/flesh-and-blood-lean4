@@ -9,6 +9,8 @@ public import FabCards.ThroughWtr
 public import FabCards.LSS
 public import FabCards.ARC.Meta
 public import FabCards.ThroughArc
+public import FabCards.Draft
+public import FabCards.Booster
 
 /-!
 # FabCards
