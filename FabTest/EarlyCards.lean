@@ -3278,6 +3278,58 @@ meta def stirTheAetherwindsScenario (name : String) (bonus : Nat) : Option Bool 
   (fun card => card.front.hasType .action && card.front.pitch == some 3 && card.status == .full)
 #guard stirTheAetherwindsScenario "ARC_131_B" 1 == some true
 
+#guard ((earlyPrintingCardId? "ARC132").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 1 && card.status == .full)
+
+meta def aetherFlareScenario (name : String) (damage : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let followUp : CardDef :=
+    { id := ⟨"Aether Flare fixture"⟩
+      front :=
+        { name := "Aether Flare fixture"
+          types := [.action]
+          cost := some { actionPoints := 1 }
+          playEffect := some { body := .prim (.dealDamage .arcane .opposingHero (.const 2)) } } }
+  let cards : CardDB := ⟨followUp :: throughArcDB.cards⟩
+  let (withFlare, flare) ← earlyPlace { earlyBase with cards } p hand name
+  let (withOther, other) ← earlyPlace withFlare p hand "WTR_221_R"
+  let (withNext, next) ← earlyPlace withOther p hand followUp.id.val
+  let (ready, later) ← earlyPlace withNext p hand followUp.id.val
+  let announce (s : GameState) :=
+    earlySteps s [⟨.player p, .playCard flare⟩]
+  let resolve (s : GameState) :=
+    (announce s).bind (earlySteps · (⟨.player p, .pickHeroTarget q⟩ :: earlyPass))
+  let play (s : GameState) (id : ObjId) :=
+    earlySteps s (⟨.player p, .playCard id⟩ :: earlyPass)
+  let prevent (amount : Nat) : ReplacementEffect :=
+    { id := 100, source := flare, controller := q, stage := .prevention, action := .fixedPrevent amount }
+  let waiting (s : GameState) := s.activeEffects.filterMap fun effect =>
+    match effect.op with
+    | .addToNextArcaneCard n => some n
+    | _ => none
+  let full ← resolve ready
+  let reduced ← resolve { ready with activeReplacements := [prevent 1] }
+  let stopped ← resolve { ready with activeReplacements := [prevent damage] }
+  let ignored ← play reduced other
+  let boosted ← play ignored next
+  let exhausted ← play boosted later
+  let noBoost ← play stopped next
+  let declared ← announce ready
+  pure (!(legalActions declared).contains ⟨.player p, .pickHeroTarget p⟩ &&
+    full.lifeOf q == ready.lifeOf q - Int.ofNat damage && waiting full == [damage] &&
+    (full.poolOf p).resources == 7 && (full.poolOf p).actionPoints == 3 &&
+    reduced.lifeOf q == ready.lifeOf q - Int.ofNat (damage - 1) &&
+    waiting reduced == (if 1 < damage then [damage - 1] else []) &&
+    waiting ignored == waiting reduced && waiting full.finishTurnEffects == [] &&
+    boosted.lifeOf q == ignored.lifeOf q - Int.ofNat (2 + damage - 1) && waiting boosted == [] &&
+    exhausted.lifeOf q == boosted.lifeOf q - 2 &&
+    stopped.lifeOf q == ready.lifeOf q && waiting stopped == [] &&
+    noBoost.lifeOf q == stopped.lifeOf q - 2)
+
+#guard aetherFlareScenario "ARC_132_R" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

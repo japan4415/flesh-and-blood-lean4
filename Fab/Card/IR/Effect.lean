@@ -347,7 +347,7 @@ inductive ContinuousMod where
   /-- Increase a nonempty creation of the given token by this amount. -/
   | addTokenCreation (token : CardId) (amount : Nat)
   /-- Increase the arcane damage dealt by the next eligible card played this turn. -/
-  | addToNextArcaneCard (amount : Nat)
+  | addToNextArcaneCard (amount : NumExpr)
   /-- Permit the next matching action card to be played as though it were an instant. -/
   | nextCardAsInstant (filter : CardFilter) (arcaneBonus : Nat := 0)
   /-- Grant a keyword such as `goAgain` or `dominate`. -/

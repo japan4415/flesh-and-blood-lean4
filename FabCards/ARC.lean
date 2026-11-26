@@ -758,7 +758,7 @@ def ARC_114 : CardDef := { kanoHero Meta.ARC_114_meta with status := .full }
 
 /-- Crucible of Aetherweave (ARC115). -/
 def ARC_115 : CardDef :=
-  let body : Effect := .grant (.player .controller) (.addToNextArcaneCard 1) .thisTurn
+  let body : Effect := .grant (.player .controller) (.addToNextArcaneCard (.const 1)) .thisTurn
   let ability := Ability.activated .instant true { resources := 1 } [] none false { body }
   { Meta.ARC_115_meta with
     front := { Meta.ARC_115_meta.front with abilities := [ability] }
@@ -831,7 +831,7 @@ def ARC_121_Y : CardDef :=
 
 /-- Tome of Aetherwind (ARC122). Its two mode selections resolve in printed order (CR 1.7.5b). -/
 def ARC_122_R : CardDef :=
-  let modifyArcane : Effect := .grant (.player .controller) (.addToNextArcaneCard 1) .thisTurn
+  let modifyArcane : Effect := .grant (.player .controller) (.addToNextArcaneCard (.const 1)) .thisTurn
   let drawOne : Effect := .prim (.draw .controller (.const 1))
   let modes : List ModeSpec :=
     [ { body := .seqL [modifyArcane, modifyArcane] }
@@ -843,7 +843,7 @@ def ARC_122_R : CardDef :=
 
 /-- The three Absorb in Aether printings share the same arcane replacement effect. -/
 def absorbInAether (card : CardDef) : CardDef :=
-  let effect : Effect := .grant (.player .controller) (.addToNextArcaneCard 2) .thisTurn
+  let effect : Effect := .grant (.player .controller) (.addToNextArcaneCard (.const 2)) .thisTurn
   { card with front := { card.front with playEffect := some { body := effect } } }
 
 /-- Absorb in Aether (ARC123). -/
@@ -888,6 +888,18 @@ def ARC_130_Y : CardDef := { stirTheAetherwinds Meta.ARC_130_Y_meta 2 with statu
 /-- Stir the Aetherwinds (ARC131). -/
 def ARC_131_B : CardDef := { stirTheAetherwinds Meta.ARC_131_B_meta 1 with status := .full }
 
+/-- Aether Flare uses the damage actually dealt to modify the next eligible card. -/
+def aetherFlare (card : CardDef) (damage : Int) : CardDef :=
+  let effect : EffectDef :=
+    { targets := [{ kind := .opposingHero }]
+      body := .seqL
+        [ .prim (.dealDamage .arcane (.ownerOfSlot 0) (.const damage))
+        , .grant (.player .controller) (.addToNextArcaneCard .sourceArcaneDamage) .thisTurn ] }
+  { card with front := { card.front with playEffect := some effect } }
+
+/-- Aether Flare (ARC132). -/
+def ARC_132_R : CardDef := { aetherFlare Meta.ARC_132_R_meta 3 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -905,7 +917,7 @@ def arcCards : List CardDef :=
    ARC_103_R, ARC_104_Y, ARC_105_B,
    ARC_106_R, ARC_107_Y, ARC_108_B,
    ARC_109_R, ARC_110_Y, ARC_111_B,
-   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R, ARC_119_Y, ARC_120_R, ARC_121_Y, ARC_122_R, ARC_123_R, ARC_124_Y, ARC_125_B, ARC_126_R, ARC_127_Y, ARC_128_B, ARC_129_R, ARC_130_Y, ARC_131_B]
+   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R, ARC_119_Y, ARC_120_R, ARC_121_Y, ARC_122_R, ARC_123_R, ARC_124_Y, ARC_125_B, ARC_126_R, ARC_127_Y, ARC_128_B, ARC_129_R, ARC_130_Y, ARC_131_B, ARC_132_R]
 
 end FabCards.ARC
 
