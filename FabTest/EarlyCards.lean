@@ -5052,6 +5052,19 @@ meta def whisperOfTheOracleScenario (card : String) (count : Nat) : Option Bool 
   (fun card => card.front.defense == some 3 && card.front.pitch == some 2 && card.status == .full)
 #guard whisperOfTheOracleScenario "ARC_216_Y" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC217").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 3 && card.front.pitch == some 3 && card.status == .full)
+#guard whisperOfTheOracleScenario "ARC_217_B" 2 == some true
+
+#guard ARC.arcCards.all (·.status == .full)
+#guard ARC.arcCards.map (·.id) == (ARC.Meta.allMeta.take 218).map (·.id)
+#guard
+  ((List.range 218).map fun number =>
+    let digits := toString number
+    let padding := if number < 10 then "00" else if number < 100 then "0" else ""
+    earlyPrintingCardId? ("ARC" ++ padding ++ digits)) ==
+  ARC.arcCards.map (fun card => some card.id)
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
