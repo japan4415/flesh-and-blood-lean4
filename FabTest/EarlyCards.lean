@@ -2726,6 +2726,7 @@ meta def bloodspillInvocationScenario (name : String) (count : Nat) : Option Boo
 
 #guard bloodspillInvocationScenario "ARC_106_R" 3 == some true
 #guard bloodspillInvocationScenario "ARC_107_Y" 2 == some true
+#guard bloodspillInvocationScenario "ARC_108_B" 1 == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
