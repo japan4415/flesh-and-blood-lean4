@@ -251,6 +251,15 @@ def createTokens (s : GameState) (p : PlayerId) (tokId : CardId) : Nat → GameS
     | some (s1, _) => createTokens s1 p tokId n
     | none => s
 
+/-- Apply one addition per active effect to a nonempty token creation batch (CR 6.4). -/
+def tokenCreationCount (s : GameState) (p : PlayerId) (token : CardId) (amount : Nat) : Nat :=
+  if amount == 0 then 0 else
+    s.activeEffects.foldl (fun total effect =>
+      match effect.target, effect.op with
+      | .player player, .addTokenCreation id extra =>
+        if player == p && id == token && !effect.waitsForNextTurn then total + extra else total
+      | _, _ => total) amount
+
 /-- `createTokens` preserves `WF`. -/
 theorem createTokens_wf (p : PlayerId) (tokId : CardId) :
     ∀ (n : Nat) {s : GameState}, s.WF → (createTokens s p tokId n).WF
@@ -1088,7 +1097,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
       ({ s with unopenedBoosters := remaining }, [.boosterOpened ctrl cards], after)
   | .createToken pref tokId n =>
     let target := evalPlayerRef s ctrl pref
-    (createTokens s target tokId n, [], [])
+    (createTokens s target tokId (tokenCreationCount s target tokId n), [], [])
   | .createTokenForAttackDamage _ _ =>
     (s, [], [])
   | .destroy oref =>
@@ -1426,7 +1435,9 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     · exact applyDamageWithPrevention_inv hwf hok (evalPlayerRef s ctrl pref) kind
         (clampNonNeg (evalNumExpr s ctrl env n (some src)))
   | createToken pref tokId n =>
-    have hm := createTokens_meta (evalPlayerRef s ctrl pref) tokId n s
+    let target := evalPlayerRef s ctrl pref
+    let count := tokenCreationCount s target tokId n
+    have hm := createTokens_meta target tokId count s
     exact ⟨createTokens_wf _ _ _ hwf, createTokens_ownerOk _ _ _ hwf hok,
            createTokens_physIds _ _ _ hwf, hm.1, hm.2⟩
   | destroy oref =>
@@ -1758,7 +1769,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
             · cases ha
           have h2 := ih res.1
           exact ⟨h2.1.trans h1.1, h2.2.1.trans h1.2.1, h2.2.2.trans h1.2.2⟩
-    have h := hc n s
+    have h := hc (tokenCreationCount s (evalPlayerRef s ctrl pref) tokId n) s
     exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
   | destroy oref =>
     unfold execPrim; dsimp only
@@ -2134,6 +2145,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | _ => none
       | .modifyCost d =>
         if 0 ≤ d then some (.addCostRes d.toNat) else some (.subCostRes (-d).toNat)
+      | .addTokenCreation token amount => some (.addTokenCreation token amount)
       | .grantKeyword kw => some (.grantKeyword kw)
       | .grantTrigger trigger cond body =>
         match scope with
@@ -2166,6 +2178,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .obj .currentAttack, .allowWeaponAttack =>
           (((s.combat.bind CombatChain.activeLink?).bind (·.attackSource)).map EffectTarget.obj).getD (.objects [])
         | .player player, .onlyPlayFromArsenal => .player (evalPlayerRef s ctrl player)
+        | .player player, .addTokenCreation _ _ => .player (evalPlayerRef s ctrl player)
         | .hero player, .addIntellect _ =>
           .objects (s.zone (.player (evalPlayerRef s ctrl player) .hero))
         | .allMatching player filter, _ => .matchingCard (evalPlayerRef s ctrl player) filter

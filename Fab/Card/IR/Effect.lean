@@ -330,6 +330,8 @@ inductive ContinuousMod where
   | modifyCost (delta : Int)
   /-- Modify this card's play cost per face-up permanent of the given card ID that its player controls. -/
   | modifyPlayCostPerPermanent (card : CardId) (delta : Int)
+  /-- Increase a nonempty creation of the given token by this amount. -/
+  | addTokenCreation (token : CardId) (amount : Nat)
   /-- Grant a keyword such as `goAgain` or `dominate`. -/
   | grantKeyword (kw : KeywordInst)
   /-- Grant a triggered ability to the affected object(s) (Pummel, Razor Reflex, Whelming Gustwave, Steelblade Supremacy). -/
