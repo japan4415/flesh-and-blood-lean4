@@ -1273,6 +1273,14 @@ def ARC_198_Y : CardDef := { vigorRush Meta.ARC_198_Y_meta with status := .full 
 /-- Vigor Rush Blue (ARC199). -/
 def ARC_199_B : CardDef := { vigorRush Meta.ARC_199_B_meta with status := .full }
 
+/-- Opt 1 for the defending player when the defense reaction resolves. -/
+def fateForeseen (base : CardDef) : CardDef :=
+  let body : Effect := .prim (.opt .controller 1)
+  { base with front := { base.front with playEffect := some { body } } }
+
+/-- Fate Foreseen Red (ARC200). -/
+def ARC_200_R : CardDef := { fateForeseen Meta.ARC_200_R_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1306,7 +1314,8 @@ def arcCards : List CardDef :=
    ARC_168_Y, ARC_169_B, ARC_170_R, ARC_171_Y, ARC_172_B, ARC_173_R,
    ARC_174_Y, ARC_175_B, ARC_176_R, ARC_177_Y, ARC_178_B, ARC_179_R, ARC_180_Y, ARC_181_B,
    ARC_182_R, ARC_183_Y, ARC_184_B, ARC_185_R, ARC_186_Y, ARC_187_B, ARC_188_R, ARC_189_Y, ARC_190_B,
-   ARC_191_R, ARC_192_Y, ARC_193_B, ARC_194_R, ARC_195_Y, ARC_196_B, ARC_197_R, ARC_198_Y, ARC_199_B]
+   ARC_191_R, ARC_192_Y, ARC_193_B, ARC_194_R, ARC_195_Y, ARC_196_B, ARC_197_R, ARC_198_Y, ARC_199_B,
+   ARC_200_R]
 
 end FabCards.ARC
 

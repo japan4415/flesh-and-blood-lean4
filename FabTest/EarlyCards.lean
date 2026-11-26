@@ -4777,6 +4777,44 @@ meta def vigorRushScenario (card : String) (power : Nat) : Option Bool := do
   (fun card => card.front.power == some 2 && card.front.pitch == some 3 && card.status == .full)
 #guard vigorRushScenario "ARC_199_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC200").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 4 && card.front.pitch == some 1 && card.status == .full)
+
+meta def fateForeseenScenario (card : String) (defense : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player q .deck
+  let (withAttack, attack) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) "WTR_203_R"
+  let (ready, reaction) ← earlyPlace withAttack q (.player q .hand) card
+  let (withBottom, bottom) ← earlyPlace ready q deck "WTR_203_R"
+  let (withTop, top) ← earlyPlace withBottom q deck "WTR_205_B"
+  let use : Action := ⟨.player q, .playCard reaction⟩
+  let reachReaction (state : GameState) := do
+    let attacking ← earlyAttack state (.playCard attack)
+    earlySteps attacking (⟨.player q, .defendDone⟩ :: earlyPass ++ [⟨.player p, .pass⟩])
+  let canReact ← reachReaction withTop
+  let toResolve ← earlySteps canReact [use, ⟨.player q, .pass⟩]
+  let choosing ← earlySteps toResolve [⟨.player p, .pass⟩]
+  let .chooseOpt chooser viewed [] 0 0 :: _ := choosing.pending | none
+  let kept ← earlySteps choosing [⟨.player q, .optPick true⟩]
+  let reordered ← earlySteps choosing [⟨.player q, .optPick false⟩]
+  let link ← reordered.combat.bind CombatChain.activeLink?
+  let defender ← link.defending.head?
+  let empty ← reachReaction ready
+  let withoutOpt ← earlySteps empty [use, ⟨.player q, .pass⟩, ⟨.player p, .pass⟩]
+  let emptyLink ← withoutOpt.combat.bind CombatChain.activeLink?
+  pure (!(legalActions ready).contains use && (legalActions canReact).contains use &&
+    (toResolve.zone deck) == [top, bottom] && chooser == q && viewed == top &&
+    (view q choosing).selectionChoices == [(top, ⟨"WTR_205_B"⟩)] &&
+    (view p choosing).selectionChoices.isEmpty && !(legalActions choosing).contains use &&
+    (kept.zone deck) == [top, bottom] && (reordered.zone deck) == [bottom, top] &&
+    (reordered.cardDefOf? defender).any (·.id == ⟨card⟩) &&
+    linkTotalDefense reordered link == defense && linkTotalDefense withoutOpt emptyLink == defense &&
+    (reordered.poolOf q) == (ready.poolOf q) && (withoutOpt.zone deck).isEmpty)
+
+#guard fateForeseenScenario "ARC_200_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
