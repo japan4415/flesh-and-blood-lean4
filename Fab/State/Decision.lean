@@ -365,6 +365,9 @@ inductive Frame where
   at `stage` (CR 6.5.1). -/
   | chooseReplacement (affected : PlayerId) (stage : ReplacementStage) (candidates : List Nat)
       (canDecline : Bool)
+  /-- The turn-player chooses the first affected player to apply replacements (CR 6.5.2). -/
+  | chooseArcaneDamageOrder (turnPlayer controller : PlayerId) (source : ObjId)
+      (damages : List (PlayerId × Nat))
   /-- Work: offer damage prevention, apply a choice, or settle its payment. -/
   | arcaneDamage (target : PlayerId) (effects : List ReplacementEffect) (damage : ReplacementState)
       (step : ArcaneDamageStep) (combatAttack : Option ObjId := none)

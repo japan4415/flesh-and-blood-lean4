@@ -61,6 +61,8 @@ structure LayerInfo where
   modeIdx : Option Nat := none
   /-- Hero declared as a target before paying for a card-layer (CR 5.1.4a). -/
   heroTarget : Option PlayerId := none
+  /-- Second hero of an effect that declares two separate hero target slots. -/
+  secondHeroTarget : Option PlayerId := none
   /-- Resource discount attached to the permission used to play this layer from banished. -/
   banishedResourceDiscount : Nat := 0
   /-- Attack declared in target slot 0 before paying for a card-layer (CR 5.1.4a). -/

@@ -622,6 +622,22 @@ private theorem finishCombatDamage_ttr (s : GameState) (attack : ObjId) (amount 
       have withoutResult := gspRun_result_none hr
       exact withoutResult
 
+private theorem finishArcaneBatch_ttr (s : GameState) (p : PlayerId)
+    (result : ReplacementState) (batch : ArcaneDamageBatch) (rest : List Frame) :
+    let next := (finishArcaneBatch s p result batch rest).1
+    next.turn = s.turn ∧ next.tournament = s.tournament ∧ (next.result = none → s.result = none) := by
+  let board := { s with activeReplacements := keepDamageReplacements s.activeReplacements result }
+  have hb := destroyManyObjs_ttr result.destroyedSources board
+  unfold finishArcaneBatch
+  dsimp only
+  split
+  · let prevention := settleDamagePrevention s result
+    let prepared := queueRuleEventTriggers prevention.1 prevention.2
+    let completed := { batch with settled := (p, remainingDamage result.event) :: batch.settled }
+    have hd := checkHeroDefeat_ttr_core (applyArcaneBatchLosses prepared completed)
+    exact ⟨hd.1.trans hb.1, hd.2.1.trans hb.2.1, fun hr => hb.2.2 ▸ hd.2.2 hr⟩
+  · exact ⟨hb.1, hb.2.1, fun hr => hb.2.2 ▸ hr⟩
+
 private theorem finishArcaneDamage_ttr (s : GameState) (p : PlayerId)
     (effects : List ReplacementEffect) (damage : ReplacementState) (rest : List Frame)
     (attack : Option ObjId) :
@@ -630,11 +646,14 @@ private theorem finishArcaneDamage_ttr (s : GameState) (p : PlayerId)
   let result := applyReplacementStage .outcome [] effects damage
   let settled := (settleDamage s p (preventionDamageKind damage) result).1
   obtain ⟨ht, htn, hr⟩ := settleDamage_ttr s p (preventionDamageKind damage) result
-  cases attack with
-  | none => exact ⟨ht, htn, hr⟩
-  | some id =>
-    obtain ⟨ht', htn', hr'⟩ := finishCombatDamage_ttr settled id (remainingDamage result.event) rest
-    exact ⟨ht'.trans ht, htn'.trans htn, hr ∘ hr'⟩
+  unfold finishArcaneDamage
+  dsimp only
+  split
+  · exact finishArcaneBatch_ttr s p result _ rest
+  · split
+    · obtain ⟨ht', htn', hr'⟩ := finishCombatDamage_ttr settled _ (remainingDamage result.event) rest
+      exact ⟨ht'.trans ht, htn'.trans htn, hr ∘ hr'⟩
+    · exact ⟨ht, htn, hr⟩
 
 private theorem advanceArcaneDamage_ttr (s : GameState) (p : PlayerId)
     (effects : List ReplacementEffect) (damage : ReplacementState) (stage : ArcaneDamageStep)
@@ -1199,6 +1218,10 @@ theorem applyFrame_turn_tournament_result {s s' : GameState} {a : Action} {es : 
     split at h
     · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h
       unfold rollbackPlay; cases s.playRollback <;> exact ⟨rfl, rfl, rfl⟩
+    · cases h
+  · -- chooseArcaneDamageOrder pickHeroTarget
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h; obtain ⟨rfl, -⟩ := h; exact ⟨rfl, rfl, rfl⟩
     · cases h
   · -- choosePlayWeapon pickWeaponTarget
     split at h

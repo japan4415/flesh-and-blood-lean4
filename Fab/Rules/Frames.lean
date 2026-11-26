@@ -610,10 +610,14 @@ def cardPlayTargetFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromAr
     match cardWeaponTargetChoices s p card with
     | some weapons => .choosePlayWeapon p layerId fromArsenal modeIdx cost weapons
     | none =>
-      if (targets == [{ kind := .hero }] || targets == [{ kind := .opposingHero }]) &&
-          ((cardResolveEffect card modeIdx).bindHeroTarget p).isSome then
-        .choosePlayHero p layerId fromArsenal modeIdx cost
-      else pay
+      let body := cardResolveEffect card modeIdx
+      let needsPair := targets == [{ kind := .hero }, { kind := .hero }] &&
+        match body with
+        | .prim (.dealArcaneDamageToPair (.ownerOfSlot 0) (.ownerOfSlot 1) _) => true
+        | _ => false
+      let needsSingle := (targets == [{ kind := .hero }] || targets == [{ kind := .opposingHero }]) &&
+        (body.bindHeroTarget p).isSome
+      if needsPair || needsSingle then .choosePlayHero p layerId fromArsenal modeIdx cost else pay
 
 /-- Bind the unique attack target before payment. Hero targets use their existing choice frame. -/
 def cardAttackTarget? (s : GameState) (layerId : ObjId) (modeIdx : Option Nat) : Option ObjId := do
@@ -639,7 +643,10 @@ def cardLayerEffect (s : GameState) (layerId : ObjId) (info : LayerInfo) : Effec
     let effect := cardResolveEffect card info.modeIdx
     if info.weaponTarget.any (fun id => !(cardWeaponTargetChoices s info.controller card).any (·.contains id)) then
       .nop
-    else (info.heroTarget.bind effect.bindHeroTarget).getD effect
+    else match effect, info.heroTarget, info.secondHeroTarget with
+    | .prim (.dealArcaneDamageToPair (.ownerOfSlot 0) (.ownerOfSlot 1) amount), some first, some second =>
+      .prim (.dealArcaneDamageToPair (.seated first) (.seated second) amount)
+    | _, target, _ => (target.bind effect.bindHeroTarget).getD effect
 
 /-- Whether the card-layer is a defense reaction. -/
 def isDefenseReactionLayer (s : GameState) (id : ObjId) : Bool :=
@@ -986,21 +993,39 @@ def preventionDamageKind (damage : ReplacementState) : DamageKind :=
   | .damage _ kind _ _ => kind
   | _ => .arcane
 
+/-- Complete one target's prevention, committing all life changes after the last choice. -/
+def finishArcaneBatch (s : GameState) (p : PlayerId) (result : ReplacementState)
+    (batch : ArcaneDamageBatch) (rest : List Frame) : GameState × List Event :=
+  let (prepared, preventionEvents) := settleDamagePrevention s result
+  let prepared := queueRuleEventTriggers prepared preventionEvents
+  let batch := { batch with settled := (p, remainingDamage result.event) :: batch.settled }
+  if batch.remaining.isEmpty then
+    let events := batch.settled.reverse.filterMap fun (target, amount) =>
+      if amount == 0 then none else some (.damageDealt target .arcane amount)
+    let damaged := checkHeroDefeat (applyArcaneBatchLosses prepared batch)
+    let queued := queueRuleEventTriggers damaged events
+    ({ queued with pending := if damaged.result.isSome then [] else rest }, preventionEvents ++ events)
+  else
+    ({ prepared with pending := nextArcaneBatchFrame prepared batch ++ rest }, preventionEvents)
+
 /-- Finish a damage event's outcome stage, including its combat link when applicable (CR 6.4.10, 7.5). -/
 def finishArcaneDamage (s : GameState) (p : PlayerId) (effects : List ReplacementEffect)
     (damage : ReplacementState) (rest : List Frame) (attack : Option ObjId := none) : GameState × List Event :=
   let result := applyReplacementStage .outcome [] effects damage
-  let (settled, events) := settleDamage s p (preventionDamageKind damage) result
-  let finished := match attack with
-    | some id => finishCombatDamage settled id (remainingDamage result.event) rest
-    | none =>
-      let queued := queueRuleEventTriggers settled events
-      { settled with
-        pendingTriggers := queued.pendingTriggers
-        nextTimestamp := queued.nextTimestamp
-        triggeredThisTurn := queued.triggeredThisTurn
-        pending := if settled.result.isSome then [] else rest }
-  (finished, events)
+  match result.batch with
+  | some batch => finishArcaneBatch s p result batch rest
+  | none =>
+    let (settled, events) := settleDamage s p (preventionDamageKind damage) result
+    let finished := match attack with
+      | some id => finishCombatDamage settled id (remainingDamage result.event) rest
+      | none =>
+        let queued := queueRuleEventTriggers settled events
+        { settled with
+          pendingTriggers := queued.pendingTriggers
+          nextTimestamp := queued.nextTimestamp
+          triggeredThisTurn := queued.triggeredThisTurn
+          pending := if settled.result.isSome then [] else rest }
+    (finished, events)
 
 /-- Apply one prevention choice at a time so the affected player can choose its order and pitch
 to pay a barrier without gaining priority during resolution (CR 1.14.3, 6.5.1, 8.3.8). -/
@@ -1266,6 +1291,7 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
       fromArsenal := fromArsenal
       modeIdx := modeIdx
       heroTarget := (s.layerMeta.get? layerId.n).bind (·.heroTarget)
+      secondHeroTarget := (s.layerMeta.get? layerId.n).bind (·.secondHeroTarget)
       attackTarget := (s.layerMeta.get? layerId.n).bind (·.attackTarget)
       weaponTarget := (s.layerMeta.get? layerId.n).bind (·.weaponTarget)
       variableResources := (s.layerMeta.get? layerId.n).bind (·.variableResources)
@@ -1866,10 +1892,14 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
   | .choosePlayHero p layerId fromArsenal modeIdx cost :: rest, .player q, .pickHeroTarget hero =>
     if p = q ∧ hero ∈ cardPlayHeroChoices s p layerId modeIdx then
       let info := s.layerMeta.getD layerId.n { controller := p }
-      some ({ s with
-                layerMeta := s.layerMeta.insert layerId.n { info with heroTarget := some hero }
-                pending := cardPaymentFrame s p layerId fromArsenal modeIdx cost :: rest },
-            [.targetedHero layerId hero])
+      let targets := ((s.cardDefOf? layerId).map (cardPlayTargets · modeIdx)).getD []
+      let needSecond := targets.length == 2 && info.heroTarget.isNone
+      let declared := if info.heroTarget.isNone then { info with heroTarget := some hero }
+        else { info with secondHeroTarget := some hero }
+      let next : Frame := if needSecond then .choosePlayHero p layerId fromArsenal modeIdx cost
+        else cardPaymentFrame s p layerId fromArsenal modeIdx cost
+      some ({ s with layerMeta := s.layerMeta.insert layerId.n declared, pending := next :: rest },
+        [.targetedHero layerId hero])
     else
       none
   | .choosePlayHero p _ _ _ _ :: rest, .player q, .cancelPlay =>
@@ -1877,6 +1907,13 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
       some (rollbackPlay s rest, [])
     else
       none
+  | .chooseArcaneDamageOrder p controller source damages :: rest, .player q, .pickHeroTarget hero =>
+    if p = q ∧ hero ∈ damages.map Prod.fst then
+      let remaining := damages.filter (fun damage => damage.1 == hero) ++
+        damages.filter (fun damage => damage.1 != hero)
+      let batch : ArcaneDamageBatch := { controller, source, remaining }
+      some ({ s with pending := nextArcaneBatchFrame s batch ++ rest }, [])
+    else none
   | .choosePlayWeapon p layerId fromArsenal modeIdx cost candidates :: rest, .player q, .pickWeaponTarget id =>
     if p = q ∧ id ∈ candidates then
       let info := s.layerMeta.getD layerId.n { controller := p }

@@ -364,6 +364,16 @@ theorem progress_choosePlayHero {s : GameState} (hres : s.result = none)
   rw [legalActions_iff]
   exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp])⟩, rfl⟩
 
+/-- **I5**: an affected hero provides a legal answer to an arcane replacement order choice. -/
+theorem progress_chooseArcaneDamageOrder {s : GameState} (hres : s.result = none)
+    {p controller hero : PlayerId} {source : ObjId} {damage : Nat} {damages : List (PlayerId × Nat)}
+    {rest : List Frame} (hp : s.pending = .chooseArcaneDamageOrder p controller source damages :: rest)
+    (hhero : (hero, damage) ∈ damages) : ∃ a ∈ legalActions s, a.kind ≠ .concede := by
+  refine ⟨⟨.player p, .pickHeroTarget hero⟩, ?_, by simp⟩
+  rw [legalActions_iff]
+  have htarget : hero ∈ damages.map Prod.fst := List.mem_map_of_mem hhero
+  exact ⟨⟨hres, Or.inl (by simp [LegalFrame, hp, htarget])⟩, rfl⟩
+
 end Fab
 
 end

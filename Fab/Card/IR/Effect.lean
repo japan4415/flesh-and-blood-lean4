@@ -171,6 +171,8 @@ inductive Prim where
   | discardChoice (p : PlayerRef) (f : CardFilter) (n : NumExpr)
   /-- Deal `n` damage of kind `kind` to player `p`'s hero (CR 7.5, 8.5.3). -/
   | dealDamage (kind : DamageKind) (p : PlayerRef) (n : NumExpr)
+  /-- Deal arcane damage to two declared heroes simultaneously. Targets may repeat. -/
+  | dealArcaneDamageToPair (first second : PlayerRef) (amount : Nat)
   /-- Player `p` gains `n` life `{h}` (CR 8.5). -/
   | gainLife (p : PlayerRef) (n : NumExpr)
   /-- Player `p` loses `n` life `{h}`. -/
@@ -412,7 +414,7 @@ mutual
 
 /-- Whether resolving this effect can deal arcane damage from its source. -/
 def Effect.hasArcaneDamage : Effect → Bool
-  | .prim (.dealDamage .arcane _ _) => true
+  | .prim (.dealDamage .arcane _ _) | .prim (.dealArcaneDamageToPair _ _ _) => true
   | .seq effects | .chooseOne effects => effects.hasArcaneDamage
   | .ifThen _ first second | .may first second
   | .discardTopOfHand _ _ first second | .discardChosen _ _ _ first second =>

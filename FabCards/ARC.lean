@@ -807,6 +807,15 @@ def ARC_119_Y : CardDef :=
     front := { Meta.ARC_119_Y_meta.front with playEffect := some effect }
     status := .full }
 
+/-- Forked Lightning (ARC120). -/
+def ARC_120_R : CardDef :=
+  let effect : EffectDef :=
+    { targets := [{ kind := .hero }, { kind := .hero }]
+      body := .prim (.dealArcaneDamageToPair (.ownerOfSlot 0) (.ownerOfSlot 1) 2) }
+  { Meta.ARC_120_R_meta with
+    front := { Meta.ARC_120_R_meta.front with playEffect := some effect }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -824,7 +833,7 @@ def arcCards : List CardDef :=
    ARC_103_R, ARC_104_Y, ARC_105_B,
    ARC_106_R, ARC_107_Y, ARC_108_B,
    ARC_109_R, ARC_110_Y, ARC_111_B,
-   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R, ARC_119_Y]
+   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R, ARC_119_Y, ARC_120_R]
 
 end FabCards.ARC
 

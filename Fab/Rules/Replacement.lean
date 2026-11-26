@@ -94,6 +94,18 @@ def ReplacementEffect.isMandatory (e : ReplacementEffect) : Bool :=
   | .wardPrevent _ => true
   | _ => !e.optional
 
+/-- Arcane damage to multiple heroes whose life totals change together (CR 4.5.3a). -/
+structure ArcaneDamageBatch where
+  /-- Player controlling the effect that initiated the batch. -/
+  controller : PlayerId
+  /-- Source of the effect credited with the resulting damage. -/
+  source : ObjId
+  /-- Targets whose proposed damage still needs to pass through replacement effects. -/
+  remaining : List (PlayerId × Nat)
+  /-- Final damage amounts waiting for simultaneous application. -/
+  settled : List (PlayerId × Nat) := []
+deriving DecidableEq, Repr
+
 /-- State threaded through the 4-stage replacement pipeline (CR 6.4-6.5). -/
 structure ReplacementState where
   /-- Current (possibly modified) proposed event. -/
@@ -114,6 +126,8 @@ structure ReplacementState where
   lifeGained : Nat := 0
   /-- Controller and source object of a proposed damage event, preserved through prevention. -/
   damageSource : Option (PlayerId × ObjId) := none
+  /-- Deferred life changes when this is part of simultaneous arcane damage. -/
+  batch : Option ArcaneDamageBatch := none
 deriving DecidableEq, Repr
 
 /-- Whether replacement effect `e` is currently eligible to apply to `st` at `stage`

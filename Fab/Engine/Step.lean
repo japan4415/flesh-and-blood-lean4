@@ -89,6 +89,8 @@ def legalFrameActions (s : GameState) : List Action :=
   | .choosePlayHero p layerId _ modeIdx _ :: _ =>
     ((cardPlayHeroChoices s p layerId modeIdx).map fun hero => ⟨.player p, .pickHeroTarget hero⟩) ++
       [⟨.player p, .cancelPlay⟩]
+  | .chooseArcaneDamageOrder p _ _ damages :: _ =>
+    (damages.map Prod.fst).map fun hero => ⟨.player p, .pickHeroTarget hero⟩
   | .choosePlayWeapon p _ _ _ _ candidates :: _ =>
     candidates.map (fun id => ⟨.player p, .pickWeaponTarget id⟩) ++ [⟨.player p, .cancelPlay⟩]
   | .choosePitch p _ _ _ _ :: _ =>
