@@ -30,8 +30,8 @@ def LegalFrame (s : GameState) (a : Action) : Prop :=
     z.Valid s.playerCount ∧ l.Perm (s.zone z)
   | .priority p _ :: _, .player q, .pass =>
     q = p
-  | .priority p _ :: _, .player q, .playCard id =>
-    q = p ∧ canPlayCard s p id = true
+  | .priority p _ :: _, .player q, .playCard id asInstant =>
+    q = p ∧ canPlayCard s p id asInstant = true
   | .priority p _ :: _, .player q, .attackWeapon wid =>
     q = p ∧ canAttackWithWeapon s p wid = true
   | .priority p _ :: _, .player q, .activateAbility source index target secondTarget =>

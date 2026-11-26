@@ -342,6 +342,8 @@ inductive ContinuousMod where
   | addTokenCreation (token : CardId) (amount : Nat)
   /-- Increase the arcane damage dealt by the next eligible card played this turn. -/
   | addToNextArcaneCard (amount : Nat)
+  /-- Permit the next matching action card to be played as though it were an instant. -/
+  | nextCardAsInstant (filter : CardFilter)
   /-- Grant a keyword such as `goAgain` or `dominate`. -/
   | grantKeyword (kw : KeywordInst)
   /-- Grant a triggered ability to the affected object(s) (Pummel, Razor Reflex, Whelming Gustwave, Steelblade Supremacy). -/

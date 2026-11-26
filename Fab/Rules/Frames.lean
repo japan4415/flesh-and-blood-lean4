@@ -336,6 +336,14 @@ def canPlayFromBanished (s : GameState) (p : PlayerId) (id : ObjId)
         !asInstant && attack.all (fun source => ((s.combat.bind CombatChain.activeLink?).bind (·.attack)) == some source)
       | _ => false
 
+/-- Whether this effect applies to the player's next matching action card (CR 8.1.1d). -/
+def ContinuousEffect.appliesNextInstant (effect : ContinuousEffect) (p : PlayerId) (face : CardFace) :
+    Bool :=
+  effect.target == .player p && !effect.waitsForNextTurn && face.hasType .action &&
+    match effect.op with
+    | .nextCardAsInstant filter => cardFaceMatches filter face
+    | _ => false
+
 /-- Whether player `p` may announce playing card `id` from an allowed zone while holding priority
 (CR 5.1.1, 4.3, 3.2.2, 7.1, 7.4, 7.6).
 - Instants: playable anytime on priority.
@@ -343,7 +351,7 @@ def canPlayFromBanished (s : GameState) (p : PlayerId) (id : ObjId)
   Action cards) in Resolution Step to continue a combat chain.
 - Attack Reactions: Reaction Step as the attacking player (CR 7.4).
 - Defense Reactions: Reaction Step as the defending player, respecting Dominate from hand (CR 7.4, 8.3.4). -/
-def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
+def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) (asInstant : Bool := false) : Bool :=
   let fromHand := id ∈ s.zone (.player p .hand)
   let fromArsenal := id ∈ s.zone (.player p .arsenal)
   if fromHand || fromArsenal || canPlayFromBanished s p id then
@@ -362,11 +370,13 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
         else true
       let arsenalRequired := s.activeEffects.any fun effect =>
         effect.target == .player p && effect.op == .onlyPlayFromArsenal && !effect.waitsForNextTurn
-      if !c.isDeckCard || !meetsRequirement || !arrowAllowed || (arsenalRequired && !fromArsenal) then
+      let hasTimingPermission := s.activeEffects.any (·.appliesNextInstant p c.front)
+      if !c.isDeckCard || !meetsRequirement || !arrowAllowed || (arsenalRequired && !fromArsenal) ||
+          (asInstant && !hasTimingPermission) then
         false
       else if c.front.hasType .instant then
         true
-      else if c.front.hasType .action && canPlayFromBanished s p id true then
+      else if c.front.hasType .action && (asInstant || canPlayFromBanished s p id true) then
         s.canTakeAction p && (cardWeaponTargetChoices s p c).all (fun targets => !targets.isEmpty)
       else if c.front.hasType .action then
         let chainOk :=
@@ -1245,6 +1255,8 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
   let remainingEffects := if card.any (cardAnnouncedArcaneDamage · modeIdx) then
     bindNextArcaneCard remainingEffects p layerId else remainingEffects
+  let remainingEffects := remainingEffects.filter fun effect =>
+    !card.any (fun c => effect.appliesNextInstant p c.front)
   let isAction := card.any (fun c => c.front.hasType .action) ||
     (s.obj? layerId).any (fun obj => match obj.kind with | .attackProxy _ _ => true | _ => false)
   let remainingEffects := if isAction then effectsAfterPayingAction remainingEffects p
@@ -1715,15 +1727,15 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
         some ({ s with pending := .resolveStack :: rest }, [])
     else
       none
-  | .priority p _ :: rest, .player q, .playCard id =>
-    if p = q ∧ canPlayCard s p id = true then
+  | .priority p _ :: rest, .player q, .playCard id asInstant =>
+    if p = q ∧ canPlayCard s p id asInstant = true then
       let fromArsenal := id ∈ s.zone (.player p .arsenal)
       let srcZone := (s.locate id).getD (.player p .hand)
       let snap := s.snapshot
       let printedCost := match s.cardDefOf? id with
         | some c => modifiedCardPlayCost s p c
         | none => {}
-      let cost := if canPlayFromBanished s p id true then
+      let cost := if asInstant || canPlayFromBanished s p id true then
           { printedCost with actionPoints := 0 }
         else printedCost
       let modes := match s.cardDefOf? id with | some c => cardModeCount c | none => 0

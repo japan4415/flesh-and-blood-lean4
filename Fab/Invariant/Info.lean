@@ -352,8 +352,8 @@ theorem HiddenEquiv.linkHasKeyword_eq_of_ne_goAgain {p : PlayerId} {s1 s2 : Game
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canPlayCard s p id`. -/
 theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : HiddenEquiv p s1 s2)
-    (id : ObjId) :
-    canPlayCard s1 p id = canPlayCard s2 p id := by
+    (id : ObjId) (asInstant : Bool := false) :
+    canPlayCard s1 p id asInstant = canPlayCard s2 p id asInstant := by
   have hh : s1.zone (.player p .hand) = s2.zone (.player p .hand) :=
     h.visibleZones _ (by simp [Zone.isSecretTo])
   have ha : s1.zone (.player p .arsenal) = s2.zone (.player p .arsenal) :=
@@ -572,10 +572,14 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                 h.visibleZones _ (by simp [Zone.isSecretTo])
               have hcards : playCardCandidateIds s1 q = playCardCandidateIds s2 q := by
                 simp only [playCardCandidateIds, hh, ha, hb]
-              have hplay : canPlayCard s1 q = canPlayCard s2 q := funext h.canPlayCard_eq
               have hwep : canAttackWithWeapon s1 q = canAttackWithWeapon s2 q :=
                 funext h.canAttackWithWeapon_eq
-              rw [hcards, h.weaponAttackCandidateIds_eq, hplay, hwep, h.availableActivations_eq]
+              have hplay :
+                  (fun play : ObjId × Bool => canPlayCard s1 q play.1 play.2) =
+                    (fun play : ObjId × Bool => canPlayCard s2 q play.1 play.2) := by
+                funext play
+                exact h.canPlayCard_eq play.1 play.2
+              rw [hcards, h.weaponAttackCandidateIds_eq, hwep, h.availableActivations_eq, hplay]
             · have hne : (Actor.player q == Actor.player p) = false := by simp [hqp]
               simp only [List.filter_cons, hne, List.filter_append]
               have hnil : ∀ {α : Type} (l : List α) (g : α → ActionKind),
