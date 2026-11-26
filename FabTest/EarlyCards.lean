@@ -4484,6 +4484,11 @@ meta def ferventForerunnerScenario (card : String) (power : Nat) (fromArsenal : 
 #guard ferventForerunnerScenario "ARC_182_R" 3 false == some true
 #guard ferventForerunnerScenario "ARC_182_R" 3 true == some true
 
+#guard ((earlyPrintingCardId? "ARC183").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 2 && card.front.pitch == some 2 && card.status == .full)
+#guard ferventForerunnerScenario "ARC_183_Y" 2 false == some true
+#guard ferventForerunnerScenario "ARC_183_Y" 2 true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
