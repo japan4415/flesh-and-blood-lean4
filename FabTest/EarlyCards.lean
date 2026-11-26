@@ -3983,6 +3983,59 @@ meta def pursuitOfKnowledgeScenario : Option Bool := do
 
 #guard pursuitOfKnowledgeScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC162").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .aura && card.status == .full)
+
+meta def chainsOfEminenceScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let (withAura, aura) ← earlyPlace { earlyBase with cards := throughArcDB } p hand "ARC_162_R"
+  let (withRed, red) ← earlyPlace withAura p hand "WTR_203_R"
+  let (withYellow, yellow) ← earlyPlace withRed p hand "WTR_204_Y"
+  let (withOther, other) ← earlyPlace withYellow p hand "ARC_161_B"
+  let (ready, attacker) ← earlyPlace withOther q (.player q .hand) "ARC_161_B"
+  let ready := ready.setPool q { actionPoints := 1, resources := 2 }
+  let entered ← earlySteps ready (⟨.player p, .playCard aura⟩ :: earlyPass)
+  let source ← (entered.zone (.player p .permanent)).head?
+  let entry ← entered.pendingTriggers.find? (·.source == source)
+  let stacked ← earlySteps entered
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger entry.id⟩]
+  let choosing ← earlySteps stacked earlyPass
+  let .chooseModal chooser origin _ _ choices :: _ := choosing.pending | none
+  let name := "Wounding Blow"
+  let selected : Effect := .prim (.restrictNamedCard (some name))
+  let index := choices.idxOf selected
+  let (restricted, events) ← (step 64 choosing ⟨.player p, .pickMode index⟩).toOption
+  let arsenaled ← earlySteps { restricted with pending := [.chooseArsenal p] }
+    [⟨.player p, .arsenalPut red⟩]
+  let (opponentTurn, _) ← (advance 64
+    { restricted with active := some q, pending := [.actionPhaseStart q] } []).toOption
+  let qPass : List Action := [⟨.player q, .pass⟩, ⟨.player p, .pass⟩]
+  let attacked ← earlySteps opponentTurn (⟨.player q, .playCard attacker⟩ :: qPass ++ qPass)
+  let (ourTurn, _) ← (advance 64
+    { restricted with active := some p, pending := [.actionPhaseStart p] } []).toOption
+  let expiration ← ourTurn.pendingTriggers.find? (·.source == source)
+  let ending ← earlySteps ourTurn
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger expiration.id⟩]
+  let expired ← earlySteps ending earlyPass
+  pure (chooser == p && origin == source && choices.contains selected &&
+    (choices.filter (· == selected)).length == 1 && events.contains (.namedCard p name) &&
+    !choosing.isCardNameRestricted red && canPitchCard choosing p red &&
+    restricted.isCardNameRestricted red && restricted.isCardNameRestricted yellow &&
+    !canPlayCard restricted p red && !canPlayCard restricted p yellow &&
+    !canPitchCard restricted p red && !canPitchCard restricted p yellow &&
+    canPlayCard restricted p other && canPitchCard restricted p other &&
+    (arsenaled.zone (.player p .arsenal)).length == 1 &&
+    opponentTurn.locate source == some (.player p .permanent) &&
+    !(legalActions attacked).contains ⟨.player p, .defendCard red⟩ &&
+    !(legalActions attacked).contains ⟨.player p, .defendCard yellow⟩ &&
+    (legalActions attacked).contains ⟨.player p, .defendCard other⟩ &&
+    (expired.zone (.player p .permanent)).isEmpty &&
+    canPlayCard expired p red && canPitchCard expired p yellow)
+
+#guard chainsOfEminenceScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

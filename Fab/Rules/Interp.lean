@@ -1158,6 +1158,22 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
     let choices := names.map fun name => Effect.prim (.openBoosters (some name))
     if choices.isEmpty then (s, [], [])
     else (s, [], [.chooseModal ctrl src false env choices])
+  | .restrictNamedCard none =>
+    let names := (s.cards.cards.flatMap fun card =>
+      card.front.name :: (card.back.map (·.name)).toList ++ (card.splitRight.map (·.name)).toList).eraseDups
+    let choices := names.filterMap fun name =>
+      if name.isEmpty then none else some (Effect.prim (.restrictNamedCard (some name)))
+    if choices.isEmpty then (s, [], []) else (s, [], [.chooseModal ctrl src false env choices])
+  | .restrictNamedCard (some name) =>
+    let declared := [Event.namedCard ctrl name]
+    if ((activationArenaZones s).flatMap s.zone).contains src then
+      let effect : ContinuousEffect :=
+        { id := s.nextTimestamp, source := src, controller := ctrl
+          target := .obj src, op := .restrictCardName name
+          duration := .whileSourceInArena, timestamp := ⟨s.nextTimestamp⟩ }
+      ({ s with activeEffects := s.activeEffects ++ [effect], nextTimestamp := s.nextTimestamp + 1 },
+        declared, [])
+    else (s, declared, [])
   | .openBoosters (some name) =>
     match s.unopenedBoosters.find? (fun pack => pack.1 == ctrl) with
     | none => (s, [], [])
@@ -1546,6 +1562,10 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     (execPrim s ctrl src env p).1.config = s.config ∧
     (execPrim s ctrl src env p).1.playRollback = s.playRollback := by
   cases p with
+  | restrictNamedCard name =>
+    cases name <;> (unfold execPrim; dsimp only; split <;>
+      exact ⟨GameState.WF.congr hwf rfl rfl rfl rfl,
+        GameState.OwnerOk.congr hok rfl rfl, List.Perm.refl _, rfl, rfl⟩)
   | draw _ _ | opt _ _ | optValue _ _ | weaponAttack | closeCombatChain | createTokenForAttackDamage _ _ =>
     exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | openBoosters name =>
@@ -1881,6 +1901,8 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (execPrim s ctrl src env p).1.tournament = s.tournament ∧
     ((execPrim s ctrl src env p).1.result = none → s.result = none) := by
   cases p with
+  | restrictNamedCard name =>
+    cases name <;> (unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩)
   | draw _ _ | opt _ _ | optValue _ _ | weaponAttack | closeCombatChain | createTokenForAttackDamage _ _
   | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
     exact ⟨rfl, rfl, id⟩

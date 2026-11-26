@@ -395,7 +395,8 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) (asInstant : Bool :=
       let arsenalRequired := s.activeEffects.any fun effect =>
         effect.target == .player p && effect.op == .onlyPlayFromArsenal && !effect.waitsForNextTurn
       let hasTimingPermission := s.activeEffects.any (·.appliesNextInstant p c.front)
-      if !c.isDeckCard || !meetsRequirement || !arrowAllowed || (arsenalRequired && !fromArsenal) ||
+      if s.isCardNameRestricted id || !c.isDeckCard || !meetsRequirement ||
+          !arrowAllowed || (arsenalRequired && !fromArsenal) ||
           (asInstant && !hasTimingPermission) then
         false
       else if c.front.hasType .instant then

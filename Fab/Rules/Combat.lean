@@ -213,7 +213,7 @@ def canDefendWith (s : GameState) (link : ChainLink) (p : PlayerId) (id : ObjId)
     match s.objectFace? id with
     | none => false
     | some face =>
-      if face.defense.isNone || face.hasType .defenseReaction then
+      if s.isCardNameRestricted id || face.defense.isNone || face.hasType .defenseReaction then
         false
       else if fromArsenal && !cardFaceMatches .attackAction face then
         false

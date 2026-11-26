@@ -204,7 +204,7 @@ def canPitchCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
     | some o =>
       match s.activeFace? o with
       | none => false
-      | some face => face.pitch.isSome
+      | some face => face.pitch.isSome && !s.isCardNameRestricted id
   else
     false
 

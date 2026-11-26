@@ -186,6 +186,8 @@ inductive EffectOp where
   | nextNonAttackActionGoAgain
   /-- Permit the affected player to defend with attack action cards in their arsenal. -/
   | allowAttackActionDefendFromArsenal
+  /-- Cards with this name cannot be pitched, played, or defend while the source is in the arena. -/
+  | restrictCardName (name : String)
   /-- Increase arcane damage dealt by the attached source. -/
   | addArcaneDamageFromSource (amount : Nat)
   /-- Stage 7: set base power `{p}` to `v` (CR 6.3.2g). -/
@@ -220,6 +222,7 @@ deriving DecidableEq, Repr
 
 /-- Which of the 8 stages an `EffectOp` belongs to (CR 6.3.2). -/
 def EffectOp.stage : EffectOp → EffectStage
+  | .restrictCardName _ => .stage6Ability
   | .allowAttackActionDefendFromArsenal => .stage6Ability
   | .copyFace _ => .stage1Copy
   | .setController _ => .stage2Controller
@@ -236,6 +239,7 @@ def EffectOp.stage : EffectOp → EffectStage
 
 /-- Which sub-stage within its stage an `EffectOp` belongs to (CR 6.3.3). -/
 def EffectOp.subStage : EffectOp → SubStage
+  | .restrictCardName _ => .restrict
   | .allowAttackActionDefendFromArsenal => .add
   | .lockPower | .cantDrawCards | .cantGainGoAgain | .limitActions _ | .onlyPlayFromArsenal => .restrict
   | .copyFace _ | .setController _ | .setName _ | .setColor _ | .setSubtypes _
@@ -253,6 +257,7 @@ def insertUnique {α : Type} [BEq α] (x : α) (xs : List α) : List α :=
 /-- Apply one `EffectOp` to a `DerivedChars` value (CR 6.3.2). -/
 def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
   match op with
+  | .restrictCardName _ => c
   | .allowAttackActionDefendFromArsenal => c
   | .copyFace face =>
     { c with
