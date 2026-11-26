@@ -137,6 +137,10 @@ def CombatChain.prevLink? (cc : CombatChain) : Option ChainLink :=
   | _ :: prev :: _ => some prev
   | _ => none
 
+/-- Read the link immediately before the specified attack on this combat chain (CR 3.5.4). -/
+def CombatChain.prevLinkOf? (cc : CombatChain) (attack : ObjId) : Option ChainLink :=
+  ((cc.links.dropWhile (fun link => link.attack != some attack)).drop 1).head?
+
 /-- Replace the active (head) chain link of a combat chain. -/
 def CombatChain.updateActiveLink (cc : CombatChain) (f : ChainLink → ChainLink) : CombatChain :=
   match cc.links with

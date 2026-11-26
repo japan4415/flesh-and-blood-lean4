@@ -640,6 +640,8 @@ def conditionalSelfStaticEffects (s : GameState) (id : ObjId) (obj : Object)
       some (Condition.lessLifeThanOpponent, EffectOp.grantKeyword keyword)
     | .static_ (some .playedFromArsenal) .self_ (.grantKeyword keyword) =>
       some (Condition.playedFromArsenal, EffectOp.grantKeyword keyword)
+    | .static_ (some .precedingAttackHit) .self_ (.addPower (.const amount)) =>
+      some (Condition.precedingAttackHit, EffectOp.addPower amount)
     | _ => none
   if modifiers.isEmpty || obj.faceDown then []
   else
@@ -653,6 +655,8 @@ def conditionalSelfStaticEffects (s : GameState) (id : ObjId) (obj : Object)
           | .playedFromArsenal =>
             s.stackPlayFromArsenal id || s.combat.any fun chain =>
               chain.links.any (fun link => link.attack == some id && link.playedFromArsenal)
+          | .precedingAttackHit =>
+            (s.combat.bind (·.prevLinkOf? id)).any (·.hit)
           | _ => false
         if applies then some op else none
       let firstId := effects.foldl (fun next effect => max next (effect.id + 1)) 0

@@ -256,6 +256,8 @@ inductive Condition where
   | always
   /-- `Combo`: previous chain link attack had name `name` (CR 8.3.6). -/
   | prevChainLinkNamed (name : String)
+  /-- The attack immediately before the source on this combat chain hit (CR 3.5.4, 7.5.3). -/
+  | precedingAttackHit
   /-- True for the source attack when its current link is at least this number. -/
   | chainLinkAtLeast (minimum : Nat)
   /-- `Reprise`: defending hero defended with a card from hand this chain link (CR 8.3.8). -/

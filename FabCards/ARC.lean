@@ -1210,6 +1210,15 @@ def ARC_186_Y : CardDef := { moonWish Meta.ARC_186_Y_meta with status := .full }
 /-- Moon Wish Blue (ARC187). -/
 def ARC_187_B : CardDef := { moonWish Meta.ARC_187_B_meta with status := .full }
 
+/-- Apply the power bonus while the preceding attack on this combat chain is a hit. -/
+def pushThePoint (base : CardDef) : CardDef :=
+  let face := { base.front with
+    abilities := [.static_ (some .precedingAttackHit) .self_ (.addPower (.const 2))] }
+  { base with front := face }
+
+/-- Push the Point Red (ARC188). -/
+def ARC_188_R : CardDef := { pushThePoint Meta.ARC_188_R_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1242,7 +1251,7 @@ def arcCards : List CardDef :=
    ARC_160_Y, ARC_161_B, ARC_162_R, ARC_163_B, ARC_164_R, ARC_165_Y, ARC_166_B, ARC_167_R,
    ARC_168_Y, ARC_169_B, ARC_170_R, ARC_171_Y, ARC_172_B, ARC_173_R,
    ARC_174_Y, ARC_175_B, ARC_176_R, ARC_177_Y, ARC_178_B, ARC_179_R, ARC_180_Y, ARC_181_B,
-   ARC_182_R, ARC_183_Y, ARC_184_B, ARC_185_R, ARC_186_Y, ARC_187_B]
+   ARC_182_R, ARC_183_Y, ARC_184_B, ARC_185_R, ARC_186_Y, ARC_187_B, ARC_188_R]
 
 end FabCards.ARC
 

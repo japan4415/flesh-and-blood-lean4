@@ -822,7 +822,17 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
     layerMeta := s2.layerMeta.erase layerId.n }
   let conditionalGoAgain := newLink.playedFromArsenal &&
     (s3.characteristics atkId).any (fun chars => chars.keywords.contains .goAgain)
+  let captured :=
+    if prevLinks.head?.any (·.hit) &&
+        (s3.objectFace? atkId).any (fun face => face.abilities.any fun
+          | .static_ (some .precedingAttackHit) .self_ (.addPower (.const _)) => true
+          | _ => false) then
+      match s3.characteristics atkId with
+      | some chars => { lki with power := chars.power.map (· - Int.ofNat lki.plusPowerCounters) }
+      | none => lki
+    else lki
   let entered := { newLink with
+    attackLki := captured
     conditionalGoAgainAtEntry := conditionalGoAgain }
   let combat : CombatChain := { step := .attack, links := entered :: prevLinks }
   ({ s3 with combat := some combat }, atkId, esWep ++ esAtk)
