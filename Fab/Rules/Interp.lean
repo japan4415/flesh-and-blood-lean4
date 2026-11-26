@@ -991,11 +991,11 @@ def damagePreventionFrame? (s : GameState) (p : PlayerId) (kind : DamageKind) (a
     let candidates := effects.filter fun effect =>
       let offeredEnergy := max (preventionResourceCost effect) (s.poolOf p).totalEnergy
       effect.eligible .prevention { damage with availResources := offeredEnergy }
-    let hasSingleUse := candidates.any fun effect =>
+    let canRequireOrder := candidates.any fun effect =>
       match effect.action with
-      | .fixedPrevent _ | .wardPrevent _ => true
+      | .fixedPrevent _ | .wardPrevent _ | .shieldPrevent _ (some _) => true
       | _ => false
-    if batch.isSome || !barriers.isEmpty || (hasSingleUse && candidates.length > 1) then
+    if batch.isSome || !barriers.isEmpty || (canRequireOrder && candidates.length > 1) then
       some (.arcaneDamage p effects damage .offer attack)
     else none
 
@@ -1530,7 +1530,7 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         | none => (s, revealed, [])
       else
         (s, revealed, [])
-  | .preventNextDamage pref n _ | .preventDamageOnce pref n =>
+  | .preventNextDamage pref n _ _ | .preventDamageOnce pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := clampNonNeg (evalNumExpr s ctrl env n (some src))
     if amt = 0 then
@@ -1542,8 +1542,8 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
           controller := target
           stage := .prevention
           action := match p with
-            | .preventDamageOnce _ _ => .fixedPrevent amt
-            | _ => .shieldPrevent amt
+            | .preventNextDamage _ _ _ onlyKind => .shieldPrevent amt onlyKind
+            | _ => .fixedPrevent amt
           optional := false }
       ({ s with
           activeReplacements := s.activeReplacements ++ [re]
@@ -1872,7 +1872,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
           exact ⟨moveObj_wf hwf hm, moveObj_ownerOk hwf hok hm,
                  moveObj_physIds hwf hm, hmeta.1, hmeta.2⟩
       · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-  | preventNextDamage pref n _ | preventDamageOnce pref n =>
+  | preventNextDamage pref n _ _ | preventDamageOnce pref n =>
     unfold execPrim; dsimp only
     split
     · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
@@ -2171,7 +2171,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
           have h := moveObj_ttr_core hm
           exact ⟨h.1, h.2.1, fun hr => h.2.2 ▸ hr⟩
       · exact ⟨rfl, rfl, id⟩
-  | preventNextDamage _ _ _ | preventDamageOnce _ _ =>
+  | preventNextDamage _ _ _ _ | preventDamageOnce _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | charge pref =>
     unfold execPrim; dsimp only
