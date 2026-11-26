@@ -2744,6 +2744,10 @@ meta def readRunesScenario (name : String) (count : Nat) : Option Bool := do
 #guard readRunesScenario "ARC_110_Y" 2 == some true
 #guard readRunesScenario "ARC_111_B" 1 == some true
 
+#guard ((earlyPrintingCardId? "ARC112-T").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .token && card.front.hasSubtype .aura && card.status == .full)
+#guard (throughArcDB.cards.filter (fun card => card.id == ⟨"ARC_112"⟩)).length == 1
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
