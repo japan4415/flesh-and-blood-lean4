@@ -4036,6 +4036,45 @@ meta def chainsOfEminenceScenario : Option Bool := do
 
 #guard chainsOfEminenceScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC163").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .item && card.front.defense.isNone &&
+    card.front.keywords == [.arcaneBarrier 1] && card.status == .full)
+
+meta def rustedRelicScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let arena := Zone.player p .permanent
+  let (withRelic, relic) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) "ARC_163_B"
+  let (withHood, hood) ← earlyPlace withRelic p (.player p .head) "ARC_155"
+  let (ready, spell) ← earlyPlace withHood q (.player q .hand) "ARC_147_R"
+  let playRelic : Action := ⟨.player p, .playCard relic⟩
+  let played ← earlySteps ready (playRelic :: earlyPass)
+  let item ← (played.zone arena).head?
+  let funded := (played.setPool p { resources := 2 }).setPool q { actionPoints := 1, resources := 2 }
+  let incoming := { funded with active := some q, pending := [.priority q 0] }
+  let qPass : List Action := [⟨.player q, .pass⟩, ⟨.player p, .pass⟩]
+  let cast ← earlySteps incoming
+    ([⟨.player q, .playCard spell⟩, ⟨.player q, .pickHeroTarget p⟩] ++ qPass)
+  let .chooseReplacement chooser .prevention [a, b] true :: _ := cast.pending | none
+  let pay (id : Nat) : Action := ⟨.player p, .pickReplacement (some id)⟩
+  let once ← earlySteps cast [pay a]
+  let twice ← earlySteps once [pay b]
+  let hidden := updateSingleObject played item (fun obj => { obj with faceDown := true })
+  let destroyed := (execPrim played p item [] (.destroy .self_)).1
+  let sources := (arcaneBarrierEffects played p).map (·.source)
+  pure ((arcaneBarrierEffects ready p).map (·.source) == [hood] &&
+    (played.poolOf p).actionPoints + 1 == (ready.poolOf p).actionPoints &&
+    (played.poolOf p).resources == (ready.poolOf p).resources && played.locate item == some arena &&
+    sources.length == 2 && sources.contains item && sources.contains hood &&
+    chooser == p && !(legalActions once).contains (pay a) &&
+    twice.lifeOf p == ready.lifeOf p - 3 && (twice.poolOf p).resources == 0 &&
+    twice.zone arena == [item] &&
+    (arcaneBarrierEffects hidden p).map (·.source) == [hood] &&
+    (arcaneBarrierEffects destroyed p).map (·.source) == [hood])
+
+#guard rustedRelicScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
