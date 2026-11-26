@@ -4,10 +4,12 @@ import Fab.Rules.Setup
 import FabCards.Booster
 import FabCards.Draft
 import FabCards.ThroughArc
+import FabDriver.BrowserSwiss
 meta import Fab.Rules.Setup
 meta import FabCards.Booster
 meta import FabCards.Draft
 meta import FabCards.ThroughArc
+meta import FabDriver.BrowserSwiss
 
 /-!
 # Booster Draft regression tests
@@ -167,5 +169,73 @@ private def openAndDraftWtr : Except Error Bool := do
     picks.length == 45 && picks.count heart == 3 && !picks.contains token
 
 #guard openAndDraftWtr.toOption == some true
+
+private def browserDuel : Option Bool := do
+  let hero := "WTR_039"
+  let brute : CardId := ⟨"WTR_005"⟩
+  let done ← (draftAll throughArcDB wtrDraft .optional (sameBoosters (List.replicate 15 brute))).toOption
+  let duel ← FabDriver.startBrowserDuel done 0 1 hero hero 17
+  let move (duel : FabDriver.BrowserDuel) (p : PlayerId) (kind : ActionKind) := do
+    let (_, index) ← (legalActionsFor p duel.game).zipIdx.find? fun (action, _) => action.kind == kind
+    FabDriver.browserDuelMove duel (UInt32.ofNat p.n) (UInt32.ofNat index)
+  let .player chooser ← (legalFrameActions duel.game).head?.map (·.actor) | none
+  let duel ← move duel chooser (.pickFirstPlayer ⟨0⟩)
+  let complete (duel : FabDriver.BrowserDuel) (p : PlayerId) := do
+    let fill := (legalActionsFor p duel.game).length
+    let duel ← FabDriver.browserDuelMove duel (UInt32.ofNat p.n) (UInt32.ofNat fill)
+    move duel p .loadoutDone
+  let duel ← complete duel ⟨0⟩
+  let duel ← complete duel ⟨1⟩
+  let firstView := (FabDriver.browserDuelView duel 0).splitOn "\n"
+  let secondView := (FabDriver.browserDuelView duel 1).splitOn "\n"
+  let hidden (rows : List String) :=
+    rows.contains "z\topponent.hand\t4\t" && rows.contains "z\tself.deck\t26\t"
+  let finished ← move duel ⟨1⟩ .concede
+  return done.phase == .complete && duel.game.phase == .actionPhase &&
+    hidden firstView && hidden secondView &&
+    (FabDriver.browserDuelMove duel 0 0xffffffff).isNone &&
+    finished.game.result == some (.won [⟨0⟩])
+
+#guard browserDuel == some true
+
+private def closeRound (event : DraftSwiss.State) (result : GameResult) : Option DraftSwiss.State :=
+  (List.range 4).foldlM (fun state table => state.record table result) event
+
+private def noRematches (event : DraftSwiss.State) : Bool :=
+  let rounds := event.previous ++ [event.current]
+  let everySeatPlays := rounds.all fun round =>
+    (round.flatMap fun table => [table.first, table.second]).mergeSort == List.range 8
+  let pairs := rounds.flatten.map fun table => (min table.first table.second, max table.first table.second)
+  everySeatPlays && pairs.eraseDups.length == pairs.length
+
+private def swissThreeRounds : Option Bool := do
+  let event ← DraftSwiss.start (List.range 8)
+  let early := event.next.isNone && (event.record 0 (.won [⟨2⟩])).isNone &&
+    (event.record 0 (.won [])).isNone && (event.record 4 (.draw .agreed)).isNone
+  let one ← event.record 0 (.won [⟨0⟩])
+  let unscored := one.standings.all (·.wins == 0)
+  let duplicate := (one.record 0 (.draw .agreed)).isNone
+  let first ← closeRound event (.won [⟨0⟩])
+  let second ← first.next
+  let samePoints := second.current.all fun table => table.first % 2 == table.second % 2
+  let second ← closeRound second (.won [⟨0⟩])
+  let final ← second.next >>= (closeRound · (.won [⟨0⟩]))
+  let ranks := final.standings.map (·.seat)
+  return early && unscored && duplicate && samePoints && noRematches final &&
+    final.round == 3 && final.finished && final.next.isNone &&
+    ranks == [0, 4, 1, 5, 2, 6, 3, 7] && (final.standings.head?.map (·.cumulative)) == some 17
+
+#guard swissThreeRounds == some true
+
+private def swissDraws : Option Bool := do
+  let order := (List.range 8).reverse
+  let first ← DraftSwiss.start order >>= (closeRound · (.draw .agreed))
+  let second ← first.next >>= (closeRound · (.draw .agreed))
+  let final ← second.next >>= (closeRound · (.draw .agreed))
+  return noRematches final && final.finished &&
+    final.standings.map (·.seat) == order &&
+    final.standings.all (fun row => row.wins == 0 && row.losses == 0 && row.draws == 3)
+
+#guard swissDraws == some true
 
 end FabTest

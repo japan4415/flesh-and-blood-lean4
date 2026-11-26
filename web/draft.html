@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>8人ドラフト | Welcome to Rathe</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/draft.css">
+    <script type="module" src="/draft.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="frame header-inner">
+        <a href="/">パック開封</a>
+        <span>WebRTC DataChannel</span>
+      </div>
+    </header>
+    <main class="frame draft-main">
+      <div class="draft-heading">
+        <h1>8人ドラフト</h1>
+        <p class="draft-intro">Welcome to Ratheのブースターを、1人3パックでドラフトします。</p>
+      </div>
+      <section id="duel" class="draft-panel" aria-labelledby="duel-title" hidden>
+        <header class="duel-header">
+          <div class="draft-summary">
+            <h1 id="duel-title">対戦</h1>
+            <p id="duel-seats"></p>
+          </div>
+          <p id="duel-status" role="status" tabindex="-1"></p>
+        </header>
+        <div id="swiss-results" hidden>
+          <div class="draft-actions">
+            <button id="swiss-next" type="button" hidden>次のラウンドへ</button>
+          </div>
+          <details id="swiss-details">
+            <summary id="swiss-summary"></summary>
+            <div class="swiss-tables">
+              <table>
+                <caption id="swiss-caption">順位</caption>
+                <thead><tr><th scope="col">順位</th><th scope="col">席</th><th scope="col">勝</th><th scope="col">敗</th><th scope="col">分</th></tr></thead>
+                <tbody id="swiss-standings"></tbody>
+              </table>
+              <table>
+                <caption>このラウンドの対戦</caption>
+                <thead><tr><th scope="col">卓</th><th scope="col">席</th><th scope="col">席</th><th scope="col">結果</th></tr></thead>
+                <tbody id="swiss-tables"></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+        <div id="duel-board"></div>
+        <div class="duel-bottom">
+          <div id="duel-hand"></div>
+          <div class="duel-dock">
+            <p id="duel-feedback" role="status"></p>
+            <div id="duel-controls" class="draft-actions" aria-label="対戦操作" role="group"></div>
+          </div>
+        </div>
+        <dialog id="duel-inspect" aria-labelledby="duel-inspect-title">
+          <div class="draft-summary">
+            <h3 id="duel-inspect-title"></h3>
+            <form class="draft-actions" method="dialog"><button>閉じる</button></form>
+          </div>
+          <div id="duel-inspect-image"></div>
+        </dialog>
+      </section>
+      <section class="draft-panel" aria-label="ルーム操作">
+        <div class="draft-actions">
+          <button id="enter" type="button">ルームを作成</button>
+          <button id="reconnect" type="button" hidden>再接続</button>
+          <button id="probe" type="button" disabled>通信テストを送信</button>
+          <button id="leave" type="button" hidden>退出</button>
+        </div>
+        <label id="invite" hidden>参加用リンク
+          <input id="invite-url" type="url" readonly>
+        </label>
+        <p id="draft-status" role="status">ルームを作成して、参加用リンクを共有します。</p>
+      </section>
+      <section class="draft-panel" aria-labelledby="draft-play-title">
+        <div class="draft-summary">
+          <h2 id="draft-play-title">ドラフト進行</h2>
+        </div>
+        <p id="draft-phase" role="status" tabindex="-1">8席がそろうと開始できます。</p>
+        <div class="draft-actions">
+          <button id="draft-start" type="button" hidden disabled>ドラフトを開始</button>
+          <button id="draft-next" type="button" hidden>次のパックを開く</button>
+          <button id="draft-pick" type="button" hidden disabled>選んだカードをピック</button>
+        </div>
+        <p id="draft-feedback" role="status"></p>
+        <ol id="draft-cards" class="cards" role="list" aria-label="自分のカード"></ol>
+      </section>
+      <section class="draft-panel" aria-labelledby="connection-title">
+        <div class="draft-summary">
+          <h2 id="connection-title">接続状況</h2>
+          <p id="connection-count" role="status">0 / 7 接続</p>
+        </div>
+        <div class="draft-table">
+          <table>
+            <thead><tr><th scope="col">相手</th><th scope="col">状態</th><th scope="col">往復</th><th scope="col">受信</th></tr></thead>
+            <tbody id="connections"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
