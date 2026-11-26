@@ -968,6 +968,9 @@ def ARC_146_B : CardDef := { arcaneAtHero Meta.ARC_146_B_meta 1 with status := .
 /-- Voltic Bolt (ARC147). -/
 def ARC_147_R : CardDef := { arcaneAtHero Meta.ARC_147_R_meta 5 with status := .full }
 
+/-- Voltic Bolt (ARC148). -/
+def ARC_148_Y : CardDef := { arcaneAtHero Meta.ARC_148_Y_meta 4 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -995,7 +998,7 @@ def arcCards : List CardDef :=
    ARC_138_R, ARC_139_Y, ARC_140_B,
    ARC_141_R, ARC_142_Y, ARC_143_B,
    ARC_144_R, ARC_145_Y, ARC_146_B,
-   ARC_147_R]
+   ARC_147_R, ARC_148_Y]
 
 end FabCards.ARC
 
