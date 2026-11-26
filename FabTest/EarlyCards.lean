@@ -4905,6 +4905,11 @@ meta def forceSightScenario (card : String) (bonus : Nat) (fromArsenal : Bool) :
 #guard forceSightScenario "ARC_207_Y" 2 false == some true
 #guard forceSightScenario "ARC_207_Y" 2 true == some true
 
+#guard ((earlyPrintingCardId? "ARC208").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 2 && card.front.pitch == some 3 && card.status == .full)
+#guard forceSightScenario "ARC_208_B" 1 false == some true
+#guard forceSightScenario "ARC_208_B" 1 true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
