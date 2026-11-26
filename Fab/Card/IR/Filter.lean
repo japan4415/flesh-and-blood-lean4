@@ -238,6 +238,8 @@ inductive NumExpr where
   | chainHits
   /-- Half of bound variable `v`, rounded down (Scabskin Leathers, Barkbone Strapping). -/
   | halfRoundDown (v : VarId)
+  /-- Constant minus a lexically bound value. -/
+  | subtractBound (base : Int) (v : VarId)
   /-- Number of cards currently in player `p`'s Soul sub-zone (MON: Boltyn / Light). -/
   | soulCount (p : PlayerRef)
   /-- Number of cards currently in player `p`'s Banished zone (MON: Shadow / Chane / Levia). -/

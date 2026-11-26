@@ -84,6 +84,7 @@ def evalNumExpr (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
   | .halfRoundDown v =>
     let raw := lookupVar env v
     if raw ≤ 0 then 0 else Int.ofNat (raw.toNat / 2)
+  | .subtractBound base v => base - lookupVar env v
   | .soulCount p =>
     let target := evalPlayerRef s ctrl p
     Int.ofNat (s.zone (.player target .soul)).length
@@ -2413,6 +2414,15 @@ def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     ({ s with
         pending := .run ctrl src fromArsenal ((bindVar, Int.ofNat matched) :: env) [cont] ::
           .run ctrl src fromArsenal env more :: rest }, revealed)
+  | .bindRevealTopPitch pref bindVar cont fallbackPitch :: more =>
+    let target := evalPlayerRef s ctrl pref
+    let revealed := (s.zone (.player target .deck)).head?.bind fun id =>
+      (s.cardDefOf? id).map fun card => (id, card)
+    let pitch := (revealed.map fun (_, card) => card.front.pitch.getD 0).or fallbackPitch
+    let next := pitch.toList.map fun value =>
+      Frame.run ctrl src fromArsenal ((bindVar, Int.ofNat value) :: env) [cont]
+    let events := revealed.toList.map fun (id, card) => Event.revealed target id card.id
+    ({ s with pending := next ++ (.run ctrl src fromArsenal env more :: rest) }, events)
   | .bindBanishTopCount pref n filter bindVar cont :: more =>
     let player := evalPlayerRef s ctrl pref
     let top := (s.zone (.player player .deck)).take n
@@ -2466,6 +2476,7 @@ theorem interpRunStep_wf {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : 
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
+    | bindRevealTopPitch _ _ _ _
     | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact GameState.WF.congr hwf rfl rfl rfl rfl
     | bindBanishTopCount pref n _ _ _ =>
@@ -2494,6 +2505,7 @@ theorem interpRunStep_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
+    | bindRevealTopPitch _ _ _ _
     | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact GameState.OwnerOk.congr hok rfl rfl
     | bindBanishTopCount pref n _ _ _ =>
@@ -2523,6 +2535,7 @@ theorem interpRunStep_physIds {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
+    | bindRevealTopPitch _ _ _ _
     | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact List.Perm.refl _
     | bindBanishTopCount pref n _ _ _ =>
@@ -2556,6 +2569,7 @@ theorem interpRunStep_meta {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl 
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
+    | bindRevealTopPitch _ _ _ _
     | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact ⟨rfl, rfl⟩
     | bindBanishTopCount pref n _ _ _ =>

@@ -35,7 +35,8 @@ def effectSize : Effect → Nat
   | .may b d => 1 + effectSize b + effectSize d
   | .chooseOne ms => 1 + effectListSize ms
   | .rollDie6 _ _ c => 1 + effectSize c
-  | .bindRevealTopCount _ _ _ _ c | .bindBanishTopCount _ _ _ _ c => 1 + effectSize c
+  | .bindRevealTopCount _ _ _ _ c | .bindBanishTopCount _ _ _ _ c
+  | .bindRevealTopPitch _ _ c _ => 1 + effectSize c
   | .onBoostThisTurn body => 1 + effectSize body
   | .discardTopOfHand _ _ m n | .discardChosen _ _ _ m n => 1 + max (effectSize m) (effectSize n)
   | .grant _ _ _ => 1
@@ -109,7 +110,7 @@ theorem interpRunStep_pure_decreases (s : GameState) (ctrl : PlayerId) (src : Ob
     refine ⟨_, [], more, rfl, rfl, ?_⟩
     simp [todoSize, effectSize] <;> omega
   | prim _ | may _ _ | chooseOne _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-  | bindBanishTopCount _ _ _ _ _ | discardTopOfHand _ _ _ _ | discardChosen _ _ _ _ _ =>
+  | bindBanishTopCount _ _ _ _ _ | bindRevealTopPitch _ _ _ _ | discardTopOfHand _ _ _ _ | discardChosen _ _ _ _ _ =>
     simp [Effect.isPureAuto] at hpure
 
 /-- **I12b** (`bindRevealTopCount` strict decrease): splitting `bindRevealTopCount` into two
@@ -117,6 +118,13 @@ theorem interpRunStep_pure_decreases (s : GameState) (ctrl : PlayerId) (src : Ob
 theorem interpRunStep_bindReveal_decreases (pref : PlayerRef) (n : Nat) (f : CardFilter)
     (v : VarId) (cont : Effect) (more : List Effect) :
     todoSize [cont] + todoSize more < todoSize (.bindRevealTopCount pref n f v cont :: more) := by
+  simp [todoSize, effectSize]
+
+/-- Revealing a pitch value schedules a strictly smaller continuation (I12). -/
+theorem interpRunStep_bindRevealPitch_decreases (pref : PlayerRef) (v : VarId) (cont : Effect)
+    (fallback : Option Nat) (more : List Effect) :
+    todoSize [cont] + todoSize more <
+      todoSize (.bindRevealTopPitch pref v cont fallback :: more) := by
   simp [todoSize, effectSize]
 
 /-- Banish and count schedules a strictly smaller continuation (I12). -/

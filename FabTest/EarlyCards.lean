@@ -3638,6 +3638,47 @@ meta def vestOfTheFirstFistScenario : Option Bool := do
 
 #guard vestOfTheFirstFistScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC153").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .arms && card.status == .full)
+
+meta def bracersOfBeliefScenario (revealedCard : Option String) (bonus : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let arms := Zone.player p .arms
+  let (geared, bracers) ← earlyPlace { earlyBase with cards := throughArcDB } p arms "ARC_153"
+  let (withAttack, attack) ← earlyPlace geared p (.player p .hand) "WTR_203_R"
+  let (withWeapon, weapon) ← earlyPlace withAttack p (.player p .weapon) "WTR_115"
+  let (ready, top) ← match revealedCard with
+    | none => some (withWeapon, none)
+    | some card => (earlyPlace withWeapon p deck card).map (fun (board, id) => (board, some id))
+  let activate : Action := ⟨.player p, .activateAbility bracers 0 none⟩
+  let paid ← earlySteps ready [activate, ⟨.player p, .pass⟩]
+  let (buffed, events) ← (step 64 paid ⟨.player q, .pass⟩).toOption
+  let attacked ← earlyAttack buffed (.playCard attack)
+  let attackingWeapon ← earlyAttack buffed (.attackWeapon weapon)
+  let attackLink ← attacked.combat.bind CombatChain.activeLink?
+  let waiting (s : GameState) := s.activeEffects.any fun e =>
+    e.target == .nextAttackCard CardFilter.attackAction
+  let revealEvents := events.filterMap fun
+    | .revealed player id card => some (player, id, card.val)
+    | _ => none
+  let expected := match top, revealedCard with
+    | some id, some card => [(p, id, card)]
+    | _, _ => []
+  pure ((paid.zone arms).isEmpty && (paid.zone (.player p .graveyard)).length == 1 &&
+    (paid.poolOf p).actionPoints == 3 && (buffed.poolOf p).actionPoints == 4 &&
+    (buffed.poolOf p).resources == 8 && revealEvents == expected && buffed.zone deck == ready.zone deck &&
+    waiting buffed == revealedCard.isSome && waiting attackingWeapon == waiting buffed &&
+    !waiting attacked && linkAttackPower attacked attackLink == 4 + bonus &&
+    (earlySteps buffed [activate]).isNone &&
+    (earlySteps { ready with active := some q } [activate]).isNone)
+
+#guard bracersOfBeliefScenario (some "WTR_203_R") 2 == some true
+#guard bracersOfBeliefScenario (some "WTR_204_Y") 1 == some true
+#guard bracersOfBeliefScenario (some "WTR_205_B") 0 == some true
+#guard bracersOfBeliefScenario none 0 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
