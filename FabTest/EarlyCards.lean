@@ -2046,6 +2046,11 @@ meta def hamstringShotScenario (cardId : String) (damage : Int) : Option Bool :=
 
 #guard hamstringShotScenario "ARC_060_R" 5 == some true
 
+#guard ((earlyPrintingCardId? "ARC061").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Hamstring Shot" && card.front.pitch == some 2 && card.status == .full)
+
+#guard hamstringShotScenario "ARC_061_Y" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
