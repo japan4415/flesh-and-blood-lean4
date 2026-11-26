@@ -3220,6 +3220,56 @@ meta def aetherSpindleScenario (name : String) (damage : Nat) : Option Bool := d
   (fun card => card.front.hasType .action && card.front.pitch == some 3 && card.status == .full)
 #guard aetherSpindleScenario "ARC_128_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC129").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 1 && card.status == .full)
+
+meta def stirTheAetherwindsScenario (name : String) (bonus : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let otherArcane : CardDef :=
+    { id := ⟨"Stir generic arcane fixture"⟩
+      front :=
+        { name := "Stir generic arcane fixture"
+          types := [.action]
+          cost := some { actionPoints := 1 }
+          playEffect := some { body := .prim (.dealDamage .arcane .opposingHero (.const 1)) } } }
+  let plainWizard : CardDef :=
+    { id := ⟨"Stir Wizard fixture"⟩
+      front :=
+        { name := "Stir Wizard fixture"
+          types := [.action]
+          supertypes := [.class_ .wizard]
+          cost := some { actionPoints := 1 } } }
+  let cards : CardDB := ⟨otherArcane :: plainWizard :: throughArcDB.cards⟩
+  let (withWind, wind) ← earlyPlace { earlyBase with cards } p hand name
+  let (withOther, other) ← earlyPlace withWind p hand otherArcane.id.val
+  let (withPlain, plain) ← earlyPlace withOther p hand plainWizard.id.val
+  let (ready, flame) ← earlyPlace withPlain p hand "ARC_118_R"
+  let play (s : GameState) (id : ObjId) :=
+    earlySteps s (⟨.player p, .playCard id⟩ :: earlyPass)
+  let cast (s : GameState) (instant : Bool) :=
+    earlySteps s ([⟨.player p, .playCard flame instant⟩, ⟨.player p, .pickHeroTarget q⟩] ++ earlyPass)
+  let waiting (s : GameState) :=
+    s.activeEffects.any (fun effect => effect.appliesNextInstant p plainWizard.front)
+  let primed ← play ready wind
+  let throughOther ← play primed other
+  let faster ← cast throughOther true
+  let ordinary ← cast throughOther false
+  let spent ← play primed plain
+  let zero ← cast primed true
+  pure ((primed.poolOf p).resources == 6 && waiting primed &&
+    !canPlayCard primed p other true && waiting throughOther &&
+    throughOther.lifeOf q == ready.lifeOf q - 1 &&
+    (faster.poolOf p).actionPoints == (throughOther.poolOf p).actionPoints &&
+    (ordinary.poolOf p).actionPoints + 1 == (throughOther.poolOf p).actionPoints &&
+    faster.lifeOf q == throughOther.lifeOf q - Int.ofNat (bonus + 1) &&
+    ordinary.lifeOf q == faster.lifeOf q && !waiting faster && !waiting ordinary &&
+    !waiting spent && !canPlayCard spent p flame true &&
+    zero.lifeOf q == ready.lifeOf q && !waiting zero)
+
+#guard stirTheAetherwindsScenario "ARC_129_R" 3 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

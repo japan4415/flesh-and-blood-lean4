@@ -351,7 +351,7 @@ def ContinuousEffect.appliesNextInstant (effect : ContinuousEffect) (p : PlayerI
     Bool :=
   effect.target == .player p && !effect.waitsForNextTurn && face.hasType .action &&
     match effect.op with
-    | .nextCardAsInstant filter => cardFaceMatches filter face
+    | .nextCardAsInstant filter _ => cardFaceMatches filter face
     | _ => false
 
 /-- Whether player `p` may announce playing card `id` from an allowed zone while holding priority
@@ -1303,10 +1303,18 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
         (modeOnAttack.map fun body => Ability.triggered .onAttack false none none { body := body }).toList
       goAgain := hasGoAgain }
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
-  let remainingEffects := if card.any (cardAnnouncedArcaneDamage · modeIdx) then
-    bindNextArcaneCard remainingEffects p layerId else remainingEffects
-  let remainingEffects := remainingEffects.filter fun effect =>
-    !card.any (fun c => effect.appliesNextInstant p c.front)
+  let dealsArcane := card.any (cardAnnouncedArcaneDamage · modeIdx)
+  let remainingEffects := if dealsArcane then bindNextArcaneCard remainingEffects p layerId
+    else remainingEffects
+  let remainingEffects := remainingEffects.filterMap fun effect =>
+    if card.any (fun c => effect.appliesNextInstant p c.front) then
+      match effect.op with
+      | .nextCardAsInstant _ (bonus + 1) =>
+        if dealsArcane then
+          some { effect with target := .obj layerId, op := .addArcaneDamageFromSource (bonus + 1) }
+        else none
+      | _ => none
+    else some effect
   let isAction := card.any (fun c => c.front.hasType .action) ||
     (s.obj? layerId).any (fun obj => match obj.kind with | .attackProxy _ _ => true | _ => false)
   let remainingEffects := if isAction then effectsAfterPayingAction remainingEffects p
