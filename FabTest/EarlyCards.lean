@@ -2463,6 +2463,56 @@ meta def ninthBladeScenario : Option Bool := do
 
 #guard ninthBladeScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC083").bind throughArcDB.find?).any
+  (fun card => card.front.keywords.contains .goAgain &&
+    card.front.keywords.contains (.specialization "Viserai") && card.status == .full)
+
+meta def becomeArknightScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let cardIds (s : GameState) (z : Zone) :=
+    (s.zone z).filterMap (fun id => (s.cardDefOf? id).map (·.id))
+  let (withTutor, tutor) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p hand "ARC_083_B"
+  let (withAttack, handAttack) ← earlyPlace withTutor p hand "WTR_203_R"
+  let (withAction, handAction) ← earlyPlace withAttack p hand "WTR_218_R"
+  let (withOther, other) ← earlyPlace withAction p hand "WTR_225"
+  let (withDeckAttack, deckAttack) ← earlyPlace withOther p deck "ARC_082_Y"
+  let (withDeckAction, deckAction) ← earlyPlace withDeckAttack p deck "ARC_081_R"
+  let (ready, wrongClass) ← earlyPlace withDeckAction p deck "WTR_203_R"
+  let optionalChoice ← earlySteps ready (⟨.player p, .playCard tutor⟩ :: earlyPass)
+  let declare (id : ObjId) : Action := ⟨.player p, .pickDiscardCard id⟩
+  let search (id : ObjId) : Action := ⟨.player p, .pickShuffleCard (some id)⟩
+  let confirm : Action := ⟨.player p, .pickShuffleCard none⟩
+  let shuffle (s : GameState) := earlySteps s [⟨.chance, .shuffleOrder ((s.zone deck).reverse)⟩]
+  let selecting ← earlySteps optionalChoice [⟨.player p, .pickMay true⟩]
+  let attackSearch ← earlySteps selecting [declare handAction]
+  let actionSearch ← earlySteps selecting [declare handAttack]
+  let chosenAttack ← earlySteps attackSearch [search deckAttack]
+  let (gotAttack, attackEvents) ← (step 64 chosenAttack confirm).toOption
+  let gotAction ← earlySteps actionSearch [search deckAction, confirm]
+  let declining ← earlySteps optionalChoice [⟨.player p, .pickMay false⟩]
+  let failToFind ← earlySteps attackSearch [confirm]
+  let done ← shuffle gotAttack
+  let declined ← shuffle declining
+  let failed ← shuffle failToFind
+  let revealed := attackEvents.any fun
+    | .revealed owner _ id => owner == p && id == ⟨"ARC_082_Y"⟩
+    | _ => false
+  pure ((earlySteps selecting [declare other]).isNone &&
+    (earlySteps attackSearch [search wrongClass]).isNone &&
+    (earlySteps actionSearch [search deckAttack]).isNone &&
+    (view q selecting).selectionChoices.isEmpty &&
+    revealed && (cardIds done hand).contains ⟨"ARC_082_Y"⟩ &&
+    (cardIds gotAction hand).contains ⟨"ARC_081_R"⟩ &&
+    (cardIds declined deck).length == 3 && (cardIds failed deck).length == 3 &&
+    (cardIds declined hand).contains ⟨"WTR_218_R"⟩ &&
+    !(cardIds failed hand).contains ⟨"WTR_218_R"⟩ && (done.poolOf p).actionPoints == 4)
+
+#guard becomeArknightScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

@@ -1905,13 +1905,20 @@ def applyFrame (s : GameState) (a : Action) : Option (GameState × List Event) :
         some ({ s1 with pending := rest }, [.moved id id' (.player p .hand) (.player p .deck)])
     else
       none
-  | .chooseDiscard p remaining candidates selected :: rest, .player q, .pickDiscardCard id =>
+  | .chooseDiscard p remaining candidates selected resume :: rest, .player q, .pickDiscardCard id =>
     if q = p ∧ 0 < remaining ∧ id ∈ candidates then
       if remaining = 1 then
         let (discarded, events) := discardManyObjs s p (id :: selected).reverse
-        some ({ queueRuleEventTriggers discarded events with pending := rest }, events)
+        let continuation := resume.bind fun plan =>
+          (events.findSome? fun
+            | .discarded _ moved => discarded.objectFace? moved
+            | _ => none).map fun face =>
+              let effect := if cardFaceMatches plan.classify face then plan.ifMatches else plan.otherwise
+              Frame.run plan.controller plan.source plan.fromArsenal plan.env [effect]
+        some ({ queueRuleEventTriggers discarded events with pending := continuation.toList ++ rest }, events)
       else
-        some ({ s with pending := .chooseDiscard p (remaining - 1) (candidates.erase id) (id :: selected) :: rest }, [])
+        some ({ s with pending :=
+          .chooseDiscard p (remaining - 1) (candidates.erase id) (id :: selected) resume :: rest }, [])
     else none
   | .chooseShuffleCards p remaining candidates selected drawSame search :: rest, .player q, .pickShuffleCard choice =>
     if p = q then

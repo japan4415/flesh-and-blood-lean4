@@ -112,7 +112,7 @@ def legalFrameActions (s : GameState) : List Action :=
     (List.range modes.length).map fun idx => ⟨.player ctrl, .pickMode idx⟩
   | .chooseHandToDeck p _ :: _ =>
     (s.zone (.player p .hand)).map fun id => ⟨.player p, .handToDeckPick id⟩
-  | .chooseDiscard p remaining candidates _ :: _ =>
+  | .chooseDiscard p remaining candidates _ _ :: _ =>
     if 0 < remaining then candidates.map (fun id => ⟨.player p, .pickDiscardCard id⟩) else []
   | .chooseShuffleCards p remaining candidates selected _ search :: _ =>
     (if shuffleSelectionCanConfirm selected search then [⟨.player p, .pickShuffleCard none⟩] else []) ++

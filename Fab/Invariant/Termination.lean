@@ -37,7 +37,7 @@ def effectSize : Effect → Nat
   | .rollDie6 _ _ c => 1 + effectSize c
   | .bindRevealTopCount _ _ _ _ c | .bindBanishTopCount _ _ _ _ c => 1 + effectSize c
   | .onBoostThisTurn body => 1 + effectSize body
-  | .discardTopOfHand _ _ m n => 1 + max (effectSize m) (effectSize n)
+  | .discardTopOfHand _ _ m n | .discardChosen _ _ _ m n => 1 + max (effectSize m) (effectSize n)
   | .grant _ _ _ => 1
   | .custom _ _ => 1
 
@@ -109,7 +109,7 @@ theorem interpRunStep_pure_decreases (s : GameState) (ctrl : PlayerId) (src : Ob
     refine ⟨_, [], more, rfl, rfl, ?_⟩
     simp [todoSize, effectSize] <;> omega
   | prim _ | may _ _ | chooseOne _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-  | bindBanishTopCount _ _ _ _ _ | discardTopOfHand _ _ _ _ =>
+  | bindBanishTopCount _ _ _ _ _ | discardTopOfHand _ _ _ _ | discardChosen _ _ _ _ _ =>
     simp [Effect.isPureAuto] at hpure
 
 /-- **I12b** (`bindRevealTopCount` strict decrease): splitting `bindRevealTopCount` into two

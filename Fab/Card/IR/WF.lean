@@ -148,7 +148,7 @@ def Effect.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Effect →
   | .bindRevealTopCount p _ _ bindVar cont | .bindBanishTopCount p _ _ bindVar cont =>
     p.wfBool numSlots && cont.wfBool numSlots (bindVar :: env) hasX
   | .onBoostThisTurn body => body.wfBool 0 [] false
-  | .discardTopOfHand p _ ifMatches otherwise =>
+  | .discardTopOfHand p _ ifMatches otherwise | .discardChosen p _ _ ifMatches otherwise =>
     p.wfBool numSlots && ifMatches.wfBool numSlots env hasX && otherwise.wfBool numSlots env hasX
   | .grant scope mod _ =>
     scope.wfBool numSlots env && mod.wfBool numSlots env hasX

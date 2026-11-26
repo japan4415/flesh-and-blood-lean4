@@ -116,7 +116,7 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
         | some (.lookedAt cards) => cards
         | _ => candidates
       identify q viewed
-    | .chooseDiscard q _ candidates _ :: _ => identify q candidates
+    | .chooseDiscard q _ candidates _ _ :: _ => identify q candidates
     | .chooseOpt q first others _ _ :: _ => identify q (first :: others)
     | _ => []
   { config := s.config
@@ -136,7 +136,7 @@ def view (p : PlayerId) (s : GameState) : PlayerView :=
       | .chooseShuffleCards q _ _ _ drawSame search =>
         if p == q then frame else
           .chooseShuffleCards q 0 [] [] drawSame (search.map (fun choice => { choice with bottomSelection := none }))
-      | .chooseDiscard q _ _ _ =>
+      | .chooseDiscard q _ _ _ _ =>
         if p == q then frame else .chooseDiscard q 0 [] []
       | .chooseOpt q _ _ _ _ =>
         if p == q then frame else .chooseOpt q ⟨0⟩
@@ -669,7 +669,7 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
                     (l.map fun id => Action.mk (.player q) (.handToDeckPick id)) = [] := by
                 intro l; induction l with | nil => rfl | cons x xs ih => simp [hne, ih]
               rw [hnil, hnil]
-          | chooseDiscard _ _ _ _ | chooseShuffleCards _ _ _ _ _ _ | chooseOpt _ _ _ _ _ => rfl
+          | chooseDiscard _ _ _ _ _ | chooseShuffleCards _ _ _ _ _ _ | chooseOpt _ _ _ _ _ => rfl
           | chooseArsenal tp =>
             dsimp only
             by_cases htp : tp = p

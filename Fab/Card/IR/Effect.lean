@@ -294,6 +294,8 @@ inductive Effect where
   | onBoostThisTurn (body : Effect)
   /-- Discard the first card in a randomized hand, then execute the branch matching its face. -/
   | discardTopOfHand (p : PlayerRef) (f : CardFilter) (ifMatches otherwise : Effect)
+  /-- Choose a card to discard, then branch on the characteristics of the discarded card. -/
+  | discardChosen (p : PlayerRef) (eligible classify : CardFilter) (ifMatches otherwise : Effect)
   /-- Apply a continuous modification `mod` over `scope` for duration `dur` (CR 6.2). -/
   | grant (scope : ModScope) (mod : ContinuousMod) (dur : Duration)
   /-- Rare escape hatch for card-specific logic that does not yet fit IR (design.md §7.1). -/

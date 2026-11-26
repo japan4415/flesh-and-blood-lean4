@@ -2297,6 +2297,13 @@ def interpRunStep (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
       | _ => false
     let next := if matched then ifMatches else otherwise
     ({ discarded with pending := .run ctrl src fromArsenal env (next :: more) :: rest }, events)
+  | .discardChosen pref eligible classify ifMatches otherwise :: more =>
+    let player := evalPlayerRef s ctrl pref
+    let choices := (s.zone (.player player .hand)).filter fun id =>
+      (s.objectFace? id).any (cardFaceMatches eligible)
+    let extra := if choices.isEmpty then [] else
+      [.chooseDiscard player 1 choices [] (some ⟨ctrl, src, fromArsenal, env, classify, ifMatches, otherwise⟩)]
+    ({ s with pending := extra ++ [.run ctrl src fromArsenal env more] ++ rest }, [])
   | .grant scope mod dur :: more =>
     let s1 := applyChainLinkMod s ctrl src env scope mod dur
     ({ s1 with pending := .run ctrl src fromArsenal env more :: rest }, [])
@@ -2313,7 +2320,7 @@ theorem interpRunStep_wf {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : 
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | onBoostThisTurn _ | custom _ _ =>
+    | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact GameState.WF.congr hwf rfl rfl rfl rfl
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref
@@ -2341,7 +2348,7 @@ theorem interpRunStep_ownerOk {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | onBoostThisTurn _ | custom _ _ =>
+    | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact GameState.OwnerOk.congr hok rfl rfl
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref
@@ -2370,7 +2377,7 @@ theorem interpRunStep_physIds {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ct
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | onBoostThisTurn _ | custom _ _ =>
+    | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact List.Perm.refl _
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref
@@ -2403,7 +2410,7 @@ theorem interpRunStep_meta {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl 
   | cons eff more =>
     cases eff with
     | nop | seq _ | ifThen _ _ _ | may _ _ | rollDie6 _ _ _ | bindRevealTopCount _ _ _ _ _
-    | onBoostThisTurn _ | custom _ _ =>
+    | onBoostThisTurn _ | discardChosen _ _ _ _ _ | custom _ _ =>
       exact ⟨rfl, rfl⟩
     | bindBanishTopCount pref n _ _ _ =>
       let target := evalPlayerRef s ctrl pref
