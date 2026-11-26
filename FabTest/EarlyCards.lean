@@ -2646,6 +2646,7 @@ meta def discountedRunebladeScenario (name : String) (cost power : Nat) (goAgain
 
 #guard discountedRunebladeScenario "ARC_094_R" 3 6 false == some true
 #guard discountedRunebladeScenario "ARC_095_Y" 3 5 false == some true
+#guard discountedRunebladeScenario "ARC_096_B" 3 4 false == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>

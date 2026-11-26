@@ -673,6 +673,9 @@ def ARC_094_R : CardDef := { discountedRunebladeAttack Meta.ARC_094_R_meta with 
 /-- Amplify the Arknight (ARC095). -/
 def ARC_095_Y : CardDef := { discountedRunebladeAttack Meta.ARC_095_Y_meta with status := .full }
 
+/-- Amplify the Arknight (ARC096). -/
+def ARC_096_B : CardDef := { discountedRunebladeAttack Meta.ARC_096_B_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -684,7 +687,7 @@ def arcCards : List CardDef :=
    ARC_032_R, ARC_033_Y, ARC_034_B, ARC_035_Y, ARC_036_R, ARC_037_B, ARC_038, ARC_039, ARC_040, ARC_041, ARC_042, ARC_043_R, ARC_044_R, ARC_045_R, ARC_046_B, ARC_047_Y, ARC_048_R, ARC_049_Y, ARC_050_B, ARC_051_R, ARC_052_Y, ARC_053_B, ARC_054_R, ARC_055_Y, ARC_056_B, ARC_057_R, ARC_058_Y, ARC_059_B, ARC_060_R, ARC_061_Y, ARC_062_B, ARC_063_R, ARC_064_Y, ARC_065_B, ARC_066_R, ARC_067_Y, ARC_068_B, ARC_069_R, ARC_070_Y, ARC_071_B, ARC_072_R, ARC_073_Y, ARC_074_B, ARC_075, ARC_076, ARC_077, ARC_078, ARC_079, ARC_080_R, ARC_081_R,
    ARC_082_Y, ARC_083_B, ARC_084_B, ARC_085_R, ARC_086_Y, ARC_087_B, ARC_088_R, ARC_089_Y, ARC_090_B,
    ARC_091_R, ARC_092_Y, ARC_093_B,
-   ARC_094_R, ARC_095_Y]
+   ARC_094_R, ARC_095_Y, ARC_096_B]
 
 end FabCards.ARC
 
