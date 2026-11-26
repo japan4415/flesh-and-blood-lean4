@@ -67,8 +67,9 @@ done < <(find Fab FabCards FabDriver -name '*.lean' -print0)
 
 mkdir -p "$output"
 emcc -O2 -pthread -fwasm-exceptions -ffunction-sections -fdata-sections \
-  -I"$lean_build/include" "${sources[@]}" \
+  -I"$lean_build/include" "${sources[@]}" web/wasm-bridge.c \
   "$lean_build/lib/lean/libStd.a" "$lean_build/lib/lean/libInit.a" \
   "$lean_build/lib/lean/libleanrt.a" "$lean_build/libuv/src/libuv/libuv.a" \
   -Wl,--fatal-warnings -s ALLOW_MEMORY_GROWTH=1 -s STACK_SIZE=8388608 -s EXIT_RUNTIME=1 \
+  -s EXPORTED_RUNTIME_METHODS=ccall \
   -o "$output/fab.js"
