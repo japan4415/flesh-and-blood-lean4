@@ -2103,6 +2103,34 @@ meta def ridgeRiderShotScenario (cardId : String) : Option Bool := do
 
 #guard ridgeRiderShotScenario "ARC_065_B" == some true
 
+#guard ((earlyPrintingCardId? "ARC066").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Salvage Shot" && card.front.pitch == some 1 && card.status == .full)
+
+meta def salvageShotScenario (cardId : String) (damage : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let deck := Zone.player p .deck
+  let arsenal := Zone.player p .arsenal
+  let state := { earlyBase with cards := throughArcDB }
+  let (withBow, _) ← earlyPlace state p (.player p .weapon) "ARC_040"
+  let (withBottom, bottom) ← earlyPlace withBow p deck "WTR_193_B"
+  let (withDeck, top) ← earlyPlace withBottom p deck "WTR_192_Y"
+  let (ready, arrow) ← earlyPlace withDeck p arsenal cardId
+  let attacking ← earlyAttack ready (.playCard arrow)
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let source ← link.attack
+  let hit ← earlyDamage attacking
+  let trigger ← hit.pendingTriggers.head?
+  let returned ← earlySteps hit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let retained ← returned.combat.bind CombatChain.activeLink?
+  let newId ← (returned.zone deck).getLast?
+  pure (trigger.source == source && retained.linkId == link.linkId && retained.hit &&
+    retained.damageDealt == damage && returned.zone deck == [top, bottom, newId] &&
+    newId != arrow && newId != source && (returned.obj? source).isNone &&
+    (returned.cardDefOf? newId).any (fun card => card.id == ⟨cardId⟩))
+
+#guard salvageShotScenario "ARC_066_R" 5 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
