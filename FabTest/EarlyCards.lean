@@ -1788,6 +1788,44 @@ meta def rapidFireScenario : Option Bool := do
 
 #guard rapidFireScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC048").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Take Cover" && card.front.defense == some 4 && card.status == .full)
+
+meta def takeCoverScenario (cardId : String) (defense : Int) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let arsenal := Zone.player q .arsenal
+  let hand := Zone.player q .hand
+  let state := { earlyBase with cards := throughArcDB }
+  let (withAttacker, attack) ← earlyPlace state p (.player p .hand) "WTR_203_R"
+  let (withSink, sink) ← earlyPlace withAttacker q hand "WTR_215_R"
+  let (withHand, handCopy) ← earlyPlace withSink q hand cardId
+  let (ready, stored) ← addObject withHand arsenal
+    { kind := .card ⟨withHand.nextId⟩ ⟨cardId⟩, owner := q, controller := q,
+      timestamp := ⟨0⟩, faceDown := true } .top
+  let attacking ← earlyAttack ready (.playCard attack)
+  let reacting ← earlySteps attacking
+    (⟨.player q, .defendDone⟩ :: (earlyPass ++ [⟨.player p, .pass⟩]))
+  let play (id : ObjId) : List Action :=
+    [⟨.player q, .playCard id⟩, ⟨.player q, .pass⟩, ⟨.player p, .pass⟩]
+  let choosing ← earlySteps reacting (play stored)
+  let .chooseArsenal reloader :: _ := choosing.pending | none
+  let loaded ← earlySteps choosing [⟨.player q, .arsenalPut sink⟩]
+  let skipped ← earlySteps choosing [⟨.player q, .arsenalSkip⟩]
+  let noReload ← earlySteps reacting (play handCopy)
+  let chain ← loaded.combat
+  let link ← chain.activeLink?
+  let defender ← link.defending.head?
+  let loadedId ← (loaded.zone arsenal).head?
+  pure (reloader == q && (choosing.zone arsenal).isEmpty &&
+    chain.step == .reaction && (loaded.cardDefOf? defender).any (fun c => c.id == ⟨cardId⟩) &&
+    (loaded.characteristics defender).any (fun c => c.defense == some defense) &&
+    (loaded.obj? loadedId).any (·.faceDown) && canPlayCard loaded q loadedId &&
+    (skipped.zone arsenal).isEmpty && skipped.zone hand == [handCopy, sink] &&
+    noReload.zone arsenal == [stored] && noReload.zone hand == [sink])
+
+#guard takeCoverScenario "ARC_048_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
