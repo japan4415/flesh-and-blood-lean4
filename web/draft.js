@@ -12,6 +12,7 @@ const table = document.querySelector("#connections");
 const invitedRoom = new URL(location.href).searchParams.get("room");
 const savedSeat = `draft-seat:${invitedRoom}`;
 const batchSize = 10;
+const connectTimeout = 20_000;
 const links = new Map();
 let session;
 let pollTimer;
@@ -115,6 +116,11 @@ function attachChannel(link, channel) {
   render();
 }
 
+function scheduleReconnect(delay) {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(reconnectGuest, delay);
+}
+
 function connectionChanged(link) {
   if (links.get(link.id) !== link) return;
   if (ready(link)) {
@@ -123,8 +129,7 @@ function connectionChanged(link) {
   } else if (session?.seat !== 1 && !reconnecting &&
              (["closed", "failed", "disconnected"].includes(link.pc.connectionState) ||
               link.channel?.readyState === "closed")) {
-    clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(reconnectGuest, 2200);
+    scheduleReconnect(2200);
   }
   render();
 }
@@ -243,6 +248,8 @@ async function reconnectGuest() {
     if (session !== current) return;
     session = room;
     reconnecting = false;
+    // The offer and answer can complete without opening a usable DataChannel.
+    scheduleReconnect(connectTimeout);
     render();
     void poll(room);
   } catch (error) {
@@ -250,7 +257,7 @@ async function reconnectGuest() {
     status.textContent = error.message;
     reconnecting = false;
     if (error.status === 403 || error.status === 404) stop(false);
-    else reconnectTimer = setTimeout(reconnectGuest, 2200);
+    else scheduleReconnect(2200);
   } finally {
     if (session === current) render();
   }
@@ -298,7 +305,7 @@ enter.addEventListener("click", async () => {
       url.searchParams.set("room", room.roomId);
       inviteUrl.value = url.href;
       invite.hidden = false;
-    }
+    } else scheduleReconnect(connectTimeout);
     render();
     void poll(session);
   } catch (error) {
