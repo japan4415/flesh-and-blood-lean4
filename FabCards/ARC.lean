@@ -614,20 +614,20 @@ def ARC_084_B : CardDef :=
     front := { Meta.ARC_084_B_meta.front with playEffect := some { body } }
     status := .full }
 
-/-- Spellblade Assault creates Runechants when its attack begins. -/
-def spellbladeAssault (card : CardDef) : CardDef :=
+/-- Spellblade attacks create a fixed number of Runechants when the attack begins. -/
+def spellbladeAttackWithRunechants (card : CardDef) (count : Nat) : CardDef :=
   { card with front := { card.front with abilities :=
     [.triggered .onAttack false none none
-      { body := .prim (.createToken .controller runechantToken.id 2) }] } }
+      { body := .prim (.createToken .controller runechantToken.id count) }] } }
 
 /-- Spellblade Assault (ARC085). -/
-def ARC_085_R : CardDef := { spellbladeAssault Meta.ARC_085_R_meta with status := .full }
+def ARC_085_R : CardDef := { spellbladeAttackWithRunechants Meta.ARC_085_R_meta 2 with status := .full }
 
 /-- Spellblade Assault (ARC086). -/
-def ARC_086_Y : CardDef := { spellbladeAssault Meta.ARC_086_Y_meta with status := .full }
+def ARC_086_Y : CardDef := { spellbladeAttackWithRunechants Meta.ARC_086_Y_meta 2 with status := .full }
 
 /-- Spellblade Assault (ARC087). -/
-def ARC_087_B : CardDef := { spellbladeAssault Meta.ARC_087_B_meta with status := .full }
+def ARC_087_B : CardDef := { spellbladeAttackWithRunechants Meta.ARC_087_B_meta 2 with status := .full }
 
 /-- Reduce to Runechant shares the Runechant cost discount across its pitch strips. -/
 def reduceToRunechant (card : CardDef) : CardDef :=
@@ -700,6 +700,9 @@ def ARC_101_Y : CardDef := { discountedRunebladeAttack Meta.ARC_101_Y_meta with 
 /-- Rune Flash (ARC102). -/
 def ARC_102_B : CardDef := { discountedRunebladeAttack Meta.ARC_102_B_meta with status := .full }
 
+/-- Spellblade Strike (ARC103). -/
+def ARC_103_R : CardDef := { spellbladeAttackWithRunechants Meta.ARC_103_R_meta 1 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -713,7 +716,8 @@ def arcCards : List CardDef :=
    ARC_091_R, ARC_092_Y, ARC_093_B,
    ARC_094_R, ARC_095_Y, ARC_096_B,
    ARC_097_R, ARC_098_Y, ARC_099_B,
-   ARC_100_R, ARC_101_Y, ARC_102_B]
+   ARC_100_R, ARC_101_Y, ARC_102_B,
+   ARC_103_R]
 
 end FabCards.ARC
 
