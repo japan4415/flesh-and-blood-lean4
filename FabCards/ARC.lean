@@ -694,6 +694,9 @@ def ARC_099_B : CardDef := { drawnToDarkDimension Meta.ARC_099_B_meta with statu
 /-- Rune Flash (ARC100). -/
 def ARC_100_R : CardDef := { discountedRunebladeAttack Meta.ARC_100_R_meta with status := .full }
 
+/-- Rune Flash (ARC101). -/
+def ARC_101_Y : CardDef := { discountedRunebladeAttack Meta.ARC_101_Y_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -707,7 +710,7 @@ def arcCards : List CardDef :=
    ARC_091_R, ARC_092_Y, ARC_093_B,
    ARC_094_R, ARC_095_Y, ARC_096_B,
    ARC_097_R, ARC_098_Y, ARC_099_B,
-   ARC_100_R]
+   ARC_100_R, ARC_101_Y]
 
 end FabCards.ARC
 
