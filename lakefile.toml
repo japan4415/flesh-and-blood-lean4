@@ -25,3 +25,7 @@ name = "FabDriver"    # 乱数の供給・自動対戦・ログ再生（IO を�
 
 [[lean_lib]]
 name = "FabTest"      # テストドライバ
+
+[[lean_exe]]
+name = "fab-wasm"
+root = "FabWasm"

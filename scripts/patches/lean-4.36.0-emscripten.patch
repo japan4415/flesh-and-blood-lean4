@@ -1,0 +1,25 @@
+diff --git a/src/runtime/io.cpp b/src/runtime/io.cpp
+--- a/src/runtime/io.cpp
++++ b/src/runtime/io.cpp
+@@ -1259,4 +1259,4 @@
+ /* createTempFile : IO (Handle × FilePath) */
+-extern "C" LEAN_EXPORT obj_res lean_io_create_tempfile(lean_object * /* w */) {
++extern "C" LEAN_EXPORT obj_res lean_io_create_tempfile() {
+     char path[PATH_MAX];
+     size_t base_len = PATH_MAX;
+@@ -1305,4 +1305,4 @@
+ /* createTempDir : IO FilePath */
+-extern "C" LEAN_EXPORT obj_res lean_io_create_tempdir(lean_object * /* w */) {
++extern "C" LEAN_EXPORT obj_res lean_io_create_tempdir() {
+     char path[PATH_MAX];
+     size_t base_len = PATH_MAX;
+diff --git a/src/runtime/uv/system.cpp b/src/runtime/uv/system.cpp
+--- a/src/runtime/uv/system.cpp
++++ b/src/runtime/uv/system.cpp
+@@ -632,5 +632,5 @@
+ // Std.Internal.UV.System.osGetGroup : IO (Option GroupInfo)
+-extern "C" LEAN_EXPORT lean_obj_res lean_uv_os_get_group() {
++extern "C" LEAN_EXPORT lean_obj_res lean_uv_os_get_group(uint64_t) {
+     lean_always_assert(
+         false && ("Please build a version of Lean4 with libuv to invoke this.")
+     );
