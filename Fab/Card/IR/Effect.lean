@@ -236,6 +236,8 @@ inductive Prim where
   | lookTopToBanishedAsInstant (p : PlayerRef) (filter : CardFilter) (discountFromDamage : Bool := false)
   /-- Optionally banish an eligible hand card to play as an instant this turn. -/
   | banishHandToPlayAsInstant (p : PlayerRef) (filter : CardFilter) (maxCost : NumExpr)
+  /-- Optionally banish one matching hand card and draw only if the move succeeds. -/
+  | banishHandThenDraw (p : PlayerRef) (filter : CardFilter) (drawCount : Nat)
   /-- Reveal the top two cards and put them into hand when they satisfy the two filters in either order. -/
   | revealTopPairToHand (p : PlayerRef) (first second : CardFilter)
   /-- Put the chosen deck cards on the bottom in the given order. -/
@@ -364,6 +366,8 @@ inductive ContinuousMod where
   | nextNonAttackActionGoAgain
   /-- Defense reactions cannot be played to this card's attack link. -/
   | forbidDefenseReactionsOnAttack
+  /-- The affected player may defend with attack action cards from arsenal. -/
+  | allowAttackActionDefendFromArsenal
   /-- Grant a keyword such as `goAgain` or `dominate`. -/
   | grantKeyword (kw : KeywordInst)
   /-- Grant a triggered ability to the affected object(s) (Pummel, Razor Reflex, Whelming Gustwave, Steelblade Supremacy). -/

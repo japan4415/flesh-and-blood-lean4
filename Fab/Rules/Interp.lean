@@ -1410,6 +1410,15 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
         searchesDeck := false }
     (s, [], if candidates.isEmpty then [] else
       [.chooseShuffleCards player 1 candidates [] false (some choice)])
+  | .banishHandThenDraw pref filter drawCount =>
+    let player := evalPlayerRef s ctrl pref
+    let candidates := (s.zone (.player player .hand)).filter fun id =>
+      (s.objectFace? id).any (cardFaceMatches filter)
+    let choice : DeckSearchChoice :=
+      { destination := .player player .banished, reveal := false, mayFail := true
+        shuffleAfter := false, searchesDeck := false, drawOnSelection := drawCount }
+    (s, [], if candidates.isEmpty then [] else
+      [.chooseShuffleCards player 1 candidates [] false (some choice)])
   | .putChosenDeckCardsOnBottom pref ids =>
     let deck := Zone.player (evalPlayerRef s ctrl pref) .deck
     if deck.Valid s.playerCount then
@@ -1763,7 +1772,8 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
   | putHandArsenal _ _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | searchDeckToTop _ _ _ | reload _ | lookTopToBanishedAsInstant _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
-  | lookDeckToTopAndBottom _ _ | banishHandToPlayAsInstant _ _ _ => exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
+  | lookDeckToTopAndBottom _ _ | banishHandToPlayAsInstant _ _ _ | banishHandThenDraw _ _ _ =>
+    exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | lookDeckToArsenal _ _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | revealTopPairToHand pref first second =>
@@ -2081,7 +2091,8 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     let ids := matchingRevealedPair s first second ((s.zone (.player player .deck)).take 2)
     have ht := moveManyObjs_ttr (.player player .hand) .top false ids s
     exact ⟨ht.1, ht.2.1, fun hr => ht.2.2 ▸ hr⟩
-  | lookDeckToTopAndBottom _ _ | banishHandToPlayAsInstant _ _ _ => exact ⟨rfl, rfl, id⟩
+  | lookDeckToTopAndBottom _ _ | banishHandToPlayAsInstant _ _ _ | banishHandThenDraw _ _ _ =>
+    exact ⟨rfl, rfl, id⟩
   | putChosenDeckCardOnTop _ _ | lookDeckToArsenal _ _ _ | putChosenDeckCardsOnBottom _ _ =>
     unfold execPrim; dsimp only; split <;> exact ⟨rfl, rfl, id⟩
   | putHandPermanent _ _ _ => exact ⟨rfl, rfl, id⟩
@@ -2301,6 +2312,7 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | bonus + 1 => some (.addToNextArcaneCard (bonus + 1))
       | .nextCardAsInstant filter bonus => some (.nextCardAsInstant filter bonus)
       | .nextNonAttackActionGoAgain => some .nextNonAttackActionGoAgain
+      | .allowAttackActionDefendFromArsenal => some .allowAttackActionDefendFromArsenal
       | .grantKeyword kw => some (.grantKeyword kw)
       | .grantTrigger trigger cond body =>
         match scope with
@@ -2319,7 +2331,8 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       let target : EffectTarget := match scope, op with
         | .nextCardPlayed filter, .addPower _
         | .nextCardPlayed filter, .addCostRes _
-        | .nextCardPlayed filter, .subCostRes _ => .nextAttackCard filter
+        | .nextCardPlayed filter, .subCostRes _
+        | .nextCardPlayed filter, .grantKeyword _ => .nextAttackCard filter
         | .nextAttack filter, .addPower _
         | .nextAttack filter, .grantKeyword _
         | .nextAttack filter, .grantAttackAbility _
@@ -2336,8 +2349,11 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
         | .player player, .addTokenCreation _ _ | .player player, .addToNextArcaneCard _
         | .player player, .nextCardAsInstant _ _ | .player player, .nextNonAttackActionGoAgain =>
           .player (evalPlayerRef s ctrl player)
+        | .player player, .allowAttackActionDefendFromArsenal => .player (evalPlayerRef s ctrl player)
         | .hero player, .addIntellect _ =>
           .objects (s.zone (.player (evalPlayerRef s ctrl player) .hero))
+        | .allMatching player filter, .addPower _ | .allMatching player filter, .addDefense _ =>
+          .matchingControlledCard (evalPlayerRef s ctrl player) filter
         | .allMatching player filter, _ => .matchingCard (evalPlayerRef s ctrl player) filter
         | .paidAttack id, _ => .obj id
         | .obj (.slot 0), _ => (weaponTarget.map EffectTarget.obj).getD (.objects [])

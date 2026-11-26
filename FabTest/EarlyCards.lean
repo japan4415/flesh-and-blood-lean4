@@ -3866,6 +3866,85 @@ meta def commandAndConquerScenario : Option Bool := do
 
 #guard commandAndConquerScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC160").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .instant && card.status == .full)
+
+meta def artOfWarBanishScenario : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let banished := Zone.player p .banished
+  let (withArt, art) ← earlyPlace { earlyBase with cards := throughArcDB } p hand "ARC_160_Y"
+  let (withAttack, attack) ← earlyPlace withArt p hand "WTR_203_R"
+  let (withSecondAttack, secondAttack) ← earlyPlace withAttack p hand "WTR_203_R"
+  let (withInstant, instant) ← earlyPlace withSecondAttack p hand "WTR_173_R"
+  let (bottom, bottomCard) ← earlyPlace withInstant p deck "WTR_173_R"
+  let (middle, _) ← earlyPlace bottom p deck "WTR_173_R"
+  let (ready, _) ← earlyPlace middle p deck "WTR_173_R"
+  let declaring ← earlySteps ready [⟨.player p, .playCard art⟩]
+  let selectMode (i : Nat) : Action := ⟨.player p, .pickMode i⟩
+  let choosing ← earlySteps declaring (selectMode 4 :: earlyPass)
+  let finish : Action := ⟨.player p, .pickShuffleCard none⟩
+  let banish : Action := ⟨.player p, .pickShuffleCard (some secondAttack)⟩
+  let took ← earlySteps choosing [banish, finish]
+  let declined ← earlySteps choosing [finish]
+  let attacking ← earlyAttack took (.playCard attack)
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let waiting (s : GameState) := s.activeEffects.any fun effect =>
+    effect.controller == p && effect.target == .nextAttackCard .attackAction &&
+      effect.op == .grantKeyword .goAgain
+  pure ((List.range 6).all (fun i => (legalActions declaring).contains (selectMode i)) &&
+    !(legalActions declaring).contains (selectMode 6) &&
+    (earlySteps declaring [selectMode 6]).isNone &&
+    (legalActions choosing).contains banish &&
+    !(legalActions choosing).contains ⟨.player p, .pickShuffleCard (some instant)⟩ &&
+    (took.zone banished).length == 1 && took.zone deck == [bottomCard] &&
+    (took.zone hand).length == (choosing.zone hand).length + 1 &&
+    (declined.zone banished).isEmpty && declined.zone deck == choosing.zone deck &&
+    declined.zone hand == choosing.zone hand &&
+    (took.poolOf p).resources + 1 == (ready.poolOf p).resources &&
+    (took.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    waiting took && !waiting took.finishTurnEffects && !waiting attacking &&
+    linkHasKeyword attacking link .goAgain)
+
+#guard artOfWarBanishScenario == some true
+
+meta def artOfWarDefenseScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let arsenal := Zone.player q .arsenal
+  let (withArt, art) ← earlyPlace { earlyBase with cards := throughArcDB }
+    q (.player q .hand) "ARC_160_Y"
+  let (withArsenal, block) ← earlyPlace withArt q arsenal "WTR_203_R"
+  let (withReaction, reaction) ← earlyPlace withArsenal q arsenal "WTR_212_R"
+  let (ready, attack) ← earlyPlace withReaction p (.player p .hand) "WTR_203_R"
+  let ready := updateSingleObject ready block (fun obj => { obj with faceDown := true })
+  let offered := { ready.setPool q { resources := 1 } with pending := [.priority q 0] }
+  let use : Action := ⟨.player q, .playCard art⟩
+  let paid ← earlySteps offered [use, ⟨.player q, .pickMode 1⟩]
+  let resolved ← earlySteps paid [⟨.player q, .pass⟩, ⟨.player p, .pass⟩]
+  let prepared := { resolved with pending := [.priority p 0] }
+  let attacking ← earlyAttack prepared (.playCard attack)
+  let ordinary ← earlyAttack ready (.playCard attack)
+  let defend : Action := ⟨.player q, .defendCard block⟩
+  let defended ← earlySteps attacking [defend]
+  let link ← defended.combat.bind CombatChain.activeLink?
+  let defending ← link.defending.head?
+  let attacker ← link.attack
+  let damage ← earlyDamage defended
+  pure (!(legalActions ordinary).contains defend &&
+    (legalActions attacking).contains defend &&
+    !(legalActions attacking).contains ⟨.player q, .defendCard reaction⟩ &&
+    prepared.active == some p && (prepared.poolOf q).resources == 0 &&
+    objEffectiveDefense prepared block == some 3 &&
+    defended.locate defending == some .combatChain && link.defendingFromHand.isEmpty &&
+    objEffectivePower defended defending == some 5 && objEffectiveDefense defended defending == some 4 &&
+    objEffectivePower defended attacker == some 4 &&
+    damage.lifeOf q == ready.lifeOf q && defended.zone arsenal == [reaction] &&
+    !canDefendFromArsenal defended.finishTurnEffects q)
+
+#guard artOfWarDefenseScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

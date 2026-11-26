@@ -1045,6 +1045,21 @@ def ARC_159_R : CardDef :=
      .triggered .onHitHero false none none { body := .prim (.destroyArsenal .defendingHero) }]
   { base with front := { base.front with abilities }, status := .full }
 
+/-- Art of War (ARC160). Each play mode is one distinct pair in printed order (CR 1.7.5b). -/
+def ARC_160_Y : CardDef :=
+  let base := Meta.ARC_160_Y_meta
+  let buff : Effect :=
+    .seqL [.grant (.allMatching .controller .attackAction) (.addPower (.const 1)) .thisTurn,
+      .grant (.allMatching .controller .attackAction) (.addDefense (.const 1)) .thisTurn]
+  let goAgain : Effect :=
+    .grant (.nextCardPlayed .attackAction) (.grantKeyword .goAgain) .thisTurn
+  let defend : Effect := .grant (.player .controller) .allowAttackActionDefendFromArsenal .thisTurn
+  let banish : Effect := .prim (.banishHandThenDraw .controller .attackAction 2)
+  let pairs := [(buff, goAgain), (buff, defend), (buff, banish),
+    (goAgain, defend), (goAgain, banish), (defend, banish)]
+  let modes : List ModeSpec := pairs.map fun (first, second) => { body := .seqL [first, second] }
+  { base with front := { base.front with playEffect := some { modes := modes } }, status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1073,7 +1088,8 @@ def arcCards : List CardDef :=
    ARC_141_R, ARC_142_Y, ARC_143_B,
    ARC_144_R, ARC_145_Y, ARC_146_B,
    ARC_147_R, ARC_148_Y, ARC_149_B,
-   ARC_150, ARC_151, ARC_152, ARC_153, ARC_154, ARC_155, ARC_156, ARC_157, ARC_158, ARC_159_R]
+   ARC_150, ARC_151, ARC_152, ARC_153, ARC_154, ARC_155, ARC_156, ARC_157, ARC_158, ARC_159_R,
+   ARC_160_Y]
 
 end FabCards.ARC
 

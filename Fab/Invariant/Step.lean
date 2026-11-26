@@ -151,20 +151,9 @@ theorem mem_defendCandidates_of_canDefendWith {s : GameState} {link : ChainLink}
   unfold canDefendWith at h
   split at h
   · cases h
-  · dsimp only at h
-    split at h
+  · split at h
+    · assumption
     · cases h
-    · rename_i hnot
-      simp only [Bool.not_eq_true', Bool.or_eq_false_iff, not_and,
-        Bool.not_eq_false] at hnot
-      unfold defendCandidateIds
-      rw [List.mem_append]
-      by_cases hh : id ∈ s.zone (.player p .hand)
-      · exact Or.inl hh
-      · right
-        have hfalse : decide (id ∈ s.zone (.player p .hand)) = false := by simp [hh]
-        have heq := hnot hfalse
-        simpa [decide_eq_true_eq] using heq
 
 /-- A playable card is in the set of cards considered by the priority action enumerator. -/
 theorem mem_playCardCandidateIds_of_canPlayCard {s : GameState} {p : PlayerId} {id : ObjId}
@@ -2171,12 +2160,15 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
                 apply moveObj_isSome hwf (Zone.valid_player hq k) hmem
                 intro o _
                 exact ⟨Zone.valid_combatChain s.playerCount, by intro heq; cases heq⟩
-              rcases hcand with hh | (((hhe | hch) | har) | hle)
+              rcases hcand with (hh | (((hhe | hch) | har) | hle)) | hars
               · exact aux .hand hh
               · exact aux .head hhe
               · exact aux .chest hch
               · exact aux .arms har
               · exact aux .legs hle
+              · by_cases harm : canDefendFromArsenal s q
+                · exact aux .arsenal (by simpa [harm] using hars)
+                · simp [harm] at hars
             obtain ⟨srcZ, hloc, hm⟩ := hloc_and_move
             rw [hloc]
             cases hm' : moveObj s id .combatChain .top false with

@@ -326,7 +326,8 @@ private theorem HiddenEquiv.characteristics_eq {p : PlayerId} {s1 s2 : GameState
     funext obj face effects
     simp only [GameState.lifeDisadvantageStaticEffects, h.arenaContents_eq, hlife]
   unfold GameState.characteristics
-  rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic, hconditional, hphase]
+  rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic, hconditional, hphase,
+    h.visibleZones .stack rfl, h.arenaContents_eq]
 
 private theorem HiddenEquiv.canTakeAction_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) : s1.canTakeAction p = s2.canTakeAction p := by
@@ -515,17 +516,24 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
   unfold availableActivations
   simp only [hz, hsources, hface, hplan, htargets, ha, hgrave, hgraveFilter]
 
+/-- Candidate defenders depend only on the defender’s visible zones and permissions. -/
+private theorem HiddenEquiv.defendCandidateIds_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) : defendCandidateIds s1 p = defendCandidateIds s2 p := by
+  unfold defendCandidateIds equipZoneIds canDefendFromArsenal
+  rw [h.visibleZones (.player p .hand) (by simp [Zone.isSecretTo]),
+    h.visibleZones _ rfl, h.visibleZones _ rfl, h.visibleZones _ rfl, h.visibleZones _ rfl,
+    h.activeEffects, h.visibleZones (.player p .arsenal) (by simp [Zone.isSecretTo])]
+
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canDefendWith s link p id`. -/
 theorem HiddenEquiv.canDefendWith_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) (link : ChainLink) (id : ObjId) :
     canDefendWith s1 link p id = canDefendWith s2 link p id := by
   have hh : s1.zone (.player p .hand) = s2.zone (.player p .hand) :=
     h.visibleZones _ (by simp [Zone.isSecretTo])
-  have heq : equipZoneIds s1 p = equipZoneIds s2 p := by
-    unfold equipZoneIds
-    rw [h.visibleZones _ rfl, h.visibleZones _ rfl, h.visibleZones _ rfl, h.visibleZones _ rfl]
+  have ha : s1.zone (.player p .arsenal) = s2.zone (.player p .arsenal) :=
+    h.visibleZones _ (by simp [Zone.isSecretTo])
   unfold canDefendWith
-  rw [hh, heq, (h.cardDef_face id).2]
+  rw [h.defendCandidateIds_eq, hh, ha, (h.cardDef_face id).2]
   rw [h.linkHasKeyword_eq_of_ne_goAgain link .dominate (by decide),
       h.linkHasKeyword_eq_of_ne_goAgain link .overpower (by decide)]
 
@@ -618,14 +626,9 @@ theorem hiddenEquiv_legalActionsFor_eq {p : PlayerId} {s1 s2 : GameState}
               | none => rfl
               | some link =>
                 dsimp only
-                have hcand : defendCandidateIds s1 defender = defendCandidateIds s2 defender := by
-                  unfold defendCandidateIds equipZoneIds
-                  rw [h.visibleZones _ (by simp [Zone.isSecretTo]),
-                      h.visibleZones _ rfl, h.visibleZones _ rfl,
-                      h.visibleZones _ rfl, h.visibleZones _ rfl]
                 have hdef : canDefendWith s1 link defender = canDefendWith s2 link defender :=
                   funext (h.canDefendWith_eq link)
-                rw [hcand, hdef]
+                rw [h.defendCandidateIds_eq, hdef]
             · have hne : (Actor.player defender == Actor.player p) = false := by simp [hdp]
               simp only [List.filter_append, List.filter_cons, List.filter_nil, hne]
               have hnil : ∀ (l : List ObjId),

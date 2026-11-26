@@ -179,6 +179,8 @@ structure DeckSearchChoice where
   viewedCards : Option (List ObjId) := none
   /-- Whether this selection grants the chooser temporary visibility of their deck. -/
   searchesDeck : Bool := true
+  /-- Fixed number of cards to draw if the selected cards actually move. -/
+  drawOnSelection : Nat := 0
   /-- An extra counter for a single selected card entering the arena. -/
   entryCounter : Option CounterKind := none
   /-- Source and power bonus for the card selected into arsenal until the end of this turn. -/
