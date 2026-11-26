@@ -2595,6 +2595,7 @@ meta def reduceToRunechantScenario (name : String) (defense : Nat) : Option Bool
 
 #guard reduceToRunechantScenario "ARC_088_R" 4 == some true
 #guard reduceToRunechantScenario "ARC_089_Y" 3 == some true
+#guard reduceToRunechantScenario "ARC_090_B" 2 == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
