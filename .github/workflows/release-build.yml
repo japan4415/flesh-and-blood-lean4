@@ -1,0 +1,25 @@
+name: Release Build
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Build Lean targets
+        uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: true
+          build-args: Fab FabCards FabDriver FabTest --wfail
+          use-github-cache: false
+          use-mathlib-cache: false
