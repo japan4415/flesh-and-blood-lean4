@@ -906,6 +906,14 @@ def ARC_133_Y : CardDef := { aetherFlare Meta.ARC_133_Y_meta 2 with status := .f
 /-- Aether Flare (ARC134). -/
 def ARC_134_B : CardDef := { aetherFlare Meta.ARC_134_B_meta 1 with status := .full }
 
+/-- Index selects one viewed card for the top and orders the remaining viewed cards on the bottom. -/
+def indexDeck (card : CardDef) (count : Nat) : CardDef :=
+  let effect : Effect := .prim (.lookDeckToTopAndBottom .controller count)
+  { card with front := { card.front with playEffect := some { body := effect } } }
+
+/-- Index (ARC135). -/
+def ARC_135_R : CardDef := { indexDeck Meta.ARC_135_R_meta 5 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -923,7 +931,7 @@ def arcCards : List CardDef :=
    ARC_103_R, ARC_104_Y, ARC_105_B,
    ARC_106_R, ARC_107_Y, ARC_108_B,
    ARC_109_R, ARC_110_Y, ARC_111_B,
-   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R, ARC_119_Y, ARC_120_R, ARC_121_Y, ARC_122_R, ARC_123_R, ARC_124_Y, ARC_125_B, ARC_126_R, ARC_127_Y, ARC_128_B, ARC_129_R, ARC_130_Y, ARC_131_B, ARC_132_R, ARC_133_Y, ARC_134_B]
+   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R, ARC_119_Y, ARC_120_R, ARC_121_Y, ARC_122_R, ARC_123_R, ARC_124_Y, ARC_125_B, ARC_126_R, ARC_127_Y, ARC_128_B, ARC_129_R, ARC_130_Y, ARC_131_B, ARC_132_R, ARC_133_Y, ARC_134_B, ARC_135_R]
 
 end FabCards.ARC
 
