@@ -3216,6 +3216,10 @@ meta def aetherSpindleScenario (name : String) (damage : Nat) : Option Bool := d
   (fun card => card.front.hasType .action && card.front.pitch == some 2 && card.status == .full)
 #guard aetherSpindleScenario "ARC_127_Y" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC128").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 3 && card.status == .full)
+#guard aetherSpindleScenario "ARC_128_B" 2 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
