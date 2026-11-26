@@ -734,6 +734,9 @@ def readTheRunes (card : CardDef) (count : Nat) : CardDef :=
 /-- Read the Runes (ARC109). -/
 def ARC_109_R : CardDef := { readTheRunes Meta.ARC_109_R_meta 3 with status := .full }
 
+/-- Read the Runes (ARC110). -/
+def ARC_110_Y : CardDef := { readTheRunes Meta.ARC_110_Y_meta 2 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -750,7 +753,7 @@ def arcCards : List CardDef :=
    ARC_100_R, ARC_101_Y, ARC_102_B,
    ARC_103_R, ARC_104_Y, ARC_105_B,
    ARC_106_R, ARC_107_Y, ARC_108_B,
-   ARC_109_R]
+   ARC_109_R, ARC_110_Y]
 
 end FabCards.ARC
 
