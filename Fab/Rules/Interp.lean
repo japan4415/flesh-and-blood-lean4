@@ -2264,7 +2264,10 @@ def applyChainLinkMod (s : GameState) (ctrl : PlayerId) (src : ObjId)
       | .modifyCost d =>
         if 0 ≤ d then some (.addCostRes d.toNat) else some (.subCostRes (-d).toNat)
       | .addTokenCreation token amount => some (.addTokenCreation token amount)
-      | .addToNextArcaneCard amount => some (.addToNextArcaneCard amount)
+      | .addToNextArcaneCard amount =>
+        match clampNonNeg (evalNumExpr s ctrl env amount (some src)) with
+        | 0 => none
+        | bonus + 1 => some (.addToNextArcaneCard (bonus + 1))
       | .nextCardAsInstant filter bonus => some (.nextCardAsInstant filter bonus)
       | .grantKeyword kw => some (.grantKeyword kw)
       | .grantTrigger trigger cond body =>
