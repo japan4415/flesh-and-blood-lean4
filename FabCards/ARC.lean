@@ -1351,6 +1351,14 @@ def ARC_213_Y : CardDef := { sunKiss Meta.ARC_213_Y_meta 2 with status := .full 
 /-- Sun Kiss Blue (ARC214). -/
 def ARC_214_B : CardDef := { sunKiss Meta.ARC_214_B_meta 1 with status := .full }
 
+/-- Resolve the printing's Opt instruction before its printed Go Again. -/
+def whisperOfTheOracle (base : CardDef) (count : Nat) : CardDef :=
+  let body : Effect := .prim (.opt .controller count)
+  { base with front := { base.front with playEffect := some { body } } }
+
+/-- Whisper of the Oracle Red (ARC215). -/
+def ARC_215_R : CardDef := { whisperOfTheOracle Meta.ARC_215_R_meta 4 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1386,7 +1394,7 @@ def arcCards : List CardDef :=
    ARC_182_R, ARC_183_Y, ARC_184_B, ARC_185_R, ARC_186_Y, ARC_187_B, ARC_188_R, ARC_189_Y, ARC_190_B,
    ARC_191_R, ARC_192_Y, ARC_193_B, ARC_194_R, ARC_195_Y, ARC_196_B, ARC_197_R, ARC_198_Y, ARC_199_B,
    ARC_200_R, ARC_201_Y, ARC_202_B, ARC_203_R, ARC_204_Y, ARC_205_B, ARC_206_R, ARC_207_Y, ARC_208_B,
-   ARC_209_R, ARC_210_Y, ARC_211_B, ARC_212_R, ARC_213_Y, ARC_214_B]
+   ARC_209_R, ARC_210_Y, ARC_211_B, ARC_212_R, ARC_213_Y, ARC_214_B, ARC_215_R]
 
 end FabCards.ARC
 
