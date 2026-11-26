@@ -3092,6 +3092,41 @@ meta def lessonInLavaScenario : Option Bool := do
 
 #guard lessonInLavaScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC122").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && (card.front.playEffect.map (·.modes.length)) == some 3 &&
+    card.status == .full)
+
+meta def tomeOfAetherwindScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let hand := Zone.player p .hand
+  let (withBottom, _) ← earlyPlace { earlyBase with cards := throughArcDB } p deck "WTR_221_R"
+  let (withTop, _) ← earlyPlace withBottom p deck "WTR_221_R"
+  let (withDamageSpell, flame) ← earlyPlace withTop p hand "ARC_118_R"
+  let (prepared, tome) ← earlyPlace withDamageSpell p hand "ARC_122_R"
+  let ready := (execPrim prepared p flame [] (.dealDamage .arcane (.seated q) (.const 2))).1
+  let choosing ← earlySteps ready [⟨.player p, .playCard tome⟩]
+  let choose (index : Nat) : Action := ⟨.player p, .pickMode index⟩
+  let resolve (index : Nat) := earlySteps choosing (choose index :: earlyPass)
+  let bothBoosts ← resolve 0
+  let mixed ← resolve 1
+  let bothDraws ← resolve 2
+  let hit ← earlySteps bothBoosts
+    ([⟨.player p, .playCard flame⟩, ⟨.player p, .pickHeroTarget q⟩] ++ earlyPass)
+  let waiting (s : GameState) :=
+    (s.activeEffects.filter (fun e => e.target == .player p && e.op == .addToNextArcaneCard 1)).length
+  pure ((legalActions choosing).contains (choose 0) && (legalActions choosing).contains (choose 1) &&
+    (legalActions choosing).contains (choose 2) && (earlySteps choosing [choose 3]).isNone &&
+    (choosing.poolOf p).actionPoints == 4 && (bothBoosts.poolOf p).actionPoints == 3 &&
+    (bothBoosts.poolOf p).resources == 8 &&
+    waiting bothBoosts == 2 && (bothBoosts.zone deck).length == 2 &&
+    waiting mixed == 1 && (mixed.zone deck).length == 1 && (mixed.zone hand).length == 2 &&
+    waiting bothDraws == 0 && (bothDraws.zone deck).isEmpty && (bothDraws.zone hand).length == 3 &&
+    waiting hit == 0 && hit.lifeOf q == ready.lifeOf q - 4)
+
+#guard tomeOfAetherwindScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
