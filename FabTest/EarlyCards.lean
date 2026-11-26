@@ -4502,9 +4502,8 @@ meta def moonWishScenario (card : String) (power : Nat) : Option Bool := do
   let q := earlyDefender
   let hand := Zone.player p .hand
   let deck := Zone.player p .deck
-  let sunKiss := FabCards.ARC.Meta.ARC_212_R_meta
-  let database : CardDB := ⟨sunKiss :: throughArcDB.cards⟩
-  let (withSun, sun) ← earlyPlace { earlyBase with cards := database } p deck sunKiss.id.val
+  let sunKiss := FabCards.ARC.ARC_212_R
+  let (withSun, sun) ← earlyPlace { earlyBase with cards := throughArcDB } p deck sunKiss.id.val
   let (withTop, top) ← earlyPlace withSun p deck "WTR_203_R"
   let (withBlock, d1) ← earlyPlace withTop q (.player q .hand) "WTR_203_R"
   let (withDefense, d2) ← earlyPlace withBlock q (.player q .hand) "WTR_203_R"
@@ -4966,6 +4965,52 @@ meta def leadTheChargeScenario (card : String) (minCost : Nat) : Option Bool := 
 #guard ((earlyPrintingCardId? "ARC211").bind throughArcDB.find?).any
   (fun card => card.front.defense == some 2 && card.front.pitch == some 3 && card.status == .full)
 #guard leadTheChargeScenario "ARC_211_B" 2 == some true
+
+#guard ((earlyPrintingCardId? "ARC212").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 2 && card.front.pitch == some 1 && card.status == .full)
+
+meta def sunKissScenario (card : String) (life : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let (holding, sun) ← earlyPlace { earlyBase with cards := throughArcDB } p hand card
+  let (withMoon, moon) ← earlyPlace holding p hand "ARC_185_R"
+  let (decked, top) ← earlyPlace withMoon p deck "WTR_203_R"
+  let (withBlock, d1) ← earlyPlace decked q (.player q .hand) "WTR_203_R"
+  let (ready, d2) ← earlyPlace withBlock q (.player q .hand) "WTR_203_R"
+  let cast (s : GameState) := earlySteps s (⟨.player p, .playCard sun⟩ :: earlyPass)
+  let plain ← cast ready
+  let other ← cast { ready with cardNamesPlayedThisTurn := [(q, "Moon Wish")] }
+  let declared ← earlySteps ready [⟨.player p, .playCard moon⟩]
+  let cancelled ← earlySteps declared [⟨.player p, .cancelPlay⟩]
+  let paid ← earlySteps declared [⟨.player p, .pickMay false⟩]
+  let attacking ← earlySteps paid (earlyPass ++ earlyPass)
+  let defending ← earlySteps attacking [⟨.player q, .defendCard d1⟩, ⟨.player q, .defendCard d2⟩]
+  let blocked ← earlyDamage defending
+  let closed ← earlySteps blocked (earlyPass ++ earlyPass)
+  let rewarded ← cast closed
+  let (noDeck, _) ← moveObj closed top (.player p .graveyard)
+  let empty ← cast noDeck
+  let denial : ContinuousEffect :=
+    { id := closed.nextTimestamp, source := moon, controller := q, target := .player p
+      op := .cantGainGoAgain, duration := .thisActionPhase, timestamp := ⟨closed.nextTimestamp⟩ }
+  let restricted ← cast { closed with activeEffects := denial :: closed.activeEffects }
+  let (expired, _) ← microStep { closed with pending := [.endTurnCleanup p] }
+  pure (plain.lifeOf p == ready.lifeOf p + life && plain.zone deck == [top] &&
+    (plain.poolOf p).actionPoints + 1 == (ready.poolOf p).actionPoints &&
+    other.zone deck == [top] && (other.poolOf p).actionPoints == (plain.poolOf p).actionPoints &&
+    cancelled.cardNamesPlayedThisTurn == ready.cardNamesPlayedThisTurn &&
+    paid.cardNamesPlayedThisTurn.contains (p, "Moon Wish") && blocked.pendingTriggers.isEmpty &&
+    closed.combat.isNone && closed.lifeOf q == ready.lifeOf q &&
+    rewarded.lifeOf p == closed.lifeOf p + life && (rewarded.zone deck).isEmpty &&
+    (rewarded.zone hand).length == (closed.zone hand).length &&
+    (rewarded.poolOf p).actionPoints == (closed.poolOf p).actionPoints &&
+    (empty.poolOf p).actionPoints == (closed.poolOf p).actionPoints &&
+    (restricted.zone deck).isEmpty && (restricted.poolOf p).actionPoints + 1 == (closed.poolOf p).actionPoints &&
+    expired.cardNamesPlayedThisTurn.isEmpty)
+
+#guard sunKissScenario "ARC_212_R" 3 == some true
 
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>

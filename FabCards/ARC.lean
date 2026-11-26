@@ -1334,6 +1334,17 @@ def ARC_210_Y : CardDef := { leadTheCharge Meta.ARC_210_Y_meta 1 with status := 
 /-- Lead the Charge Blue (ARC211). -/
 def ARC_211_B : CardDef := { leadTheCharge Meta.ARC_211_B_meta 2 with status := .full }
 
+/-- Gain life, then draw and gain Go Again if the controller played Moon Wish this turn. -/
+def sunKiss (base : CardDef) (life : Int) : CardDef :=
+  let reward := Effect.seqL [.prim (.draw .controller (.const 1)),
+    .grant .self_ (.grantKeyword .goAgain) .thisTurn]
+  let body := Effect.seqL [.prim (.gainLife .controller (.const life)),
+    .ifThen (.cardNamedPlayedThisTurn "Moon Wish") reward .nop]
+  { base with front := { base.front with playEffect := some { body } } }
+
+/-- Sun Kiss Red (ARC212). -/
+def ARC_212_R : CardDef := { sunKiss Meta.ARC_212_R_meta 3 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1369,7 +1380,7 @@ def arcCards : List CardDef :=
    ARC_182_R, ARC_183_Y, ARC_184_B, ARC_185_R, ARC_186_Y, ARC_187_B, ARC_188_R, ARC_189_Y, ARC_190_B,
    ARC_191_R, ARC_192_Y, ARC_193_B, ARC_194_R, ARC_195_Y, ARC_196_B, ARC_197_R, ARC_198_Y, ARC_199_B,
    ARC_200_R, ARC_201_Y, ARC_202_B, ARC_203_R, ARC_204_Y, ARC_205_B, ARC_206_R, ARC_207_Y, ARC_208_B,
-   ARC_209_R, ARC_210_Y, ARC_211_B]
+   ARC_209_R, ARC_210_Y, ARC_211_B, ARC_212_R]
 
 end FabCards.ARC
 

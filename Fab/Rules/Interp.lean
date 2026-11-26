@@ -176,6 +176,7 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     | some z => (s.zone z).isEmpty
     | none => false
   | .nonAttackActionPlayedThisTurn => s.nonAttackActionsThisTurn.contains ctrl
+  | .cardNamedPlayedThisTurn name => s.cardNamesPlayedThisTurn.contains (ctrl, name)
   | .sourceDealtArcaneDamage => decide (0 < s.arcaneDamageFrom src)
   | .lessLifeThanOpponent => s.lessLifeThanOpponent ctrl
   | .sourceInArena =>

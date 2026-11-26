@@ -280,6 +280,8 @@ inductive Condition where
   | weaponHitThisTurn
   /-- The controller has already paid for a non-attack action card this turn. -/
   | nonAttackActionPlayedThisTurn
+  /-- The controller previously played a card with this name during the current turn. -/
+  | cardNamedPlayedThisTurn (name : String)
   /-- The current source has dealt positive arcane damage this turn. -/
   | sourceDealtArcaneDamage
   /-- Source is defending a weapon attack (Steelblade Shunt). -/
