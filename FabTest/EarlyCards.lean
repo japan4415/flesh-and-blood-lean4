@@ -4677,6 +4677,50 @@ meta def ravenousRabbleScenario (card : String) (power : Nat)
 #guard ravenousRabbleScenario "ARC_193_B" 3 (some ("WTR_205_B", 3)) == some true
 #guard ravenousRabbleScenario "ARC_193_B" 3 none == some true
 
+#guard ((earlyPrintingCardId? "ARC194").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 6 && card.front.pitch == some 1 && card.status == .full)
+
+meta def riftingScenario (card : String) (power : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let (withRifting, attack) ← earlyPlace { earlyBase with cards := throughArcDB } p hand card
+  let (withFirst, first) ← earlyPlace withRifting p hand "WTR_221_R"
+  let (withSecond, second) ← earlyPlace withFirst p hand "WTR_221_R"
+  let (withAttack, otherAttack) ← earlyPlace withSecond p hand "WTR_203_R"
+  let (withBlock, d1) ← earlyPlace withAttack q (.player q .hand) "WTR_203_R"
+  let (ready, d2) ← earlyPlace withBlock q (.player q .hand) "WTR_203_R"
+  let attacking ← earlyAttack ready (.playCard attack)
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let source ← link.attack
+  let hit ← earlyDamage attacking
+  let trigger ← hit.pendingTriggers.find? (·.source == source)
+  let primed ← earlySteps hit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let instant (id : ObjId) : Action := ⟨.player p, .playCard id true⟩
+  let ordinary (id : ObjId) : Action := ⟨.player p, .playCard id⟩
+  let instantPaid ← earlySteps primed [instant first]
+  let instantDone ← earlySteps instantPaid earlyPass
+  let afterResolution ← earlySteps primed earlyPass
+  let closed ← earlySteps afterResolution earlyPass
+  let ordinaryPaid ← earlySteps closed [ordinary first]
+  let attackedAgain ← earlyAttack afterResolution (.playCard otherAttack)
+  let defended ← earlySteps attacking [⟨.player q, .defendCard d1⟩, ⟨.player q, .defendCard d2⟩]
+  let blocked ← earlyDamage defended
+  pure (linkAttackPower attacking link == power && hit.lifeOf q == ready.lifeOf q - power &&
+    !canPlayCard ready p first true && !canPlayCard hit p first true &&
+    (legalActions primed).contains (instant first) && !canPlayCard primed p otherAttack true &&
+    (instantPaid.poolOf p).actionPoints == (primed.poolOf p).actionPoints &&
+    !canPlayCard instantDone p second true && instantDone.nonAttackActionsThisTurn.contains p &&
+    closed.combat.isNone && canPlayCard closed p first true &&
+    (ordinaryPaid.poolOf p).actionPoints + 1 == (closed.poolOf p).actionPoints &&
+    !canPlayCard ordinaryPaid p second true && canPlayCard attackedAgain p first true &&
+    !canPlayCard primed.finishTurnEffects p first true &&
+    blocked.lifeOf q == ready.lifeOf q && blocked.pendingTriggers.isEmpty &&
+    !canPlayCard blocked p first true)
+
+#guard riftingScenario "ARC_194_R" 6 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
