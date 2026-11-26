@@ -709,6 +709,17 @@ def ARC_104_Y : CardDef := { spellbladeAttackWithRunechants Meta.ARC_104_Y_meta 
 /-- Spellblade Strike (ARC105). -/
 def ARC_105_B : CardDef := { spellbladeAttackWithRunechants Meta.ARC_105_B_meta 1 with status := .full }
 
+/-- Bloodspill Invocation watches attack-action hits and damage to its controlling hero. -/
+def bloodspillInvocation (card : CardDef) (count : Nat) : CardDef :=
+  let destroy := Effect.prim (.destroy .self_)
+  let hit := Effect.seqL [destroy, .prim (.createToken .controller runechantToken.id count)]
+  { card with front := { card.front with abilities :=
+    [ .triggered .onAttackActionHit false none none { body := hit }
+    , .triggered .onControllerDamaged false none none { body := destroy } ] } }
+
+/-- Bloodspill Invocation (ARC106). -/
+def ARC_106_R : CardDef := { bloodspillInvocation Meta.ARC_106_R_meta 3 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -723,7 +734,8 @@ def arcCards : List CardDef :=
    ARC_094_R, ARC_095_Y, ARC_096_B,
    ARC_097_R, ARC_098_Y, ARC_099_B,
    ARC_100_R, ARC_101_Y, ARC_102_B,
-   ARC_103_R, ARC_104_Y, ARC_105_B]
+   ARC_103_R, ARC_104_Y, ARC_105_B,
+   ARC_106_R]
 
 end FabCards.ARC
 

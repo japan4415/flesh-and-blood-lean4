@@ -801,6 +801,9 @@ def queuePitchTriggers (s : GameState) (p : PlayerId) (pitched : ObjId) : GameSt
 def queueRuleEventTriggers (s : GameState) (events : List Event) : GameState :=
   queueCardTriggers s (events.flatMap fun
     | .discarded p id => discardEventTriggers s p id
+    | .damageDealt p _ amount =>
+      if amount > 0 && s.result.isNone then installedCardTriggers s p (· == .onControllerDamaged)
+      else []
     | .moved _ id _ (.player owner .arsenal) =>
       if (s.obj? id).any (fun card => !card.faceDown) &&
           (s.characteristics id).any (fun chars => !chars.abilitiesLost) then
@@ -931,7 +934,8 @@ def finishCombatDamage (s : GameState) (attack : ObjId) (amount : Nat)
         attackActionHitsThisTurn := cardHit.toList ++ s.attackActionHitsThisTurn }
       let damageTriggers := if hit && withDamage.result.isNone then
         (attackDamageTriggers withDamage damagedLink).map (fun trigger => (trigger, false)) ++
-          installedHitTriggers withDamage damagedLink ++ weaponHitTriggers withDamage damagedLink
+          installedHitTriggers withDamage damagedLink ++ weaponHitTriggers withDamage damagedLink ++
+          installedCardTriggers withDamage damagedLink.defender (· == .onControllerDamaged)
         else []
       let queued := queueCardTriggers withDamage damageTriggers
       let settled := gspRun queued
@@ -951,7 +955,13 @@ def finishArcaneDamage (s : GameState) (p : PlayerId) (effects : List Replacemen
   let (settled, events) := settleDamage s p (preventionDamageKind damage) result
   let finished := match attack with
     | some id => finishCombatDamage settled id (remainingDamage result.event) rest
-    | none => { settled with pending := if settled.result.isSome then [] else rest }
+    | none =>
+      let queued := queueRuleEventTriggers settled events
+      { settled with
+        pendingTriggers := queued.pendingTriggers
+        nextTimestamp := queued.nextTimestamp
+        triggeredThisTurn := queued.triggeredThisTurn
+        pending := if settled.result.isSome then [] else rest }
   (finished, events)
 
 /-- Apply one prevention choice at a time so the affected player can choose its order and pitch
