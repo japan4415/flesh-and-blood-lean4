@@ -51,6 +51,8 @@ inductive Trigger where
   | onEnterArena
   /-- When this card moves into its owner’s arsenal face up. -/
   | onArsenalFaceUp
+  /-- An activated ability or action card effect put this card face up from its owner's deck. -/
+  | onDeckMoveFaceUp
   /-- When this leaves the arena (CR 3.0.5). -/
   | onLeaveArena
   /-- When this is destroyed (CR 1.10). -/

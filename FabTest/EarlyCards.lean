@@ -4306,6 +4306,67 @@ meta def eirinasPrayerScenario (card : String) (topCard : Option String) (amount
 #guard eirinasPrayerScenario "ARC_175_B" (some "WTR_205_B") 1 == some true
 #guard eirinasPrayerScenario "ARC_175_B" none 4 == some true
 
+#guard ((earlyPrintingCardId? "ARC176").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 5 && card.front.pitch == some 1 && card.status == .full)
+
+meta def backAlleyBreaklineActivatedScenario (card : String) : Option Bool := do
+  let p := earlyAttacker
+  let arsenal := Zone.player p .arsenal
+  let deck := Zone.player p .deck
+  let (withHero, hero) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hero) "ARC_039"
+  let (withArsenal, _) ← earlyPlace withHero p arsenal "WTR_203_R"
+  let (ready, top) ← earlyPlace withArsenal p deck card
+  let activated ← earlySteps ready (⟨.player p, .activateAbility hero 0 none⟩ :: earlyPass)
+  let loaded ← (activated.zone arsenal).head?
+  let triggered ← activated.pendingTriggers.find? (·.source == loaded)
+  let stacked ← earlySteps activated
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger triggered.id⟩]
+  let rewarded ← earlySteps stacked earlyPass
+  pure (loaded != top && (activated.cardDefOf? loaded).any (·.id == ⟨card⟩) &&
+    (activated.obj? loaded).any (fun obj => !obj.faceDown) &&
+    triggered.controller == p && (rewarded.poolOf p).actionPoints == (ready.poolOf p).actionPoints + 1)
+
+meta def backAlleyBreaklineMoveScenario (card : String) (type : CardType) (body : Effect)
+    (expected : Bool) (search : Bool := false) : Option Bool := do
+  let p := earlyAttacker
+  let deck := Zone.player p .deck
+  let face : CardFace :=
+    { name := "Deck movement fixture"
+      supertypes := [.generic]
+      types := [type]
+      cost := some { actionPoints := if type == .action then 1 else 0 }
+      playEffect := some { body } }
+  let fixture : CardDef := { id := ⟨"test-deck-movement"⟩, front := face, status := .full }
+  let (withEffect, mover) ← earlyPlace { earlyBase with cards := ⟨fixture :: throughArcDB.cards⟩ }
+    p (.player p .hand) fixture.id.val
+  let (ready, top) ← earlyPlace withEffect p deck card
+  let resolved ← earlySteps ready (⟨.player p, .playCard mover⟩ :: earlyPass)
+  let moved ← if search then
+      earlySteps resolved [⟨.player p, .pickShuffleCard (some top)⟩, ⟨.player p, .pickShuffleCard none⟩]
+    else some resolved
+  let triggers := moved.pendingTriggers.filter fun trigger =>
+    trigger.controller == p && trigger.effect == .prim (.gainAP .controller (.const 1))
+  if expected then
+    pure (triggers.length == 1 && (moved.zone deck).isEmpty &&
+      (moved.zone (.player p .banished)).any fun id => triggers.any (·.source == id))
+  else
+    pure (triggers.isEmpty && (moved.poolOf p).actionPoints ≤ (ready.poolOf p).actionPoints)
+
+#guard backAlleyBreaklineActivatedScenario "ARC_176_R" == some true
+#guard backAlleyBreaklineMoveScenario "ARC_176_R" .action
+  (.prim (.banishTopDeck .controller 1 false)) true == some true
+#guard backAlleyBreaklineMoveScenario "ARC_176_R" .instant
+  (.prim (.banishTopDeck .controller 1 false)) false == some true
+#guard backAlleyBreaklineMoveScenario "ARC_176_R" .action
+  (.prim (.banishTopDeck .controller 1 true)) false == some true
+#guard backAlleyBreaklineMoveScenario "ARC_176_R" .action
+  (.bindRevealTopPitch .controller ⟨0⟩ .nop) false == some true
+#guard backAlleyBreaklineMoveScenario "ARC_176_R" .action
+  (.prim (.searchDeck .controller .any (some 1) .banished true none)) true true == some true
+#guard backAlleyBreaklineMoveScenario "ARC_176_R" .action
+  (.prim (.searchDeck .controller .any (some 1) .hand true none)) false true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

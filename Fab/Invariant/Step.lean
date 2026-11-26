@@ -1263,7 +1263,7 @@ theorem microStep_preserves {s s' : GameState} {es : List Event}
     rename_i ctrl src fromArsenal env todo rest _
     simp only [Option.some.injEq] at h
     let ran := interpRunStep s ctrl src fromArsenal env todo rest
-    have hs' : s' = queueRuleEventTriggers ran.1 ran.2 :=
+    have hs' : s' = queueRuleEventTriggers ran.1 ran.2 (resolvingActionOrActivation s rest) :=
       congrArg Prod.fst h.symm
     subst hs'
     have hmeta := interpRunStep_meta hwf hok ctrl src fromArsenal env todo rest
