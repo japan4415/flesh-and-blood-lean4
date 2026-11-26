@@ -820,7 +820,12 @@ def enterAttackStep (s : GameState) (layerId : ObjId) (attacker : PlayerId) :
     combat := some { step := .attack, links := newLink :: prevLinks }
     attacksThisTurn := attacker :: s2.attacksThisTurn
     layerMeta := s2.layerMeta.erase layerId.n }
-  let conditionalGoAgain := newLink.playedFromArsenal &&
+  let conditionalGoAgain := (s3.objectFace? atkId).any (fun face => face.abilities.any fun
+      | .static_ (some .playedFromArsenal) .self_ (.grantKeyword .goAgain) =>
+        newLink.playedFromArsenal
+      | .static_ (some .nonAttackActionPlayedThisTurn) .self_ (.grantKeyword .goAgain) =>
+        s3.nonAttackActionsThisTurn.contains attacker
+      | _ => false) &&
     (s3.characteristics atkId).any (fun chars => chars.keywords.contains .goAgain)
   let captured :=
     if prevLinks.head?.any (·.hit) &&

@@ -4729,6 +4729,46 @@ meta def riftingScenario (card : String) (power : Nat) : Option Bool := do
   (fun card => card.front.power == some 4 && card.front.pitch == some 3 && card.status == .full)
 #guard riftingScenario "ARC_196_B" 4 == some true
 
+#guard ((earlyPrintingCardId? "ARC197").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 4 && card.front.pitch == some 1 && card.status == .full)
+
+meta def vigorRushScenario (card : String) (power : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let (holding, attack) ← earlyPlace { earlyBase with cards := throughArcDB } p hand card
+  let (ready, action) ← earlyPlace holding p hand "WTR_221_R"
+  let play := ActionKind.playCard attack
+  let bare ← earlyAttack ready play
+  let bareLink ← bare.combat.bind CombatChain.activeLink?
+  let bareFinished ← (earlyDamage bare).bind (earlySteps · earlyPass)
+  let primed ← earlySteps ready (⟨.player p, .playCard action⟩ :: earlyPass)
+  let attacking ← earlyAttack primed play
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let source ← link.attack
+  let finished ← (earlyDamage attacking).bind (earlySteps · earlyPass)
+  let suppression : ContinuousEffect :=
+    { id := attacking.nextTimestamp, source := source, controller := q, target := .obj source
+      op := .loseAllAbilities, duration := .thisTurn, timestamp := ⟨attacking.nextTimestamp⟩ }
+  let suppressed := { attacking with activeEffects := suppression :: attacking.activeEffects }
+  let otherPlayerHistory := { bare with nonAttackActionsThisTurn := [q] }
+  let timing := { suppression with
+    target := .player p
+    controller := p
+    op := .nextCardAsInstant { types := [.action], excludeSubtypes := [.attack] } 0 }
+  let reactions ← earlySteps { bare with activeEffects := [timing] } [⟨.player q, .defendDone⟩]
+  let late ← earlySteps reactions [⟨.player p, .playCard action true⟩]
+  pure (linkAttackPower bare bareLink == power && !linkHasKeyword bare bareLink .goAgain &&
+    !linkHasKeyword otherPlayerHistory bareLink .goAgain &&
+    (bareFinished.poolOf p).actionPoints + 1 == (ready.poolOf p).actionPoints &&
+    primed.nonAttackActionsThisTurn.contains p && linkHasKeyword attacking link .goAgain &&
+    !linkHasKeyword suppressed link .goAgain &&
+    linkHasKeyword attacking { link with attack := none } .goAgain &&
+    (finished.poolOf p).actionPoints == (primed.poolOf p).actionPoints &&
+    late.nonAttackActionsThisTurn.contains p && linkHasKeyword late bareLink .goAgain)
+
+#guard vigorRushScenario "ARC_197_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

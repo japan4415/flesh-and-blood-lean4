@@ -195,6 +195,8 @@ structure HiddenEquiv (p : PlayerId) (s1 s2 : GameState) : Prop where
   combat : s1.combat = s2.combat
   /-- Same public declaration of which stack cards were played from arsenal. -/
   stackPlayFromArsenal : s1.stackPlayFromArsenal = s2.stackPlayFromArsenal
+  /-- Same public history of non-attack action plays this turn. -/
+  nonAttackActionsThisTurn : s1.nonAttackActionsThisTurn = s2.nonAttackActionsThisTurn
   /-- Same public weapon hit history. -/
   weaponHitsThisTurn : s1.weaponHitsThisTurn = s2.weaponHitsThisTurn
   /-- Same public history of paid boost costs this turn. -/
@@ -327,7 +329,7 @@ private theorem HiddenEquiv.characteristics_eq {p : PlayerId} {s1 s2 : GameState
   have hconditional : s1.conditionalSelfStaticEffects id = s2.conditionalSelfStaticEffects id := by
     funext obj face effects
     delta GameState.conditionalSelfStaticEffects
-    rw [h.arenaContents_eq, hlife, h.stackPlayFromArsenal, h.combat]
+    rw [h.arenaContents_eq, hlife, h.stackPlayFromArsenal, h.combat, h.nonAttackActionsThisTurn]
   unfold GameState.characteristics
   rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic, hconditional, hphase,
     h.visibleZones .stack rfl, h.arenaContents_eq]
@@ -777,7 +779,7 @@ theorem reorder_deck_noninterference {s : GameState} (p q : PlayerId) {l : List 
         funext id
         unfold GameState.stackPlayFromArsenal GameState.reorder
         rw [GameState.zone_setZone_ne s (show Zone.stack ≠ .player q .deck from by intro he; cases he) l] <;> rfl,
-      pendingTriggers := rfl,
+      pendingTriggers := rfl, nonAttackActionsThisTurn := rfl,
       visibleZones := fun z hns => by
         have hne : z ≠ .player q .deck := by
           intro he; subst he; simp [Zone.isSecretTo] at hns
@@ -831,7 +833,7 @@ theorem opp_hand_noninterference {s : GameState} {p q : PlayerId} (hne : q ≠ p
         funext id
         unfold GameState.stackPlayFromArsenal
         rw [GameState.zone_setZone_ne s (show Zone.stack ≠ .player q .hand from by intro he; cases he) l] <;> rfl,
-      pendingTriggers := rfl,
+      pendingTriggers := rfl, nonAttackActionsThisTurn := rfl,
       visibleZones := fun z hns => by
         have hnez : z ≠ .player q .hand := by
           intro he; subst he; simp [Zone.isSecretTo, hne] at hns
