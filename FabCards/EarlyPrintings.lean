@@ -249,6 +249,7 @@ def earlyPrintingCardId? : String → Option CardId
   | "ARC066" => some ⟨"ARC_066_R"⟩
   | "ARC067" => some ⟨"ARC_067_Y"⟩
   | "ARC068" => some ⟨"ARC_068_B"⟩
+  | "ARC069" => some ⟨"ARC_069_R"⟩
   -- Arcane Rising reprint of the existing WTR resource.
   | "ARC218" => some ⟨"WTR_224_Y"⟩
   | _ => none

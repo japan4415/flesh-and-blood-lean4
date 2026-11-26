@@ -884,6 +884,8 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
         { trigger with effect := .grant (.firstActionNextTurn (.seated link.defender)) mod dur }
       | .prim (.discardChoice .defendingHero filter count) =>
         { trigger with effect := .prim (.discardChoice (.seated link.defender) filter count) }
+      | .prim (.loseLife .defendingHero amount) =>
+        { trigger with effect := .prim (.loseLife (.seated link.defender) amount) }
       | _ => trigger
 
 /-- Record a resolved damage event on the current combat link and queue its hit triggers (CR 7.5). -/

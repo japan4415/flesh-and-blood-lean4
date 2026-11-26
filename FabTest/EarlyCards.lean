@@ -2141,6 +2141,29 @@ meta def salvageShotScenario (cardId : String) (damage : Nat) : Option Bool := d
 
 #guard salvageShotScenario "ARC_068_B" 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC069").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Searing Shot" && card.front.pitch == some 1 && card.status == .full)
+
+meta def searingShotScenario (cardId : String) (damage : Int) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let state := { earlyBase with cards := throughArcDB }
+  let (withBow, _) ← earlyPlace state p (.player p .weapon) "ARC_040"
+  let (ready, arrow) ← earlyPlace withBow p (.player p .arsenal) cardId
+  let attack ← earlyAttack ready (.playCard arrow)
+  let hit ← earlyDamage attack
+  let trigger ← hit.pendingTriggers.head?
+  let stacked ← earlySteps hit [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩]
+  let passed ← earlySteps stacked [⟨.player p, .pass⟩]
+  let (resolved, events) ← (step 64 passed ⟨.player q, .pass⟩).toOption
+  let retained ← resolved.combat.bind CombatChain.activeLink?
+  pure (trigger.effect == .prim (.loseLife (.seated q) (.const 1)) &&
+    hit.lifeOf q == ready.lifeOf q - damage && resolved.lifeOf q == hit.lifeOf q - 1 &&
+    resolved.lifeOf p == ready.lifeOf p && retained.damageDealt == damage.toNat &&
+    !events.any (fun event => match event with | .damageDealt _ _ _ => true | _ => false))
+
+#guard searingShotScenario "ARC_069_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
