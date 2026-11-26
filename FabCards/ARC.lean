@@ -950,6 +950,9 @@ def arcaneAtHero (card : CardDef) (damage : Int) : CardDef :=
 /-- Scalding Rain (ARC141). -/
 def ARC_141_R : CardDef := { arcaneAtHero Meta.ARC_141_R_meta 4 with status := .full }
 
+/-- Scalding Rain (ARC142). -/
+def ARC_142_Y : CardDef := { arcaneAtHero Meta.ARC_142_Y_meta 3 with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -975,7 +978,7 @@ def arcCards : List CardDef :=
    ARC_132_R, ARC_133_Y, ARC_134_B,
    ARC_135_R, ARC_136_Y, ARC_137_B,
    ARC_138_R, ARC_139_Y, ARC_140_B,
-   ARC_141_R]
+   ARC_141_R, ARC_142_Y]
 
 end FabCards.ARC
 
