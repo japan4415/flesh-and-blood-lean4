@@ -2842,6 +2842,61 @@ meta def crucibleAetherweaveScenario : Option Bool := do
 
 #guard crucibleAetherweaveScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC116").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .legs && card.front.keywords.contains (.arcaneBarrier 2) &&
+    card.status == .full)
+
+meta def stormStridersScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let wizard : CardDef :=
+    { id := ⟨"Storm Striders fixture"⟩
+      front :=
+        { name := "Storm Striders fixture"
+          supertypes := [.class_ .wizard]
+          types := [.action]
+          cost := some { actionPoints := 1, resources := 1 }
+          keywords := [.goAgain] } }
+  let cards : CardDB := ⟨wizard :: throughArcDB.cards⟩
+  let (geared, boots) ← earlyPlace { earlyBase with cards } p (.player p .legs) "ARC_116"
+  let (withOther, nonWizard) ← earlyPlace geared p hand "WTR_221_R"
+  let (withFirst, first) ← earlyPlace withOther p hand wizard.id.val
+  let (ready, second) ← earlyPlace withFirst p hand wizard.id.val
+  let ordinary (id : ObjId) : Action := ⟨.player p, .playCard id⟩
+  let instant (id : ObjId) : Action := ⟨.player p, .playCard id true⟩
+  let activate : Action := ⟨.player p, .activateAbility boots 0 none⟩
+  let primed ← earlySteps ready (activate :: earlyPass)
+  let otherPlayed ← earlySteps primed (ordinary nonWizard :: earlyPass)
+  let (ordinaryPaid, _) ← (step 64 primed (ordinary first)).toOption
+  let (instantPaid, _) ← (step 64 primed (instant first)).toOption
+  let resolved ← earlySteps instantPaid earlyPass
+  let offTurn := { ready.setPool p { resources := 3 } with active := some q }
+  let offPrimed ← earlySteps offTurn (activate :: earlyPass)
+  let offReady ← match offPrimed.pending with
+    | .priority player _ :: _ =>
+      if player == p then some offPrimed else earlySteps offPrimed [⟨.player player, .pass⟩]
+    | _ => none
+  let offResolved ← earlySteps offReady (instant first :: earlyPass)
+  let hasTiming (s : GameState) := s.activeEffects.any (fun effect =>
+    effect.appliesNextInstant p wizard.front)
+  pure (!canPlayCard ready p first true && !(legalActions ready).contains (instant first) &&
+    canPlayCard primed p first && canPlayCard primed p first true &&
+    (legalActions primed).contains (ordinary first) && (legalActions primed).contains (instant first) &&
+    (primed.zone (.player p .legs)).isEmpty && (primed.zone (.player p .graveyard)).length == 1 &&
+    (primed.poolOf p).resources + 1 == (ready.poolOf p).resources &&
+    !canPlayCard primed p nonWizard true && hasTiming otherPlayed &&
+    !canPlayCard primed.finishTurnEffects p first true &&
+    (ordinaryPaid.poolOf p).actionPoints + 1 == (primed.poolOf p).actionPoints &&
+    (instantPaid.poolOf p).actionPoints == (primed.poolOf p).actionPoints &&
+    (instantPaid.poolOf p).resources + 1 == (primed.poolOf p).resources &&
+    !hasTiming ordinaryPaid && !hasTiming instantPaid &&
+    !canPlayCard resolved p second true && (resolved.nonAttackActionsThisTurn.contains p) &&
+    !canPlayCard offReady p first && canPlayCard offReady p first true &&
+    (offResolved.poolOf p).actionPoints == 0 && (offResolved.poolOf p).resources == 1)
+
+#guard stormStridersScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

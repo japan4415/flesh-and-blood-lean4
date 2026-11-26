@@ -67,7 +67,9 @@ def legalFrameActions (s : GameState) : List Action :=
     equips ++ toDeck ++ done
   | .priority p _ :: _ =>
     let candidates := playCardCandidateIds s p
-    let plays := (candidates.filter (canPlayCard s p)).map fun id => ⟨.player p, .playCard id⟩
+    let modes := candidates.flatMap fun id => [(id, false), (id, true)]
+    let plays := (modes.filter fun play => canPlayCard s p play.1 play.2).map
+      fun play => ⟨.player p, .playCard play.1 play.2⟩
     let weapons := ((weaponAttackCandidateIds s p).filter (canAttackWithWeapon s p)).map
       fun wid => ⟨.player p, .attackWeapon wid⟩
     let abilities := (availableActivations s p).map fun (source, index, target, secondTarget) =>

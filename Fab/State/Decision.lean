@@ -68,7 +68,7 @@ inductive ActionKind where
   /-- Pass priority (CR 1.11, 4.3.3). -/
   | pass
   /-- Announce playing card `id` from hand or arsenal while holding priority (CR 5.1.1). -/
-  | playCard (id : ObjId)
+  | playCard (id : ObjId) (asInstant : Bool := false)
   /-- Activate a weapon attack using weapon `weaponId` in the player's weapon zone (CR 1.4.3, 7.1). -/
   | attackWeapon (weaponId : ObjId)
   /-- Activate an indexed ability while holding priority. If the ability needs one target
