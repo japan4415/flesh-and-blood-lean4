@@ -5020,6 +5020,34 @@ meta def sunKissScenario (card : String) (life : Nat) : Option Bool := do
   (fun card => card.front.defense == some 2 && card.front.pitch == some 3 && card.status == .full)
 #guard sunKissScenario "ARC_214_B" 1 == some true
 
+#guard ((earlyPrintingCardId? "ARC215").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 3 && card.front.pitch == some 1 && card.status == .full)
+
+meta def whisperOfTheOracleScenario (card : String) (count : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let deck := Zone.player p .deck
+  let (initial, spell) ← earlyPlace { earlyBase with cards := throughArcDB } p (.player p .hand) card
+  let (one, outside) ← earlyPlace initial p deck "WTR_203_R"
+  let ready ← (List.range 4).foldlM (fun s _ =>
+    (earlyPlace s p deck "WTR_203_R").map Prod.fst) one
+  let cast (s : GameState) := earlySteps s (⟨.player p, .playCard spell⟩ :: earlyPass)
+  let choosing ← cast ready
+  let .chooseOpt who top other 0 0 :: _ := choosing.pending | none
+  let kept : Action := ⟨.player p, .optPick true⟩
+  let completed ← earlySteps choosing
+    (⟨.player p, .optPick false⟩ :: List.replicate (count - 1) kept)
+  let empty ← cast initial
+  pure (who == p && top :: other == (ready.zone deck).take count &&
+    (view p choosing).selectionChoices.map Prod.fst == (ready.zone deck).take count &&
+    (view q choosing).selectionChoices.isEmpty &&
+    !(legalActions choosing).contains ⟨.player p, .optPick true (some outside)⟩ &&
+    (completed.zone deck) == (ready.zone deck).drop 1 ++ [top] &&
+    completed.poolOf p == ready.poolOf p && empty.poolOf p == initial.poolOf p &&
+    (empty.zone deck).isEmpty)
+
+#guard whisperOfTheOracleScenario "ARC_215_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
