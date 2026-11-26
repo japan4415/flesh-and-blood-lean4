@@ -974,6 +974,18 @@ def ARC_148_Y : CardDef := { arcaneAtHero Meta.ARC_148_Y_meta 4 with status := .
 /-- Voltic Bolt (ARC149). -/
 def ARC_149_B : CardDef := { arcaneAtHero Meta.ARC_149_B_meta 3 with status := .full }
 
+/-- Arcanite Skullcap (ARC150). Its extra defense and barrier depend on current life totals. -/
+def ARC_150 : CardDef :=
+  let condition := some Condition.lessLifeThanOpponent
+  { Meta.ARC_150_meta with
+    front :=
+      { Meta.ARC_150_meta.front with
+        keywords := [.battleworn]
+        abilities :=
+          [ .static_ condition .self_ (.addDefense (.const 1))
+          , .static_ condition .self_ (.grantKeyword (.arcaneBarrier 3)) ] }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1001,7 +1013,8 @@ def arcCards : List CardDef :=
    ARC_138_R, ARC_139_Y, ARC_140_B,
    ARC_141_R, ARC_142_Y, ARC_143_B,
    ARC_144_R, ARC_145_Y, ARC_146_B,
-   ARC_147_R, ARC_148_Y, ARC_149_B]
+   ARC_147_R, ARC_148_Y, ARC_149_B,
+   ARC_150]
 
 end FabCards.ARC
 

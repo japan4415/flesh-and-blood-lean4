@@ -3527,6 +3527,46 @@ meta def arcaneAtHeroScenario (name : String) (cost damage : Nat) : Option Bool 
   (fun card => card.front.hasType .action && card.front.pitch == some 3 && card.status == .full)
 #guard arcaneAtHeroScenario "ARC_149_B" 2 3 == some true
 
+#guard ((earlyPrintingCardId? "ARC150").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .head && card.front.keywords == [.battleworn] && card.status == .full)
+
+meta def arcaniteSkullcapScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let head := Zone.player q .head
+  let (equipped, skullcap) ← earlyPlace { earlyBase with cards := throughArcDB } q head "ARC_150"
+  let (ready, spell) ← earlyPlace equipped p (.player p .hand) "ARC_147_R"
+  let low := (ready.setLife p 40).setLife q 20
+  let low := low.setPool q { resources := 3 }
+  let equal := low.setLife q 40
+  let higher := low.setLife q 41
+  let play : Action := ⟨.player p, .playCard spell⟩
+  let target : Action := ⟨.player p, .pickHeroTarget q⟩
+  let cast (s : GameState) := earlySteps s ([play, target] ++ earlyPass)
+  let prevention ← cast low
+  let .chooseReplacement chooser .prevention [barrier] true :: _ := prevention.pending | none
+  let prevented ← earlySteps prevention [⟨.player q, .pickReplacement (some barrier)⟩]
+  let unprotected ← cast equal
+  let suppression : ContinuousEffect :=
+    { id := 100, source := skullcap, controller := p, target := .obj skullcap
+      op := .loseAllAbilities, duration := .thisTurn, timestamp := ⟨1⟩ }
+  let silenced := { low with activeEffects := [suppression] }
+  let (onChain, blocking) ← moveObj low skullcap .combatChain .top false
+  let returned := (applyEquipmentWear onChain blocking).1
+  pure (objEffectiveDefense low skullcap == some 2 &&
+    objEffectiveDefense equal skullcap == some 1 && objEffectiveDefense higher skullcap == some 1 &&
+    (arcaneBarrierEffects low q).map (·.source) == [skullcap] &&
+    (arcaneBarrierEffects equal q).isEmpty && (arcaneBarrierEffects higher q).isEmpty &&
+    (arcaneBarrierEffects silenced q).isEmpty && objEffectiveDefense silenced skullcap == some 1 &&
+    chooser == q && prevented.lifeOf q == 18 && (prevented.poolOf q).resources == 0 &&
+    unprotected.lifeOf q == 35 && (arcaneBarrierEffects unprotected q).map (·.source) == [skullcap] &&
+    objEffectiveDefense onChain blocking == some 2 && returned.locate blocking == some head &&
+    (returned.obj? blocking).any (fun obj => obj.counterCount .minusOneDefense == 1) &&
+    objEffectiveDefense returned blocking == some 1 &&
+    objEffectiveDefense (returned.setLife q 40) blocking == some 0)
+
+#guard arcaniteSkullcapScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
