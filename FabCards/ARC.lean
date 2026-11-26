@@ -688,6 +688,9 @@ def ARC_097_R : CardDef := { drawnToDarkDimension Meta.ARC_097_R_meta with statu
 /-- Drawn to the Dark Dimension (ARC098). -/
 def ARC_098_Y : CardDef := { drawnToDarkDimension Meta.ARC_098_Y_meta with status := .full }
 
+/-- Drawn to the Dark Dimension (ARC099). -/
+def ARC_099_B : CardDef := { drawnToDarkDimension Meta.ARC_099_B_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -700,7 +703,7 @@ def arcCards : List CardDef :=
    ARC_082_Y, ARC_083_B, ARC_084_B, ARC_085_R, ARC_086_Y, ARC_087_B, ARC_088_R, ARC_089_Y, ARC_090_B,
    ARC_091_R, ARC_092_Y, ARC_093_B,
    ARC_094_R, ARC_095_Y, ARC_096_B,
-   ARC_097_R, ARC_098_Y]
+   ARC_097_R, ARC_098_Y, ARC_099_B]
 
 end FabCards.ARC
 
