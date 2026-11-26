@@ -1,9 +1,11 @@
 module
 
 import Fab.Rules.Setup
+import FabCards.Booster
 import FabCards.Draft
 import FabCards.ThroughArc
 meta import Fab.Rules.Setup
+meta import FabCards.Booster
 meta import FabCards.Draft
 meta import FabCards.ThroughArc
 
@@ -146,5 +148,24 @@ private def casualWtr : Except Error Bool := do
     decide (DraftDeckValid throughArcDB first) && !decide (CoreDeckValid throughArcDB first)
 
 #guard casualWtr.toOption == some true
+
+private def wtrChoices : List Nat := List.range 4 ++ List.range 7 ++ [0, 1, 0, 0, 1]
+
+#guard wtrBoosterLayout.map List.length ==
+  List.replicate 4 48 ++ List.replicate 7 72 ++ [48, 73, 12, 211, 15]
+#guard (openWtrBooster (wtrChoices.take 15)).isNone
+#guard (openWtrBooster (wtrChoices ++ [0])).isNone
+#guard (openWtrBooster (48 :: wtrChoices.drop 1)).isNone
+
+private def openAndDraftWtr : Except Error Bool := do
+  let some booster := openWtrBooster wtrChoices | throw .invalidRound
+  let heart : CardId := ⟨"WTR_000_B"⟩
+  let token : CardId := ⟨"WTR_002"⟩
+  let done ← draftAll throughArcDB wtrDraft .optional ⟨booster, booster, booster⟩
+  let some picks := poolAt done 0 | throw .invalidRound
+  return booster[14]? == some (some heart) && booster[15]? == some (some token) &&
+    picks.length == 45 && picks.count heart == 3 && !picks.contains token
+
+#guard openAndDraftWtr.toOption == some true
 
 end FabTest
