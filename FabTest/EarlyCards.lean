@@ -4075,6 +4075,47 @@ meta def rustedRelicScenario : Option Bool := do
 
 #guard rustedRelicScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC164").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 4 && card.front.pitch == some 1 && card.status == .full)
+
+meta def lifeForALifeScenario (card : String) (power : Int) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let (withAttack, attack) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) card
+  let (withBlock, first) ← earlyPlace withAttack q (.player q .hand) "WTR_203_R"
+  let (ready, second) ← earlyPlace withBlock q (.player q .hand) "WTR_203_R"
+  let play : Action := ⟨.player p, .playCard attack⟩
+  let paid ← earlySteps (ready.setLife p 39) [play]
+  let trigger ← paid.pendingTriggers.head?
+  let equal ← earlySteps (ready.setLife p 40) [play]
+  let reversed := paid.setLife p 41
+  let queued ← earlySteps reversed
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩]
+  let attacking ← earlySteps queued (earlyPass ++ earlyPass ++ earlyPass)
+  let attackingFromTie ← earlySteps (equal.setLife p 39) (earlyPass ++ earlyPass)
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let tieLink ← attackingFromTie.combat.bind CombatChain.activeLink?
+  let source ← link.attack
+  let hit ← earlyDamage attacking
+  let heal ← hit.pendingTriggers.find? (·.source == source)
+  let stacked ← earlySteps hit
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger heal.id⟩]
+  let healed ← earlySteps stacked earlyPass
+  let defended ← earlySteps attackingFromTie
+    [⟨.player q, .defendCard first⟩, ⟨.player q, .defendCard second⟩]
+  let blocked ← earlyDamage defended
+  pure (paid.pendingTriggers.length == 1 && equal.pendingTriggers.isEmpty &&
+    linkHasKeyword attacking link .goAgain && !linkHasKeyword attackingFromTie tieLink .goAgain &&
+    objEffectivePower attacking source == some power &&
+    (paid.poolOf p).resources + 1 == (ready.poolOf p).resources &&
+    hit.lifeOf q == attacking.lifeOf q - power.toNat && hit.lifeOf p == attacking.lifeOf p &&
+    healed.lifeOf p == hit.lifeOf p + 1 &&
+    blocked.lifeOf p == attackingFromTie.lifeOf p && blocked.lifeOf q == attackingFromTie.lifeOf q &&
+    blocked.pendingTriggers.isEmpty)
+
+#guard lifeForALifeScenario "ARC_164_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
