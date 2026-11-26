@@ -20,15 +20,6 @@ tapped state (CR 3.0.9, 7.7).
 
 namespace Fab
 
-/-- Where in the destination zone list an object is inserted. For ordered zones (`deck`, `stack`,
-`graveyard`), `top` is the head. -/
-inductive Pos where
-  /-- Insert at the head (top of deck, top of stack). -/
-  | top
-  /-- Insert at the end, for example bottom of deck during End Phase pitch return (CR 4.4.3c). -/
-  | bottom
-deriving DecidableEq, Repr, Hashable
-
 /-- Insert an object identifier at the requested end of a zone list. -/
 def Pos.insert : Pos → ObjId → List ObjId → List ObjId
   | .top, id, l => id :: l

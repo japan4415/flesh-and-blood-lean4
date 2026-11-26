@@ -14,6 +14,15 @@ Every zone stores a `List ObjId` as the source of truth; for ordered zones (`dec
 
 namespace Fab
 
+/-- Where in the destination zone list an object is inserted. For ordered zones (`deck`, `stack`,
+`graveyard`), `top` is the head. -/
+inductive Pos where
+  /-- Insert at the head (top of deck, top of stack). -/
+  | top
+  /-- Insert at the end, for example bottom of deck during End Phase pitch return (CR 4.4.3c). -/
+  | bottom
+deriving DecidableEq, Repr, Hashable
+
 /-- Per-player arena and non-arena zones (CR 3.0-3.16), plus outside-game storage. -/
 inductive ZoneKind where
   /-- Hero zone, Arena (CR 3.9). -/

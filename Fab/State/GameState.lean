@@ -77,6 +77,8 @@ structure LayerInfo where
   activationPayment : Option ActivationPayment := none
   /-- Whether to include the optional resources when paying for this layer (CR 5.1.5). -/
   payAdditionalResources : Bool := false
+  /-- The controller declared the hand-to-deck alternative to base resource payment (CR 5.1.3c). -/
+  payHandCardInsteadOfResources : Bool := false
   /-- The layer's controller chose to pay its boost cost (CR 8.3.9). -/
   boostChosen : Bool := false
   /-- Declared X for the selected variable additional cost (including X = 0). -/

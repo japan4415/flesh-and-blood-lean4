@@ -2255,10 +2255,10 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
           simp only [canPickHandCostCard, Bool.and_eq_true, List.contains_iff_mem] at hcan
           have hmem := hcan.1
           cases cost with
-          | bottomDeck =>
+          | putOnDeck position =>
             dsimp only
             have hq : q.n < s.playerCount := player_lt_of_mem_zone hwf hmem
-            have hm : (moveObj s id (.player q .deck) .bottom false).isSome = true := by
+            have hm : (moveObj s id (.player q .deck) position false).isSome = true := by
               apply moveObj_isSome hwf (Zone.valid_player hq .hand) hmem
               intro o ho
               have hown : o.owner = q := hok.owner q .hand rfl id hmem o ho
@@ -2266,7 +2266,7 @@ theorem applyFrame_isSome {s : GameState} {a : Action}
                 simp [Zone.normalize, ZoneKind.isArena, hown]
               rw [hnorm]
               exact ⟨Zone.valid_player hq .deck, by intro heq; cases heq⟩
-            cases heq : moveObj s id (.player q .deck) .bottom false with
+            cases heq : moveObj s id (.player q .deck) position false with
             | none => simp [heq] at hm
             | some pair => cases pair; rfl
           | reveal filter =>

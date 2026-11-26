@@ -4494,6 +4494,78 @@ meta def ferventForerunnerScenario (card : String) (power : Nat) (fromArsenal : 
 #guard ferventForerunnerScenario "ARC_184_B" 1 false == some true
 #guard ferventForerunnerScenario "ARC_184_B" 1 true == some true
 
+#guard ((earlyPrintingCardId? "ARC185").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 5 && card.front.pitch == some 1 && card.status == .full)
+
+meta def moonWishScenario (card : String) (power : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let sunKiss := FabCards.ARC.Meta.ARC_212_R_meta
+  let database : CardDB := ⟨sunKiss :: throughArcDB.cards⟩
+  let (withSun, sun) ← earlyPlace { earlyBase with cards := database } p deck sunKiss.id.val
+  let (withTop, top) ← earlyPlace withSun p deck "WTR_203_R"
+  let (withBlock, d1) ← earlyPlace withTop q (.player q .hand) "WTR_203_R"
+  let (withDefense, d2) ← earlyPlace withBlock q (.player q .hand) "WTR_203_R"
+  let (alone, attack) ← earlyPlace withDefense p hand card
+  let (ready, spare) ← earlyPlace alone p hand "WTR_203_R"
+  let surcharge : ContinuousEffect :=
+    { id := ready.nextTimestamp, source := d1, controller := q, target := .nextActionBy p
+      op := .addCostRes 1, duration := .thisTurn, timestamp := ⟨ready.nextTimestamp⟩ }
+  let taxed := { ready with activeEffects := [surcharge] }
+  let play : Action := ⟨.player p, .playCard attack⟩
+  let pay (alternate : Bool) : Action := ⟨.player p, .pickMay alternate⟩
+  let useSpare : Action := ⟨.player p, .pickHandCostCard spare⟩
+  let pick (id : Option ObjId) : Action := ⟨.player p, .pickShuffleCard id⟩
+  let declared ← earlySteps taxed [play]
+  let .chooseOptionalPlayCost actor _ false none regular
+      (.handCardInsteadOfResources alternate) :: _ := declared.pending | none
+  let paidNormally ← earlySteps declared [pay false]
+  let choosing ← earlySteps declared [pay true]
+  let .chooseHandCardCost payer _ false none (.putOnDeck .top) :: _ := choosing.pending | none
+  let cancelled ← earlySteps choosing [⟨.player p, .cancelPlay⟩]
+  let paidAlternatively ← earlySteps choosing [useSpare]
+  let putOnTop ← (paidAlternatively.zone deck).head?
+  let free ← earlySteps (ready.setPool p { actionPoints := 1 })
+    [play, pay true, useSpare]
+  let withoutSpare ← earlySteps alone [play]
+  let attacking ← earlySteps paidAlternatively (earlyPass ++ earlyPass)
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let source ← link.attack
+  let hit ← earlyDamage attacking
+  let trigger ← hit.pendingTriggers.find? (·.source == source)
+  let offered ← earlySteps hit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let .chooseShuffleCards chooser 1 [candidate] [] false (some search) :: _ := offered.pending | none
+  let selection ← earlySteps offered [pick (some candidate)]
+  let (acquired, events) ← (step 64 selection (pick none)).toOption
+  let .chanceShuffle shuffled :: _ := acquired.pending | none
+  let declined ← earlySteps offered [pick none]
+  let .chanceShuffle alsoShuffled :: _ := declined.pending | none
+  let defended ← earlySteps attacking [⟨.player q, .defendCard d1⟩, ⟨.player q, .defendCard d2⟩]
+  let blocked ← earlyDamage defended
+  pure (actor == p && payer == p && regular.resources == 3 && alternate.resources == 1 &&
+    regular.actionPoints == 1 && alternate.actionPoints == 1 &&
+    (paidNormally.poolOf p).resources == 5 && paidNormally.zone hand == [spare] &&
+    cancelled.poolOf p == taxed.poolOf p && cancelled.zone deck == taxed.zone deck &&
+    cancelled.zone hand == taxed.zone hand && cancelled.activeEffects == taxed.activeEffects &&
+    (paidAlternatively.poolOf p).resources == 7 && (paidAlternatively.poolOf p).actionPoints == 3 &&
+    paidAlternatively.zone hand == [] && paidAlternatively.zone deck == [putOnTop, top, sun] &&
+    (paidAlternatively.cardDefOf? putOnTop).any (·.id == ⟨"WTR_203_R"⟩) &&
+    (free.poolOf p).actionPoints == 0 && (free.poolOf p).resources == 0 &&
+    (withoutSpare.poolOf p).resources == 6 && !(legalActions withoutSpare).contains (pay true) &&
+    linkAttackPower attacking link == power && hit.lifeOf q == ready.lifeOf q - power &&
+    chooser == p && candidate == sun && search.destination == hand && search.reveal &&
+    search.mayFail && search.searchesDeck && search.shuffleAfter &&
+    !(legalActions offered).contains (pick (some top)) &&
+    events.contains (.revealed p sun sunKiss.id) && shuffled == deck && alsoShuffled == deck &&
+    ((acquired.zone hand).head?.bind acquired.cardDefOf?).any (·.id == sunKiss.id) &&
+    acquired.zone deck == [putOnTop, top] && declined.zone deck == [putOnTop, top, sun] &&
+    blocked.pendingTriggers.isEmpty && blocked.lifeOf q == ready.lifeOf q)
+
+#guard moonWishScenario "ARC_185_R" 5 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

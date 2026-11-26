@@ -146,7 +146,7 @@ deriving DecidableEq, Repr
 /-- Additional cost paid by choosing a card in hand (CR 5.1.9). -/
 inductive HandCardCost where
   /-- Place the chosen card on the bottom of the deck. -/
-  | bottomDeck
+  | putOnDeck (position : Pos)
   /-- Reveal the chosen card and keep it in hand. -/
   | reveal (filter : CardFilter)
 deriving DecidableEq, Repr
@@ -220,6 +220,8 @@ inductive OptionalPlayCost where
   | resources (n : Nat)
   /-- Banish the top card of the deck after paying the assets. -/
   | boost
+  /-- Replace the base resource cost with a hand-to-deck cost, retaining adjusted assets (CR 5.1.6c). -/
+  | handCardInsteadOfResources (adjustedCost : AssetCost)
 deriving DecidableEq, Repr
 
 /-- Check an X declaration. An optional cost can be declined without choosing a value. -/
@@ -290,7 +292,7 @@ inductive Frame where
   /-- Player decision: pitch a card from hand while paying `cost`, or cancel play (CR 1.14.3, 5.1.6). -/
   | choosePitch (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool) (modeIdx : Option Nat)
       (cost : AssetCost)
-  /-- Player decision: accept an optional additional cost or waive it (CR 5.1.5). -/
+  /-- Player decision: declare an optional additional or alternative cost (CR 5.1.3). -/
   | chooseOptionalPlayCost (p : PlayerId) (layerId : ObjId) (fromArsenal : Bool)
       (modeIdx : Option Nat) (cost : AssetCost) (extra : OptionalPlayCost)
   /-- Player decision: declare X for a variable resource cost (CR 5.1.3a). -/

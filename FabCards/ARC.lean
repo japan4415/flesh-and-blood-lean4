@@ -1192,6 +1192,18 @@ def ARC_183_Y : CardDef := { ferventForerunner Meta.ARC_183_Y_meta with status :
 /-- Fervent Forerunner Blue (ARC184). -/
 def ARC_184_B : CardDef := { ferventForerunner Meta.ARC_184_B_meta with status := .full }
 
+/-- Offer the hand-to-deck alternative and search for Sun Kiss on a hit. -/
+def moonWish (base : CardDef) : CardDef :=
+  let ability := Ability.triggered .onHit false none none
+    { body := .prim (.searchDeck .controller { nameIn := ["Sun Kiss"] } (some 1) .hand true none) }
+  let face := { base.front with
+    playEffect := some { handCardInsteadOfResources := true }
+    abilities := [ability] }
+  { base with front := face }
+
+/-- Moon Wish Red (ARC185). -/
+def ARC_185_R : CardDef := { moonWish Meta.ARC_185_R_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1224,7 +1236,7 @@ def arcCards : List CardDef :=
    ARC_160_Y, ARC_161_B, ARC_162_R, ARC_163_B, ARC_164_R, ARC_165_Y, ARC_166_B, ARC_167_R,
    ARC_168_Y, ARC_169_B, ARC_170_R, ARC_171_Y, ARC_172_B, ARC_173_R,
    ARC_174_Y, ARC_175_B, ARC_176_R, ARC_177_Y, ARC_178_B, ARC_179_R, ARC_180_Y, ARC_181_B,
-   ARC_182_R, ARC_183_Y, ARC_184_B]
+   ARC_182_R, ARC_183_Y, ARC_184_B, ARC_185_R]
 
 end FabCards.ARC
 
