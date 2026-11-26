@@ -3601,6 +3601,43 @@ meta def talismanicLensScenario : Option Bool := do
 
 #guard talismanicLensScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC152").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .chest && card.front.defense == some 0 && card.status == .full)
+
+meta def vestOfTheFirstFistScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let chest := Zone.player p .chest
+  let (withVest, vest) ← earlyPlace { earlyBase with cards := throughArcDB } p chest "ARC_152"
+  let (withAttack, attack) ← earlyPlace withVest p (.player p .hand) "WTR_203_R"
+  let (withWeapon, weapon) ← earlyPlace withAttack p (.player p .weapon) "WTR_115"
+  let (withBlock, first) ← earlyPlace withWeapon q (.player q .hand) "WTR_203_R"
+  let (ready, second) ← earlyPlace withBlock q (.player q .hand) "WTR_203_R"
+  let attacking ← earlyAttack ready (.playCard attack)
+  let unblocked ← earlyDamage attacking
+  let trigger ← unblocked.pendingTriggers.find? (·.source == vest)
+  let queued ← earlySteps unblocked
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩]
+  let offer ← earlySteps queued earlyPass
+  let allow : Action := ⟨.player p, .pickMay true⟩
+  let accept ← earlySteps offer [allow]
+  let decline ← earlySteps offer [⟨.player p, .pickMay false⟩]
+  let stale ← earlySteps (execPrim queued p vest [] (.destroy .self_)).1 earlyPass
+  let withDefense ← earlySteps attacking
+    [⟨.player q, .defendCard first⟩, ⟨.player q, .defendCard second⟩]
+  let blocked ← earlyDamage withDefense
+  let weaponHit ← (earlyAttack ready (.attackWeapon weapon)).bind earlyDamage
+  pure ((offer.zone chest) == [vest] && (legalActions offer).contains allow &&
+    (accept.zone chest).isEmpty && (accept.zone (.player p .graveyard)).length == 1 &&
+    (accept.poolOf p).resources == (offer.poolOf p).resources + 2 &&
+    (accept.poolOf p).actionPoints == (offer.poolOf p).actionPoints &&
+    decline.zone chest == [vest] && decline.poolOf p == offer.poolOf p &&
+    stale.poolOf p == offer.poolOf p && !(legalActions stale).contains allow &&
+    blocked.lifeOf q == ready.lifeOf q && blocked.pendingTriggers.all (·.source != vest) &&
+    weaponHit.lifeOf q < ready.lifeOf q && weaponHit.pendingTriggers.all (·.source != vest))
+
+#guard vestOfTheFirstFistScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
