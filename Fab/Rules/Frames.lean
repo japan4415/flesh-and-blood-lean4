@@ -694,6 +694,8 @@ def supportsTriggerTargets (effect : EffectDef) (damageRecipient : Option Player
   effect.targets.isEmpty ||
     (effect.targets == [{ kind := .hero }] &&
       effect.body == .prim (.intimidate (.ownerOfSlot 0))) ||
+    (effect.targets == [{ kind := .opposingHero }] &&
+      (effect.body.bindOpposingHeroDamage ⟨0⟩).isSome) ||
     (damageRecipient.isSome && effect.targets == [{ kind := .equipment .defendingHero }] &&
       match effect.body with
       | .prim (.addCounter (.slot 0) _ _) => true
@@ -717,6 +719,7 @@ def matchingCardTriggers (s : GameState) (source : ObjId) (controller : PlayerId
           abilityIdx := abilityIdx
           fromArsenal := fromArsenal
           effect := eff.body
+          requiresOpposingHero := eff.targets == [{ kind := .opposingHero }]
           equipmentTargetPlayer := if eff.targets == [{ kind := .equipment .defendingHero }] then
             damageRecipient else none }, once)
       else none
@@ -1082,6 +1085,15 @@ def arenaAttackPlayTriggers (s : GameState) (layerId : ObjId) (p : PlayerId) :
     (controlledPermanentTriggers s p .onPlayAttackOrWeapon).map fun trigger =>
       { trigger with effect := trigger.effect.bindPlayedAttack layerId }
 
+/-- Collect card-play triggers from installed objects after a successful card payment. -/
+def installedCardPlayTriggers (s : GameState) (layerId : ObjId) (p : PlayerId) : List (PendingTrigger × Bool) :=
+  match s.objectFace? layerId with
+  | none => []
+  | some face =>
+    installedCardTriggers s p fun
+      | .onPlayCard filter => cardFaceMatches filter face
+      | _ => false
+
 /-- Collect an entering permanent's abilities using the new object in the arena (CR 3.0.5, 6.6.5). -/
 def permanentEntryTriggers (s : GameState) (fromArsenal : Bool) (events : List Event) :
     List PendingTrigger :=
@@ -1192,16 +1204,18 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
   let s := { s with layerMeta := s.layerMeta.insert layerId.n updatedInfo }
   let newTriggers := playedCardTriggers s layerId p fromArsenal ++
     (variablePaymentTrigger s p layerId fromArsenal).toList ++ arenaAttackPlayTriggers s layerId p
-  let triggers := newTriggers.zipIdx.map fun (trigger, index) =>
-    { trigger with id := s.nextTimestamp + index }
-  let pendingTriggers := s.pendingTriggers ++ triggers
-  let flush := if pendingTriggers.isEmpty then [] else [.flushTriggers]
+  let queued := queueCardTriggers s
+    (newTriggers.map (·, false) ++ installedCardPlayTriggers s layerId p)
+  let flush := if queued.pendingTriggers.isEmpty then [] else [.flushTriggers]
+  let nonAttack := card.any (fun c => c.front.hasType .action && !c.front.hasSubtype .attack)
   { s with
     activeEffects := effects
+    pendingTriggers := queued.pendingTriggers
+    nextTimestamp := queued.nextTimestamp
+    triggeredThisTurn := queued.triggeredThisTurn
     playRollback := none
     activatedThisTurn := s.activatedThisTurn ++ activation.toList
-    pendingTriggers := pendingTriggers
-    nextTimestamp := s.nextTimestamp + triggers.length
+    nonAttackActionsThisTurn := if nonAttack then p :: s.nonAttackActionsThisTurn else s.nonAttackActionsThisTurn
     pending := flush ++ (.priority p 0 :: rest) }
 
 /-- Pay the declared boost cost before returning priority and grant its keyword to the paid layer
@@ -1509,6 +1523,7 @@ def stackPendingTrigger (s : GameState) (p : PlayerId) (trig : PendingTrigger)
     { controller := p
       fromArsenal := trig.fromArsenal
       triggerEffect := some (trig.declaredEffect hero equipment)
+      triggerOpposingHero := if trig.requiresOpposingHero then hero else none
       triggerEquipment := trig.equipmentTargetPlayer.bind fun player => equipment.map (player, ·)
       triggerGraveyard := trig.graveyardTargets.map fun (_, filter) => (filter, graveyard) }
   let s2 := { s1 with pendingTriggers := remTrigs, layerMeta := s1.layerMeta.insert lid.n info }
@@ -2079,7 +2094,9 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
         let eff :=
           if (isDefenseReactionLayer s topId && !canResolveDefenseReaction s info) ||
               !(info.activationTarget.all fun (spec, target) => matchesActivationTarget s spec target) ||
-              !(info.triggerEquipment.all fun (player, target) => matchesTriggerEquipment s player target) then
+              !(info.triggerEquipment.all fun (player, target) => matchesTriggerEquipment s player target) ||
+              !(info.triggerOpposingHero.all fun target =>
+                target != info.controller && s.turnOrder.contains target) then
             .nop
           else
             match info.triggerEffect with
@@ -2263,6 +2280,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       activatedThisTurn := []
       weaponHitsThisTurn := []
       attackActionHitsThisTurn := []
+      nonAttackActionsThisTurn := []
       attacksThisTurn := []
       triggeredThisTurn := [] }
     let draws := endPhaseDrawFrames s2 tp

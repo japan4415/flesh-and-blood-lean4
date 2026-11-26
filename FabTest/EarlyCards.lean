@@ -2204,6 +2204,61 @@ meta def sicEmShotScenario (cardId : String) (power : Nat) : Option Bool := do
 
 #guard sicEmShotScenario "ARC_074_B" 2 == some true
 
+#guard ((earlyPrintingCardId? "ARC075").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Viserai, Rune Blood" && card.front.life == some 40 && card.status == .full)
+
+meta def viseraiRunechantScenario (heroId : String) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let arena := Zone.player p .permanent
+  let runebladeAction := FabCards.ARC.Meta.ARC_081_R_meta
+  let runebladeAttack := FabCards.ARC.Meta.ARC_080_R_meta
+  let cards : CardDB := ⟨runebladeAction :: runebladeAttack :: throughArcDB.cards⟩
+  let state := { earlyBase with cards }
+  let (withHero, hero) ← earlyPlace state p (.player p .hero) heroId
+  let (withBlade, blade) ← earlyPlace withHero p (.player p .weapon) "WTR_115"
+  let (withFirst, first) ← earlyPlace withBlade p hand runebladeAction.id.val
+  let (withSecond, second) ← earlyPlace withFirst p hand runebladeAction.id.val
+  let (withUtility, utility) ← earlyPlace withSecond p hand "WTR_218_R"
+  let (withAttack, attack) ← earlyPlace withUtility p hand "WTR_203_R"
+  let (ready, classAttack) ← earlyPlace withAttack p hand runebladeAttack.id.val
+  let play (id : ObjId) : Action := ⟨.player p, .playCard id⟩
+  let start : Action := ⟨.player p, .pickTriggerStart p⟩
+  let firstPlayed ← earlySteps ready (play first :: earlyPass)
+  let genericPlayed ← earlySteps ready (play utility :: earlyPass)
+  let (reset, _) ← microStep { firstPlayed with pending := [.endTurnCleanup p] }
+  let heroQueued ← earlySteps genericPlayed [play second]
+  let heroTrigger ← heroQueued.pendingTriggers.head?
+  let made ← earlySteps heroQueued
+    ([start, ⟨.player p, .pickTrigger heroTrigger.id⟩] ++ earlyPass ++ earlyPass)
+  let token ← (made.zone arena).head?
+  let classQueued ← earlySteps genericPlayed [play classAttack]
+  let classTrigger ← classQueued.pendingTriggers.head?
+  let classMade ← earlySteps classQueued ([start, ⟨.player p, .pickTrigger classTrigger.id⟩] ++ earlyPass)
+  let cardQueued ← earlySteps made [play attack]
+  let weaponQueued ← earlySteps made [⟨.player p, .attackWeapon blade⟩]
+  let cardTrigger ← cardQueued.pendingTriggers.head?
+  let weaponTrigger ← weaponQueued.pendingTriggers.head?
+  let cast ← earlySteps cardQueued
+    ([start, ⟨.player p, .pickTrigger cardTrigger.id (some q)⟩] ++ earlyPass)
+  let weaponCast ← earlySteps weaponQueued
+    ([start, ⟨.player p, .pickTrigger weaponTrigger.id (some q)⟩] ++ earlyPass)
+  pure (firstPlayed.nonAttackActionsThisTurn == [p] && firstPlayed.pendingTriggers.isEmpty &&
+    (firstPlayed.zone arena).isEmpty && genericPlayed.nonAttackActionsThisTurn == [p] &&
+    genericPlayed.pendingTriggers.isEmpty && reset.nonAttackActionsThisTurn.isEmpty &&
+    heroTrigger.source == hero && (made.cardDefOf? token).any (fun c => c.id == ⟨"ARC_112"⟩) &&
+    (made.zone arena).length == 1 && classTrigger.source == hero &&
+    (classMade.zone arena).length == 1 && classMade.pendingTriggers.isEmpty &&
+    classMade.lifeOf q == ready.lifeOf q && cardTrigger.source == token && weaponTrigger.source == token &&
+    cardTrigger.requiresOpposingHero && cardTrigger.targetChoices cardQueued == [(some q, none)] &&
+    (earlySteps cardQueued [start, ⟨.player p, .pickTrigger cardTrigger.id (some p)⟩]).isNone &&
+    cast.lifeOf q == made.lifeOf q - 1 && weaponCast.lifeOf q == made.lifeOf q - 1 &&
+    (cast.zone arena).isEmpty && (weaponCast.zone arena).isEmpty &&
+    (cast.zone .stack).length == 1 && (weaponCast.zone .stack).length == 1)
+
+#guard viseraiRunechantScenario "ARC_075" == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

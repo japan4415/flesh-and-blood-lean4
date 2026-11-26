@@ -31,6 +31,8 @@ deriving DecidableEq, Repr
 inductive Trigger where
   /-- When this card is played (CR 5.1). -/
   | onPlay
+  /-- When the controller plays a card matching a filter. -/
+  | onPlayCard (filter : CardFilter)
   /-- When this attacks (CR 7.2). -/
   | onAttack
   /-- When this hits (CR 7.5). -/

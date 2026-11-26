@@ -85,6 +85,12 @@ theorem playCard_pushes_stack_top {s s1 sOut : GameState} {p : PlayerId} {passCo
         simp [GameState.zone, GameState.setZone, Pos.insert, Zone.normalize]
   · cases hm
 
+private theorem finishBoostedPlay_pool (s : GameState) (p : PlayerId) (layerId : ObjId)
+    (fromArsenal : Bool) (modeIdx : Option Nat) (rest : List Frame) :
+    (finishBoostedPlay s p layerId fromArsenal modeIdx rest).1.poolOf p = s.poolOf p := by
+  change (applyBoost s p false).1.poolOf p = s.poolOf p
+  simp only [GameState.poolOf, applyBoost_pools]
+
 /-- **I9** (priority retention & no over-pitching): when `p`'s pool can already pay `cost`
 and card payment has neither a chosen hand-card cost nor a random-discard cost,
 `playPayCost` spends the cost immediately without prompting `choosePitch`, clears `playRollback`,
@@ -134,19 +140,16 @@ theorem playPayCost_retains_priority {s : GameState} {p : PlayerId} {layerId : O
     cases empty <;> first | exact Or.inl rfl | exact Or.inr rfl
   split
   · let paid := finishBoostedPlay (s.setPool p pool') p layerId fromArsenal modeIdx rest
-    have hboostPool :
-        (applyBoost (s.setPool p pool') p false).1.poolOf p = (s.setPool p pool').poolOf p := by
-      simp only [GameState.poolOf, applyBoost_pools]
+    have hpaidPool : paid.1.poolOf p = pool' :=
+      (finishBoostedPlay_pool (s.setPool p pool') p layerId fromArsenal modeIdx rest).trans
+        (GameState.poolOf_setPool_self s p pool')
     refine ⟨paid.1, paid.2, rfl, ?_, rfl, ?_, ?_⟩
     · unfold paid finishBoostedPlay finishPaidPlay
       dsimp only
       exact hpriority _
-    · change ((applyBoost (s.setPool p pool') p false).1.poolOf p).actionPoints + cost.actionPoints = _
-      rw [hboostPool, GameState.poolOf_setPool_self]
+    · rw [hpaidPool]
       exact hacc.1
-    · change ((applyBoost (s.setPool p pool') p false).1.poolOf p).totalEnergy +
-        (cost.resources + cost.chi) = _
-      rw [hboostPool, GameState.poolOf_setPool_self]
+    · rw [hpaidPool]
       exact hacc.2
   · refine ⟨_, [], rfl, ?_, rfl, ?_, ?_⟩
     · unfold finishPaidPlay

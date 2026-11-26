@@ -174,6 +174,8 @@ def CardFilter.nonEquipment : CardFilter :=
 inductive TargetKind where
   /-- A hero. -/
   | hero
+  /-- An opposing hero. -/
+  | opposingHero
   /-- An attack action card on the combat chain or stack. -/
   | attackAction
   /-- A weapon attack on the combat chain. -/
@@ -266,6 +268,8 @@ inductive Condition where
   | lessLifeThanOpponent
   /-- A weapon controlled by controller has hit this turn (Braveforge Bracers). -/
   | weaponHitThisTurn
+  /-- The controller has already paid for a non-attack action card this turn. -/
+  | nonAttackActionPlayedThisTurn
   /-- Source is defending a weapon attack (Steelblade Shunt). -/
   | defendingWeaponAttack
   /-- Source weapon has not hit this turn (Dawnblade). -/

@@ -172,6 +172,7 @@ def evalCondition (s : GameState) (ctrl : PlayerId) (src : ObjId) (fromArsenal :
     match zoneOfRef target zr with
     | some z => (s.zone z).isEmpty
     | none => false
+  | .nonAttackActionPlayedThisTurn => s.nonAttackActionsThisTurn.contains ctrl
   | .lessLifeThanOpponent =>
     (allPlayers s.playerCount).any fun opp => opp != ctrl && s.lifeOf ctrl < s.lifeOf opp
   | .sourceInArena =>
