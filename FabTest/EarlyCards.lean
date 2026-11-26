@@ -2623,6 +2623,29 @@ meta def oathArknightScenario (name : String) (bonus : Int) : Option Bool := do
 #guard oathArknightScenario "ARC_092_Y" 2 == some true
 #guard oathArknightScenario "ARC_093_B" 1 == some true
 
+meta def discountedRunebladeScenario (name : String) (cost power : Nat) (goAgain : Bool) :
+    Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let token := FabCards.ARC.runechantToken.id
+  let (ready, attack) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) name
+  let card ← ready.cardDefOf? attack
+  let oneRune := createTokens ready p token 1
+  let enough := createTokens oneRune p token cost
+  let charging ← earlySteps oneRune [⟨.player p, .playCard attack⟩]
+  let defending ← earlyAttack ready (.playCard attack)
+  let link ← defending.combat.bind CombatChain.activeLink?
+  pure ((modifiedCardPlayCost ready p card).resources == cost &&
+    (modifiedCardPlayCost (createTokens ready q token 1) p card).resources == cost &&
+    (modifiedCardPlayCost oneRune p card).resources == cost - 1 &&
+    (modifiedCardPlayCost enough p card).resources == 0 &&
+    (charging.poolOf p).resources == 8 - (cost - 1) &&
+    charging.pendingTriggers.length == 1 && linkAttackPower defending link == power &&
+    linkHasKeyword defending link .goAgain == goAgain)
+
+#guard discountedRunebladeScenario "ARC_094_R" 3 6 false == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
