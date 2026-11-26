@@ -1744,6 +1744,50 @@ meta def nockTheDeathwhistleScenario : Option Bool := do
 
 #guard nockTheDeathwhistleScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC047").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Rapid Fire" && card.status == .full)
+
+meta def rapidFireScenario : Option Bool := do
+  let p := earlyAttacker
+  let arsenal := Zone.player p .arsenal
+  let hand := Zone.player p .hand
+  let state := { earlyBase with cards := throughArcDB }
+  let (withBow, bow) ← earlyPlace state p (.player p .weapon) "ARC_040"
+  let (withDeck, _) ← earlyPlace withBow p (.player p .deck) "WTR_192_Y"
+  let (withSpell, spell) ← earlyPlace withDeck p hand "ARC_047_Y"
+  let (withGeneric, generic) ← earlyPlace withSpell p hand "WTR_203_R"
+  let (empty, second) ← earlyPlace withGeneric p hand "ARC_045_R"
+  let (ready, first) ← earlyPlace empty p arsenal "ARC_045_R"
+  let use : Action := ⟨.player p, .playCard spell⟩
+  let buffed ← earlySteps ready (use :: earlyPass)
+  let reload ← earlySteps empty (use :: (earlyPass ++ [⟨.player p, .arsenalPut generic⟩]))
+  let reloadedGeneric ← (reload.zone arsenal).head?
+  let nonArrow ← earlyAttack buffed (.playCard generic)
+  let nonArrowLink ← nonArrow.combat.bind CombatChain.activeLink?
+  let expired ← earlyAttack buffed.finishTurnEffects (.playCard first)
+  let expiredLink ← expired.combat.bind CombatChain.activeLink?
+  let firstAttack ← earlyAttack buffed (.playCard first)
+  let firstLink ← firstAttack.combat.bind CombatChain.activeLink?
+  let hit ← earlyDamage firstAttack
+  let trigger ← hit.pendingTriggers.head?
+  let returned ← earlySteps hit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let closed ← earlySteps returned (earlyPass ++ earlyPass)
+  let next ← earlySteps closed
+    (⟨.player p, .activateAbility bow 0 none⟩ ::
+      (earlyPass ++ [⟨.player p, .pickShuffleCard (some second)⟩, ⟨.player p, .pickShuffleCard none⟩]))
+  let secondArrow ← (next.zone arsenal).head?
+  let secondAttack ← earlyAttack next (.playCard secondArrow)
+  let secondLink ← secondAttack.combat.bind CombatChain.activeLink?
+  pure (buffed.zone arsenal == [first] &&
+    (buffed.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    (reload.obj? reloadedGeneric).any (·.faceDown) &&
+    (reload.cardDefOf? reloadedGeneric).any (fun c => c.id == ⟨"WTR_203_R"⟩) &&
+    !linkHasKeyword nonArrow nonArrowLink .goAgain && !linkHasKeyword expired expiredLink .goAgain &&
+    linkHasKeyword firstAttack firstLink .goAgain && linkHasKeyword secondAttack secondLink .goAgain)
+
+#guard rapidFireScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
