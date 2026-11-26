@@ -71,7 +71,7 @@ def PendingTrigger.declaredEffect (t : PendingTrigger) (hero : Option PlayerId)
   if t.requiresOpposingHero then (hero.bind t.effect.bindOpposingHeroDamage).getD .nop
   else match t.effect, equipment with
   | .prim (.addCounter (.slot 0) kind amount), some id => .prim (.addCounter (.declared id) kind amount)
-  | _, _ => (hero.bind t.effect.bindIntimidateTarget).getD t.effect
+  | _, _ => (hero.bind t.effect.bindHeroTarget).getD t.effect
 
 /-- An event that a delayed trigger can watch (CR 6.6.3). -/
 inductive DelayedTriggerWatch where

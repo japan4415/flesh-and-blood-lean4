@@ -103,6 +103,18 @@ structure LayerInfo where
   triggerOpposingHero : Option PlayerId := none
 deriving DecidableEq, Repr
 
+/-- A resolved arcane damage event credited to its originating effect. -/
+structure ArcaneDamage where
+  /-- Player controlling the damage source. -/
+  controller : PlayerId
+  /-- Originating object of the damage event. -/
+  source : ObjId
+  /-- Hero receiving the damage. -/
+  target : PlayerId
+  /-- Arcane damage dealt after applying replacements. -/
+  amount : Nat
+deriving DecidableEq, Repr
+
 /-- Snapshot of mutable board state saved at the start of playing a card so illegal or unpayable
 plays roll back cleanly to the exact pre-play state (CR 5.1.1). -/
 structure BoardSnapshot where
@@ -150,6 +162,8 @@ structure BoardSnapshot where
   attackActionHitsThisTurn : List PlayerId := []
   /-- Controller for each non-attack action card paid for during the turn. -/
   nonAttackActionsThisTurn : List PlayerId := []
+  /-- Arcane damage dealt during the current turn after all prevention (CR 6.4-6.5). -/
+  arcaneDamageThisTurn : List ArcaneDamage := []
   /-- Saved turn attack history, including attacks that did not hit. -/
   attacksThisTurn : List PlayerId := []
   /-- Saved unopened outside-game boosters (CR 1.9.1a). -/
@@ -222,6 +236,8 @@ structure GameState where
   attackActionHitsThisTurn : List PlayerId := []
   /-- Controller for each non-attack action card paid for during the turn. -/
   nonAttackActionsThisTurn : List PlayerId := []
+  /-- Arcane damage dealt during the current turn after all prevention (CR 6.4-6.5). -/
+  arcaneDamageThisTurn : List ArcaneDamage := []
   /-- Players who attacked this turn, with one entry per attack. -/
   attacksThisTurn : List PlayerId := []
   /-- Unopened outside-game boosters, in supplied order, each with its tracked physical cards. -/
@@ -229,6 +245,11 @@ structure GameState where
   /-- Once-per-turn triggered abilities already triggered this turn (CR 6.6). -/
   triggeredThisTurn : List (ObjId × Nat) := []
 deriving DecidableEq, Repr
+
+/-- Total arcane damage one player has dealt to a particular hero this turn. -/
+def GameState.arcaneDamageDealtTo (s : GameState) (controller target : PlayerId) : Nat :=
+  s.arcaneDamageThisTurn.foldl (fun acc damage =>
+    if damage.controller == controller && damage.target == target then acc + damage.amount else acc) 0
 
 /-- List of every valid zone in an `n`-player game (CR 3.0). -/
 def allZones (n : Nat) : List Zone :=
@@ -513,6 +534,7 @@ def snapshot (s : GameState) : BoardSnapshot :=
     weaponHitsThisTurn := s.weaponHitsThisTurn
     attackActionHitsThisTurn := s.attackActionHitsThisTurn
     nonAttackActionsThisTurn := s.nonAttackActionsThisTurn
+    arcaneDamageThisTurn := s.arcaneDamageThisTurn
     attacksThisTurn := s.attacksThisTurn
     unopenedBoosters := s.unopenedBoosters
     triggeredThisTurn := s.triggeredThisTurn }
@@ -542,6 +564,7 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     weaponHitsThisTurn := snap.weaponHitsThisTurn
     attackActionHitsThisTurn := snap.attackActionHitsThisTurn
     nonAttackActionsThisTurn := snap.nonAttackActionsThisTurn
+    arcaneDamageThisTurn := snap.arcaneDamageThisTurn
     attacksThisTurn := snap.attacksThisTurn
     unopenedBoosters := snap.unopenedBoosters
     triggeredThisTurn := snap.triggeredThisTurn

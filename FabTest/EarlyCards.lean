@@ -2920,6 +2920,41 @@ meta def robeRaptureScenario : Option Bool := do
 
 #guard robeRaptureScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC118").bind throughArcDB.find?).any
+  (fun card => card.front.keywords.contains (.specialization "Kano") && card.status == .full)
+
+meta def blazingAetherScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let (withCard, flame) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) "ARC_118_R"
+  let hit := (execPrim withCard p flame [] (.dealDamage .arcane (.seated q) (.const 3))).1
+  let self := (execPrim hit p flame [] (.dealDamage .arcane (.seated p) (.const 2))).1
+  let other := (execPrim self q flame [] (.dealDamage .arcane (.seated q) (.const 5))).1
+  let (withBarrier, barrier) ← earlyPlace other q (.player q .chest) "ARC_117"
+  let ready := withBarrier.setPool q { resources := 2 }
+  let (initial, _, frames) := execPrim ready p flame [] (.dealDamage .arcane (.seated q) (.const 2))
+  let (prevention, _) ← (advance 64 { initial with pending := frames ++ ready.pending } []).toOption
+  let effect ← (arcaneBarrierEffects prevention q).find? (·.source == barrier)
+  let reduced ← earlySteps prevention [⟨.player q, .pickReplacement (some effect.id)⟩]
+  let choosing ← earlySteps reduced [⟨.player p, .playCard flame⟩]
+  let target (hero : PlayerId) : Action := ⟨.player p, .pickHeroTarget hero⟩
+  let selfTarget ← earlySteps choosing (target p :: earlyPass)
+  let otherTarget ← earlySteps choosing
+    (target q :: earlyPass ++ [⟨.player q, .pickReplacement none⟩])
+  let reverted ← earlySteps choosing [⟨.player p, .cancelPlay⟩]
+  let (newTurn, _) ← (advance 64 { otherTarget with pending := [.endTurnCleanup p] } []).toOption
+  pure (reduced.lifeOf q == ready.lifeOf q - 1 &&
+    reduced.arcaneDamageDealtTo p q == 4 && (reduced.poolOf q).resources == 1 &&
+    reduced.arcaneDamageDealtTo p p == 2 && reduced.arcaneDamageDealtTo q q == 5 &&
+    (legalActions choosing).contains (target p) && (legalActions choosing).contains (target q) &&
+    selfTarget.lifeOf p == reduced.lifeOf p - 2 && selfTarget.lifeOf q == reduced.lifeOf q &&
+    otherTarget.lifeOf q == reduced.lifeOf q - 4 && otherTarget.lifeOf p == reduced.lifeOf p &&
+    otherTarget.arcaneDamageDealtTo p q == 8 &&
+    reverted.arcaneDamageThisTurn == reduced.arcaneDamageThisTurn && newTurn.arcaneDamageThisTurn.isEmpty)
+
+#guard blazingAetherScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

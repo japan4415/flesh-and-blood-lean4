@@ -242,6 +242,8 @@ inductive NumExpr where
   | soulCount (p : PlayerRef)
   /-- Number of cards currently in player `p`'s Banished zone (MON: Shadow / Chane / Levia). -/
   | banishedCount (p : PlayerRef)
+  /-- Arcane damage dealt by the controller to a hero this turn. -/
+  | arcaneDamageDealtTo (p : PlayerRef)
 deriving DecidableEq, Repr
 
 /-- Boolean condition checked by static abilities, triggers, or `ifThen` combinators. -/

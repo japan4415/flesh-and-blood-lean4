@@ -90,6 +90,7 @@ def evalNumExpr (s : GameState) (ctrl : PlayerId) (env : List (VarId × Int))
   | .banishedCount p =>
     let target := evalPlayerRef s ctrl p
     Int.ofNat (s.zone (.player target .banished)).length
+  | .arcaneDamageDealtTo p => Int.ofNat (s.arcaneDamageDealtTo ctrl (evalPlayerRef s ctrl p))
 
 /-- The required single-attack target of a card or its chosen mode (CR 5.1.4a). -/
 def singleAttackTargetSpec (card : CardDef) (modeIdx : Option Nat) : Option TargetSpec := do
@@ -821,6 +822,15 @@ def remainingDamage : ProposedEvent → Nat
   | .damage _ _ d _ => d
   | _ => 0
 
+/-- Deduct resolved damage and credit positive arcane damage to its source. -/
+def applyResolvedDamage (s : GameState) (target : PlayerId) (kind : DamageKind)
+    (amount : Nat) (origin : Option (PlayerId × ObjId)) : GameState :=
+  let history := match kind, origin with
+    | .arcane, some (controller, source) =>
+      { controller, source, target, amount } :: s.arcaneDamageThisTurn
+    | _, _ => s.arcaneDamageThisTurn
+  { s.setLife target (s.lifeOf target - Int.ofNat amount) with arcaneDamageThisTurn := history }
+
 /-- Commit damage after replacement choices, consuming shields and destroying prevention sources
 before updating life (CR 6.4, 6.5). -/
 def settleDamage (s : GameState) (target : PlayerId) (kind : DamageKind) (result : ReplacementState) :
@@ -829,7 +839,7 @@ def settleDamage (s : GameState) (target : PlayerId) (kind : DamageKind) (result
   let (settled, events) := destroyManyObjs { s with activeReplacements := remaining } result.destroyedSources
   let amount := remainingDamage result.event
   if amount = 0 then (settled, events)
-  else (checkHeroDefeat (settled.setLife target (settled.lifeOf target - Int.ofNat amount)),
+  else (checkHeroDefeat (applyResolvedDamage settled target kind amount result.damageSource),
     events ++ [.damageDealt target kind amount])
 
 /-- Settling an event preserves structural and rollback invariants. -/
@@ -850,7 +860,7 @@ theorem settleDamage_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (p : Pla
   dsimp only
   split
   · exact ⟨hw, ho, hp, hc, hr⟩
-  · let final := settled.setLife p (settled.lifeOf p - Int.ofNat (remainingDamage damage.event))
+  · let final := applyResolvedDamage settled p kind (remainingDamage damage.event) damage.damageSource
     have hfinal := checkHeroDefeat_config_rollback final
     exact ⟨checkHeroDefeat_wf (GameState.WF.congr hw rfl rfl rfl rfl),
       checkHeroDefeat_ownerOk (GameState.OwnerOk.congr ho rfl rfl),
@@ -869,25 +879,26 @@ theorem settleDamage_ttr (s : GameState) (p : PlayerId) (kind : DamageKind) (dam
   split
   · exact ⟨hb.1, hb.2.1, fun hr => hb.2.2 ▸ hr⟩
   · have hc := checkHeroDefeat_ttr_core
-      (settled.setLife p (settled.lifeOf p - Int.ofNat (remainingDamage damage.event)))
+      (applyResolvedDamage settled p kind (remainingDamage damage.event) damage.damageSource)
     exact ⟨hc.1.trans hb.1, hc.2.1.trans hb.2.1, fun hr => hb.2.2 ▸ hc.2.2 hr⟩
 
 /-- Apply damage through the four-stage pipeline when there are no prevention choices
 (CR 6.4, 6.5, 7.5). -/
-def applyDamageWithPrevention (s : GameState) (target : PlayerId) (kind : DamageKind) (amt : Nat) :
-    GameState × List Event :=
+def applyDamageWithPrevention (s : GameState) (target : PlayerId) (kind : DamageKind) (amt : Nat)
+    (origin : Option (PlayerId × ObjId) := none) : GameState × List Event :=
   if amt = 0 then (s, [])
   else settleDamage s target kind (applyReplacementPipeline [] s.activeReplacements
-    { event := .damage target kind amt, availResources := (s.poolOf target).resources })
+    { event := .damage target kind amt, availResources := (s.poolOf target).resources,
+      damageSource := origin })
 
 /-- Automatic damage preserves the structural and rollback invariants. -/
 theorem applyDamageWithPrevention_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk)
-    (target : PlayerId) (kind : DamageKind) (amt : Nat) :
-    (applyDamageWithPrevention s target kind amt).1.WF ∧
-    (applyDamageWithPrevention s target kind amt).1.OwnerOk ∧
-    (applyDamageWithPrevention s target kind amt).1.physIds.Perm s.physIds ∧
-    (applyDamageWithPrevention s target kind amt).1.config = s.config ∧
-    (applyDamageWithPrevention s target kind amt).1.playRollback = s.playRollback := by
+    (target : PlayerId) (kind : DamageKind) (amt : Nat) (origin : Option (PlayerId × ObjId) := none) :
+    (applyDamageWithPrevention s target kind amt origin).1.WF ∧
+    (applyDamageWithPrevention s target kind amt origin).1.OwnerOk ∧
+    (applyDamageWithPrevention s target kind amt origin).1.physIds.Perm s.physIds ∧
+    (applyDamageWithPrevention s target kind amt origin).1.config = s.config ∧
+    (applyDamageWithPrevention s target kind amt origin).1.playRollback = s.playRollback := by
   unfold applyDamageWithPrevention
   split
   · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
@@ -895,10 +906,10 @@ theorem applyDamageWithPrevention_inv {s : GameState} (hwf : s.WF) (hok : s.Owne
 
 /-- Automatic damage preserves turn and tournament state, and never reopens a finished game. -/
 theorem applyDamageWithPrevention_ttr (s : GameState) (target : PlayerId)
-    (kind : DamageKind) (amt : Nat) :
-    (applyDamageWithPrevention s target kind amt).1.turn = s.turn ∧
-    (applyDamageWithPrevention s target kind amt).1.tournament = s.tournament ∧
-    ((applyDamageWithPrevention s target kind amt).1.result = none → s.result = none) := by
+    (kind : DamageKind) (amt : Nat) (origin : Option (PlayerId × ObjId) := none) :
+    (applyDamageWithPrevention s target kind amt origin).1.turn = s.turn ∧
+    (applyDamageWithPrevention s target kind amt origin).1.tournament = s.tournament ∧
+    ((applyDamageWithPrevention s target kind amt origin).1.result = none → s.result = none) := by
   unfold applyDamageWithPrevention
   split
   · exact ⟨rfl, rfl, id⟩
@@ -931,12 +942,12 @@ def preventionResourceCost (effect : ReplacementEffect) : Nat :=
 /-- Open a prevention choice when Arcane Barrier is available or fixed prevention competes
 with another eligible effect (CR 6.4.10, 6.5.1). -/
 def damagePreventionFrame? (s : GameState) (p : PlayerId) (kind : DamageKind) (amount : Nat)
-    (attack : Option ObjId := none) : Option Frame :=
+    (attack : Option ObjId := none) (origin : Option (PlayerId × ObjId) := none) : Option Frame :=
   if amount = 0 then none
   else
     let barriers := if kind == .arcane then arcaneBarrierEffects s p else []
     let effects := s.activeReplacements ++ barriers
-    let proposed : ReplacementState := { event := .damage p kind amount }
+    let proposed : ReplacementState := { event := .damage p kind amount, damageSource := origin }
     let damage := applyReplacementStage .standard [] effects
       (applyReplacementStage .selfOrIdentity [] effects proposed)
     let candidates := effects.filter fun effect =>
@@ -1071,10 +1082,10 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
   | .dealDamage kind pref n =>
     let target := evalPlayerRef s ctrl pref
     let amt := modifiedDamageAmount s src kind (clampNonNeg (evalNumExpr s ctrl env n (some src)))
-    match damagePreventionFrame? s target kind amt with
+    match damagePreventionFrame? s target kind amt none (some (ctrl, src)) with
     | some frame => (s, [], [frame])
     | none =>
-      let (s1, es) := applyDamageWithPrevention s target kind amt
+      let (s1, es) := applyDamageWithPrevention s target kind amt (some (ctrl, src))
       (s1, es, [])
   | .gainAP pref n =>
     let target := evalPlayerRef s ctrl pref
@@ -1472,6 +1483,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     · exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
     · exact applyDamageWithPrevention_inv hwf hok (evalPlayerRef s ctrl pref) kind
         (modifiedDamageAmount s src kind (clampNonNeg (evalNumExpr s ctrl env n (some src))))
+        (some (ctrl, src))
   | createToken pref tokId n =>
     let target := evalPlayerRef s ctrl pref
     let count := tokenCreationCount s target tokId n
@@ -1789,6 +1801,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     · exact ⟨rfl, rfl, id⟩
     · exact applyDamageWithPrevention_ttr s (evalPlayerRef s ctrl pref) kind
         (modifiedDamageAmount s src kind (clampNonNeg (evalNumExpr s ctrl env n (some src))))
+        (some (ctrl, src))
   | createToken pref tokId n =>
     have hc : ∀ (k : Nat) (st : GameState),
         (createTokens st (evalPlayerRef s ctrl pref) tokId k).turn = st.turn ∧

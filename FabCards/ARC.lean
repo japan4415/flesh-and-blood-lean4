@@ -784,6 +784,16 @@ def ARC_117 : CardDef :=
     front := { Meta.ARC_117_meta.front with abilities := [ability] }
     status := .full }
 
+/-- Blazing Aether (ARC118). -/
+def ARC_118_R : CardDef :=
+  let target : PlayerRef := .ownerOfSlot 0
+  let effect : EffectDef :=
+    { targets := [{ kind := .hero }]
+      body := .prim (.dealDamage .arcane target (.arcaneDamageDealtTo target)) }
+  { Meta.ARC_118_R_meta with
+    front := { Meta.ARC_118_R_meta.front with playEffect := some effect }
+    status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -801,7 +811,7 @@ def arcCards : List CardDef :=
    ARC_103_R, ARC_104_Y, ARC_105_B,
    ARC_106_R, ARC_107_Y, ARC_108_B,
    ARC_109_R, ARC_110_Y, ARC_111_B,
-   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117]
+   ARC_112, ARC_113, ARC_114, ARC_115, ARC_116, ARC_117, ARC_118_R]
 
 end FabCards.ARC
 

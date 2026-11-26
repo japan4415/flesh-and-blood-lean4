@@ -589,7 +589,7 @@ def cardPlayTargetFrame (s : GameState) (p : PlayerId) (layerId : ObjId) (fromAr
     | some weapons => .choosePlayWeapon p layerId fromArsenal modeIdx cost weapons
     | none =>
       if targets == some [{ kind := .hero }] &&
-          ((cardResolveEffect card modeIdx).bindIntimidateTarget p).isSome then
+          ((cardResolveEffect card modeIdx).bindHeroTarget p).isSome then
         .choosePlayHero p layerId fromArsenal modeIdx cost
       else pay
 
@@ -615,7 +615,7 @@ def cardLayerEffect (s : GameState) (layerId : ObjId) (info : LayerInfo) : Effec
     let effect := cardResolveEffect card info.modeIdx
     if info.weaponTarget.any (fun id => !(cardWeaponTargetChoices s info.controller card).any (·.contains id)) then
       .nop
-    else (info.heroTarget.bind effect.bindIntimidateTarget).getD effect
+    else (info.heroTarget.bind effect.bindHeroTarget).getD effect
 
 /-- Whether the card-layer is a defense reaction. -/
 def isDefenseReactionLayer (s : GameState) (id : ObjId) : Bool :=
@@ -2422,6 +2422,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       weaponHitsThisTurn := []
       attackActionHitsThisTurn := []
       nonAttackActionsThisTurn := []
+      arcaneDamageThisTurn := []
       attacksThisTurn := []
       triggeredThisTurn := [] }
     let draws := endPhaseDrawFrames s2 tp
