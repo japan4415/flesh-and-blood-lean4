@@ -2897,6 +2897,29 @@ meta def stormStridersScenario : Option Bool := do
 
 #guard stormStridersScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC117").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .chest && card.front.keywords.contains (.arcaneBarrier 1) &&
+    card.status == .full)
+
+meta def robeRaptureScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let (ready, robe) ← earlyPlace { earlyBase with cards := throughArcDB } p (.player p .chest) "ARC_117"
+  let activate : Action := ⟨.player p, .activateAbility robe 0 none⟩
+  let paid ← earlySteps ready [activate]
+  let resolved ← earlySteps paid earlyPass
+  let pool := ready.poolOf p
+  pure ((paid.zone (.player p .chest)).isEmpty && (paid.zone (.player p .graveyard)).length == 1 &&
+    (paid.poolOf p).resources == pool.resources &&
+    (paid.poolOf p).actionPoints + 1 == pool.actionPoints &&
+    (resolved.poolOf p).resources == pool.resources + 3 &&
+    (resolved.poolOf p).actionPoints == (paid.poolOf p).actionPoints &&
+    (earlySteps resolved [activate]).isNone &&
+    (earlySteps { ready with active := some q } [activate]).isNone &&
+    (earlySteps (ready.setPool p { pool with actionPoints := 0 }) [activate]).isNone)
+
+#guard robeRaptureScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
