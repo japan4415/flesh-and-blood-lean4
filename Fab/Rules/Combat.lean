@@ -270,6 +270,7 @@ def canAttackWithWeapon (s : GameState) (p : PlayerId) (weaponId : ObjId) : Bool
   (s.zone .stack).isEmpty &&
   chainReady &&
   1 ≤ (s.poolOf p).actionPoints &&
+  s.canTakeAction p &&
   (weaponId ∈ weaponAttackCandidateIds s p) &&
   match s.cardDefOf? weaponId with
   | some c =>

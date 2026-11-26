@@ -170,6 +170,8 @@ inductive EffectOp where
   | cantDrawCards
   /-- Player restriction removes and prohibits Go Again during the affected action phase. -/
   | cantGainGoAgain
+  /-- The affected player can pay for this many more actions. -/
+  | limitActions (remaining : Nat)
   /-- Stage 7: set base power `{p}` to `v` (CR 6.3.2g). -/
   | setBasePower (v : Int)
   /-- Stage 7: set base defense `{d}` to `v` (CR 6.3.2g). -/
@@ -208,7 +210,7 @@ def EffectOp.stage : EffectOp → EffectStage
   | .addType _ | .addSubtype _ | .setSubtypes _ => .stage4TypeSubtype
   | .addSupertype _ => .stage5Supertype
   | .grantKeyword _ | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _ | .loseKeyword _ | .loseAllAbilities
-  | .cantDrawCards | .cantGainGoAgain => .stage6Ability
+  | .cantDrawCards | .cantGainGoAgain | .limitActions _ => .stage6Ability
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .stage7BaseNumeric
   | .lockPower | .mulPower _ | .divPower _ | .addPower _ | .subPower _
   | .addDefense _ | .subDefense _ | .addCostRes _ | .subCostRes _
@@ -216,7 +218,7 @@ def EffectOp.stage : EffectOp → EffectStage
 
 /-- Which sub-stage within its stage an `EffectOp` belongs to (CR 6.3.3). -/
 def EffectOp.subStage : EffectOp → SubStage
-  | .lockPower | .cantDrawCards | .cantGainGoAgain => .restrict
+  | .lockPower | .cantDrawCards | .cantGainGoAgain | .limitActions _ => .restrict
   | .copyFace _ | .setController _ | .setName _ | .setColor _ | .setSubtypes _
   | .setBasePower _ | .setBaseDefense _ | .setBaseCostRes _ => .set
   | .mulPower _ | .divPower _ => .mulDiv
@@ -258,7 +260,7 @@ def applyEffectOp (c : DerivedChars) (op : EffectOp) : DerivedChars :=
   | .grantKeyword (.arcaneBarrier n) => { c with keywords := .arcaneBarrier n :: c.keywords }
   | .grantKeyword kw => { c with keywords := insertUnique kw c.keywords }
   | .grantAttackAbility _ | .allowWeaponAttack | .allowBanishedPlay _
-  | .cantDrawCards | .cantGainGoAgain => c
+  | .cantDrawCards | .cantGainGoAgain | .limitActions _ => c
   | .loseKeyword kw => { c with keywords := c.keywords.filter (· != kw) }
   | .loseAllAbilities => { c with keywords := [], abilitiesLost := true }
   | .setBasePower v => { c with basePower := some v, power := some v }

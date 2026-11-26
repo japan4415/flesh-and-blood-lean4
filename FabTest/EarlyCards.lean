@@ -1580,6 +1580,53 @@ meta def bullsEyeBracersScenario : Option Bool := do
 
 #guard bullsEyeBracersScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC043").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Red in the Ledger" && card.status == .full)
+
+meta def redInTheLedgerScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let arsenal := Zone.player p .arsenal
+  let hand := Zone.player q .hand
+  let base := { earlyBase with cards := throughArcDB }
+  let (withBow, _) ← earlyPlace base p (.player p .weapon) "ARC_040"
+  let (archer, arrow) ← earlyPlace withBow p arsenal "ARC_043_R"
+  let attacking ← earlyAttack archer (.playCard arrow)
+  let hit ← earlyDamage attacking
+  let trigger ← hit.pendingTriggers.head?
+  let applied ← earlySteps hit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let closed ← earlySteps applied (earlyPass ++ earlyPass)
+  let (withHero, hero) ← earlyPlace closed q (.player q .hero) "ARC_039"
+  let (withBlade, blade) ← earlyPlace withHero q (.player q .weapon) "WTR_115"
+  let (withFirst, first) ← earlyPlace withBlade q hand "WTR_218_R"
+  let (withSecond, second) ← earlyPlace withFirst q hand "WTR_219_Y"
+  let (prepared, instant) ← earlyPlace withSecond q hand "WTR_173_R"
+  let next := { prepared.setPool q { actionPoints := 3, resources := 8 } with
+    turn := prepared.turn + 1, active := some q, pending := [.actionPhaseStart q] }
+  let (ready, _) ← microStep next
+  let pass : List Action := [⟨.player q, .pass⟩, ⟨.player p, .pass⟩]
+  let useHero : Action := ⟨.player q, .activateAbility hero 0 none⟩
+  let useWeapon : Action := ⟨.player q, .attackWeapon blade⟩
+  let playFirst : Action := ⟨.player q, .playCard first⟩
+  let playSecond : Action := ⟨.player q, .playCard second⟩
+  let afterCard ← earlySteps ready (playFirst :: pass)
+  let afterHero ← earlySteps ready (useHero :: pass)
+  let afterWeapon ← earlySteps ready [useWeapon]
+  let afterInstant ← earlySteps afterCard (⟨.player q, .playCard instant⟩ :: pass)
+  let (ended, _) ← microStep { afterInstant with pending := [.endPhaseStart q] }
+  pure (closed.combat.isNone && closed.canTakeAction p &&
+    closed.activeEffects.any (fun effect =>
+      effect.target == .player q && effect.op == .limitActions 1 && effect.duration == .nextActionPhase) &&
+    ready.canTakeAction q && (afterCard.poolOf q).actionPoints == (ready.poolOf q).actionPoints &&
+    !afterCard.canTakeAction q && !afterHero.canTakeAction q && !afterWeapon.canTakeAction q &&
+    (earlySteps afterCard [playSecond]).isNone && (earlySteps afterCard [useHero]).isNone &&
+    (earlySteps afterCard [useWeapon]).isNone && (earlySteps afterHero [playFirst]).isNone &&
+    afterInstant.lifeOf q == afterCard.lifeOf q + 3 && !afterInstant.canTakeAction q &&
+    ended.activeEffects.all (fun effect => effect.op != .limitActions 0))
+
+#guard redInTheLedgerScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
