@@ -27,7 +27,7 @@
   font-weight: 700;
   cursor: pointer;
 }
-.draft-actions :is(#enter, #draft-start, #draft-next, #draft-pick) { background: var(--accent); color: #23190c; }
+.draft-actions :is(#enter, #draft-start, #draft-next, #draft-pick):enabled { background: var(--accent); color: #23190c; }
 .draft-actions button:active:enabled { filter: brightness(.88); }
 .draft-actions button:disabled { color: var(--muted); background: #203028; cursor: default; }
 #invite { display: block; margin-top: 1rem; color: var(--muted); font-size: .85rem; }

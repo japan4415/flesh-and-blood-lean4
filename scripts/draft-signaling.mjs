@@ -9,7 +9,7 @@ function reply(response, status, body) {
 }
 
 function addMember(room, seat) {
-  const member = { id: randomUUID(), key: randomUUID(), seat, seen: Date.now(), next: 1, events: [] };
+  const member = { id: randomUUID(), key: randomUUID(), seat, seen: Date.now(), next: 1, events: [], generation: 1 };
   room.members.set(member.key, member);
   return member;
 }
@@ -18,12 +18,21 @@ function sendEvent(member, event) {
   member.events.push({ ...event, sequence: member.next++ });
 }
 
+function credentials(room, member) {
+  return { roomId: room.id, key: member.key, seat: member.seat, generation: member.generation, after: member.next - 1 };
+}
+
 function removeMember(room, member) {
   if (member.seat === 1) {
     rooms.delete(room.id);
     return;
   }
-  room.members.delete(member.key);
+  if (room.locked) {
+    member.generation++;
+    member.events = [];
+  } else {
+    room.members.delete(member.key);
+  }
   sendEvent(room.host, { kind: "left", id: member.id });
 }
 
@@ -34,8 +43,10 @@ setInterval(() => {
       rooms.delete(room.id);
       continue;
     }
-    for (const member of room.members.values()) {
-      if (member.seen < expiredBefore) removeMember(room, member);
+    if (!room.locked) {
+      for (const member of room.members.values()) {
+        if (member.seen < expiredBefore) removeMember(room, member);
+      }
     }
   }
 }, 5_000).unref();
@@ -75,7 +86,7 @@ export async function draftSignal(request, response) {
     const room = { id: randomUUID(), members: new Map() };
     room.host = addMember(room, 1);
     rooms.set(room.id, room);
-    reply(response, 201, { roomId: room.id, key: room.host.key, seat: 1 });
+    reply(response, 201, credentials(room, room.host));
     return;
   }
   const room = rooms.get(roomId);
@@ -96,8 +107,8 @@ export async function draftSignal(request, response) {
       return;
     }
     const member = addMember(room, seat);
-    sendEvent(room.host, { kind: "joined", id: member.id, seat });
-    reply(response, 201, { roomId, key: member.key, seat });
+    sendEvent(room.host, { kind: "joined", id: member.id, seat, generation: member.generation });
+    reply(response, 201, credentials(room, member));
     return;
   }
   const member = room.members.get(key);
@@ -106,6 +117,17 @@ export async function draftSignal(request, response) {
     return;
   }
   member.seen = Date.now();
+  if (action === "reconnect" && member !== room.host) {
+    member.generation++;
+    member.events = [];
+    sendEvent(room.host, { kind: "joined", id: member.id, seat: member.seat, generation: member.generation });
+    reply(response, 200, credentials(room, member));
+    return;
+  }
+  if (member !== room.host && message.generation !== member.generation) {
+    reply(response, 403, { error: "この席は再接続されました" });
+    return;
+  }
   if (action === "poll") {
     const after = message.after;
     if (!Number.isSafeInteger(after) || after < 0 || after >= member.next) {
@@ -141,13 +163,15 @@ export async function draftSignal(request, response) {
     ? [...room.members.values()].find((peer) => peer.seat !== 1 && peer.id === message.target)
     : room.host;
   const description = message.description;
+  const generation = host ? target?.generation : member.generation;
   if (action !== "description" || !target ||
+      message.generation !== generation ||
       description?.type !== (host ? "offer" : "answer") || typeof description.sdp !== "string") {
     reply(response, 400, { error: "Invalid peer description" });
     return;
   }
   sendEvent(target, {
-    kind: "description", id: member.id, seat: member.seat,
+    kind: "description", id: member.id, seat: member.seat, generation,
     description: { type: description.type, sdp: description.sdp },
   });
   reply(response, 200, {});

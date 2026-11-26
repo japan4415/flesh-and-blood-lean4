@@ -41,7 +41,11 @@ export function createDraftPlay({ session, connected, lock, send }) {
   let selected;
   let starting = false;
   let pending = false;
-  let aborted = false;
+  let paused = false;
+  let epoch = 0;
+  let displayed;
+  let hostLink;
+  let awaitingView = false;
 
   function renderCards() {
     const ids = view?.pack ?? view?.picks ?? [];
@@ -60,7 +64,7 @@ export function createDraftPlay({ session, connected, lock, send }) {
         choice.setAttribute("aria-label", `${card.name} ${card.number}`);
         choice.setAttribute("aria-pressed", String(selected === index));
         choice.addEventListener("click", () => {
-          if (pending) return;
+          if (pending || paused || awaitingView) return;
           grid.querySelector('[aria-pressed="true"]')?.setAttribute("aria-pressed", "false");
           selected = index;
           choice.setAttribute("aria-pressed", "true");
@@ -75,30 +79,36 @@ export function createDraftPlay({ session, connected, lock, send }) {
     }));
   }
 
-  function abort() {
-    if (pod) {
-      for (const peer of pod.peers) send(peer, { kind: "draft-abort" });
-      pod.engine.reset();
-      pod = undefined;
-    }
-    aborted = true;
-    view = undefined;
-    renderCards();
-  }
-
   function refresh() {
     const room = session();
     const peers = connected();
     const host = room?.seat === 1;
-    if (pod && view?.phase !== "complete" && pod.peers.some((peer) => !peers.includes(peer))) abort();
-    if (room && !host && view && view.phase !== "complete" && peers.length === 0) abort();
-    start.hidden = !host || Boolean(view) || aborted;
+    if (pod) {
+      const live = pod.ids.map((id) => peers.find((peer) => peer.id === id));
+      if (live.length !== pod.live.length || live.some((peer, index) => peer !== pod.live[index])) {
+        // A restored link needs the latest projection even if its cards did not change.
+        for (const previous of pod.live) if (previous && !live.includes(previous)) pod.sent.delete(previous);
+        pod.live = live;
+        const interrupted = view?.phase !== "complete" && live.some((peer) => !peer);
+        if (interrupted && !pod.paused) pod.epoch++;
+        pod.paused = interrupted;
+        publishViews();
+      }
+    } else if (room && !host && hostLink !== peers[0]) {
+      hostLink = peers[0];
+      awaitingView = Boolean(view && view.phase !== "complete");
+      if (hostLink) send(hostLink, { kind: "draft-sync" });
+    }
+    const stopped = paused || awaitingView;
+    start.hidden = !host || Boolean(view);
     start.disabled = peers.length !== 7 || starting;
     next.hidden = !host || view?.phase !== "review";
+    next.disabled = stopped;
     pick.hidden = !view?.pack;
-    pick.disabled = selected === undefined || pending;
+    pick.disabled = stopped || selected === undefined || pending;
+    for (const choice of grid.querySelectorAll("button")) choice.disabled = stopped;
     let summary = room && !host ? "ホストの開始を待っています。" : "8席がそろうと開始できます。";
-    if (aborted) summary = "接続が切れたためドラフトを終了しました。";
+    if (stopped) summary = "一時停止中 · 全員の再接続を待っています。";
     else if (starting) summary = "Leanを起動し、24パックを用意しています…";
     else if (view?.phase === "complete") summary = `ドラフト完了 · 自分の取得カード ${view.picks.length}枚`;
     else if (view?.phase === "review") summary = `${view.booster - 1}パック目のレビュー · 自分の取得カード ${view.picks.length}枚`;
@@ -118,36 +128,51 @@ export function createDraftPlay({ session, connected, lock, send }) {
     pending = false;
     feedback.textContent = "";
     renderCards();
-    refresh();
     if (moveFocus) phase.focus({ preventScroll: true });
   }
 
-  function publishViews() {
+  function showPacket(packet) {
+    const key = JSON.stringify(packet);
+    const resynced = awaitingView;
+    paused = packet.paused;
+    epoch = packet.epoch;
+    awaitingView = false;
+    if (displayed === key && !resynced) return;
+    displayed = key;
+    show(decodeView(packet.view));
+  }
+
+  function publishViews(force) {
     const current = pod;
-    for (const peer of [null, ...current.peers]) {
-      if (pod !== current) return;
-      const seat = peer?.seat ?? 1;
-      const encoded = current.engine.view(seat);
-      if (current.sent.get(seat) === encoded) continue;
-      current.sent.set(seat, encoded);
-      if (peer) send(peer, { kind: "draft-view", view: encoded });
-      else show(decodeView(encoded));
+    const packet = (seat) => ({
+      kind: "draft-view", view: current.engine.view(seat), paused: current.paused, epoch: current.epoch,
+    });
+    showPacket(packet(1));
+    for (const peer of current.live) {
+      if (!peer) continue;
+      const message = packet(peer.seat);
+      const key = JSON.stringify(message);
+      if (peer !== force && current.sent.get(peer) === key) continue;
+      if (send(peer, message)) current.sent.set(peer, key);
     }
   }
 
   function acceptPick(seat, message) {
+    refresh();
+    if (pod.paused || message.epoch !== pod.epoch) return false;
     const current = decodeView(pod.engine.view(seat));
     if (!current?.pack || current.booster !== message.booster || current.pack.length !== message.size ||
         typeof message.card !== "string" || !current.pack.includes(message.card)) return false;
     if (!pod.engine.pick(seat, message.card)) return false;
     publishViews();
+    refresh();
     return true;
   }
 
   start.addEventListener("click", async () => {
     const room = session();
     const peers = connected();
-    if (room?.seat !== 1 || peers.length !== 7 || starting || pod || aborted) return;
+    if (room?.seat !== 1 || peers.length !== 7 || starting || pod) return;
     starting = true;
     feedback.textContent = "";
     refresh();
@@ -158,9 +183,8 @@ export function createDraftPlay({ session, connected, lock, send }) {
       if (!engine.start()) throw new Error("Leanでドラフトを開始できませんでした。");
       await lock(room, peers);
       if (room !== session()) return;
-      pod = { engine, peers, sent: new Map() };
+      pod = { engine, ids: peers.map((peer) => peer.id), live: [], sent: new WeakMap(), paused: false, epoch: 0 };
       refresh();
-      if (pod) publishViews();
     } catch (error) {
       if (room === session()) feedback.textContent = error.message;
     } finally {
@@ -171,12 +195,17 @@ export function createDraftPlay({ session, connected, lock, send }) {
   });
 
   next.addEventListener("click", () => {
-    if (pod?.engine.next()) publishViews();
+    refresh();
+    if (pod && !pod.paused && pod.engine.next()) {
+      publishViews();
+      refresh();
+    }
   });
 
   pick.addEventListener("click", () => {
-    if (!view?.pack || selected === undefined || pending) return;
-    const message = { kind: "draft-pick", booster: view.booster, size: view.pack.length, card: view.pack[selected] };
+    refresh();
+    if (!view?.pack || selected === undefined || pending || paused || awaitingView) return;
+    const message = { kind: "draft-pick", epoch, booster: view.booster, size: view.pack.length, card: view.pack[selected] };
     if (pod) {
       if (!acceptPick(1, message)) feedback.textContent = "ピックを受け付けられませんでした。";
     } else {
@@ -196,24 +225,30 @@ export function createDraftPlay({ session, connected, lock, send }) {
     reset() {
       pod?.engine.reset();
       pod = undefined;
-      aborted = false;
+      paused = false;
+      awaitingView = false;
+      epoch = 0;
+      hostLink = undefined;
+      displayed = undefined;
       show(undefined);
+      refresh();
     },
     receive(peer, message) {
       if (message.kind === "draft-pick") {
-        if (!pod?.peers.includes(peer)) return;
-        if (!acceptPick(peer.seat, message)) send(peer, { kind: "draft-rejected" });
-      } else if (peer.seat === 1 && session()?.seat !== 1 && !aborted) {
-        if (message.kind === "draft-abort") {
-          abort();
-          refresh();
-        } else if (message.kind === "draft-rejected") {
+        if (!pod?.ids.includes(peer.id) || !connected().includes(peer)) return;
+        if (!acceptPick(peer.seat, message)) send(peer, { kind: "draft-rejected", epoch: message.epoch });
+      } else if (message.kind === "draft-sync" && pod?.ids.includes(peer.id)) {
+        refresh();
+        publishViews(peer);
+      } else if (peer.seat === 1 && session()?.seat !== 1 && connected().includes(peer)) {
+        if (message.kind === "draft-rejected" && message.epoch === epoch) {
           pending = false;
           feedback.textContent = "そのピックは受け付けられませんでした。";
           refresh();
-        } else if (message.kind === "draft-view") {
-          const projection = decodeView(message.view);
-          if (projection) show(projection);
+        } else if (message.kind === "draft-view" && typeof message.paused === "boolean" &&
+                   Number.isSafeInteger(message.epoch) && message.epoch >= epoch && decodeView(message.view)) {
+          showPacket(message);
+          refresh();
         }
       }
     },
