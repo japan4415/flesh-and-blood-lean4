@@ -189,6 +189,8 @@ inductive Prim where
   | openBoosters (name : Option String := none)
   /-- Create `n` copies of token `tokenId` under player `p`'s control (CR 8.5.2). -/
   | createToken (p : PlayerRef) (tokenId : CardId) (n : Nat)
+  /-- Create one token per damage actually dealt by the attack that queued this hit trigger. -/
+  | createTokenForAttackDamage (p : PlayerRef) (tokenId : CardId)
   /-- Destroy object `o` (CR 8.5.5). -/
   | destroy (o : ObjRef)
   /-- Banish object `o`, optionally face-down (CR 8.5.1). -/
@@ -326,6 +328,8 @@ inductive ContinuousMod where
   | addIntellect (delta : Int)
   /-- Modify resource cost `{r}` by `delta` (negative reduces, positive increases; Seismic Surge, Cartilage Crush). -/
   | modifyCost (delta : Int)
+  /-- Modify this card's play cost per face-up permanent of the given card ID that its player controls. -/
+  | modifyPlayCostPerPermanent (card : CardId) (delta : Int)
   /-- Grant a keyword such as `goAgain` or `dominate`. -/
   | grantKeyword (kw : KeywordInst)
   /-- Grant a triggered ability to the affected object(s) (Pummel, Razor Reflex, Whelming Gustwave, Steelblade Supremacy). -/

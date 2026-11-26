@@ -1089,6 +1089,8 @@ def execPrim (s : GameState) (ctrl : PlayerId) (src : ObjId) (env : List (VarId 
   | .createToken pref tokId n =>
     let target := evalPlayerRef s ctrl pref
     (createTokens s target tokId n, [], [])
+  | .createTokenForAttackDamage _ _ =>
+    (s, [], [])
   | .destroy oref =>
     match evalObjRef src oref with
     | none => (s, [], [])
@@ -1397,7 +1399,7 @@ theorem execPrim_inv {s : GameState} (hwf : s.WF) (hok : s.OwnerOk) (ctrl : Play
     (execPrim s ctrl src env p).1.config = s.config ∧
     (execPrim s ctrl src env p).1.playRollback = s.playRollback := by
   cases p with
-  | draw _ _ | opt _ _ | weaponAttack | closeCombatChain =>
+  | draw _ _ | opt _ _ | weaponAttack | closeCombatChain | createTokenForAttackDamage _ _ =>
     exact ⟨hwf, hok, List.Perm.refl _, rfl, rfl⟩
   | openBoosters name =>
     cases name <;> unfold execPrim <;> dsimp only <;> split <;>
@@ -1720,7 +1722,7 @@ theorem execPrim_ttr_core (s : GameState) (ctrl : PlayerId) (src : ObjId)
     (execPrim s ctrl src env p).1.tournament = s.tournament ∧
     ((execPrim s ctrl src env p).1.result = none → s.result = none) := by
   cases p with
-  | draw _ _ | opt _ _ | weaponAttack | closeCombatChain
+  | draw _ _ | opt _ _ | weaponAttack | closeCombatChain | createTokenForAttackDamage _ _
   | gainLife _ _ | gainAP _ _ | gainResource _ _ | gainChi _ _ =>
     exact ⟨rfl, rfl, id⟩
   | openBoosters name =>

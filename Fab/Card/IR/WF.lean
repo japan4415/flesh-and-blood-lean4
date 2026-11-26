@@ -97,7 +97,7 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .intimidateHandFront _ => true
   | .opt p _ => p.wfBool numSlots
   | .openBoosters _ => true
-  | .createToken p _ _ => p.wfBool numSlots
+  | .createToken p _ _ | .createTokenForAttackDamage p _ => p.wfBool numSlots
   | .destroy o => o.wfBool numSlots env
   | .banish o _ => o.wfBool numSlots env
   | .moveCard o _ _ _ => o.wfBool numSlots env
@@ -173,7 +173,7 @@ def ContinuousMod.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Con
   | .addDefense d => d.wfBool numSlots env hasX
   | .addDefenseWhileDefending _ => true
   | .addIntellect _ => true
-  | .modifyCost _ => true
+  | .modifyCost _ | .modifyPlayCostPerPermanent _ _ => true
   | .grantKeyword _ => true
   | .grantTrigger _ cond body =>
     (match cond with | none => true | some c => c.wfBool numSlots) &&
