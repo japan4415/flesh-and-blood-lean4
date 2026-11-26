@@ -3127,6 +3127,50 @@ meta def tomeOfAetherwindScenario : Option Bool := do
 
 #guard tomeOfAetherwindScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC123").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .defenseReaction && card.front.defense == some 4 && card.status == .full)
+
+meta def absorbInAetherScenario (card : String) (defense : Int) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let (withAttack, attack) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) "WTR_203_R"
+  let (withReaction, reaction) ← earlyPlace withAttack q (.player q .hand) card
+  let (withFlame, flame) ← earlyPlace withReaction q (.player q .hand) "ARC_118_R"
+  let (withBoots, boots) ← earlyPlace withFlame q (.player q .legs) "ARC_116"
+  let (withHero, _) ← earlyPlace withBoots q (.player q .hero) "ARC_114"
+  let funded := withHero.setPool q { resources := 3 }
+  let ready := (execPrim funded q flame [] (.dealDamage .arcane (.seated p) (.const 2))).1
+  let enemyPass : List Action := [⟨.player q, .pass⟩, ⟨.player p, .pass⟩]
+  let defenderPriority (s : GameState) :=
+    match s.pending with
+    | .priority chooser _ :: _ =>
+      if chooser == q then some s else earlySteps s [⟨.player chooser, .pass⟩]
+    | _ => none
+  let use : Action := ⟨.player q, .playCard reaction⟩
+  let attackStarted ← earlyAttack ready (.playCard attack)
+  let reactionStep ← earlySteps attackStarted (⟨.player q, .defendDone⟩ :: earlyPass)
+  let canReact ← defenderPriority reactionStep
+  let defended ← earlySteps canReact (use :: enemyPass)
+  let link ← defended.combat.bind CombatChain.activeLink?
+  let block ← link.defending.head?
+  let canActivate ← defenderPriority defended
+  let primed ← earlySteps canActivate (⟨.player q, .activateAbility boots 0 none⟩ :: enemyPass)
+  let canCast ← defenderPriority primed
+  let result ← earlySteps canCast
+    ([⟨.player q, .playCard flame true⟩, ⟨.player q, .pickHeroTarget p⟩] ++ enemyPass)
+  let waiting (s : GameState) := s.activeEffects.any fun effect =>
+    effect.target == .player q && effect.op == .addToNextArcaneCard 2
+  pure ((earlySteps ready [use]).isNone && (legalActions canReact).contains use &&
+    (defended.cardDefOf? block).any (fun definition =>
+      definition.id == ⟨card⟩ && definition.front.defense == some defense) &&
+    defended.locate block == some .combatChain && (defended.poolOf q).resources == 2 &&
+    (defended.poolOf q).actionPoints == 0 &&
+    waiting defended && !waiting defended.finishTurnEffects && !waiting result &&
+    result.lifeOf p == ready.lifeOf p - 4 && (result.poolOf q).resources == 1)
+
+#guard absorbInAetherScenario "ARC_123_R" 4 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
