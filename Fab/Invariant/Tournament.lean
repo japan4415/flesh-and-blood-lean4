@@ -824,7 +824,7 @@ theorem microStep_preserves_timeLimit {deadline : Nat} {s s' : GameState} {es : 
     let info := s.layerMeta.getD layerId.n { controller := s.active.getD ⟨0⟩ }
     let isDefReact := isDefenseReactionLayer s layerId
     let joinsDefense := isDefReact && canResolveDefenseReaction s info
-    let s1 := if info.goAgain && layerCanGainGoAgain s layerId info.controller && (!isDefReact || joinsDefense) then
+    let s1 := if resolvedLayerGoAgain s layerId info && (!isDefReact || joinsDefense) then
       s.setPool info.controller ((s.poolOf info.controller).addActionPoints 1) else s
     have h1 : s1.turn = s.turn ∧ s1.tournament = s.tournament ∧ s1.result = s.result := by
       dsimp only [s1]; split <;> exact ⟨rfl, rfl, rfl⟩

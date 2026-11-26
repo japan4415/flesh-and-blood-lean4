@@ -674,6 +674,15 @@ def cardLayerEffect (s : GameState) (layerId : ObjId) (info : LayerInfo) : Effec
 def isDefenseReactionLayer (s : GameState) (id : ObjId) : Bool :=
   (s.cardDefOf? id).any fun card => card.front.hasType .defenseReaction
 
+/-- Check printed, declared, or newly acquired Go Again at layer resolution (CR 5.3.5, 8.3.5). -/
+def resolvedLayerGoAgain (s : GameState) (layerId : ObjId) (info : LayerInfo) : Bool :=
+  let acquired := (s.zone .stack).contains layerId &&
+    (s.characteristics layerId).any fun chars =>
+      chars.types.contains .action && !chars.subtypes.contains .attack &&
+        chars.keywords.contains .goAgain
+  s.active == some info.controller && s.phase == .actionPhase &&
+    (info.goAgain || acquired) && layerCanGainGoAgain s layerId info.controller
+
 /-- Recheck whether a defense reaction can become a defender when it resolves (CR 5.3.2b). -/
 def canResolveDefenseReaction (s : GameState) (info : LayerInfo) : Bool :=
   (s.combat.bind CombatChain.activeLink?).any fun link =>
@@ -1432,6 +1441,8 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
     playRollback := none
     activatedThisTurn := s.activatedThisTurn ++ activation.toList
     nonAttackActionsThisTurn := if nonAttack then p :: s.nonAttackActionsThisTurn else s.nonAttackActionsThisTurn
+    cardNamesPlayedThisTurn := (s.objectFace? layerId).toList.map (fun face => (p, face.name)) ++
+      s.cardNamesPlayedThisTurn
     pending := flush ++ (.priority p 0 :: rest) }
 
 /-- Pay the declared boost cost before returning priority and grant its keyword to the paid layer
@@ -2430,7 +2441,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
     let isDefReact := isDefenseReactionLayer s layerId
     let joinsDefense := isDefReact && canResolveDefenseReaction s info
     let s1 :=
-      if info.goAgain && layerCanGainGoAgain s layerId info.controller && (!isDefReact || joinsDefense) then
+      if resolvedLayerGoAgain s layerId info && (!isDefReact || joinsDefense) then
         s.setPool info.controller ((s.poolOf info.controller).addActionPoints 1)
       else
         s
@@ -2601,6 +2612,7 @@ def microStep (s : GameState) : Option (GameState × List Event) :=
       weaponHitsThisTurn := []
       attackActionHitsThisTurn := []
       nonAttackActionsThisTurn := []
+      cardNamesPlayedThisTurn := []
       arcaneDamageThisTurn := []
       attacksThisTurn := []
       triggeredThisTurn := [] }

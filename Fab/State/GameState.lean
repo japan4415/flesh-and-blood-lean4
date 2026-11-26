@@ -168,6 +168,8 @@ structure BoardSnapshot where
   attackActionHitsThisTurn : List PlayerId := []
   /-- Controller for each non-attack action card paid for during the turn. -/
   nonAttackActionsThisTurn : List PlayerId := []
+  /-- Each player's names of cards played this turn (CR 5.1.10). -/
+  cardNamesPlayedThisTurn : List (PlayerId × String) := []
   /-- Arcane damage dealt during the current turn after all prevention (CR 6.4-6.5). -/
   arcaneDamageThisTurn : List ArcaneDamage := []
   /-- Saved turn attack history, including attacks that did not hit. -/
@@ -242,6 +244,8 @@ structure GameState where
   attackActionHitsThisTurn : List PlayerId := []
   /-- Controller for each non-attack action card paid for during the turn. -/
   nonAttackActionsThisTurn : List PlayerId := []
+  /-- Each player's names of cards played this turn (CR 5.1.10). -/
+  cardNamesPlayedThisTurn : List (PlayerId × String) := []
   /-- Arcane damage dealt during the current turn after all prevention (CR 6.4-6.5). -/
   arcaneDamageThisTurn : List ArcaneDamage := []
   /-- Players who attacked this turn, with one entry per attack. -/
@@ -549,6 +553,7 @@ def snapshot (s : GameState) : BoardSnapshot :=
     weaponHitsThisTurn := s.weaponHitsThisTurn
     attackActionHitsThisTurn := s.attackActionHitsThisTurn
     nonAttackActionsThisTurn := s.nonAttackActionsThisTurn
+    cardNamesPlayedThisTurn := s.cardNamesPlayedThisTurn
     arcaneDamageThisTurn := s.arcaneDamageThisTurn
     attacksThisTurn := s.attacksThisTurn
     unopenedBoosters := s.unopenedBoosters
@@ -579,6 +584,7 @@ def restore (s : GameState) (snap : BoardSnapshot) : GameState :=
     weaponHitsThisTurn := snap.weaponHitsThisTurn
     attackActionHitsThisTurn := snap.attackActionHitsThisTurn
     nonAttackActionsThisTurn := snap.nonAttackActionsThisTurn
+    cardNamesPlayedThisTurn := snap.cardNamesPlayedThisTurn
     arcaneDamageThisTurn := snap.arcaneDamageThisTurn
     attacksThisTurn := snap.attacksThisTurn
     unopenedBoosters := snap.unopenedBoosters
