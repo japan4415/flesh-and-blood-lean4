@@ -4861,6 +4861,45 @@ meta def comeToFightScenario (card : String) (bonus : Nat) : Option Bool := do
   (fun card => card.front.defense == some 3 && card.front.pitch == some 3 && card.status == .full)
 #guard comeToFightScenario "ARC_205_B" 1 == some true
 
+#guard ((earlyPrintingCardId? "ARC206").bind throughArcDB.find?).any
+  (fun card => card.front.defense == some 2 && card.front.pitch == some 1 && card.status == .full)
+
+meta def forceSightScenario (card : String) (bonus : Nat) (fromArsenal : Bool) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let hand := Zone.player p .hand
+  let deck := Zone.player p .deck
+  let sourceZone := if fromArsenal then Zone.player p .arsenal else hand
+  let (holding, spell) ← earlyPlace { earlyBase with cards := throughArcDB } p sourceZone card
+  let holding := if fromArsenal then
+      updateSingleObject holding spell (fun object => { object with faceDown := true })
+    else holding
+  let (withAttack, attack) ← earlyPlace holding p hand "WTR_203_R"
+  let (withBottom, bottom) ← earlyPlace withAttack p deck "WTR_203_R"
+  let (withSecond, second) ← earlyPlace withBottom p deck "WTR_203_R"
+  let (ready, top) ← earlyPlace withSecond p deck "WTR_203_R"
+  let first ← earlySteps ready (⟨.player p, .playCard spell⟩ :: earlyPass)
+  let hasBuff (s : GameState) := s.activeEffects.any fun effect =>
+    effect.controller == p && effect.target == .nextAttackCard .attackAction &&
+      effect.op == .addPower (Int.ofNat bonus)
+  let installed ← if fromArsenal then do
+    let .chooseOpt chooser viewed [also] 0 0 :: _ := first.pending | none
+    if chooser != p || viewed != top || also != second ||
+        !(view q first).selectionChoices.isEmpty then none else
+      earlySteps first [⟨.player p, .optPick true (some second)⟩, ⟨.player p, .optPick false⟩]
+    else some first
+  let attacking ← earlyAttack installed (.playCard attack)
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  pure (hasBuff first && (installed.zone deck) ==
+      (if fromArsenal then [second, bottom, top] else [top, second, bottom]) &&
+    (installed.poolOf p).actionPoints == (ready.poolOf p).actionPoints &&
+    (installed.poolOf p).resources + 1 == (ready.poolOf p).resources &&
+    (installed.zone sourceZone).length + 1 == (ready.zone sourceZone).length &&
+    !hasBuff attacking && linkAttackPower attacking link == 4 + bonus)
+
+#guard forceSightScenario "ARC_206_R" 3 false == some true
+#guard forceSightScenario "ARC_206_R" 3 true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
