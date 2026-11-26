@@ -3765,6 +3765,11 @@ meta def nullruneScenario (name : String) (slot : ZoneKind) : Option Bool := do
     card.front.keywords == [.arcaneBarrier 1] && card.status == .full)
 #guard nullruneScenario "ARC_156" .chest == some true
 
+#guard ((earlyPrintingCardId? "ARC157").bind throughArcDB.find?).any
+  (fun card => card.front.hasSubtype .arms && card.front.defense == some 0 &&
+    card.front.keywords == [.arcaneBarrier 1] && card.status == .full)
+#guard nullruneScenario "ARC_157" .arms == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
