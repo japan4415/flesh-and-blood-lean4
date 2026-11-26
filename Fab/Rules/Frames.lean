@@ -453,9 +453,25 @@ def nextAttackSurcharge (s : GameState) (p : PlayerId) : Nat :=
       if player == p && !effect.waitsForNextTurn then total + amount else total
     | _, _ => total) 0
 
+/-- Count face-up permanents with a given card ID using their effective controller. -/
+def controlledPermanentCount (s : GameState) (p : PlayerId) (card : CardId) : Nat :=
+  let permanents := (allPlayers s.playerCount).flatMap fun owner => s.zone (.player owner .permanent)
+  (permanents.filter fun obj =>
+    (s.obj? obj).any (fun o => !o.faceDown && o.kind.cardId? == some card) &&
+      (s.characteristics obj).any (fun chars => chars.controller == p)).length
+
+/-- Resource adjustments from the announced card's own static abilities (CR 5.1.7). -/
+def cardStaticResourceAdjustment (s : GameState) (p : PlayerId) (card : CardDef) : Int :=
+  card.front.abilities.foldl (fun total ability =>
+    match ability with
+    | .static_ none .self_ (.modifyPlayCostPerPermanent permanent delta) =>
+      total + delta * Int.ofNat (controlledPermanentCount s p permanent)
+    | _ => total) 0
+
 /-- Resource adjustments applying to the announced action (CR 5.1.7). -/
 def cardResourceAdjustment (s : GameState) (p : PlayerId) (card : CardDef) : Int :=
-  if card.front.hasType .action then
+  cardStaticResourceAdjustment s p card +
+  (if card.front.hasType .action then
     let attackSurcharge := if card.front.hasSubtype .attack then nextAttackSurcharge s p else 0
     s.activeEffects.foldl (fun total effect =>
       match effect.target with
@@ -468,7 +484,7 @@ def cardResourceAdjustment (s : GameState) (p : PlayerId) (card : CardDef) : Int
           | _ => total
         else total
       | _ => total) (Int.ofNat (nextActionSurcharge s p + attackSurcharge))
-  else 0
+  else 0)
 
 /-- Apply the announcing player's action and next-attack cost modifiers (CR 5.1.7). -/
 def modifiedCardPlayCost (s : GameState) (p : PlayerId) (card : CardDef)
@@ -877,6 +893,8 @@ def attackDamageTriggers (s : GameState) (link : ChainLink) : List PendingTrigge
         matchesEvent && (cond.map (evalCondition s link.attacker source false)).getD true
     triggers.map fun trigger =>
       match trigger.effect with
+      | .prim (.createTokenForAttackDamage player token) =>
+        { trigger with effect := .prim (.createToken player token link.damageDealt) }
       | .grant (.hero .defendingHero) mod dur =>
         { trigger with effect := .grant (.hero (.seated link.defender)) mod dur }
       | .grant (.playerActionsAndAttacks .defendingHero) mod dur =>
@@ -1330,13 +1348,6 @@ def activationConditionMet (s : GameState) (p : PlayerId) : Option Condition →
 def canTurnArsenalCardFaceUp (s : GameState) (p : PlayerId) (card : ObjId) : Bool :=
   (s.zone (.player p .arsenal)).contains card &&
     (s.obj? card).any (·.faceDown) && (s.cardDefOf? card).isSome
-
-/-- Count face-up permanents with a given card ID using their effective controller. -/
-def controlledPermanentCount (s : GameState) (p : PlayerId) (card : CardId) : Nat :=
-  let permanents := (allPlayers s.playerCount).flatMap fun owner => s.zone (.player owner .permanent)
-  (permanents.filter fun obj =>
-    (s.obj? obj).any (fun o => !o.faceDown && o.kind.cardId? == some card) &&
-      (s.characteristics obj).any (fun chars => chars.controller == p)).length
 
 /-- Read an activation surcharge determined by the arena when the cost is locked in. -/
 def activationPermanentSurcharge (s : GameState) (p : PlayerId) : List ExtraCostSpec → Option Nat

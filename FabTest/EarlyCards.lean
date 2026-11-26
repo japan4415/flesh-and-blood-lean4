@@ -2373,6 +2373,41 @@ meta def crownDichotomyScenario : Option Bool := do
 
 #guard crownDichotomyScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC080").bind throughArcDB.find?).any
+  (fun card => card.front.keywords.contains .dominate &&
+    card.front.keywords.contains (.specialization "Viserai") && card.status == .full)
+
+meta def arknightAscendancyScenario : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let card := FabCards.ARC.ARC_080_R
+  let token := FabCards.ARC.runechantToken.id
+  let (withAttack, attack) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) card.id.val
+  let (ready, defender) ← earlyPlace withAttack q (.player q .hand) "WTR_203_R"
+  let opponent := createTokens ready q token 2
+  let discounted := createTokens opponent p token 2
+  let enough := createTokens discounted p token 7
+  let paid ← earlySteps discounted [⟨.player p, .playCard attack⟩]
+  let attacking ← earlyAttack ready (.playCard attack)
+  let blocked ← earlySteps attacking [⟨.player q, .defendCard defender⟩]
+  let fullHit ← earlyDamage attacking
+  let partialHit ← earlyDamage blocked
+  let fullTrigger ← fullHit.pendingTriggers.head?
+  let partialTrigger ← partialHit.pendingTriggers.head?
+  let resolve (s : GameState) (trigger : PendingTrigger) :=
+    earlySteps s ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let full ← resolve fullHit fullTrigger
+  let guardedResult ← resolve partialHit partialTrigger
+  pure ((modifiedCardPlayCost opponent p card).resources == 6 &&
+    (modifiedCardPlayCost discounted p card).resources == 4 &&
+    (modifiedCardPlayCost enough p card).resources == 0 &&
+    (paid.poolOf p).resources == 4 && paid.pendingTriggers.length == 2 &&
+    fullHit.lifeOf q == ready.lifeOf q - 5 && partialHit.lifeOf q == ready.lifeOf q - 2 &&
+    controlledPermanentCount full p token == 5 && controlledPermanentCount guardedResult p token == 2)
+
+#guard arknightAscendancyScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
