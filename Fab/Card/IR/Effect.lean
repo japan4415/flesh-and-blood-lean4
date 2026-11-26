@@ -231,6 +231,8 @@ inductive Prim where
   | searchDeckToTop (p : PlayerRef) (f : CardFilter) (maxCost : Option NumExpr := none)
   /-- Place a selected object still in its player's deck at the top. -/
   | putChosenDeckCardOnTop (p : PlayerRef) (id : ObjId)
+  /-- Optionally put a matching card from the player's graveyard on top of their deck. -/
+  | putGraveyardCardOnDeck (p : PlayerRef) (filter : CardFilter)
   /-- If arsenal is empty, look at up to `count` cards, optionally load one matching
   card face up, then put the rest on the bottom in the chooser's order. -/
   | lookDeckToArsenal (p : PlayerRef) (count : Nat) (f : CardFilter)

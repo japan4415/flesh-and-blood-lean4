@@ -4375,6 +4375,53 @@ meta def backAlleyBreaklineMoveScenario (card : String) (type : CardType) (body 
   (fun card => card.front.power == some 3 && card.front.pitch == some 3 && card.status == .full)
 #guard backAlleyBreaklineActivatedScenario "ARC_178_B" == some true
 
+#guard ((earlyPrintingCardId? "ARC179").bind throughArcDB.find?).any
+  (fun card => card.front.power == some 6 && card.front.pitch == some 1 && card.status == .full)
+
+meta def cadaverousContrabandScenario (card : String) (power : Nat) : Option Bool := do
+  let p := earlyAttacker
+  let q := earlyDefender
+  let graveyard := Zone.player p .graveyard
+  let deck := Zone.player p .deck
+  let (withAttack, attack) ← earlyPlace { earlyBase with cards := throughArcDB }
+    p (.player p .hand) card
+  let (withFirst, first) ← earlyPlace withAttack p graveyard "ARC_170_R"
+  let (withSecond, second) ← earlyPlace withFirst p graveyard "ARC_167_R"
+  let (withAttackCard, attackCard) ← earlyPlace withSecond p graveyard "WTR_203_R"
+  let (withInstant, instant) ← earlyPlace withAttackCard p graveyard "ARC_173_R"
+  let (withOpponentCard, opponentCard) ← earlyPlace withInstant q (.player q .graveyard) "ARC_170_R"
+  let (withTop, top) ← earlyPlace withOpponentCard p deck "WTR_203_R"
+  let (withBlock, d1) ← earlyPlace withTop q (.player q .hand) "WTR_203_R"
+  let (ready, d2) ← earlyPlace withBlock q (.player q .hand) "WTR_203_R"
+  let attacking ← earlyAttack ready (.playCard attack)
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let id ← link.attack
+  let hit ← earlyDamage attacking
+  let trigger ← hit.pendingTriggers.find? (·.source == id)
+  let stacked ← earlySteps hit
+    [⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩]
+  let offered ← earlySteps stacked earlyPass
+  let .chooseShuffleCards chooser 1 choices [] false (some instructions) :: _ := offered.pending | none
+  let choose (id : ObjId) : Action := ⟨.player p, .pickShuffleCard (some id)⟩
+  let finish : Action := ⟨.player p, .pickShuffleCard none⟩
+  let selected ← earlySteps offered [choose first]
+  let returned ← earlySteps selected [finish]
+  let declined ← earlySteps offered [finish]
+  let newTop ← (returned.zone deck).head?
+  let defended ← earlySteps attacking [⟨.player q, .defendCard d1⟩, ⟨.player q, .defendCard d2⟩]
+  let blocked ← earlyDamage defended
+  pure (linkAttackPower attacking link == power && hit.lifeOf q == ready.lifeOf q - power &&
+    stacked.zone graveyard == ready.zone graveyard && offered.zone deck == [top] &&
+    chooser == p && choices == [second, first] && instructions.mayFail &&
+    !instructions.shuffleAfter && !instructions.searchesDeck && instructions.destination == deck &&
+    [attackCard, instant, opponentCard].all (fun card => !(legalActions offered).contains (choose card)) &&
+    selected.zone deck == [top] && returned.zone deck == [newTop, top] &&
+    (returned.cardDefOf? newTop).any (·.id == ⟨"ARC_170_R"⟩) && !(returned.zone graveyard).contains first &&
+    declined.zone deck == [top] && declined.zone graveyard == ready.zone graveyard &&
+    blocked.lifeOf q == ready.lifeOf q && blocked.pendingTriggers.isEmpty)
+
+#guard cadaverousContrabandScenario "ARC_179_R" 6 == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==

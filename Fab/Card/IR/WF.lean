@@ -115,6 +115,7 @@ def Prim.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Prim → Boo
   | .putHandArsenal p _ _ _ => p.wfBool numSlots
   | .searchDeckToTop p _ bound => p.wfBool numSlots && bound.all (·.wfBool numSlots env hasX)
   | .putChosenDeckCardOnTop p _ | .reload p
+  | .putGraveyardCardOnDeck p _
   | .lookDeckToArsenal p _ _ | .lookDeckToTopAndBottom p _ | .revealTopPairToHand p _ _
   | .putChosenDeckCardsOnBottom p _ | .lookTopToBanishedAsInstant p _ _ => p.wfBool numSlots
   | .banishHandToPlayAsInstant p _ cap => p.wfBool numSlots && cap.wfBool numSlots env hasX
