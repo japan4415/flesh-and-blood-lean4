@@ -1287,9 +1287,13 @@ def ARC_201_Y : CardDef := { fateForeseen Meta.ARC_201_Y_meta with status := .fu
 /-- Fate Foreseen Blue (ARC202). -/
 def ARC_202_B : CardDef := { fateForeseen Meta.ARC_202_B_meta with status := .full }
 
+/-- Grant a power bonus to the next attack action card played this turn. -/
+def nextAttackActionPower (bonus : Int) : Effect :=
+  .grant (.nextCardPlayed .attackAction) (.addPower (.const bonus)) .thisTurn
+
 /-- Increase the power of the next attack action card played this turn. -/
 def comeToFight (base : CardDef) (bonus : Int) : CardDef :=
-  let body : Effect := .grant (.nextCardPlayed .attackAction) (.addPower (.const bonus)) .thisTurn
+  let body := nextAttackActionPower bonus
   { base with front := { base.front with playEffect := some { body } } }
 
 /-- Come to Fight Red (ARC203). -/
@@ -1300,6 +1304,15 @@ def ARC_204_Y : CardDef := { comeToFight Meta.ARC_204_Y_meta 2 with status := .f
 
 /-- Come to Fight Blue (ARC205). -/
 def ARC_205_B : CardDef := { comeToFight Meta.ARC_205_B_meta 1 with status := .full }
+
+/-- Buff the next attack action card and Opt 2 when played from arsenal. -/
+def forceSight (base : CardDef) (bonus : Int) : CardDef :=
+  let body := Effect.seqL [nextAttackActionPower bonus,
+    .ifThen .playedFromArsenal (.prim (.opt .controller 2)) .nop]
+  { base with front := { base.front with playEffect := some { body } } }
+
+/-- Force Sight Red (ARC206). -/
+def ARC_206_R : CardDef := { forceSight Meta.ARC_206_R_meta 3 with status := .full }
 
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
@@ -1335,7 +1348,7 @@ def arcCards : List CardDef :=
    ARC_174_Y, ARC_175_B, ARC_176_R, ARC_177_Y, ARC_178_B, ARC_179_R, ARC_180_Y, ARC_181_B,
    ARC_182_R, ARC_183_Y, ARC_184_B, ARC_185_R, ARC_186_Y, ARC_187_B, ARC_188_R, ARC_189_Y, ARC_190_B,
    ARC_191_R, ARC_192_Y, ARC_193_B, ARC_194_R, ARC_195_Y, ARC_196_B, ARC_197_R, ARC_198_Y, ARC_199_B,
-   ARC_200_R, ARC_201_Y, ARC_202_B, ARC_203_R, ARC_204_Y, ARC_205_B]
+   ARC_200_R, ARC_201_Y, ARC_202_B, ARC_203_R, ARC_204_Y, ARC_205_B, ARC_206_R]
 
 end FabCards.ARC
 
