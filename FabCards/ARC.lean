@@ -1078,6 +1078,17 @@ def ARC_162_R : CardDef :=
 /-- Rusted Relic (ARC163). -/
 def ARC_163_B : CardDef := { Meta.ARC_163_B_meta with status := .full }
 
+/-- Check the life comparison at play time and gain life on a hit. -/
+def lifeForALife (base : CardDef) : CardDef :=
+  let abilities : List Ability :=
+    [.triggered .onPlay false none (some .lessLifeThanOpponent)
+       { body := .grant .self_ (.grantKeyword .goAgain) .thisChainLink },
+     .triggered .onHit false none none { body := .prim (.gainLife .controller (.const 1)) }]
+  { base with front := { base.front with abilities } }
+
+/-- Life for a Life Red (ARC164). -/
+def ARC_164_R : CardDef := { lifeForALife Meta.ARC_164_R_meta with status := .full }
+
 /-- Verified logical cards first printed in the Arcane Rising booster. -/
 def arcCards : List CardDef :=
   [ARC_000_B, ARC_001, ARC_002, ARC_003, ARC_004, ARC_005, ARC_006_R, ARC_007_B,
@@ -1107,7 +1118,7 @@ def arcCards : List CardDef :=
    ARC_144_R, ARC_145_Y, ARC_146_B,
    ARC_147_R, ARC_148_Y, ARC_149_B,
    ARC_150, ARC_151, ARC_152, ARC_153, ARC_154, ARC_155, ARC_156, ARC_157, ARC_158, ARC_159_R,
-   ARC_160_Y, ARC_161_B, ARC_162_R, ARC_163_B]
+   ARC_160_Y, ARC_161_B, ARC_162_R, ARC_163_B, ARC_164_R]
 
 end FabCards.ARC
 
