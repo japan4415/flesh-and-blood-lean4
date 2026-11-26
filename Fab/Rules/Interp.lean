@@ -1983,6 +1983,7 @@ def actionPhaseRestriction? (scope : ModScope) (mod : ContinuousMod) : Option (P
   match scope, mod with
   | .hero player, .cantDrawCards => some (player, .cantDrawCards)
   | .playerActionsAndAttacks player, .cantGainGoAgain => some (player, .cantGainGoAgain)
+  | .playerActionsAndAttacks player, .limitActions count => some (player, .limitActions count)
   | _, _ => none
 
 /-- Apply combat buffs to a pending attack card or the active `ChainLink`, and register

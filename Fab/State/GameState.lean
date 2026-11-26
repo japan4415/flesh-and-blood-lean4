@@ -574,6 +574,10 @@ def hasActionPhaseEffect (s : GameState) (p : PlayerId) (op : EffectOp) : Bool :
   s.phase == .actionPhase && s.active == some p &&
     s.activeEffects.any (fun e => e.duration == .thisActionPhase && e.target == .player p && e.op == op)
 
+/-- Whether a player still has an action available under the active action-phase effects. -/
+def canTakeAction (s : GameState) (p : PlayerId) : Bool :=
+  !s.hasActionPhaseEffect p (.limitActions 0)
+
 /-- Evaluate the 8-stage derived characteristics of object `id` in state `s` (CR 6.3.2). -/
 def characteristics (s : GameState) (id : ObjId) : Option DerivedChars :=
   match s.obj? id, s.cardDefOf? id with

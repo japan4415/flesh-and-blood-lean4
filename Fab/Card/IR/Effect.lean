@@ -317,6 +317,8 @@ inductive ContinuousMod where
   | loseAllAbilities
   /-- Affected objects lose and cannot gain Go Again (Spinal Crush). -/
   | cantGainGoAgain
+  /-- Limit how many actions the affected player may play or activate. -/
+  | limitActions (count : Nat)
   /-- Affected player cannot draw cards (Cranial Crush). -/
   | cantDrawCards
   /-- Affected weapon may attack an additional time this turn (Dorinthea). -/

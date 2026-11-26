@@ -317,6 +317,10 @@ private theorem HiddenEquiv.characteristics_eq {p : PlayerId} {s1 s2 : GameState
   unfold GameState.characteristics
   rw [ho, (h.cardDef_face id).1, h.activeEffects, hstatic, hphase]
 
+private theorem HiddenEquiv.canTakeAction_eq {p : PlayerId} {s1 s2 : GameState}
+    (h : HiddenEquiv p s1 s2) : s1.canTakeAction p = s2.canTakeAction p := by
+  simp only [GameState.canTakeAction, GameState.hasActionPhaseEffect, h.phase, h.active, h.activeEffects]
+
 private theorem HiddenEquiv.triggerTargetChoices_eq {p : PlayerId} {s1 s2 : GameState}
     (h : HiddenEquiv p s1 s2) (t : PendingTrigger) :
     t.targetChoices s1 = t.targetChoices s2 := by
@@ -366,7 +370,8 @@ theorem HiddenEquiv.canPlayCard_eq {p : PlayerId} {s1 s2 : GameState} (h : Hidde
     unfold cardWeaponTargetChoices
     simp only [href, h.arenaContents_eq, hobj, hface, h.characteristics_eq]
   unfold canPlayCard
-  rw [hh, ha, hbanished, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat, h.boostsThisTurn]
+  rw [hh, ha, hbanished, (h.cardDef_face id).1, hs, hp, h.phase, h.active, h.combat,
+    h.boostsThisTurn, h.canTakeAction_eq]
   simp only [canLinkTakeDefenseReaction, hdom, attackReactionCanTarget, h.hasRequiredAttackTarget_eq,
     hweapon, h.characteristics_eq, h.arenaContents_eq, GameState.obj?, h.objects] <;> rfl
 
@@ -385,7 +390,7 @@ theorem HiddenEquiv.canAttackWithWeapon_eq {p : PlayerId} {s1 s2 : GameState}
   have hwid : s1.obj? wid = s2.obj? wid := by simp [GameState.obj?, h.objects]
   unfold canAttackWithWeapon
   rw [h.combat, h.phase, h.active, hs, hp, h.weaponAttackCandidateIds_eq,
-      (h.cardDef_face wid).1, h.activatedThisTurn, h.activeEffects, hwid]
+      (h.cardDef_face wid).1, h.activatedThisTurn, h.activeEffects, hwid, h.canTakeAction_eq]
 
 /-- Helper: `HiddenEquiv p s1 s2` preserves `canPitchCard s p id`. -/
 theorem HiddenEquiv.canPitchCard_eq {p : PlayerId} {s1 s2 : GameState}
@@ -454,7 +459,7 @@ private theorem HiddenEquiv.availableActivations_eq {p : PlayerId} {s1 s2 : Game
     have hp : s1.poolOf p = s2.poolOf p := by simp [GameState.poolOf, h.pools]
     unfold activationPlan?
     rw [hz, hfind, ho, h.characteristics_eq, (h.cardDef_face id).2, hp, h.playerCount,
-      h.phase, h.active, h.combat, h.visibleZones .stack rfl, h.activatedThisTurn]
+      h.phase, h.active, h.combat, h.visibleZones .stack rfl, h.activatedThisTurn, h.canTakeAction_eq]
     have hcost : nextActionSurcharge s1 p = nextActionSurcharge s2 p := by
       simp only [nextActionSurcharge, h.activeEffects]
     simp only [hresolution, hcanPitch, hcondition, hcost, hturn]

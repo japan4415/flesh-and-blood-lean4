@@ -178,7 +178,7 @@ def ContinuousMod.wfBool (numSlots : Nat) (env : List VarId) (hasX : Bool) : Con
     body.wfBool numSlots env hasX
   | .conditionalPower c _ => c.wfBool numSlots
   | .loseAllAbilities => true
-  | .cantGainGoAgain => true
+  | .cantGainGoAgain | .limitActions _ => true
   | .cantDrawCards => true
   | .additionalWeaponAttack => true
   | .doubleDamageToHero => true

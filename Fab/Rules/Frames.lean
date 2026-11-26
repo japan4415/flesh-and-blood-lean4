@@ -372,6 +372,7 @@ def canPlayCard (s : GameState) (p : PlayerId) (id : ObjId) : Bool :=
         (s.zone .stack).isEmpty &&
         chainOk &&
         (cardWeaponTargetChoices s p c).all (fun targets => !targets.isEmpty) &&
+        s.canTakeAction p &&
         1 ≤ (s.poolOf p).actionPoints
       else if c.front.hasType .attackReaction then
         match s.combat with
@@ -424,6 +425,16 @@ def cardPlayCost (c : CardDef) : AssetCost :=
 def ContinuousEffect.isNextActionCostFor (effect : ContinuousEffect) (p : PlayerId) : Bool :=
   !effect.waitsForNextTurn && effect.target == .nextActionBy p &&
     (match effect.op with | .addCostRes _ => true | _ => false)
+
+/-- Consume the next-action surcharge and one use of each action allowance on a paid action. -/
+def effectsAfterPayingAction (effects : List ContinuousEffect) (p : PlayerId) : List ContinuousEffect :=
+  (effects.filter (fun effect => !effect.isNextActionCostFor p)).map fun effect =>
+    match effect.op with
+    | .limitActions remaining =>
+      if effect.duration == .thisActionPhase && effect.target == .player p then
+        { effect with op := .limitActions (remaining - 1) }
+      else effect
+    | _ => effect
 
 /-- Sum the waiting increases before applying any discounts (CR 5.1.7). -/
 def nextActionSurcharge (s : GameState) (p : PlayerId) : Nat :=
@@ -1148,7 +1159,7 @@ def finishPaidPlay (s : GameState) (p : PlayerId) (layerId : ObjId) (fromArsenal
   let (updatedInfo, remainingEffects) := consumeNextAttackEffects s layerId info
   let isAction := card.any (fun c => c.front.hasType .action) ||
     (s.obj? layerId).any (fun obj => match obj.kind with | .attackProxy _ _ => true | _ => false)
-  let remainingEffects := if isAction then remainingEffects.filter (fun e => !e.isNextActionCostFor p)
+  let remainingEffects := if isAction then effectsAfterPayingAction remainingEffects p
     else remainingEffects
   let activation := paidWeaponActivation? s layerId
   let effects := match activation with
@@ -1265,7 +1276,9 @@ def activationPlan? (s : GameState) (p : PlayerId) (source : ObjId) (index : Nat
     let face ← s.objectFace? source
     let .activated speed once cost extra condition goAgain effect ← face.abilities[index]? | none
     let timely := match speed with
-      | .action => s.phase == .actionPhase && s.active == some p && s.combat.isNone && (s.zone .stack).isEmpty
+      | .action =>
+        s.phase == .actionPhase && s.active == some p && s.combat.isNone &&
+          (s.zone .stack).isEmpty && s.canTakeAction p
       | .instant => true
       | .attackReaction =>
         s.combat.any fun cc => cc.step == .reaction && cc.activeLink?.any (fun link => link.attacker == p)
@@ -1353,7 +1366,7 @@ def finishPaidActivation (s : GameState) (p : PlayerId) (layerId : ObjId)
       finishPaidPlay paid p layerId false none rest
     else { paid with
       activatedThisTurn := uses
-      activeEffects := if payment.isAction then paid.activeEffects.filter (fun e => !e.isNextActionCostFor p)
+      activeEffects := if payment.isAction then effectsAfterPayingAction paid.activeEffects p
         else paid.activeEffects
       layerMeta := paid.layerMeta.insert layerId.n { info with activationPayment := none }
       playRollback := none
