@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>8人ドラフトの接続テスト</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/draft.css">
+    <script type="module" src="/draft.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="frame header-inner">
+        <a href="/">パック開封</a>
+        <span>WebRTC DataChannel</span>
+      </div>
+    </header>
+    <main class="frame draft-main">
+      <h1>8人ドラフトの接続テスト</h1>
+      <p class="draft-intro">ホストと各参加者の間で、番号付きメッセージの送受信を確認できます。</p>
+      <section class="draft-panel" aria-label="ルーム操作">
+        <div class="draft-actions">
+          <button id="enter" type="button">ルームを作成</button>
+          <button id="probe" type="button" disabled>通信テストを送信</button>
+          <button id="leave" type="button" hidden>退出</button>
+        </div>
+        <label id="invite" hidden>参加用リンク
+          <input id="invite-url" type="url" readonly>
+        </label>
+        <p id="draft-status" role="status">ルームを作成して、参加用リンクを共有します。</p>
+      </section>
+      <section class="draft-panel" aria-labelledby="connection-title">
+        <div class="draft-summary">
+          <h2 id="connection-title">接続状況</h2>
+          <p id="connection-count" role="status">0 / 7 接続</p>
+        </div>
+        <div class="draft-table">
+          <table>
+            <thead><tr><th scope="col">相手</th><th scope="col">状態</th><th scope="col">往復</th><th scope="col">受信</th></tr></thead>
+            <tbody id="connections"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

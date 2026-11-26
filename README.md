@@ -36,6 +36,16 @@ WASMをビルドしてから `node scripts/serve-wasm.mjs` を実行し、
 開封に使う候補数とカードIDはWASMから取得し、ブラウザが各枠の候補を均等に抽選します。
 カード画像は [公式Card Vault](https://cardvault.fabtcg.com/) のWTR収録番号ごとの画像URLを参照します。
 
+### 8人ドラフトの通信テスト
+
+`node scripts/serve-wasm.mjs` を実行し、[接続テスト](http://127.0.0.1:4173/draft)を開きます。
+ホストがルームを作成し、参加用リンクを7つのタブまたはブラウザに渡します。
+`7 / 7 接続` の表示後、ホストと参加者の「通信テストを送信」で、接続ごとに番号付きメッセージ10件の送受信と往復を確認できます。
+
+同じLANの端末で試す場合は、`FAB_HOST=0.0.0.0 node scripts/serve-wasm.mjs` で起動し、ホストもLAN側IPアドレスのURLで画面を開いてからルームを作成します。
+Node.jsはルーム管理とSDP・ICE候補の交換を担当し、テストメッセージはホストと各参加者の間のWebRTC DataChannelを通ります。
+この画面は同一PCやLAN内での通信確認用です。インターネット越しのSTUN・TURN接続とドラフト進行との連携は後続の検証項目です。
+
 ## Disclaimer
 
 Flesh and Blood, all associated logos, card names, card text, and rules content are trademarks and/or copyright © Legend Story Studios. All rights reserved.
