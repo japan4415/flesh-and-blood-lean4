@@ -4248,6 +4248,11 @@ meta def plunderRunScenario (card : String) (bonus : Nat) (fromArsenal : Bool) :
 #guard plunderRunScenario "ARC_171_Y" 2 false == some true
 #guard plunderRunScenario "ARC_171_Y" 2 true == some true
 
+#guard ((earlyPrintingCardId? "ARC172").bind throughArcDB.find?).any
+  (fun card => card.front.hasType .action && card.front.pitch == some 3 && card.status == .full)
+#guard plunderRunScenario "ARC_172_B" 1 false == some true
+#guard plunderRunScenario "ARC_172_B" 1 true == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
