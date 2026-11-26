@@ -1664,6 +1664,42 @@ meta def threeOfAKindScenario : Option Bool := do
 
 #guard threeOfAKindScenario == some true
 
+#guard ((earlyPrintingCardId? "ARC045").bind throughArcDB.find?).any
+  (fun card => card.front.name == "Endless Arrow" && card.status == .full)
+
+meta def endlessArrowScenario : Option Bool := do
+  let p := earlyAttacker
+  let hand := Zone.player p .hand
+  let arsenal := Zone.player p .arsenal
+  let state := { earlyBase with cards := throughArcDB }
+  let (withBow, bow) ← earlyPlace state p (.player p .weapon) "ARC_040"
+  let (withDeck, _) ← earlyPlace withBow p (.player p .deck) "WTR_191_R"
+  let (ready, arrow) ← earlyPlace withDeck p arsenal "ARC_045_R"
+  let attacking ← earlyAttack ready (.playCard arrow)
+  let link ← attacking.combat.bind CombatChain.activeLink?
+  let attackId ← link.attack
+  let hit ← earlyDamage attacking
+  let trigger ← hit.pendingTriggers.head?
+  let returned ← earlySteps hit
+    ([⟨.player p, .pickTriggerStart p⟩, ⟨.player p, .pickTrigger trigger.id⟩] ++ earlyPass)
+  let returnedId ← (returned.zone hand).head?
+  let retained ← returned.combat.bind CombatChain.activeLink?
+  let closed ← earlySteps returned (earlyPass ++ earlyPass)
+  let use : Action := ⟨.player p, .activateAbility bow 0 none⟩
+  let reloaded ← earlySteps closed
+    (use :: (earlyPass ++ [⟨.player p, .pickShuffleCard (some returnedId)⟩, ⟨.player p, .pickShuffleCard none⟩]))
+  let loadedId ← (reloaded.zone arsenal).head?
+  let replay ← earlyAttack reloaded (.playCard loadedId)
+  let replayLink ← replay.combat.bind CombatChain.activeLink?
+  pure (retained.linkId == link.linkId && retained.hit && retained.damageDealt == 4 &&
+    returnedId != arrow && returnedId != attackId && (returned.obj? attackId).isNone &&
+    (returned.cardDefOf? returnedId).any (fun c => c.id == ⟨"ARC_045_R"⟩) &&
+    !canPlayCard returned p returnedId && closed.combat.isNone &&
+    loadedId != returnedId && canPlayCard reloaded p loadedId &&
+    linkAttackPower replay replayLink == 4)
+
+#guard endlessArrowScenario == some true
+
 #guard
   (["HER001-P", "HER002-P", "HER003-P", "HER004-P"].map fun number =>
     ((earlyPrintingCardId? number).bind throughWtrDB.find?).map (·.front.name)) ==
